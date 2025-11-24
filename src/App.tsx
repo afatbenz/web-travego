@@ -1,0 +1,281 @@
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { Toaster } from '@/components/ui/toaster';
+
+// Layouts
+import { Navbar } from '@/components/layout/Navbar';
+import { Footer } from '@/components/layout/Footer';
+import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+
+// Scroll to top component
+const ScrollToTop: React.FC = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
+
+// LandingPage Pages
+import { Home } from '@/pages/LandingPage/Home';
+import { Catalog } from '@/pages/LandingPage/Catalogue/Catalog';
+import Armada from '@/pages/LandingPage/Armada/Armada';
+import { Services } from '@/pages/LandingPage/Services';
+import { Pricing } from '@/pages/LandingPage/Pricing';
+import { Team } from '@/pages/LandingPage/Team';
+import { Contact } from '@/pages/LandingPage/Contact';
+import { CatalogDetail } from '@/pages/LandingPage/Catalogue/CatalogDetail';
+import { ArmadaDetail } from '@/pages/LandingPage/Armada/ArmadaDetail';
+import { CatalogCheckout } from '@/pages/LandingPage/Orders/CatalogCheckout';
+import { ArmadaCheckout } from '@/pages/LandingPage/Orders/ArmadaCheckout';
+import { Payment } from '@/pages/LandingPage/Orders/Payment';
+import { MyProfile } from '@/pages/LandingPage/Profile/MyProfile';
+import { Welcome } from '@/pages/LandingPage/Utilities/Welcome';
+import { MyOrders } from '@/pages/LandingPage/Orders/MyOrders';
+import { EditProfile } from '@/pages/LandingPage/Profile/EditProfile';
+import { PromoDiscount } from '@/pages/LandingPage/Utilities/PromoDiscount';
+import { Referral } from '@/pages/LandingPage/Utilities/Referral';
+import { Reviews } from '@/pages/LandingPage/Utilities/Reviews';
+import { CustomOrder } from '@/pages/LandingPage/Utilities/CustomOrder';
+
+// Auth Pages
+import { Login } from '@/pages/LandingPage/Auth/Login';
+import { Register } from '@/pages/LandingPage/Auth/Register';
+import { ForgotPassword } from '@/pages/auth/ForgotPassword';
+
+// Dashboard Pages
+import { DashboardHome } from '@/pages/dashboard/DashboardHome';
+import { OrdersTable } from '@/pages/dashboard/orders/OrdersTable';
+import { OrderDetail } from '@/pages/dashboard/orders/OrderDetail';
+import { ServicesPackages } from '@/pages/dashboard/ServicesPackages';
+import { ServicesArmada } from '@/pages/dashboard/services/ServicesArmada';
+import { PackageForm } from '@/pages/dashboard/services/PackageForm';
+import { CreateArmada } from '@/pages/dashboard/services/CreateArmada';
+import { EditArmada } from '@/pages/dashboard/services/EditArmada';
+import { TeamMember } from '@/pages/dashboard/team/TeamMember';
+import { ScheduleArmada } from '@/pages/dashboard/team/ScheduleArmada';
+import { AddSchedule } from '@/pages/dashboard/team/AddSchedule';
+
+// Layout wrapper for public pages
+const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navbar />
+      <main className="flex-1">
+        {children}
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+function App() {
+  return (
+    <ThemeProvider>
+      <Router>
+        <ScrollToTop />
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={
+            <PublicLayout>
+              <Home />
+            </PublicLayout>
+          } />
+          <Route path="/catalog" element={
+            <PublicLayout>
+              <Catalog />
+            </PublicLayout>
+          } />
+          <Route path="/armada" element={
+            <PublicLayout>
+              <Armada />
+            </PublicLayout>
+          } />
+          <Route path="/services" element={
+            <PublicLayout>
+              <Services />
+            </PublicLayout>
+          } />
+          <Route path="/pricing" element={
+            <PublicLayout>
+              <Pricing />
+            </PublicLayout>
+          } />
+          <Route path="/team" element={
+            <PublicLayout>
+              <Team />
+            </PublicLayout>
+          } />
+          <Route path="/contact" element={
+            <PublicLayout>
+              <Contact />
+            </PublicLayout>
+          } />
+          <Route path="/detail/catalog/:id" element={
+            <PublicLayout>
+              <CatalogDetail />
+            </PublicLayout>
+          } />
+          <Route path="/detail/armada/:id" element={
+            <PublicLayout>
+              <ArmadaDetail />
+            </PublicLayout>
+          } />
+          <Route path="/checkout/catalog/:id" element={
+            <PublicLayout>
+              <CatalogCheckout />
+            </PublicLayout>
+          } />
+          <Route path="/checkout/armada/:id" element={
+            <PublicLayout>
+              <ArmadaCheckout />
+            </PublicLayout>
+          } />
+          <Route path="/payment/:type/:id" element={
+            <PublicLayout>
+              <Payment />
+            </PublicLayout>
+          } />
+          <Route path="/myprofile" element={
+            <PublicLayout>
+              <MyProfile />
+            </PublicLayout>
+          } />
+          <Route path="/welcome" element={
+            <PublicLayout>
+              <Welcome />
+            </PublicLayout>
+          } />
+          <Route path="/myorders" element={
+            <PublicLayout>
+              <MyOrders />
+            </PublicLayout>
+          } />
+          <Route path="/edit-profile" element={
+            <PublicLayout>
+              <EditProfile />
+            </PublicLayout>
+          } />
+          <Route path="/promo-discount" element={
+            <PublicLayout>
+              <PromoDiscount />
+            </PublicLayout>
+          } />
+          <Route path="/referral" element={
+            <PublicLayout>
+              <Referral />
+            </PublicLayout>
+          } />
+          <Route path="/reviews/:type/:id" element={
+            <PublicLayout>
+              <Reviews />
+            </PublicLayout>
+          } />
+          <Route path="/custom-order/:type/:id" element={
+            <PublicLayout>
+              <CustomOrder />
+            </PublicLayout>
+          } />
+
+          {/* Auth Routes */}
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/register" element={<Register />} />
+          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+
+          {/* Dashboard Routes */}
+          <Route path="/dashboard" element={
+            <DashboardLayout>
+              <DashboardHome />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/orders/all-table" element={
+            <DashboardLayout>
+              <OrdersTable 
+                status="all" 
+                title="Semua Order" 
+                description="Kelola semua pesanan pelanggan" 
+              />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/orders/ongoing-table" element={
+            <DashboardLayout>
+              <OrdersTable 
+                status="ongoing" 
+                title="Order Berlangsung" 
+                description="Monitor pesanan yang sedang berlangsung" 
+              />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/orders/success" element={
+            <DashboardLayout>
+              <OrdersTable 
+                status="success" 
+                title="Order Sukses" 
+                description="Pesanan yang telah selesai dengan sukses" 
+              />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/orders/detail/:id" element={
+            <DashboardLayout>
+              <OrderDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/services/packages" element={
+            <DashboardLayout>
+              <ServicesPackages />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/services/packages/create" element={
+            <DashboardLayout>
+              <PackageForm />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/services/packages/edit/:id" element={
+            <DashboardLayout>
+              <PackageForm />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/services/fleet" element={
+            <DashboardLayout>
+              <ServicesArmada />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/services/fleet/create" element={
+            <DashboardLayout>
+              <CreateArmada />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/services/fleet/edit/:id" element={
+            <DashboardLayout>
+              <EditArmada />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/team/team-member" element={
+            <DashboardLayout>
+              <TeamMember />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/team/schedule-armada" element={
+            <DashboardLayout>
+              <ScheduleArmada />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/team/schedule-armada/add" element={
+            <DashboardLayout>
+              <AddSchedule />
+            </DashboardLayout>
+          } />
+
+          {/* Redirect */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <Toaster />
+      </Router>
+    </ThemeProvider>
+  );
+}
+
+export default App;
