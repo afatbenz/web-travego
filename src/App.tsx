@@ -51,6 +51,9 @@ import { OrganizationRegister } from '@/pages/auth/OrganizationRegister';
 import { OrganizationChoiceDashboard } from '@/pages/dashboard/organization/OrganizationChoice';
 import { OrganizationRegisterDashboard } from '@/pages/dashboard/organization/OrganizationRegister';
 import { OrganizationJoinDashboard } from '@/pages/dashboard/organization/OrganizationJoin';
+import { OrganizationSettings } from '@/pages/dashboard/organization/OrganizationSettings';
+import { OrganizationUsers } from '@/pages/dashboard/organization/OrganizationUsers';
+import { OrganizationOpenApi } from '@/pages/dashboard/organization/OrganizationOpenApi';
 import { PartnerProfile } from '@/pages/dashboard/partner/Profile';
 import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
 import { OrganizationPending } from '@/pages/auth/OrganizationPending';
@@ -239,6 +242,36 @@ function App() {
           <Route path="/dashboard/organization/join" element={
             <DashboardLayout>
               <OrganizationJoinDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/settings" element={
+            <DashboardLayout>
+              <OrganizationSettings />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/settings" element={
+            <DashboardLayout>
+              <OrganizationSettings />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/users" element={
+            <DashboardLayout>
+              <OrganizationUsers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/users" element={
+            <DashboardLayout>
+              <OrganizationUsers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/open-api" element={
+            <DashboardLayout>
+              <OrganizationOpenApi />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/open-api" element={
+            <DashboardLayout>
+              <OrganizationOpenApi />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/orders/all-table" element={

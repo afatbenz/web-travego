@@ -16,7 +16,10 @@ import {
   Image,
   Type,
   Share2,
-  CreditCard
+  CreditCard,
+  Settings,
+  User,
+  Code
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -96,6 +99,15 @@ export const Sidebar: React.FC = () => {
         { title: 'Content', icon: Type, href: `${basePrefix}/content/content` },
         { title: 'Social Media', icon: Share2, href: `${basePrefix}/content/social-media` },
         { title: 'Bank Account', icon: CreditCard, href: `${basePrefix}/content/bank-account` }
+      ]
+    },
+    {
+      title: 'Organization',
+      icon: FileText,
+      children: [
+        { title: 'Setting', icon: Settings, href: `${basePrefix}/organization/settings` },
+        { title: 'Users', icon: User, href: `${basePrefix}/organization/users` },
+        { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` }
       ]
     }
   ];
