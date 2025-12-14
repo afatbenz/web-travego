@@ -335,7 +335,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, title, descrip
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => navigate(`/dashboard/orders/detail/${order.id}`)}
+                          onClick={() => navigate(`/dashboard/partner/orders/detail/${order.id}`)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>

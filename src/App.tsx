@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Toaster } from '@/components/ui/toaster';
+import { AlertCenter } from '@/components/ui/alert-center';
 
 // Layouts
 import { Navbar } from '@/components/layout/Navbar';
@@ -45,6 +46,15 @@ import { CustomOrder } from '@/pages/LandingPage/Utilities/CustomOrder';
 import { Login } from '@/pages/LandingPage/Auth/Login';
 import { Register } from '@/pages/LandingPage/Auth/Register';
 import { ForgotPassword } from '@/pages/auth/ForgotPassword';
+import { Otp } from '@/pages/auth/Otp';
+import { OrganizationRegister } from '@/pages/auth/OrganizationRegister';
+import { OrganizationChoiceDashboard } from '@/pages/dashboard/organization/OrganizationChoice';
+import { OrganizationRegisterDashboard } from '@/pages/dashboard/organization/OrganizationRegister';
+import { OrganizationJoinDashboard } from '@/pages/dashboard/organization/OrganizationJoin';
+import { PartnerProfile } from '@/pages/dashboard/partner/Profile';
+import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
+import { OrganizationPending } from '@/pages/auth/OrganizationPending';
+import { OrganizationJoin } from '@/pages/auth/OrganizationJoin';
 
 // Dashboard Pages
 import { DashboardHome } from '@/pages/dashboard/DashboardHome';
@@ -184,11 +194,60 @@ function App() {
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/register" element={<Register />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+          <Route path="/auth/otp" element={<Otp />} />
+          <Route path="/auth/organization/register" element={<OrganizationRegister />} />
+          
+          <Route path="/auth/organization/pending" element={<OrganizationPending />} />
+          <Route path="/auth/organization/join" element={<OrganizationJoin />} />
 
           {/* Dashboard Routes */}
+          <Route path="/dashboard/partner" element={
+            <DashboardLayout>
+              <DashboardHome />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard" element={
             <DashboardLayout>
               <DashboardHome />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/choice" element={
+            <DashboardLayout>
+              <OrganizationChoiceDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/choice" element={
+            <DashboardLayout>
+              <OrganizationChoiceDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/register" element={
+            <DashboardLayout>
+              <OrganizationRegisterDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/register" element={
+            <DashboardLayout>
+              <OrganizationRegisterDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/join" element={
+            <DashboardLayout>
+              <OrganizationJoinDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/join" element={
+            <DashboardLayout>
+              <OrganizationJoinDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/orders/all-table" element={
+            <DashboardLayout>
+              <OrdersTable 
+                status="all" 
+                title="Semua Order" 
+                description="Kelola semua pesanan pelanggan" 
+              />
             </DashboardLayout>
           } />
           <Route path="/dashboard/orders/all-table" element={
@@ -197,6 +256,15 @@ function App() {
                 status="all" 
                 title="Semua Order" 
                 description="Kelola semua pesanan pelanggan" 
+              />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/orders/ongoing-table" element={
+            <DashboardLayout>
+              <OrdersTable 
+                status="ongoing" 
+                title="Order Berlangsung" 
+                description="Monitor pesanan yang sedang berlangsung" 
               />
             </DashboardLayout>
           } />
@@ -209,6 +277,15 @@ function App() {
               />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/orders/success" element={
+            <DashboardLayout>
+              <OrdersTable 
+                status="success" 
+                title="Order Sukses" 
+                description="Pesanan yang telah selesai dengan sukses" 
+              />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/orders/success" element={
             <DashboardLayout>
               <OrdersTable 
@@ -218,9 +295,19 @@ function App() {
               />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/orders/detail/:id" element={
+            <DashboardLayout>
+              <OrderDetail />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/orders/detail/:id" element={
             <DashboardLayout>
               <OrderDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/services/packages" element={
+            <DashboardLayout>
+              <ServicesPackages />
             </DashboardLayout>
           } />
           <Route path="/dashboard/services/packages" element={
@@ -228,7 +315,17 @@ function App() {
               <ServicesPackages />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/services/packages/create" element={
+            <DashboardLayout>
+              <PackageForm />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/services/packages/create" element={
+            <DashboardLayout>
+              <PackageForm />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/services/packages/edit/:id" element={
             <DashboardLayout>
               <PackageForm />
             </DashboardLayout>
@@ -238,9 +335,19 @@ function App() {
               <PackageForm />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/services/fleet" element={
+            <DashboardLayout>
+              <ServicesArmada />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/services/fleet" element={
             <DashboardLayout>
               <ServicesArmada />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/services/fleet/create" element={
+            <DashboardLayout>
+              <CreateArmada />
             </DashboardLayout>
           } />
           <Route path="/dashboard/services/fleet/create" element={
@@ -248,9 +355,19 @@ function App() {
               <CreateArmada />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/services/fleet/edit/:id" element={
+            <DashboardLayout>
+              <EditArmada />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/services/fleet/edit/:id" element={
             <DashboardLayout>
               <EditArmada />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/team/team-member" element={
+            <DashboardLayout>
+              <TeamMember />
             </DashboardLayout>
           } />
           <Route path="/dashboard/team/team-member" element={
@@ -258,9 +375,19 @@ function App() {
               <TeamMember />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/team/schedule-armada" element={
+            <DashboardLayout>
+              <ScheduleArmada />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/team/schedule-armada" element={
             <DashboardLayout>
               <ScheduleArmada />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/team/schedule-armada/add" element={
+            <DashboardLayout>
+              <AddSchedule />
             </DashboardLayout>
           } />
           <Route path="/dashboard/team/schedule-armada/add" element={
@@ -268,11 +395,22 @@ function App() {
               <AddSchedule />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/profile" element={
+            <DashboardLayout>
+              <PartnerProfile />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/profile/edit" element={
+            <DashboardLayout>
+              <PartnerProfileEdit />
+            </DashboardLayout>
+          } />
 
           {/* Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Toaster />
+        <AlertCenter />
       </Router>
     </ThemeProvider>
   );

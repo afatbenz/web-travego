@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AuthLayout } from './AuthLayout';
-import { authenticateUser } from '@/data/dummyUsers';
+import { api } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
 
 export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -24,25 +25,38 @@ export const Login: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempted:', formData);
-    
-    // Authenticate user
-    const user = authenticateUser(formData.email, formData.password);
-    
-    if (user) {
-      // Store user data in localStorage
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      // Redirect based on role
-      if (user.role === 'admin') {
-        navigate('/dashboard');
-      } else {
-        navigate('/welcome');
+    const res = await api.post<{ token?: string; user?: { role?: string } }>(
+      'http://localhost:3100/api/auth/login',
+      { email: formData.email, password: formData.password }
+    );
+    if (res.status === 'success') {
+      toast({ title: 'Login berhasil', description: 'Selamat datang kembali!' });
+      if (res.data?.token) {
+        localStorage.setItem('token', res.data.token);
+        try {
+          const payloadStr = res.data.token.split('.')[1];
+          const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+          const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+          const json = JSON.parse(atob(padded));
+          const name = json.name ?? json.username ?? json.fullname ?? '';
+          const email = json.email ?? '';
+          const role = json.role ?? json.user_role ?? 'user';
+          const isAdmin = json.is_admin ?? json.isAdmin ?? false;
+          localStorage.setItem('user', JSON.stringify({ name, email, role }));
+          navigate(isAdmin ? '/dashboard' : '/dashboard/partner');
+          return;
+        } catch {
+          // ignore decode errors
+        }
       }
-    } else {
-      alert('Email atau password salah!');
+      if (res.data?.user) {
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+      }
+      navigate('/dashboard/partner');
     }
   };
 
@@ -67,10 +81,13 @@ export const Login: React.FC = () => {
                 placeholder="contoh@email.com"
                 value={formData.email}
                 onChange={handleInputChange}
+                autoComplete="email"
                 className="pl-10 h-12"
               />
             </div>
           </div>
+
+          
 
           <div className="space-y-2">
             <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -86,6 +103,7 @@ export const Login: React.FC = () => {
                 placeholder="Masukkan password"
                 value={formData.password}
                 onChange={handleInputChange}
+                autoComplete="current-password"
                 className="pl-10 pr-10 h-12"
               />
               <button

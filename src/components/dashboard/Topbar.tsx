@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bell, Search, User } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Bell, Search, User, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
@@ -12,9 +12,35 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 
 export const Topbar: React.FC = () => {
+  const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const uStr = localStorage.getItem('user');
+    if (uStr) {
+      try { setUser(JSON.parse(uStr)); } catch {}
+    } else {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const payloadStr = token.split('.')[1];
+          const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+          const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+          const json = JSON.parse(atob(padded));
+          const name = json.name ?? json.username ?? json.fullname ?? '';
+          const email = json.email ?? '';
+          const data = { name, email };
+          localStorage.setItem('user', JSON.stringify(data));
+          setUser(data);
+        } catch {}
+      }
+    }
+  }, []);
+
   return (
     <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -74,12 +100,16 @@ export const Topbar: React.FC = () => {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">Ahmad Rizki</p>
-                  <p className="text-xs text-gray-500">admin@TraveGO.com</p>
+                  <p className="text-sm font-medium">{user?.name || 'User'}</p>
+                  <p className="text-xs text-gray-500">{user?.email || 'email@domain.com'}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem className="pointer-events-none">
+                <Mail className="mr-2 h-4 w-4" />
+                {user?.email || 'email@domain.com'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/dashboard/partner/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>

@@ -97,7 +97,7 @@ export const PackageForm: React.FC = () => {
       // Handle form submission
       console.log('Form submitted:', formData);
       // In real app, this would make API call
-      navigate('/dashboard/services/packages');
+      navigate('/dashboard/partner/services/packages');
     }
   };
 
@@ -368,7 +368,7 @@ export const PackageForm: React.FC = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate('/dashboard/services/packages')}
+          onClick={() => navigate('/dashboard/partner/services/packages')}
           className="!w-auto !h-auto p-2"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -1010,7 +1010,7 @@ export const PackageForm: React.FC = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate('/dashboard/services/packages')}
+              onClick={() => navigate('/dashboard/partner/services/packages')}
             >
               <X className="h-4 w-4 mr-2" />
               Batal

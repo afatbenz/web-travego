@@ -25,46 +25,59 @@ export const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
 
+  const token = localStorage.getItem('token') ?? '';
+  let isAdmin = false;
+  try {
+    const payloadStr = token.split('.')[1];
+    if (payloadStr) {
+      const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const json = JSON.parse(atob(padded));
+      isAdmin = Boolean(json.is_admin ?? json.isAdmin ?? false);
+    }
+  } catch {}
+  const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
+
   const menuItems = [
     {
       title: 'Dashboard',
       icon: Home,
-      href: '/dashboard',
-      active: location.pathname === '/dashboard'
+      href: basePrefix,
+      active: location.pathname === basePrefix
     },
     {
       title: 'Orders',
       icon: ShoppingBag,
       children: [
-        { title: 'Semua Order', icon: ShoppingBag, href: '/dashboard/orders/all-table' },
-        { title: 'Order Berlangsung', icon: Clock, href: '/dashboard/orders/ongoing-table' },
-        { title: 'Order Sukses', icon: CheckCircle, href: '/dashboard/orders/success' }
+        { title: 'Semua Order', icon: ShoppingBag, href: `${basePrefix}/orders/all-table` },
+        { title: 'Order Berlangsung', icon: Clock, href: `${basePrefix}/orders/ongoing-table` },
+        { title: 'Order Sukses', icon: CheckCircle, href: `${basePrefix}/orders/success` }
       ]
     },
     {
       title: 'Services',
       icon: Package,
       children: [
-        { title: 'Paket Wisata', icon: Package, href: '/dashboard/services/packages' },
-        { title: 'Armada', icon: Car, href: '/dashboard/services/fleet' }
+        { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
+        { title: 'Armada', icon: Car, href: `${basePrefix}/services/fleet` }
       ]
     },
     {
       title: 'Finance',
       icon: DollarSign,
       children: [
-        { title: 'Expenses', icon: DollarSign, href: '/dashboard/expenses' },
-        { title: 'Report', icon: FileText, href: '/dashboard/reports' }
+        { title: 'Expenses', icon: DollarSign, href: `${basePrefix}/expenses` },
+        { title: 'Report', icon: FileText, href: `${basePrefix}/reports` }
       ]
     },
     {
       title: 'Content Management',
       icon: FileText,
       children: [
-        { title: 'Image and Layout', icon: Image, href: '/dashboard/content/image-layout' },
-        { title: 'Content', icon: Type, href: '/dashboard/content/content' },
-        { title: 'Social Media', icon: Share2, href: '/dashboard/content/social-media' },
-        { title: 'Bank Account', icon: CreditCard, href: '/dashboard/content/bank-account' }
+        { title: 'Image and Layout', icon: Image, href: `${basePrefix}/content/image-layout` },
+        { title: 'Content', icon: Type, href: `${basePrefix}/content/content` },
+        { title: 'Social Media', icon: Share2, href: `${basePrefix}/content/social-media` },
+        { title: 'Bank Account', icon: CreditCard, href: `${basePrefix}/content/bank-account` }
       ]
     }
   ];
@@ -107,7 +120,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Menu Items - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-1 pb-20">
+      <div className="flex-1 overflow-y-auto p-4 space-y-1 pb-20 sidebar-scroll">
         {menuItems.map((item, index) => (
           <div key={index}>
             {item.href ? (
@@ -115,23 +128,25 @@ export const Sidebar: React.FC = () => {
               <Link
                 to={item.href}
                 className={cn(
-                  "flex items-center space-x-3 px-3 py-1.5 rounded-lg transition-all duration-200",
+                  "flex items-center space-x-3 px-2 rounded-lg transition-all duration-200",
+                  collapsed ? "py-3" : "py-1.5",
                   isActive(item.href)
                     ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                 )}
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className={cn(collapsed ? 'h-9 w-9' : 'h-5 w-5')} />
                 {!collapsed && <span className="font-medium">{item.title}</span>}
               </Link>
             ) : (
               // Menu with children
               <div className="space-y-0.5">
                 <div className={cn(
-                  "flex items-center space-x-3 px-3 py-1.5 rounded-lg cursor-pointer",
+                  "flex items-center space-x-3 px-2 rounded-lg cursor-pointer",
+                  collapsed ? "py-3" : "py-1.5",
                   "text-gray-700 dark:text-gray-300"
                 )}>
-                  <item.icon className="h-5 w-5" />
+                  <item.icon className={cn(collapsed ? 'h-9 w-9' : 'h-5 w-5')} />
                   {!collapsed && <span className="font-medium">{item.title}</span>}
                 </div>
                 {!collapsed && item.children && (
@@ -141,7 +156,7 @@ export const Sidebar: React.FC = () => {
                         key={childIndex}
                         to={child.href}
                         className={cn(
-                          "flex items-center space-x-3 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm",
+                          "flex items-center space-x-3 px-2 py-1.5 rounded-lg transition-all duration-200 text-sm",
                           isActive(child.href)
                             ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                             : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -166,11 +181,11 @@ export const Sidebar: React.FC = () => {
             key={index}
             to={item.href}
             className={cn(
-              "flex items-center space-x-3 px-3 py-1.5 rounded-lg transition-all duration-200",
+              "flex items-center space-x-3 px-2 py-1.5 rounded-lg transition-all duration-200",
               "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
             )}
           >
-            <item.icon className="h-5 w-5" />
+            <item.icon className={cn(collapsed ? 'h-9 w-9' : 'h-5 w-5')} />
             {!collapsed && <span className="font-medium">{item.title}</span>}
           </Link>
         ))}

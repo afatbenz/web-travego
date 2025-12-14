@@ -491,7 +491,7 @@ export const ScheduleArmada: React.FC = () => {
         </div>
         <Button 
           className="bg-blue-600 hover:bg-blue-700"
-          onClick={() => navigate('/dashboard/team/schedule-armada/add')}
+          onClick={() => navigate('/dashboard/partner/team/schedule-armada/add')}
         >
           <Calendar className="h-4 w-4 mr-2" />
           Tambah Jadwal

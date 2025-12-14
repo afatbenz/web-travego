@@ -101,7 +101,7 @@ export const ServicesPackages: React.FC = () => {
         </div>
         <Button 
           className="bg-blue-600 hover:bg-blue-700"
-          onClick={() => navigate('/dashboard/services/packages/create')}
+          onClick={() => navigate('/dashboard/partner/services/packages/create')}
         >
           <Plus className="h-4 w-4 mr-2" />
           Tambah Paket
@@ -213,7 +213,7 @@ export const ServicesPackages: React.FC = () => {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => navigate(`/dashboard/services/packages/edit/${pkg.id}`)}
+                          onClick={() => navigate(`/dashboard/partner/services/packages/edit/${pkg.id}`)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>

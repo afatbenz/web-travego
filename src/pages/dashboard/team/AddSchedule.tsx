@@ -69,7 +69,7 @@ export const AddSchedule: React.FC = () => {
       // Handle form submission
       console.log('Form submitted:', formData);
       // In real app, this would make API call
-      navigate('/dashboard/team/schedule-armada');
+      navigate('/dashboard/partner/team/schedule-armada');
     }
   };
 
@@ -128,7 +128,7 @@ export const AddSchedule: React.FC = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate('/dashboard/team/schedule-armada')}
+          onClick={() => navigate('/dashboard/partner/team/schedule-armada')}
           className="!w-auto !h-auto p-2"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -310,7 +310,7 @@ export const AddSchedule: React.FC = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate('/dashboard/team/schedule-armada')}
+              onClick={() => navigate('/dashboard/partner/team/schedule-armada')}
             >
               <X className="h-4 w-4 mr-2" />
               Batal

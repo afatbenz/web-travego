@@ -77,7 +77,7 @@ export const ArmadaForm: React.FC = () => {
       // Handle form submission
       console.log('Form submitted:', formData);
       // In real app, this would make API call
-      navigate('/dashboard/services/fleet');
+      navigate('/dashboard/partner/services/fleet');
     }
   };
 
@@ -264,7 +264,7 @@ export const ArmadaForm: React.FC = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate('/dashboard/services/fleet')}
+          onClick={() => navigate('/dashboard/partner/services/fleet')}
           className="!w-auto !h-auto p-2"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -754,7 +754,7 @@ export const ArmadaForm: React.FC = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate('/dashboard/services/fleet')}
+              onClick={() => navigate('/dashboard/partner/services/fleet')}
             >
               <X className="h-4 w-4 mr-2" />
               Batal
