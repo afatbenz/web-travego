@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Search, User, Mail } from 'lucide-react';
+import { Bell, Search, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
@@ -105,19 +105,15 @@ export const Topbar: React.FC = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="pointer-events-none">
-                <Mail className="mr-2 h-4 w-4" />
-                {user?.email || 'email@domain.com'}
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/dashboard/partner/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer">
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600">
+              <DropdownMenuItem className="text-red-600 cursor-pointer">
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

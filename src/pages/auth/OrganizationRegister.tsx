@@ -114,10 +114,21 @@ export const OrganizationRegister: React.FC = () => {
     setSubmitting(true);
     const token = localStorage.getItem('token') ?? '';
     const headers = { Authorization: token };
-    const res = await api.post('http://localhost:3100/api/organization/create', form, headers);
+    const payload = { ...form, province: Number(form.province), city: Number(form.city) };
+    const res = await api.post('http://localhost:3100/api/organization/create', payload, headers);
     setSubmitting(false);
     if (res.status === 'success') {
+      const orgId = (res.data as unknown as { organization_id?: number })?.organization_id;
+      if (orgId !== undefined && orgId !== null) {
+        localStorage.setItem('organization_id', String(orgId));
+      }
       const orgCode = (res.data as unknown as { organization_code?: string })?.organization_code;
+      if (form.organization_name) {
+        localStorage.setItem('organization_name', String(form.organization_name));
+      }
+      if (orgCode) {
+        localStorage.setItem('organization_code', String(orgCode));
+      }
       showAlert({
         title: 'Organisasi dibuat',
         description: orgCode ? `Kode Organisasi: ${orgCode}` : 'Anda dapat melanjutkan ke dashboard',

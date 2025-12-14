@@ -43,6 +43,8 @@ export const PartnerProfileEdit: React.FC = () => {
     const token = localStorage.getItem('token') ?? '';
     const payload = {
       ...form,
+      province: Number(form.province),
+      city: Number(form.city),
       date_of_birth: dob
         ? `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, '0')}-${String(dob.getDate()).padStart(2, '0')}`
         : form.date_of_birth,

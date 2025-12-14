@@ -24,6 +24,24 @@ import { cn } from '@/lib/utils';
 export const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const [orgName, setOrgName] = useState('');
+  React.useEffect(() => {
+    const token = localStorage.getItem('token') ?? '';
+    let nameFromJwt = '';
+    try {
+      const payloadStr = token.split('.')[1];
+      if (payloadStr) {
+        const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+        const json = JSON.parse(atob(padded));
+        nameFromJwt = String(
+          json.organization_name ?? json.org_name ?? json.organizationName ?? json.orgName ?? ''
+        );
+      }
+    } catch {}
+    const name = nameFromJwt || (localStorage.getItem('organization_name') ?? '');
+    setOrgName(name);
+  }, []);
 
   const token = localStorage.getItem('token') ?? '';
   let isAdmin = false;
@@ -88,6 +106,9 @@ export const Sidebar: React.FC = () => {
 
   const isActive = (href: string) => location.pathname === href;
 
+  const orgTitle = orgName || 'Organization';
+  const orgTitleDisplay = orgTitle.length > 15 ? orgTitle.slice(0, 12) + '...' : orgTitle;
+
   return (
     <div className={cn(
       "bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex flex-col h-screen fixed left-0 top-0 z-10",
@@ -99,9 +120,12 @@ export const Sidebar: React.FC = () => {
           {!collapsed && (
             <div className="flex items-center space-x-2">
               <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                <span className="text-cyan-500">Trave</span><span className="text-orange-500">GO</span>
-              </span>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-gray-900 dark:text-white">{orgTitleDisplay}</span>
+                <span className="text-xs text-gray-600 dark:text-gray-300">
+                  by <span className="text-cyan-500">Trave</span><span className="text-orange-500">GO</span>
+                </span>
+              </div>
             </div>
           )}
           <Button
