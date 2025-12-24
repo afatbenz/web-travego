@@ -97,7 +97,7 @@ export const Register: React.FC = () => {
           password: formData.password,
           phone: normalizePhoneForApi(formData.phone),
         };
-        const res = await (await import('@/lib/api')).api.post<any>('http://localhost:3100/api/auth/register', payload);
+        const res = await (await import('@/lib/api')).api.post<any>('/auth/register', payload);
         if (res.status === 'success') {
           const token = (res.data?.token) ?? '';
           const email = (res.data?.profile?.email) ?? formData.email;

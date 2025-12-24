@@ -47,7 +47,7 @@ export const Otp: React.FC = () => {
       return;
     }
     setVerifying(true);
-    const res = await api.post('http://localhost:3100/api/auth/verify-otp', { token, otp: otpStr });
+    const res = await api.post('/auth/verify-otp', { token, otp: otpStr });
     setVerifying(false);
     if (res.status === 'success') {
       showAlert({ title: 'Verifikasi Berhasil', description: 'Akun Anda telah terverifikasi. Silakan Login untuk melanjutkan', type: 'success' });
@@ -62,7 +62,7 @@ export const Otp: React.FC = () => {
       return;
     }
     setResending(true);
-    const res = await api.post('http://localhost:3100/api/auth/resend-otp', { email });
+    const res = await api.post('/auth/resend-otp', { email });
     setResending(false);
     if (res.status === 'success') {
       showAlert({ title: 'OTP Dikirim Ulang', description: 'Silakan cek email Anda kembali', type: 'success' });

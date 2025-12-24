@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search, Filter, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { api } from '@/lib/api';
 
 export const ServicesArmada: React.FC = () => {
   const navigate = useNavigate();
@@ -13,93 +14,59 @@ export const ServicesArmada: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [, setLoading] = useState(false);
+  const [armada, setArmada] = useState<Array<{ id: string | number; name: string; type: string; capacity: string; body?: string; engine?: string; status: string; image?: string; description?: string }>>([]);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const armada = [
-    {
-      id: 1,
-      name: 'Toyota Hiace Premio',
-      type: 'Minibus',
-      capacity: '15 pax',
-      price: 200000,
-      originalPrice: 250000,
-      rating: 4.8,
-      reviews: 24,
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'Minibus nyaman untuk perjalanan jarak jauh dengan fasilitas lengkap.',
-      features: ['AC', 'Reclining seats', 'Audio system', 'Safety equipment']
-    },
-    {
-      id: 2,
-      name: 'Innova Reborn',
-      type: 'MPV',
-      capacity: '7 pax',
-      price: 150000,
-      originalPrice: 180000,
-      rating: 4.9,
-      reviews: 156,
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'MPV keluarga dengan kenyamanan dan keamanan terbaik.',
-      features: ['AC', 'Power steering', 'ABS', 'Airbag']
-    },
-    {
-      id: 3,
-      name: 'Avanza Veloz',
-      type: 'MPV',
-      capacity: '7 pax',
-      price: 120000,
-      originalPrice: 150000,
-      rating: 4.7,
-      reviews: 89,
-      status: 'inactive',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'MPV ekonomis dengan performa efisien untuk perjalanan harian.',
-      features: ['AC', 'Power windows', 'Central lock', 'Audio system']
-    },
-    {
-      id: 4,
-      name: 'Fortuner 4x4',
-      type: 'SUV',
-      capacity: '7 pax',
-      price: 300000,
-      originalPrice: 350000,
-      rating: 4.6,
-      reviews: 45,
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'SUV tangguh untuk perjalanan off-road dan medan berat.',
-      features: ['4WD', 'AC', 'Leather seats', 'Navigation system']
-    },
-    {
-      id: 5,
-      name: 'Elf Long',
-      type: 'Bus Kecil',
-      capacity: '20 pax',
-      price: 250000,
-      originalPrice: 300000,
-      rating: 4.5,
-      reviews: 67,
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'Bus kecil untuk grup besar dengan kenyamanan maksimal.',
-      features: ['AC', 'Reclining seats', 'Audio system', 'Reading lights']
-    },
-    {
-      id: 6,
-      name: 'Grand Max',
-      type: 'Pickup',
-      capacity: '4 pax',
-      price: 100000,
-      originalPrice: 120000,
-      rating: 4.4,
-      reviews: 34,
-      status: 'inactive',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'Pickup praktis untuk kebutuhan transportasi barang dan penumpang.',
-      features: ['AC', 'Power steering', 'Central lock', 'Audio system']
-    }
-  ];
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const token = localStorage.getItem('token') ?? '';
+      const body: Record<string, unknown> = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+      };
+      const res = await api.post<unknown>('/partner/services/fleet/list', body, token ? { Authorization: token } : undefined);
+      if (res.status === 'success') {
+        const payload = res.data as unknown;
+        let items: any[] = [];
+        let total = 0;
+        if (Array.isArray(payload)) {
+          items = payload;
+          total = payload.length;
+        } else if (payload && typeof payload === 'object') {
+          const p = payload as Record<string, unknown>;
+          const arr = p.items as unknown;
+          const t = p.total as unknown;
+          if (Array.isArray(arr)) items = arr as any[]; else items = [];
+          total = typeof t === 'number' ? t : (Array.isArray(arr) ? arr.length : 0);
+        }
+        const mapped = items.map((x, i) => {
+          const idRaw = (x as { id?: unknown; fleet_id?: unknown }).id ?? (x as { fleet_id?: unknown }).fleet_id;
+          const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? (idRaw as string | number) : i;
+          const name = typeof x.name === 'string' ? x.name : (typeof x.fleet_name === 'string' ? x.fleet_name : '');
+          const type = typeof x.type === 'string' ? x.type : (typeof x.fleet_type === 'string' ? x.fleet_type : '');
+          const capacityNum = typeof x.capacity === 'number' ? x.capacity : (typeof x.capacity === 'string' ? parseInt(x.capacity) || 0 : 0);
+          const capacity = capacityNum > 0 ? `${capacityNum} pax` : String(x.capacity ?? '');
+          const body = typeof x.body === 'string' ? x.body : (typeof x.fleet_body === 'string' ? x.fleet_body : undefined);
+          const engine = typeof x.engine === 'string' ? x.engine : (typeof x.fleet_engine === 'string' ? x.fleet_engine : undefined);
+          const status = typeof x.status === 'string' ? x.status : (x.active === true ? 'active' : 'inactive');
+          const image = typeof x.image === 'string' ? x.image : (typeof x.thumbnail === 'string' ? x.thumbnail : undefined);
+          const description = typeof x.description === 'string' ? x.description : '';
+          return { id, name, type, capacity, body, engine, status, image, description };
+        });
+        setArmada(mapped);
+        setTotalCount(total);
+      } else {
+        setArmada([]);
+        setTotalCount(0);
+      }
+      setLoading(false);
+    };
+    load();
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -112,15 +79,8 @@ export const ServicesArmada: React.FC = () => {
     }
   };
 
-  const filteredArmada = armada.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  const totalPages = Math.ceil(filteredArmada.length / itemsPerPage);
+  const filteredArmada = armada; // server-side filtering/pagination
+  const totalPages = Math.ceil(Math.max(totalCount, filteredArmada.length) / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentArmada = filteredArmada.slice(startIndex, endIndex);
@@ -187,7 +147,7 @@ export const ServicesArmada: React.FC = () => {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Data Armada ({filteredArmada.length} total)</CardTitle>
+          <CardTitle>Data Armada ({Math.max(totalCount, filteredArmada.length)} total)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -197,8 +157,7 @@ export const ServicesArmada: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Nama</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Tipe</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Kapasitas</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Harga</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Rating</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Spesifikasi</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Aksi</th>
                 </tr>
@@ -214,7 +173,7 @@ export const ServicesArmada: React.FC = () => {
                           className="w-12 h-12 object-cover rounded-lg"
                         />
                         <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
+                          <p className="font-bold text-gray-900 dark:text-white">{item.name}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">{item.description}</p>
                         </div>
                       </div>
@@ -226,23 +185,20 @@ export const ServicesArmada: React.FC = () => {
                       <span className="text-sm text-gray-900 dark:text-white">{item.capacity}</span>
                     </td>
                     <td className="py-3 px-4">
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        Rp {item.price.toLocaleString()}/hari
-                      </p>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {item.rating}
-                        </span>
-                      </div>
+                      <span className="text-sm text-gray-900 dark:text-white">{[item.body, item.engine].filter(Boolean).join(' - ')}</span>
                     </td>
                     <td className="py-3 px-4">
                       {getStatusBadge(item.status)}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex space-x-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => navigate(`/dashboard/partner/services/fleet/detail/${item.id}`)}
+                        >
+                          Detail
+                        </Button>
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -321,9 +277,7 @@ export const ServicesArmada: React.FC = () => {
               <p className="text-sm text-gray-600 dark:text-gray-300">Tidak Aktif</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-600">
-                {(armada.reduce((acc, a) => acc + a.rating, 0) / armada.length).toFixed(1)}
-              </p>
+              <p className="text-2xl font-bold text-blue-600">-</p>
               <p className="text-sm text-gray-600 dark:text-gray-300">Rata-rata Rating</p>
             </div>
           </div>

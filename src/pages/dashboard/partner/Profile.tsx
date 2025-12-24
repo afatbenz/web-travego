@@ -26,7 +26,7 @@ export const PartnerProfile: React.FC = () => {
     (async () => {
       setLoading(true);
       const token = localStorage.getItem('token') ?? '';
-      const res = await api.get<ProfileData>('http://localhost:3100/api/profile/detail', { Authorization: token });
+      const res = await api.get<ProfileData>('/profile/detail', { Authorization: token });
       setLoading(false);
       if (res.status === 'success' && res.data) {
         setData(res.data);

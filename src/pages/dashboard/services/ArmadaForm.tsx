@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { AspectRatio } from '@radix-ui/react-aspect-ratio';
+import { uploadCommon, deleteCommon, api } from '@/lib/api';
 
 export const ArmadaForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,11 +23,15 @@ export const ArmadaForm: React.FC = () => {
     year: 2022,
     engine: '2.5L Diesel',
     features: ['AC', 'Reclining seats', 'Audio system', 'Safety equipment'],
-    pickupPoints: ['Jakarta', 'Bandung', 'Yogyakarta'],
+    pickupPoints: [
+      { id: 3173, name: 'Jakarta' },
+      { id: 3201, name: 'Bandung' },
+      { id: 3031, name: 'Yogyakarta' }
+    ],
     rentalPrices: [
-      { duration: '1-3 hari', price: 200000, type: 'citytour' },
-      { duration: '4-7 hari', price: 180000, type: 'overland' },
-      { duration: '8+ hari', price: 160000, type: 'citytour' }
+      { duration: '1-3 hari', price: 200000, type: 1 },
+      { duration: '4-7 hari', price: 180000, type: 2 },
+      { duration: '8+ hari', price: 160000, type: 1 }
     ],
     addons: [
       { name: 'Driver', description: 'Driver profesional', price: 100000 },
@@ -42,42 +48,127 @@ export const ArmadaForm: React.FC = () => {
     capacity: isEdit ? sampleData.capacity : 0,
     year: isEdit ? sampleData.year : new Date().getFullYear(),
     engine: isEdit ? sampleData.engine : '',
+    body: '',
     features: isEdit ? sampleData.features : [''],
     pickupPoints: isEdit ? sampleData.pickupPoints : [],
-    rentalPrices: isEdit ? sampleData.rentalPrices : [{ duration: '', price: 0, type: 'citytour' }],
+    rentalPrices: isEdit ? sampleData.rentalPrices : [{ duration: '', price: 0, type: 1 }],
     addons: isEdit ? sampleData.addons : [{ name: '', description: '', price: 0 }],
     status: isEdit ? sampleData.status : 'active',
     images: isEdit ? sampleData.images : [],
+    imageFiles: [] as string[],
+    thumbnail: '',
+    thumbnailFile: '',
     description: isEdit ? sampleData.description : ''
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [uploads, setUploads] = useState<Array<{ preview: string; status: 'uploading' | 'done' | 'error'; path?: string; url?: string }>>([]);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [cityQuery, setCityQuery] = useState('');
+  const [cities, setCities] = useState<Array<{ id: number; name: string }>>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const debounceRef = useRef<number | null>(null);
+  const [fleetTypes, setFleetTypes] = useState<Array<{ id: string; label: string }>>([]);
+  const [loadingFleetTypes, setLoadingFleetTypes] = useState(false);
+  const [bodyQuery, setBodyQuery] = useState('');
+  const [engineQuery, setEngineQuery] = useState('');
+  const [bodySuggestions, setBodySuggestions] = useState<string[]>([]);
+  const [engineSuggestions, setEngineSuggestions] = useState<string[]>([]);
+  const [showBodyDropdown, setShowBodyDropdown] = useState(false);
+  const [showEngineDropdown, setShowEngineDropdown] = useState(false);
+  const [loadingBody, setLoadingBody] = useState(false);
+  const [loadingEngine, setLoadingEngine] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = 'Nama armada wajib diisi';
-    if (!formData.type.trim()) newErrors.type = 'Jenis armada wajib diisi';
+    if (!String(formData.type).trim()) newErrors.type = 'Jenis armada wajib diisi';
     if (formData.capacity <= 0) newErrors.capacity = 'Kapasitas harus lebih dari 0';
     if (formData.year <= 0) newErrors.year = 'Tahun produksi harus valid';
     if (!formData.engine.trim()) newErrors.engine = 'Mesin wajib diisi';
     if (!formData.description.trim()) newErrors.description = 'Deskripsi wajib diisi';
-    if (formData.images.length === 0) newErrors.images = 'Minimal 1 gambar wajib diisi';
+    if (!formData.thumbnail && formData.images.length === 0 && uploads.length === 0) newErrors.images = 'Minimal 1 gambar wajib diisi';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = Array.from(files)[0];
+    const prevUrl = formData.thumbnail;
+    const prevPath = formData.thumbnailFile;
+    const previewUrl = URL.createObjectURL(file);
+    if (prevPath) {
+      try { await deleteCommon([prevPath]); } catch { void 0; }
+    }
+    setFormData((prev) => ({ ...prev, thumbnail: previewUrl, thumbnailFile: '' }));
+    setThumbnailUploading(true);
+    try {
+      const res = await uploadCommon('armada', [file]);
+      if (res.status === 'success') {
+        const data = res.data as { files?: string[]; first_url?: string } | undefined;
+        const path = Array.isArray(data?.files) && data!.files!.length > 0 ? data!.files![0] : '';
+        setFormData((prev) => ({ ...prev, thumbnailFile: path }));
+      }
+    } finally {
+      setThumbnailUploading(false);
+      if (prevUrl && prevUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(prevUrl); } catch { void 0; }
+      }
+    }
+  };
+
+  const removeThumbnail = async () => {
+    const p = formData.thumbnailFile;
+    if (p) {
+      try {
+        await deleteCommon([p]);
+      } catch { void 0; }
+    }
+    if (formData.thumbnail && formData.thumbnail.startsWith('blob:')) {
+      try { URL.revokeObjectURL(formData.thumbnail); } catch { void 0; }
+    }
+    setFormData((prev) => ({ ...prev, thumbnailFile: '', thumbnail: '' }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      // Handle form submission
-      console.log('Form submitted:', formData);
-      // In real app, this would make API call
-      navigate('/dashboard/partner/services/fleet');
+      const addonItems = formData.addons
+        .filter((a) => a && (a.name?.trim() || a.description?.trim() || (a.price ?? 0) > 0))
+        .map((a) => ({ addon_name: a.name, description: a.description, price: a.price }));
+
+      const payload = {
+        fleet_name: formData.name,
+        fleet_type: formData.type,
+        capacity: formData.capacity,
+        production_year: formData.year,
+        engine: formData.engine,
+        body: formData.body,
+        description: formData.description,
+        active: formData.status === 'active',
+        pickup_point: formData.pickupPoints.map((p: any) => p?.id ?? p),
+        fascilities: formData.features.filter((x) => x.trim()),
+        prices: formData.rentalPrices.map((p) => ({ duration: p.duration, rent_category: (typeof p.type === 'number' ? p.type : (String(p.type).toLowerCase() === 'citytour' ? 1 : (String(p.type).toLowerCase() === 'overland' ? 2 : 3))), price: p.price })),
+        ...(addonItems.length > 0 ? { addon: addonItems } : {}),
+        thumbnail: formData.thumbnailFile || undefined,
+        images: formData.imageFiles,
+      };
+      const token = localStorage.getItem('token') ?? '';
+      api.post<unknown>('/partner/services/fleet/create', payload, token ? { Authorization: token } : undefined)
+        .then((res) => {
+          if (res.status === 'success') {
+            navigate('/dashboard/partner/services/fleet');
+          }
+        });
     }
   };
 
@@ -88,38 +179,48 @@ export const ArmadaForm: React.FC = () => {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const newImages: string[] = [];
-      const totalImages = formData.images.length + files.length;
-      
-      if (totalImages > 10) {
-        alert('Maksimal 10 gambar');
-        return;
+    if (!files || files.length === 0) return;
+    const maxAllowed = 10 - uploads.length;
+    const pick = Array.from(files).slice(0, Math.max(0, maxAllowed));
+    if (pick.length < files.length) {
+      alert('Maksimal 10 gambar');
+    }
+    const previews = pick.map((f) => URL.createObjectURL(f));
+    setUploads((prev) => [...prev, ...previews.map((p) => ({ preview: p, status: 'uploading' as const }))]);
+    try {
+      const res = await uploadCommon('armada', pick);
+      if (res.status === 'success') {
+        const data = res.data as { files?: string[]; count?: number; first_url?: string } | undefined;
+        const returnedFiles = Array.isArray(data?.files) ? data!.files! : [];
+        setFormData((prev) => ({ ...prev, imageFiles: [...prev.imageFiles, ...returnedFiles], images: [...prev.images, ...(returnedFiles.map((p) => data?.first_url ?? p))] }));
+        setUploads((prev) => {
+          const updated = [...prev];
+          let idx = updated.findIndex((u) => u.status === 'uploading');
+          for (let i = 0; i < returnedFiles.length && idx !== -1; i++) {
+            updated[idx] = { ...updated[idx], status: 'done', path: returnedFiles[i], url: data?.first_url ?? undefined };
+            idx = updated.findIndex((u) => u.status === 'uploading');
+          }
+          return updated;
+        });
+      } else {
+        setUploads((prev) => prev.map((u) => (u.status === 'uploading' ? { ...u, status: 'error' } : u)));
       }
-
-      Array.from(files).forEach(file => {
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const result = e.target?.result as string;
-            newImages.push(result);
-            if (newImages.length === files.length) {
-              setFormData(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
-            }
-          };
-          reader.readAsDataURL(file);
-        }
-      });
+    } catch {
+      setUploads((prev) => prev.map((u) => (u.status === 'uploading' ? { ...u, status: 'error' } : u)));
     }
   };
 
-  const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
+  const removeImage = async (index: number) => {
+    const item = uploads[index];
+    if (item?.path) {
+      try {
+        await deleteCommon([item.path]);
+      } catch { void 0; }
+      setFormData((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index), imageFiles: prev.imageFiles.filter((p) => p !== item.path) }));
+    }
+    setUploads((prev) => prev.filter((_, i) => i !== index));
   };
 
   const formatCurrency = (value: string) => {
@@ -148,30 +249,34 @@ export const ArmadaForm: React.FC = () => {
   };
 
   const addPickupPoint = () => {
-    const input = document.querySelector('input[placeholder="Masukkan titik jemput"]') as HTMLInputElement;
-    if (input && input.value.trim()) {
-      const currentPoints = formData.pickupPoints;
-      if (!currentPoints.includes(input.value.trim())) {
-        setFormData(prev => ({
-          ...prev,
-          pickupPoints: [...prev.pickupPoints, input.value.trim()]
-        }));
-        input.value = '';
+    const val = cityQuery.trim();
+    if (val) {
+      const found = cities.find((c) => c.name.toLowerCase() === val.toLowerCase());
+      if (found) {
+        const exists = formData.pickupPoints.some((p: any) => (p?.id ?? p) === found.id);
+        if (!exists) {
+          setFormData(prev => ({
+            ...prev,
+            pickupPoints: [...prev.pickupPoints, { id: found.id, name: found.name }]
+          }));
+        }
       }
+      setCityQuery('');
+      setShowCityDropdown(false);
     }
   };
 
-  const removePickupPoint = (point: string) => {
+  const removePickupPoint = (id: number) => {
     setFormData(prev => ({
       ...prev,
-      pickupPoints: prev.pickupPoints.filter(p => p !== point)
+      pickupPoints: prev.pickupPoints.filter((p: any) => (p?.id ?? p) !== id)
     }));
   };
 
   const addRentalPrice = () => {
     setFormData(prev => ({
       ...prev,
-      rentalPrices: [...prev.rentalPrices, { duration: '', price: 0, type: 'citytour' }]
+      rentalPrices: [...prev.rentalPrices, { duration: '', price: 0, type: 1 }]
     }));
   };
 
@@ -257,6 +362,179 @@ export const ArmadaForm: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    async function fetchFleetTypes() {
+      setLoadingFleetTypes(true);
+      const res = await api.get<unknown>('/general/fleet-types');
+      if (res.status === 'success') {
+        const payload = res.data as unknown;
+        let list: Array<{ id: string; label: string }> = [];
+        if (Array.isArray(payload)) {
+          list = payload
+            .map((x) => {
+              const id = (x as { id?: unknown }).id;
+              const label = (x as { label?: unknown }).label ?? (x as { name?: unknown }).name;
+              return typeof id !== 'undefined' && typeof label === 'string'
+                ? { id: String(id), label: String(label) }
+                : null;
+            })
+            .filter((x): x is { id: string; label: string } => Boolean(x));
+        } else if (payload && typeof payload === 'object') {
+          const items = (payload as Record<string, unknown>).items;
+          if (Array.isArray(items)) {
+            list = items
+              .map((x) => {
+                const id = (x as { id?: unknown }).id;
+                const label = (x as { label?: unknown }).label ?? (x as { name?: unknown }).name;
+                return typeof id !== 'undefined' && typeof label === 'string'
+                  ? { id: String(id), label: String(label) }
+                  : null;
+              })
+              .filter((x): x is { id: string; label: string } => Boolean(x));
+          }
+        }
+        setFleetTypes(list);
+      } else {
+        setFleetTypes([]);
+      }
+      setLoadingFleetTypes(false);
+    }
+    fetchFleetTypes();
+  }, []);
+
+  async function fetchBody(q: string) {
+    setLoadingBody(true);
+    const token = localStorage.getItem('token') ?? '';
+    const res = await api.get<unknown>(`/general/fleet-body${q ? `?search=${encodeURIComponent(q)}` : ''}`, token ? { Authorization: token } : undefined);
+    if (res.status === 'success') {
+      const payload = res.data as unknown;
+      let list: string[] = [];
+      if (Array.isArray(payload)) {
+        list = (payload as unknown[])
+          .map((x) => {
+            if (typeof x === 'string') return x;
+            const n = (x as { name?: unknown }).name;
+            return typeof n === 'string' ? n : '';
+          })
+          .filter((n) => n);
+      } else if (payload && typeof payload === 'object') {
+        const items = (payload as Record<string, unknown>).items;
+        if (Array.isArray(items)) {
+          list = items
+            .map((x) => {
+              const n = (x as { name?: unknown }).name;
+              return typeof n === 'string' ? n : '';
+            })
+            .filter((n) => n);
+        }
+      }
+      setBodySuggestions(list);
+    } else {
+      setBodySuggestions([]);
+    }
+    setLoadingBody(false);
+  }
+
+  async function fetchEngine(q: string) {
+    setLoadingEngine(true);
+    const token = localStorage.getItem('token') ?? '';
+    const res = await api.get<unknown>(`/general/fleet-engine${q ? `?search=${encodeURIComponent(q)}` : ''}`, token ? { Authorization: token } : undefined);
+    if (res.status === 'success') {
+      const payload = res.data as unknown;
+      let list: string[] = [];
+      if (Array.isArray(payload)) {
+        list = (payload as unknown[])
+          .map((x) => {
+            if (typeof x === 'string') return x;
+            const n = (x as { name?: unknown }).name;
+            return typeof n === 'string' ? n : '';
+          })
+          .filter((n) => n);
+      } else if (payload && typeof payload === 'object') {
+        const items = (payload as Record<string, unknown>).items;
+        if (Array.isArray(items)) {
+          list = items
+            .map((x) => {
+              const n = (x as { name?: unknown }).name;
+              return typeof n === 'string' ? n : '';
+            })
+            .filter((n) => n);
+        }
+      }
+      setEngineSuggestions(list);
+    } else {
+      setEngineSuggestions([]);
+    }
+    setLoadingEngine(false);
+  }
+
+  useEffect(() => {
+    if (!showBodyDropdown) return;
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => fetchBody(bodyQuery), 300);
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, [bodyQuery, showBodyDropdown]);
+
+  useEffect(() => {
+    if (!showEngineDropdown) return;
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => fetchEngine(engineQuery), 300);
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, [engineQuery, showEngineDropdown]);
+
+  async function fetchCities(q: string) {
+    setLoadingCities(true);
+    const res = await api.get<unknown>(`/general/cities${q ? `?search=${encodeURIComponent(q)}` : ''}`);
+    if (res.status === 'success') {
+      const payload = res.data as unknown;
+      let list: Array<{ id: number; name: string }> = [];
+      if (Array.isArray(payload)) {
+        list = (payload as unknown[])
+          .map((x, i) => {
+            if (typeof x === 'string') return { id: -1, name: x };
+            const n = (x as { name?: unknown }).name;
+            const idRaw = (x as { id?: unknown }).id;
+            const name = typeof n === 'string' ? n : '';
+            const id = typeof idRaw === 'number' ? idRaw : (typeof idRaw === 'string' ? parseInt(idRaw) || i : i);
+            return name ? { id, name } : null;
+          })
+          .filter((v): v is { id: number; name: string } => Boolean(v));
+      } else if (payload && typeof payload === 'object') {
+        const items = (payload as Record<string, unknown>).items;
+        if (Array.isArray(items)) {
+          list = items
+            .map((x, i) => {
+              const n = (x as { name?: unknown }).name;
+              const idRaw = (x as { id?: unknown }).id;
+              const name = typeof n === 'string' ? n : '';
+              const id = typeof idRaw === 'number' ? idRaw : (typeof idRaw === 'string' ? parseInt(idRaw) || i : i);
+              return name ? { id, name } : null;
+            })
+            .filter((v): v is { id: number; name: string } => Boolean(v));
+        }
+      }
+      setCities(list);
+    } else {
+      setCities([]);
+    }
+    setLoadingCities(false);
+  }
+
+  useEffect(() => {
+    if (!showCityDropdown) return;
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      fetchCities(cityQuery);
+    }, 300);
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, [cityQuery, showCityDropdown]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -280,7 +558,7 @@ export const ArmadaForm: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Thumbnail Section - Moved to top */}
+        {/* Thumbnail Section - Single image */}
         <Card>
           <CardHeader>
             <CardTitle>Gambar Thumbnail</CardTitle>
@@ -288,47 +566,44 @@ export const ArmadaForm: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="flex items-center space-x-4">
               <input
-                ref={fileInputRef}
+                ref={thumbInputRef}
                 type="file"
-                multiple
                 accept="image/*"
-                onChange={handleImageUpload}
+                onChange={handleThumbnailUpload}
                 className="hidden"
               />
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => thumbInputRef.current?.click()}
                 className="flex items-center space-x-2"
               >
                 <Upload className="h-4 w-4" />
-                <span>Upload Gambar</span>
+                <span>Upload Thumbnail</span>
               </Button>
-              <span className="text-sm text-gray-500">
-                Maksimal 10 gambar ({formData.images.length}/10)
-              </span>
+              {thumbnailUploading && <span className="text-sm text-gray-500">Mengunggah...</span>}
             </div>
             
-            {formData.images.length > 0 && (
+            {formData.thumbnail && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {formData.images.map((image, index) => (
-                  <div key={index} className="relative group">
+                <div className="relative group rounded-lg border overflow-hidden">
+                  <AspectRatio ratio={4 / 3}>
                     <img
-                      src={image}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-24 object-cover rounded-lg border"
+                      src={formData.thumbnail}
+                      alt="Thumbnail"
+                      className="w-full h-full object-cover"
                     />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeImage(index)}
-                      className="absolute -top-2 -right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                  </AspectRatio>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={removeThumbnail}
+                    className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             )}
             {errors.images && <p className="text-sm text-red-500 mt-1">{errors.images}</p>}
@@ -341,131 +616,217 @@ export const ArmadaForm: React.FC = () => {
             <CardTitle>Informasi Dasar</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Jenis Armada *
-                    </label>
-                    <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
-                      <SelectTrigger className={errors.type ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Pilih jenis" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Minibus">Minibus</SelectItem>
-                        <SelectItem value="MPV">MPV</SelectItem>
-                        <SelectItem value="SUV">SUV</SelectItem>
-                        <SelectItem value="Bus Kecil">Bus Kecil</SelectItem>
-                        <SelectItem value="Bus Besar">Bus Besar</SelectItem>
-                        <SelectItem value="Pickup">Pickup</SelectItem>
-                        <SelectItem value="Sedan">Sedan</SelectItem>
-                        <SelectItem value="Hatchback">Hatchback</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {errors.type && <p className="text-sm text-red-500 mt-1">{errors.type}</p>}
-                  </div>
-                  <div className="md:col-span-3">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Nama Armada *
-                    </label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      placeholder="Masukkan nama armada"
-                      className={errors.name ? 'border-red-500' : ''}
-                    />
-                    {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Kapasitas (pax) *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={formData.capacity}
-                      onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 0)}
-                      placeholder="Contoh: 15"
-                      className={errors.capacity ? 'border-red-500' : ''}
-                    />
-                    {errors.capacity && <p className="text-sm text-red-500 mt-1">{errors.capacity}</p>}
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Tahun Produksi *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1990"
-                      max={new Date().getFullYear()}
-                      value={formData.year}
-                      onChange={(e) => handleInputChange('year', parseInt(e.target.value) || 0)}
-                      placeholder="2022"
-                      className={errors.year ? 'border-red-500' : ''}
-                    />
-                    {errors.year && <p className="text-sm text-red-500 mt-1">{errors.year}</p>}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Mesin *
-                  </label>
-                  <Input
-                    value={formData.engine}
-                    onChange={(e) => handleInputChange('engine', e.target.value)}
-                    placeholder="Contoh: 2.5L Diesel"
-                    className={errors.engine ? 'border-red-500' : ''}
-                  />
-                  {errors.engine && <p className="text-sm text-red-500 mt-1">{errors.engine}</p>}
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Nama Armada *
+                </label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  placeholder="Masukkan nama armada"
+                  className={errors.name ? 'border-red-500' : ''}
+                />
+                {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
               </div>
 
-              {/* Right Column */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Titik Jemput
-                  </label>
-                  <div className="space-y-2">
-                    <div className="flex space-x-2">
-                      <Input
-                        placeholder="Masukkan titik jemput"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addPickupPoint();
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={addPickupPoint}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {formData.pickupPoints.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {formData.pickupPoints.map((point, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center space-x-1">
-                            <span>{point}</span>
-                            <X
-                              className="h-3 w-3 cursor-pointer"
-                              onClick={() => removePickupPoint(point)}
-                            />
-                          </Badge>
-                        ))}
-                      </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Jenis Armada *
+                </label>
+                <Select value={String(formData.type)} onValueChange={(value) => handleInputChange('type', value)}>
+                  <SelectTrigger className={errors.type ? 'border-red-500' : ''}>
+                    <SelectValue placeholder={loadingFleetTypes ? 'Memuat...' : 'Pilih jenis'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fleetTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.type && <p className="text-sm text-red-500 mt-1">{errors.type}</p>}
+              </div>
+
+              <div className="relative">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Mesin *
+                </label>
+                <Input
+                  value={formData.engine}
+                  onChange={(e) => { handleInputChange('engine', e.target.value); setEngineQuery(e.target.value); }}
+                  placeholder="Contoh: 2.5L Diesel"
+                  className={errors.engine ? 'border-red-500' : ''}
+                  onFocus={() => { setShowEngineDropdown(true); fetchEngine(''); }}
+                  onBlur={() => { window.setTimeout(() => setShowEngineDropdown(false), 150); }}
+                />
+                {showEngineDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
+                    {loadingEngine ? (
+                      <div className="p-2 text-sm text-gray-500">Memuat...</div>
+                    ) : engineSuggestions.length === 0 ? (
+                      <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
+                    ) : (
+                      engineSuggestions.map((name, idx) => (
+                        <button
+                          key={`eng-${name}-${idx}`}
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => { handleInputChange('engine', name); setEngineQuery(name); setShowEngineDropdown(false); }}
+                        >
+                          {name}
+                        </button>
+                      ))
                     )}
                   </div>
+                )}
+                {errors.engine && <p className="text-sm text-red-500 mt-1">{errors.engine}</p>}
+              </div>
+
+              <div className="relative">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Body
+                </label>
+                <Input
+                  value={formData.body}
+                  onChange={(e) => { handleInputChange('body', e.target.value); setBodyQuery(e.target.value); }}
+                  placeholder="Contoh: Hiace, Elf, Bus Besar"
+                  onFocus={() => { setShowBodyDropdown(true); fetchBody(''); }}
+                  onBlur={() => { window.setTimeout(() => setShowBodyDropdown(false), 150); }}
+                />
+                {showBodyDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
+                    {loadingBody ? (
+                      <div className="p-2 text-sm text-gray-500">Memuat...</div>
+                    ) : bodySuggestions.length === 0 ? (
+                      <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
+                    ) : (
+                      bodySuggestions.map((name, idx) => (
+                        <button
+                          key={`body-${name}-${idx}`}
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => { handleInputChange('body', name); setBodyQuery(name); setShowBodyDropdown(false); }}
+                        >
+                          {name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Tahun Produksi *
+                </label>
+                <Input
+                  type="number"
+                  min="1990"
+                  max={new Date().getFullYear()}
+                  value={formData.year}
+                  onChange={(e) => handleInputChange('year', parseInt(e.target.value) || 0)}
+                  placeholder="2022"
+                  className={errors.year ? 'border-red-500' : ''}
+                />
+                {errors.year && <p className="text-sm text-red-500 mt-1">{errors.year}</p>}
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Kapasitas (pax) *
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={formData.capacity}
+                  onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 0)}
+                  placeholder="Contoh: 15"
+                  className={errors.capacity ? 'border-red-500' : ''}
+                />
+                {errors.capacity && <p className="text-sm text-red-500 mt-1">{errors.capacity}</p>}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Titik Jemput
+                </label>
+                <div className="space-y-2">
+                  <div className="relative flex space-x-2">
+                    <Input
+                      value={cityQuery}
+                      onChange={(e) => {
+                        const q = e.target.value;
+                        setCityQuery(q);
+                        if (!showCityDropdown) {
+                          setShowCityDropdown(true);
+                        }
+                      }}
+                      placeholder="Masukkan titik jemput"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addPickupPoint();
+                        }
+                      }}
+                      onFocus={() => {
+                        setShowCityDropdown(true);
+                        fetchCities('');
+                      }}
+                      onBlur={() => {
+                        window.setTimeout(() => setShowCityDropdown(false), 150);
+                      }}
+                    />
+                    {showCityDropdown && (
+                      <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
+                        {loadingCities ? (
+                          <div className="p-2 text-sm text-gray-500">Memuat...</div>
+                        ) : cities.length === 0 ? (
+                          <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
+                        ) : (
+                          cities.map((city, idx) => (
+                            <button
+                              key={`${city.name}-${city.id}-${idx}`}
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                const exists = formData.pickupPoints.some((p: any) => (p?.id ?? p) === city.id);
+                                if (!exists) {
+                                  setFormData((prev) => ({ ...prev, pickupPoints: [...prev.pickupPoints, { id: city.id, name: city.name }] }));
+                                }
+                                setCityQuery('');
+                                setShowCityDropdown(false);
+                              }}
+                            >
+                              {city.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addPickupPoint}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {formData.pickupPoints.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.pickupPoints.map((point: any, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center space-x-1">
+                          <span>{point?.name ?? String(point)}</span>
+                          <X
+                            className="h-3 w-3 cursor-pointer"
+                            onClick={() => removePickupPoint(point?.id ?? point)}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -627,15 +988,16 @@ export const ArmadaForm: React.FC = () => {
                       Jenis Sewa
                     </label>
                     <Select 
-                      value={price.type} 
-                      onValueChange={(value) => updateRentalPrice(index, 'type', value)}
+                      value={String(price.type)} 
+                      onValueChange={(value) => updateRentalPrice(index, 'type', parseInt(value) || 0)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Pilih jenis sewa" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="citytour">Citytour</SelectItem>
-                        <SelectItem value="overland">Overland</SelectItem>
+                        <SelectItem value="1">Citytour</SelectItem>
+                        <SelectItem value="2">Overland</SelectItem>
+                        <SelectItem value="3">Pickup / Drop Only</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -731,6 +1093,56 @@ export const ArmadaForm: React.FC = () => {
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Gallery Gambar</span>
+              <div className="flex items-center space-x-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-2">
+                  <Upload className="h-4 w-4" />
+                  <span>Upload Gambar</span>
+                </Button>
+                <span className="text-sm text-gray-500">Maksimal 10 gambar ({uploads.length}/10)</span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {uploads.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {uploads.map((item, index) => (
+                  <div key={index} className="relative group rounded-lg border overflow-hidden">
+                    <AspectRatio ratio={4 / 3}>
+                      <img src={item.preview} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                    </AspectRatio>
+                    {item.status !== 'done' && (
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-white" />
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -56,6 +56,9 @@ import { OrganizationUsers } from '@/pages/dashboard/organization/OrganizationUs
 import { OrganizationOpenApi } from '@/pages/dashboard/organization/OrganizationOpenApi';
 import { PartnerProfile } from '@/pages/dashboard/partner/Profile';
 import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
+import PartnerContent from '@/pages/dashboard/partner/content/Content';
+import ImageLayout from '@/pages/dashboard/partner/content/ImageLayout';
+import ContentEdit from '@/pages/dashboard/partner/content/ContentEdit';
 import { OrganizationPending } from '@/pages/auth/OrganizationPending';
 import { OrganizationJoin } from '@/pages/auth/OrganizationJoin';
 
@@ -68,6 +71,7 @@ import { ServicesArmada } from '@/pages/dashboard/services/ServicesArmada';
 import { PackageForm } from '@/pages/dashboard/services/PackageForm';
 import { CreateArmada } from '@/pages/dashboard/services/CreateArmada';
 import { EditArmada } from '@/pages/dashboard/services/EditArmada';
+import { FleetDetail } from '@/pages/dashboard/services/FleetDetail';
 import { TeamMember } from '@/pages/dashboard/team/TeamMember';
 import { ScheduleArmada } from '@/pages/dashboard/team/ScheduleArmada';
 import { AddSchedule } from '@/pages/dashboard/team/AddSchedule';
@@ -398,6 +402,16 @@ function App() {
               <EditArmada />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/services/fleet/detail/:id" element={
+            <DashboardLayout>
+              <FleetDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/services/fleet/detail/:id" element={
+            <DashboardLayout>
+              <FleetDetail />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/partner/team/team-member" element={
             <DashboardLayout>
               <TeamMember />
@@ -436,6 +450,21 @@ function App() {
           <Route path="/dashboard/partner/profile/edit" element={
             <DashboardLayout>
               <PartnerProfileEdit />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/content" element={
+            <DashboardLayout>
+              <PartnerContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/content/edit/:section_tag" element={
+          <DashboardLayout>
+            <ContentEdit />
+          </DashboardLayout>
+        } />
+          <Route path="/dashboard/partner/content/image-layout" element={
+            <DashboardLayout>
+              <ImageLayout />
             </DashboardLayout>
           } />
 
