@@ -49,7 +49,7 @@ export const PartnerProfileEdit: React.FC = () => {
         ? `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, '0')}-${String(dob.getDate()).padStart(2, '0')}`
         : form.date_of_birth,
     };
-    const res = await api.post('http://localhost:3100/api/profile/update', payload, { Authorization: token });
+    const res = await api.post('/profile/update', payload, { Authorization: token });
     setSaving(false);
     if (res.status === 'success') {
       navigate('/dashboard/partner/profile');
@@ -59,7 +59,7 @@ export const PartnerProfileEdit: React.FC = () => {
   const fetchProvincesImmediate = async () => {
     setLoadingProvince(true);
     const q = provinceDisplay.trim();
-    const res = await api.get('http://localhost:3100/api/general/provinces?search=' + encodeURIComponent(q));
+    const res = await api.get('/general/provinces?search=' + encodeURIComponent(q));
     setLoadingProvince(false);
     if (res.status === 'success') {
       const raw = (res.data ?? []) as unknown;
@@ -88,7 +88,7 @@ export const PartnerProfileEdit: React.FC = () => {
     if (!prov) return;
     setLoadingCity(true);
     const q = cityDisplay.trim();
-    const url = 'http://localhost:3100/api/general/cities?province=' + encodeURIComponent(prov) + '&search=' + encodeURIComponent(q);
+    const url = '/general/cities?province=' + encodeURIComponent(prov) + '&search=' + encodeURIComponent(q);
     const res = await api.get(url);
     setLoadingCity(false);
     if (res.status === 'success') {
@@ -116,7 +116,7 @@ export const PartnerProfileEdit: React.FC = () => {
   useEffect(() => {
     (async () => {
       const token = localStorage.getItem('token') ?? '';
-      const res = await api.get('http://localhost:3100/api/profile/detail', { Authorization: token });
+      const res = await api.get('/profile/detail', { Authorization: token });
       if (res.status === 'success' && res.data) {
         const d = res.data as Record<string, string>;
         setForm((p) => ({

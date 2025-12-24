@@ -5,7 +5,7 @@ export type ApiResponse<T> = {
   message?: string;
 };
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api';
 import { showAlert } from '@/hooks/use-alert';
 
 function extractMessage(payload: unknown): string | undefined {
@@ -101,3 +101,53 @@ export const api = {
 };
 
 export { request };
+export type UploadCommonResponse = { files?: string[]; count?: number; first_url?: string };
+
+async function postMultipart<T>(path: string, formData: FormData, headers?: Record<string, string>): Promise<ApiResponse<T>> {
+  try {
+    const mergedHeaders: Record<string, string> = {
+      ...(headers ?? {}),
+    };
+
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers: mergedHeaders,
+      body: formData,
+    });
+
+    let json: unknown = null;
+    try {
+      json = await res.json();
+    } catch {
+      json = null;
+    }
+
+    if (res.ok) {
+      return {
+        status: 'success',
+        statusCode: 200,
+        data: extractData<T>(json),
+      };
+    }
+
+    const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';
+    showAlert({ title: 'Gagal', description: fallbackMessage, type: 'error' });
+    return { status: 'error', statusCode: res.status, message: fallbackMessage };
+  } catch {
+    showAlert({ title: 'Jaringan bermasalah', description: 'terjadi kesalahan', type: 'error' });
+    return { status: 'error', statusCode: 0, message: 'terjadi kesalahan' };
+  }
+}
+
+export async function uploadCommon(type: 'armada' | 'package', files: File[], token?: string) {
+  const fd = new FormData();
+  fd.append('type', type);
+  files.forEach((f) => fd.append('files', f));
+  const auth = token ?? (localStorage.getItem('token') ?? '');
+  return postMultipart<UploadCommonResponse>('/common/upload', fd, auth ? { Authorization: auth } : undefined);
+}
+
+export async function deleteCommon(paths: string[], token?: string) {
+  const auth = token ?? (localStorage.getItem('token') ?? '');
+  return api.post<unknown>('/common/delete-files', { files: paths }, auth ? { Authorization: auth } : undefined);
+}

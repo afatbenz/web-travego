@@ -19,7 +19,7 @@ export const OrganizationJoin: React.FC = () => {
     }
     setJoining(true);
     const token = localStorage.getItem('token') ?? '';
-    const res = await request('http://localhost:3100/api/organization/join', {
+    const res = await request('/organization/join', {
       method: 'GET',
       body: JSON.stringify({ organization_code: code.trim() }),
       headers: { Authorization: token },

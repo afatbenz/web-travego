@@ -35,7 +35,7 @@ export const OrganizationRegister: React.FC = () => {
   const fetchProvincesImmediate = async () => {
     setLoadingProvince(true);
     const q = provinceDisplay.trim();
-    const res = await api.get('http://localhost:3100/api/general/provinces?search=' + encodeURIComponent(q));
+    const res = await api.get('/general/provinces?search=' + encodeURIComponent(q));
     setLoadingProvince(false);
     if (res.status === 'success') {
       const raw = (res.data ?? []) as unknown;
@@ -64,7 +64,7 @@ export const OrganizationRegister: React.FC = () => {
     if (!prov) return;
     setLoadingCity(true);
     const q = cityDisplay.trim();
-    const url = 'http://localhost:3100/api/general/cities?province=' + encodeURIComponent(prov) + '&search=' + encodeURIComponent(q);
+    const url = '/general/cities?province=' + encodeURIComponent(prov) + '&search=' + encodeURIComponent(q);
     const res = await api.get(url);
     setLoadingCity(false);
     if (res.status === 'success') {
@@ -115,7 +115,7 @@ export const OrganizationRegister: React.FC = () => {
     const token = localStorage.getItem('token') ?? '';
     const headers = { Authorization: token };
     const payload = { ...form, province: Number(form.province), city: Number(form.city) };
-    const res = await api.post('http://localhost:3100/api/organization/create', payload, headers);
+    const res = await api.post('/organization/create', payload, headers);
     setSubmitting(false);
     if (res.status === 'success') {
       const orgId = (res.data as unknown as { organization_id?: number })?.organization_id;
@@ -146,7 +146,7 @@ export const OrganizationRegister: React.FC = () => {
     }
     setLoadingProvince(true);
     const id = setTimeout(async () => {
-      const res = await api.get('http://localhost:3100/api/general/provinces?search=' + encodeURIComponent(q));
+      const res = await api.get('/general/provinces?search=' + encodeURIComponent(q));
       setLoadingProvince(false);
       if (res.status === 'success') {
         const raw = (res.data ?? []) as unknown;
@@ -183,7 +183,7 @@ export const OrganizationRegister: React.FC = () => {
     }
     setLoadingCity(true);
     const id = setTimeout(async () => {
-      const url = 'http://localhost:3100/api/general/cities?province=' + encodeURIComponent(prov) + '&search=' + encodeURIComponent(q);
+      const url = '/general/cities?province=' + encodeURIComponent(prov) + '&search=' + encodeURIComponent(q);
       const res = await api.get(url);
       setLoadingCity(false);
       if (res.status === 'success') {
@@ -215,7 +215,7 @@ export const OrganizationRegister: React.FC = () => {
   useEffect(() => {
     setLoadingTypes(true);
     (async () => {
-      const res = await api.get('http://localhost:3100/api/organization/types');
+      const res = await api.get('/organization/types');
       setLoadingTypes(false);
       if (res.status === 'success') {
         const raw = (res.data ?? []) as unknown;

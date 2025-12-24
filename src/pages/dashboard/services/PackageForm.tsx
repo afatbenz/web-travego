@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Trash2, Upload, Clock, Type } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, Upload, Clock, Type, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { uploadCommon, deleteCommon } from '@/lib/api';
+import { AspectRatio } from '@radix-ui/react-aspect-ratio';
 
 export const PackageForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,6 +66,7 @@ export const PackageForm: React.FC = () => {
     freePax: 0,
     status: isEdit ? sampleData.status : 'active',
     images: isEdit ? [sampleData.image] : [],
+    imageFiles: [] as string[],
     description: isEdit ? sampleData.description : '',
     features: isEdit ? sampleData.features : [''],
     itinerary: isEdit ? sampleData.itinerary : [{ day: 1, activities: [{ time: '08:00', description: '' }] }] as { day: number; activities: { time: string; description: string }[] }[],
@@ -75,6 +78,13 @@ export const PackageForm: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [uploads, setUploads] = useState<Array<{
+    preview: string;
+    status: 'uploading' | 'done' | 'error';
+    path?: string;
+    url?: string;
+  }>>([]);
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -85,7 +95,8 @@ export const PackageForm: React.FC = () => {
     if (formData.maxParticipants <= 0) newErrors.maxParticipants = 'Maksimum peserta harus lebih dari 0';
     if (formData.minParticipants > formData.maxParticipants) newErrors.maxParticipants = 'Maksimum peserta harus lebih besar dari minimum peserta';
     if (!formData.description.trim()) newErrors.description = 'Deskripsi wajib diisi';
-    if (formData.images.length === 0) newErrors.images = 'Minimal 1 gambar wajib diisi';
+    const hasImages = (formData.imageFiles && formData.imageFiles.length > 0) || (formData.images && formData.images.length > 0);
+    if (!hasImages) newErrors.images = 'Minimal 1 gambar wajib diisi';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -108,38 +119,48 @@ export const PackageForm: React.FC = () => {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const newImages: string[] = [];
-      const totalImages = formData.images.length + files.length;
-      
-      if (totalImages > 10) {
-        alert('Maksimal 10 gambar');
-        return;
+    if (!files || files.length === 0) return;
+    const maxAllowed = 10 - uploads.length;
+    const pick = Array.from(files).slice(0, Math.max(0, maxAllowed));
+    if (pick.length < files.length) {
+      alert('Maksimal 10 gambar');
+    }
+    const previews = pick.map((f) => URL.createObjectURL(f));
+    setUploads((prev) => [...prev, ...previews.map((p) => ({ preview: p, status: 'uploading' as const }))]);
+    try {
+      const res = await uploadCommon('package', pick);
+      if (res.status === 'success') {
+        const data = res.data as { files?: string[]; count?: number; first_url?: string } | undefined;
+        const returnedFiles = Array.isArray(data?.files) ? data!.files! : [];
+        setFormData((prev) => ({ ...prev, imageFiles: [...prev.imageFiles, ...returnedFiles] }));
+        setUploads((prev) => {
+          const updated = [...prev];
+          let idx = updated.findIndex((u) => u.status === 'uploading');
+          for (let i = 0; i < returnedFiles.length && idx !== -1; i++) {
+            updated[idx] = { ...updated[idx], status: 'done' as const, path: returnedFiles[i], url: data?.first_url ?? undefined };
+            idx = updated.findIndex((u) => u.status === 'uploading');
+          }
+          return updated;
+        });
+      } else {
+        setUploads((prev) => prev.map((u) => (u.status === 'uploading' ? { ...u, status: 'error' as const } : u)));
       }
-
-      Array.from(files).forEach(file => {
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const result = e.target?.result as string;
-            newImages.push(result);
-            if (newImages.length === files.length) {
-              setFormData(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
-            }
-          };
-          reader.readAsDataURL(file);
-        }
-      });
+    } catch {
+      setUploads((prev) => prev.map((u) => (u.status === 'uploading' ? { ...u, status: 'error' as const } : u)));
     }
   };
 
-  const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
+  const removeImage = async (index: number) => {
+    const item = uploads[index];
+    if (item?.path) {
+      try {
+        await deleteCommon([item.path]);
+      } catch { void 0; }
+      setFormData((prev) => ({ ...prev, imageFiles: prev.imageFiles.filter((p) => p !== item.path) }));
+    }
+    setUploads((prev) => prev.filter((_, i) => i !== index));
   };
 
   const formatCurrency = (value: string) => {
@@ -390,6 +411,35 @@ export const PackageForm: React.FC = () => {
             <CardTitle>Gambar Thumbnail</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {uploads.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {uploads.map((item, index) => (
+                  <div key={index} className="relative group rounded-lg border overflow-hidden">
+                    <AspectRatio ratio={4 / 3}>
+                      <img
+                        src={item.preview}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </AspectRatio>
+                    {item.status !== 'done' && (
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-white" />
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex items-center space-x-4">
               <input
                 ref={fileInputRef}
@@ -409,32 +459,9 @@ export const PackageForm: React.FC = () => {
                 <span>Upload Gambar</span>
               </Button>
               <span className="text-sm text-gray-500">
-                Maksimal 10 gambar ({formData.images.length}/10)
+                Maksimal 10 gambar ({uploads.length}/10)
               </span>
             </div>
-            
-            {formData.images.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {formData.images.map((image, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={image}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-24 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeImage(index)}
-                      className="absolute -top-2 -right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
             {errors.images && <p className="text-sm text-red-500 mt-1">{errors.images}</p>}
           </CardContent>
         </Card>

@@ -30,7 +30,7 @@ export const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await api.post<{ token?: string; user?: { role?: string } }>(
-      'http://localhost:3100/api/auth/login',
+      '/auth/login',
       { email: formData.email, password: formData.password }
     );
     if (res.status === 'success') {

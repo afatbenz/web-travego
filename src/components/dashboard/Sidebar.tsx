@@ -16,7 +16,10 @@ import {
   Image,
   Type,
   Share2,
-  CreditCard
+  CreditCard,
+  Settings,
+  User,
+  Code
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -97,6 +100,15 @@ export const Sidebar: React.FC = () => {
         { title: 'Social Media', icon: Share2, href: `${basePrefix}/content/social-media` },
         { title: 'Bank Account', icon: CreditCard, href: `${basePrefix}/content/bank-account` }
       ]
+    },
+    {
+      title: 'Organization',
+      icon: FileText,
+      children: [
+        { title: 'Setting', icon: Settings, href: `${basePrefix}/organization/settings` },
+        { title: 'Users', icon: User, href: `${basePrefix}/organization/users` },
+        { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` }
+      ]
     }
   ];
 
@@ -109,11 +121,18 @@ export const Sidebar: React.FC = () => {
   const orgTitle = orgName || 'Organization';
   const orgTitleDisplay = orgTitle.length > 15 ? orgTitle.slice(0, 12) + '...' : orgTitle;
 
+  React.useEffect(() => {
+    const w = collapsed ? '4rem' : '16rem';
+    document.documentElement.style.setProperty('--sidebar-width', w);
+  }, [collapsed]);
+
   return (
-    <div className={cn(
-      "bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex flex-col h-screen fixed left-0 top-0 z-10",
-      collapsed ? "w-16" : "w-64"
-    )}>
+    <div
+      className={cn(
+        "hidden md:flex md:flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 h-screen fixed left-0 top-0 z-10"
+      )}
+      style={{ width: collapsed ? '4rem' : '16rem' }}
+    >
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
         <div className="flex items-center justify-between">
