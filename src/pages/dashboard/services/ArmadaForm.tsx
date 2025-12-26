@@ -9,6 +9,22 @@ import { Badge } from '@/components/ui/badge';
 import { AspectRatio } from '@radix-ui/react-aspect-ratio';
 import { uploadCommon, deleteCommon, api } from '@/lib/api';
 
+const parseDuration = (str: string) => {
+  const units = ['jam', 'hari', 'pekan', 'bulan'];
+  const parts = str.trim().split(' ');
+  let value = str;
+  let unit = 'hari';
+  
+  if (parts.length > 1) {
+    const last = parts[parts.length - 1].toLowerCase();
+    if (units.includes(last)) {
+      unit = last;
+      value = parts.slice(0, -1).join(' ');
+    }
+  }
+  return { value, unit };
+};
+
 export const ArmadaForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -39,7 +55,9 @@ export const ArmadaForm: React.FC = () => {
     ],
     status: 'active',
     images: ['https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop'],
-    description: 'Minibus nyaman untuk perjalanan jarak jauh dengan fasilitas lengkap.'
+    description: 'Minibus nyaman untuk perjalanan jarak jauh dengan fasilitas lengkap.',
+    fuel_type: 'diesel',
+    transmission: 'Manual'
   };
 
   const [formData, setFormData] = useState({
@@ -49,9 +67,16 @@ export const ArmadaForm: React.FC = () => {
     year: isEdit ? sampleData.year : new Date().getFullYear(),
     engine: isEdit ? sampleData.engine : '',
     body: '',
+    fuel_type: isEdit ? sampleData.fuel_type : '',
+    transmission: isEdit ? sampleData.transmission : '',
     features: isEdit ? sampleData.features : [''],
     pickupPoints: isEdit ? sampleData.pickupPoints : [],
-    rentalPrices: isEdit ? sampleData.rentalPrices : [{ duration: '', price: 0, type: 1 }],
+    rentalPrices: isEdit 
+      ? sampleData.rentalPrices.map(p => {
+          const { value, unit } = parseDuration(p.duration);
+          return { ...p, duration: value, unit };
+        })
+      : [{ duration: '', unit: 'hari', price: 0, type: 1 }],
     addons: isEdit ? sampleData.addons : [{ name: '', description: '', price: 0 }],
     status: isEdit ? sampleData.status : 'active',
     images: isEdit ? sampleData.images : [],
@@ -92,6 +117,8 @@ export const ArmadaForm: React.FC = () => {
     if (formData.capacity <= 0) newErrors.capacity = 'Kapasitas harus lebih dari 0';
     if (formData.year <= 0) newErrors.year = 'Tahun produksi harus valid';
     if (!formData.engine.trim()) newErrors.engine = 'Mesin wajib diisi';
+    if (!formData.fuel_type) newErrors.fuel_type = 'Jenis bahan bakar wajib dipilih';
+    if (!formData.transmission) newErrors.transmission = 'Transmisi wajib dipilih';
     if (!formData.description.trim()) newErrors.description = 'Deskripsi wajib diisi';
     if (!formData.thumbnail && formData.images.length === 0 && uploads.length === 0) newErrors.images = 'Minimal 1 gambar wajib diisi';
 
@@ -141,6 +168,7 @@ export const ArmadaForm: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (validateForm()) {
       const addonItems = formData.addons
         .filter((a) => a && (a.name?.trim() || a.description?.trim() || (a.price ?? 0) > 0))
@@ -153,11 +181,13 @@ export const ArmadaForm: React.FC = () => {
         production_year: formData.year,
         engine: formData.engine,
         body: formData.body,
+        fuel_type: formData.fuel_type,
+        transmission: formData.transmission,
         description: formData.description,
         active: formData.status === 'active',
         pickup_point: formData.pickupPoints.map((p: any) => p?.id ?? p),
         fascilities: formData.features.filter((x) => x.trim()),
-        prices: formData.rentalPrices.map((p) => ({ duration: p.duration, rent_category: (typeof p.type === 'number' ? p.type : (String(p.type).toLowerCase() === 'citytour' ? 1 : (String(p.type).toLowerCase() === 'overland' ? 2 : 3))), price: p.price })),
+        prices: formData.rentalPrices.map((p) => ({ duration: parseInt(String(p.duration).replace(/\D/g, '')) || 0, rent_category: (typeof p.type === 'number' ? p.type : (String(p.type).toLowerCase() === 'citytour' ? 1 : (String(p.type).toLowerCase() === 'overland' ? 2 : 3))), price: p.price, uom: (p as any).unit || 'hari' })),
         ...(addonItems.length > 0 ? { addon: addonItems } : {}),
         thumbnail: formData.thumbnailFile || undefined,
         images: formData.imageFiles,
@@ -276,7 +306,7 @@ export const ArmadaForm: React.FC = () => {
   const addRentalPrice = () => {
     setFormData(prev => ({
       ...prev,
-      rentalPrices: [...prev.rentalPrices, { duration: '', price: 0, type: 1 }]
+      rentalPrices: [...prev.rentalPrices, { duration: '', unit: 'hari', price: 0, type: 1 }]
     }));
   };
 
@@ -558,7 +588,8 @@ export const ArmadaForm: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Thumbnail Section - Single image */}
+
+            {/* Thumbnail Section - Single image */}
         <Card>
           <CardHeader>
             <CardTitle>Gambar Thumbnail</CardTitle>
@@ -717,6 +748,40 @@ export const ArmadaForm: React.FC = () => {
                 )}
               </div>
 
+              <div className="relative">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Jenis Bahan Bakar *
+                </label>
+                <Select value={formData.fuel_type} onValueChange={(value) => handleInputChange('fuel_type', value)}>
+                  <SelectTrigger className={errors.fuel_type ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Pilih Bahan Bakar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="diesel">Diesel</SelectItem>
+                    <SelectItem value="bbg">BBG</SelectItem>
+                    <SelectItem value="bensin">Bensin</SelectItem>
+                    <SelectItem value="listrik">Listrik</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.fuel_type && <p className="text-sm text-red-500 mt-1">{errors.fuel_type}</p>}
+              </div>
+
+              <div className="relative">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Transmisi *
+                </label>
+                <Select value={formData.transmission} onValueChange={(value) => handleInputChange('transmission', value)}>
+                  <SelectTrigger className={errors.transmission ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Pilih Transmisi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Manual">Manual</SelectItem>
+                    <SelectItem value="Automatic">Automatic</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.transmission && <p className="text-sm text-red-500 mt-1">{errors.transmission}</p>}
+              </div>
+
               <div>
                 <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
                   Tahun Produksi *
@@ -729,6 +794,7 @@ export const ArmadaForm: React.FC = () => {
                   onChange={(e) => handleInputChange('year', parseInt(e.target.value) || 0)}
                   placeholder="2022"
                   className={errors.year ? 'border-red-500' : ''}
+                  style={{ colorScheme: 'light' }}
                 />
                 {errors.year && <p className="text-sm text-red-500 mt-1">{errors.year}</p>}
               </div>
@@ -744,6 +810,7 @@ export const ArmadaForm: React.FC = () => {
                   onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 0)}
                   placeholder="Contoh: 15"
                   className={errors.capacity ? 'border-red-500' : ''}
+                  style={{ colorScheme: 'light' }}
                 />
                 {errors.capacity && <p className="text-sm text-red-500 mt-1">{errors.capacity}</p>}
               </div>
@@ -921,6 +988,56 @@ export const ArmadaForm: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Gallery Gambar */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Gallery Gambar</span>
+              <div className="flex items-center space-x-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-2">
+                  <Upload className="h-4 w-4" />
+                  <span>Upload Gambar</span>
+                </Button>
+                <span className="text-sm text-gray-500">Maksimal 10 gambar ({uploads.length}/10)</span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {uploads.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {uploads.map((item, index) => (
+                  <div key={index} className="relative group rounded-lg border overflow-hidden">
+                    <AspectRatio ratio={4 / 3}>
+                      <img src={item.preview} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                    </AspectRatio>
+                    {item.status !== 'done' && (
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-white" />
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
         {/* Features - Full Width */}
         <Card>
           <CardHeader>
@@ -977,11 +1094,28 @@ export const ArmadaForm: React.FC = () => {
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
                       Durasi
                     </label>
-                    <Input
-                      value={price.duration}
-                      onChange={(e) => updateRentalPrice(index, 'duration', e.target.value)}
-                      placeholder="Contoh: 1-3 hari"
-                    />
+                    <div className="flex space-x-2">
+                      <Input
+                        value={price.duration}
+                        onChange={(e) => updateRentalPrice(index, 'duration', e.target.value)}
+                        placeholder="1"
+                        className="flex-1"
+                      />
+                      <Select
+                        value={(price as any).unit || 'hari'}
+                        onValueChange={(value) => updateRentalPrice(index, 'unit', value)}
+                      >
+                        <SelectTrigger className="w-28">
+                          <SelectValue placeholder="Satuan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="jam">Jam</SelectItem>
+                          <SelectItem value="hari">Hari</SelectItem>
+                          <SelectItem value="pekan">Pekan</SelectItem>
+                          <SelectItem value="bulan">Bulan</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
@@ -1096,87 +1230,38 @@ export const ArmadaForm: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Gallery Gambar</span>
-              <div className="flex items-center space-x-4">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-2">
-                  <Upload className="h-4 w-4" />
-                  <span>Upload Gambar</span>
-                </Button>
-                <span className="text-sm text-gray-500">Maksimal 10 gambar ({uploads.length}/10)</span>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {uploads.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {uploads.map((item, index) => (
-                  <div key={index} className="relative group rounded-lg border overflow-hidden">
-                    <AspectRatio ratio={4 / 3}>
-                      <img src={item.preview} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
-                    </AspectRatio>
-                    {item.status !== 'done' && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                        <Loader2 className="h-6 w-6 animate-spin text-white" />
-                      </div>
-                    )}
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Bottom Buttons */}
-        <div className="flex justify-between items-center pt-6 border-t">
-          <div className="flex items-center space-x-4">
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              Status:
-            </label>
-            <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Aktif</SelectItem>
-                <SelectItem value="inactive">Tidak Aktif</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex space-x-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/dashboard/partner/services/fleet')}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Batal
-            </Button>
-            <Button type="submit">
-              <Save className="h-4 w-4 mr-2" />
-              {isEdit ? 'Update Armada' : 'Simpan Armada'}
-            </Button>
-          </div>
-        </div>
+    {/* Bottom Buttons */}
+    <div className="flex justify-between items-center pt-6 border-t">
+      <div className="flex items-center space-x-4">
+        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+          Status:
+        </label>
+        <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Aktif</SelectItem>
+            <SelectItem value="inactive">Tidak Aktif</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex space-x-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate('/dashboard/partner/services/fleet')}
+          >
+            <X className="h-4 w-4 mr-2" />
+            Batal
+          </Button>
+        
+          <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white">
+            <Save className="h-4 w-4 mr-2" />
+            {isEdit ? 'Update Armada' : 'Simpan Armada'}
+          </Button>
+      </div>
+    </div>
       </form>
     </div>
   );

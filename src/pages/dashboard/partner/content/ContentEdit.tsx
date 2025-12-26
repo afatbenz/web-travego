@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,6 +9,8 @@ import { api } from '@/lib/api';
 
 const ContentEdit = () => {
   const { section_tag } = useParams();
+  const location = useLocation();
+  const parent = (location.state as { parent?: string } | null)?.parent ?? 'landing-page';
   const navigate = useNavigate();
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,7 @@ const ContentEdit = () => {
   const fetchData = async () => {
     setLoading(true);
     const token = localStorage.getItem('token') ?? '';
-    const response = await api.get<{ content: string }>(`/content/general/detail/${section_tag}`, { Authorization: token });
+    const response = await api.get<{ content: string }>(`/content/${parent}/detail/${section_tag}`, { Authorization: token });
     if (response.status === 'success' && response.data) {
       if (typeof response.data === 'string') {
         setContent(response.data);
@@ -45,16 +47,17 @@ const ContentEdit = () => {
     setSaving(true);
     
     const payload = {
+      parent: parent,
       section_tag: section_tag,
       content: content
     };
     
     const token = localStorage.getItem('token') ?? '';
-    const response = await api.post('/content/general/create', payload, { Authorization: token });
+    const response = await api.post('/content/update', payload, { Authorization: token });
     setSaving(false);
     
     if (response.status === 'success') {
-      navigate('/dashboard/partner/content/content');
+      navigate(-1);
     }
   };
 
