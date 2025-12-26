@@ -14,24 +14,27 @@ import {
 import BackButton from '@/components/common/BackButton';
 import { api } from '@/lib/api';
 
-const PartnerContent = () => {
+export interface Section {
+  id: number;
+  name: string;
+  section_tag: string;
+  status: string;
+  lastUpdated: string;
+}
+
+interface GenericContentPageProps {
+  title: string;
+  description: string;
+  initialSections?: Section[];
+}
+
+const GenericContentPage = ({ title, description, initialSections = [] }: GenericContentPageProps) => {
   const navigate = useNavigate();
   const [previewOpen, setPreviewOpen] = useState(false);
   type PreviewData = { title: string; text: string };
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const initialSections = [
-    { id: 1, name: 'Hero Section - Landing Page', section_tag: 'hero-section', status: 'Checking...', lastUpdated: '2024-01-20' },
-    { id: 7, name: 'Hero Section Subtitle - Landing Page', section_tag: 'sub-hero-section', status: 'Checking...', lastUpdated: '2024-01-20' },
-    { id: 2, name: 'Highlighted Feature List', section_tag: 'highlighted-features', status: 'Checking...', lastUpdated: '2024-01-18' },
-    { id: 3, name: 'Profile Summary', section_tag: 'profile-summary', status: 'Checking...', lastUpdated: '2024-01-15' },
-    { id: 4, name: 'Our Services', section_tag: 'our-service', status: 'Checking...', lastUpdated: '2024-01-22' },
-    { id: 5, name: 'About Us', section_tag: 'about-us', status: 'Checking...', lastUpdated: '2024-01-20' },
-    { id: 6, name: 'Hot Offers and Promo', section_tag: 'hot-offers', status: 'Checking...', lastUpdated: '2024-01-24' },
-  ];
-
-  const [sections, setSections] = useState(initialSections);
+  const [sections, setSections] = useState<Section[]>(initialSections);
 
   type ContentItem = {
     section_tag: string;
@@ -40,6 +43,8 @@ const PartnerContent = () => {
 
   useEffect(() => {
     const fetchContentStatus = async () => {
+      if (sections.length === 0) return;
+      
       const token = localStorage.getItem('token') ?? '';
       const response = await api.get<ContentItem[]>('/content/general', { Authorization: token });
       
@@ -51,7 +56,6 @@ const PartnerContent = () => {
           status: availableTags.includes(section.section_tag) ? 'Available' : 'Not Available'
         })));
       } else {
-        // Fallback if fetch fails or data is invalid, set all to Not Available or keep Checking...
          setSections(prev => prev.map(section => ({
           ...section,
           status: 'Not Available'
@@ -60,7 +64,7 @@ const PartnerContent = () => {
     };
 
     fetchContentStatus();
-  }, []);
+  }, [initialSections]); // Re-run if initialSections changes, though typically static
 
   const handlePreview = async (section_tag: string) => {
     setLoading(true);
@@ -95,8 +99,8 @@ const PartnerContent = () => {
       <div className="flex items-center gap-4">
         <BackButton to="/dashboard/partner/content" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Content Management</h1>
-          <p className="text-gray-600 dark:text-gray-300">Manage your landing page content and sections.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h1>
+          <p className="text-gray-600 dark:text-gray-300">{description}</p>
         </div>
       </div>
 
@@ -116,43 +120,51 @@ const PartnerContent = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sections.map((section) => (
-                <TableRow key={section.id}>
-                  <TableCell className="font-medium">{section.name}</TableCell>
-                  <TableCell className="font-mono text-xs text-gray-500">{section.section_tag}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      section.status === 'Available' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                    }`}>
-                      {section.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{section.lastUpdated}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handlePreview(section.section_tag)}
-                        disabled={loading}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Preview
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate(`/dashboard/partner/content/content/edit/${section.section_tag}`)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                    </div>
+              {sections.length > 0 ? (
+                sections.map((section) => (
+                  <TableRow key={section.id}>
+                    <TableCell className="font-medium">{section.name}</TableCell>
+                    <TableCell className="font-mono text-xs text-gray-500">{section.section_tag}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        section.status === 'Available' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                      }`}>
+                        {section.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>{section.lastUpdated}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handlePreview(section.section_tag)}
+                          disabled={loading}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Preview
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/dashboard/partner/content/content/edit/${section.section_tag}`)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4 text-gray-500">
+                    No sections defined for this page.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -177,4 +189,4 @@ const PartnerContent = () => {
   );
 };
 
-export default PartnerContent;
+export default GenericContentPage;
