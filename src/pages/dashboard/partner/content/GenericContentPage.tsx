@@ -35,7 +35,7 @@ interface GenericContentPageProps {
 const GenericContentPage = ({ title, description, parent, initialSections = [] }: GenericContentPageProps) => {
   const navigate = useNavigate();
   const [previewOpen, setPreviewOpen] = useState(false);
-  type PreviewData = { title: string; text?: string; items?: Array<{ icon: string; label: string; subLabel: string }>; listId?: string };
+  type PreviewData = { title: string; text?: string; image?: string; items?: Array<{ icon: string; label: string; subLabel: string }>; listId?: string };
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [sections, setSections] = useState<Section[]>(initialSections);
@@ -161,6 +161,19 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
           if (id) { listId = id; break; }
         }
         setPreviewData({ title: section.section_tag, items: rows, listId: listId || undefined });
+      } else if ((section.type ?? '') === 'image') {
+        let imageUrl = '';
+        if (typeof response.data === 'string') {
+          imageUrl = response.data;
+        } else if (response.data && typeof response.data === 'object') {
+          const obj = response.data as Record<string, unknown>;
+          if (typeof obj['image'] === 'string') imageUrl = obj['image'];
+          else if (typeof obj['url'] === 'string') imageUrl = obj['url'];
+          else if (typeof obj['file_path'] === 'string') imageUrl = obj['file_path'];
+          else if (typeof obj['path'] === 'string') imageUrl = obj['path'];
+          else if (typeof obj['content'] === 'string') imageUrl = obj['content'];
+        }
+        setPreviewData({ title: section.section_tag, image: imageUrl });
       } else {
         let contentText = '';
         if (typeof response.data === 'string') {
@@ -450,6 +463,14 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
                     ) : null}
                   </div>
                 ))}
+              </div>
+            ) : previewData?.image ? (
+              <div className="flex justify-center bg-gray-100 dark:bg-gray-800 p-4 rounded-md">
+                <img 
+                  src={previewData.image} 
+                  alt={previewData.title} 
+                  className="max-w-full max-h-[60vh] object-contain rounded-md" 
+                />
               </div>
             ) : (
               <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md overflow-auto max-h-[60vh] text-sm whitespace-pre-wrap">

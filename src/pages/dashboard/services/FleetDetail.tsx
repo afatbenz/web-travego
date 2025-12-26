@@ -25,7 +25,7 @@ type FleetMeta = {
 };
 
 type FleetPickup = { uuid: string; city_id: number; city_name: string };
-type FleetPricing = { uuid: string; duration: number; rent_type: number; rent_type_label: string; price: number; disc_amount: number; disc_price: number };
+type FleetPricing = { uuid: string; duration: number; rent_type: number; rent_type_label: string; price: number; disc_amount: number; disc_price: number; uom: string };
 type FleetImageItem = { uuid: string; path_file: string };
 
 type FleetDetailData = {
@@ -113,7 +113,8 @@ export const FleetDetail: React.FC = () => {
                 const price = typeof obj.price === 'number' ? obj.price : 0;
                 const disc_amount = typeof obj.disc_amount === 'number' ? obj.disc_amount : 0;
                 const disc_price = typeof obj.disc_price === 'number' ? obj.disc_price : 0;
-                return uuid ? { uuid, duration, rent_type, rent_type_label, price, disc_amount, disc_price } : null;
+                const uom = typeof obj.uom === 'string' ? obj.uom : 'hari';
+                return uuid ? { uuid, duration, rent_type, rent_type_label, price, disc_amount, disc_price, uom } : null;
               })
               .filter((v): v is FleetPricing => Boolean(v))
           : [];
@@ -180,7 +181,7 @@ export const FleetDetail: React.FC = () => {
                 {fleet.meta.description && (
                   <div>
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Deskripsi</label>
-                    <p className="text-gray-900 dark:text-white">{fleet.meta.description}</p>
+                    <div className="text-gray-900 dark:text-white" dangerouslySetInnerHTML={{ __html: fleet.meta.description || '' }} />
                   </div>
                 )}
 
@@ -213,7 +214,7 @@ export const FleetDetail: React.FC = () => {
                       {fleet.pricing.map((pr) => (
                         <div key={pr.uuid} className="border rounded-lg p-4">
                           <p className="text-sm text-gray-600 dark:text-gray-300">{pr.rent_type_label}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Durasi {pr.duration} hari</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Durasi {pr.duration} {pr.uom}</p>
                           {pr.disc_price > 0 ? (
                             <div className="mt-2">
                               <p className="text-sm text-gray-500 line-through">{formatCurrency(pr.price)}</p>
