@@ -1,9 +1,26 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { KeyRound } from 'lucide-react';
+import { api } from '@/lib/api';
 
 export const OrganizationOpenApi: React.FC = () => {
+  const [apiToken, setApiToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      setLoading(true);
+      const token = localStorage.getItem('token') ?? '';
+      const res = await api.get<{ api_token: string }>("/organization/api-config", { Authorization: token });
+      setLoading(false);
+      if (res.status === 'success' && res.data && typeof res.data.api_token === 'string') {
+        setApiToken(res.data.api_token);
+      }
+    };
+    fetchConfig();
+  }, []);
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
@@ -16,12 +33,18 @@ export const OrganizationOpenApi: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
+            <div className="p-4 border rounded-lg">
+              <div className="mb-4">
                 <div className="text-sm text-gray-500">Current Key</div>
-                <div className="font-mono text-sm">****************</div>
+                <div className="font-mono text-sm break-all mt-1">
+                  {loading ? 'Loading...' : showToken ? apiToken || '' : '****************'}
+                </div>
               </div>
-              <Button className="bg-blue-600 hover:bg-blue-700"><KeyRound className="h-4 w-4 mr-2" />Generate New</Button>
+              <div>
+                <Button variant="outline" size="sm" onClick={() => setShowToken((s) => !s)}>
+                  {showToken ? 'Hide' : 'Show'}
+                </Button>
+              </div>
             </div>
             <div className="text-sm text-gray-600">
               Simpan API key anda secara aman. API key digunakan untuk mengakses endpoint Open API.
