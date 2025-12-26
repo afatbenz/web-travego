@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, Layout, Image, ShoppingBag, Tag, Wrench, Users, Phone, CheckCircle, Share2, CreditCard } from 'lucide-react';
+import { Settings, Layout, Image, ShoppingBag, Tag, Wrench, Users, CheckCircle, CreditCard } from 'lucide-react';
 
 const ContentMenu = () => {
   const navigate = useNavigate();
@@ -49,22 +49,10 @@ const ContentMenu = () => {
       description: 'Manage team member profiles'
     },
     { 
-      title: 'Contact', 
-      path: '/dashboard/partner/content/contact',
-      icon: <Phone className="h-8 w-8 mb-2 text-yellow-600" />,
-      description: 'Manage contact information'
-    },
-    { 
       title: 'Why Choose Us', 
       path: '/dashboard/partner/content/why-choose-us',
       icon: <CheckCircle className="h-8 w-8 mb-2 text-cyan-600" />,
       description: 'Manage why choose us section'
-    },
-    { 
-      title: 'Social Media', 
-      path: '/dashboard/partner/content/social-media',
-      icon: <Share2 className="h-8 w-8 mb-2 text-pink-600" />,
-      description: 'Manage social media links'
     },
     { 
       title: 'Bank Account', 

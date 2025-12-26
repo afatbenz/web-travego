@@ -27,14 +27,14 @@ function extractData<T>(payload: unknown): T | undefined {
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   try {
     const defaultHeaders: Record<string, string> = { Accept: 'application/json' };
-    if (init?.body !== undefined) {
+    if (init?.body !== undefined && !(init.body instanceof FormData)) {
       defaultHeaders['Content-Type'] = 'application/json';
     }
     const mergedHeaders: Record<string, string> = {
       ...defaultHeaders,
       ...(init?.headers as Record<string, string> | undefined) ?? {},
     };
-    if (init?.body !== undefined) {
+    if (init?.body !== undefined && !(init.body instanceof FormData)) {
       mergedHeaders['Content-Type'] = 'application/json';
     }
 
@@ -85,14 +85,14 @@ export const api = {
   post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
     request<T>(path, {
       method: 'POST',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body instanceof FormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
       headers,
     }),
 
   put: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
     request<T>(path, {
       method: 'PUT',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body instanceof FormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
       headers,
     }),
 
