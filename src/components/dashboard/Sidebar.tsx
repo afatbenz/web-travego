@@ -13,10 +13,6 @@ import {
   CheckCircle,
   Package,
   Car,
-  Image,
-  Type,
-  Share2,
-  CreditCard,
   Settings,
   User,
   Code
@@ -92,22 +88,13 @@ export const Sidebar: React.FC = () => {
       ]
     },
     {
-      title: 'Content Management',
-      icon: FileText,
+      title: 'Setting',
+      icon: Settings,
       children: [
-        { title: 'Image and Layout', icon: Image, href: `${basePrefix}/content/image-layout` },
-        { title: 'Content', icon: Type, href: `${basePrefix}/content/content` },
-        { title: 'Social Media', icon: Share2, href: `${basePrefix}/content/social-media` },
-        { title: 'Bank Account', icon: CreditCard, href: `${basePrefix}/content/bank-account` }
-      ]
-    },
-    {
-      title: 'Organization',
-      icon: FileText,
-      children: [
-        { title: 'Setting', icon: Settings, href: `${basePrefix}/organization/settings` },
+        { title: 'Organization', icon: FileText, href: `${basePrefix}/organization/settings` },
         { title: 'Users', icon: User, href: `${basePrefix}/organization/users` },
-        { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` }
+        { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
+        { title: 'Content Management', icon: FileText, href: `${basePrefix}/content` }
       ]
     }
   ];

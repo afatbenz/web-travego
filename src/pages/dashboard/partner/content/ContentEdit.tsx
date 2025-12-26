@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
+import BackButton from '@/components/common/BackButton';
 import { api } from '@/lib/api';
 
 const ContentEdit = () => {
@@ -58,15 +59,13 @@ const ContentEdit = () => {
   };
 
   const handleCancel = () => {
-    navigate('/dashboard/partner/content/content');
+    navigate(-1);
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-4">
-        <Button variant="ghost" size="icon" onClick={handleCancel}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton />
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Content</h1>
           <p className="text-gray-600 dark:text-gray-300">

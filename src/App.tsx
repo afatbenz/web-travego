@@ -57,6 +57,19 @@ import { OrganizationOpenApi } from '@/pages/dashboard/organization/Organization
 import { PartnerProfile } from '@/pages/dashboard/partner/Profile';
 import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
 import PartnerContent from '@/pages/dashboard/partner/content/Content';
+import ContentMenu from '@/pages/dashboard/partner/content/ContentMenu';
+import { 
+  GeneralContent, 
+  ImageSliderContent, 
+  CatalogueContent, 
+  HotOffersContent, 
+  ServicesContent, 
+  TeamContent, 
+  ContactContent,
+  WhyChooseUsContent,
+  SocialMediaContent,
+  BankAccountContent
+} from '@/pages/dashboard/partner/content/Pages';
 import ImageLayout from '@/pages/dashboard/partner/content/ImageLayout';
 import ContentEdit from '@/pages/dashboard/partner/content/ContentEdit';
 import { OrganizationPending } from '@/pages/auth/OrganizationPending';
@@ -452,9 +465,69 @@ function App() {
               <PartnerProfileEdit />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/content" element={
+          <Route path="/dashboard/partner/content" element={
+            <DashboardLayout>
+              <ContentMenu />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/general" element={
+            <DashboardLayout>
+              <GeneralContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/landing-page" element={
             <DashboardLayout>
               <PartnerContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/image-slider" element={
+            <DashboardLayout>
+              <ImageSliderContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/catalogue" element={
+            <DashboardLayout>
+              <CatalogueContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/catalogues" element={
+            <DashboardLayout>
+              <CatalogueContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/hot-offers" element={
+            <DashboardLayout>
+              <HotOffersContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/services" element={
+            <DashboardLayout>
+              <ServicesContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/team" element={
+            <DashboardLayout>
+              <TeamContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/contact" element={
+            <DashboardLayout>
+              <ContactContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/why-choose-us" element={
+            <DashboardLayout>
+              <WhyChooseUsContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/social-media" element={
+            <DashboardLayout>
+              <SocialMediaContent />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/content/bank-account" element={
+            <DashboardLayout>
+              <BankAccountContent />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/content/content/edit/:section_tag" element={
