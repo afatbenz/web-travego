@@ -7,6 +7,7 @@ export type ApiResponse<T> = {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api';
 import { showAlert } from '@/hooks/use-alert';
+import Swal from 'sweetalert2';
 
 function extractMessage(payload: unknown): string | undefined {
   if (payload && typeof payload === 'object') {
@@ -60,12 +61,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
 
     if (res.status === 400) {
       const message = extractMessage(json) ?? 'Bad request';
-      showAlert({ title: 'Permintaan tidak valid', description: message, type: 'warning' });
+      Swal.fire({
+        icon: 'warning',
+        title: 'Permintaan tidak valid',
+        text: message,
+      });
       return { status: 'error', statusCode: 400, message };
     }
 
     if (res.status === 500) {
-      showAlert({ title: 'Kesalahan Server', description: 'terjadi kesalahan', type: 'error' });
+      Swal.fire({
+        icon: 'error',
+        title: 'Kesalahan Server',
+        text: 'Sepertinya ada masalah pada server. Ulangi beberapa saat lagi',
+      });
       return { status: 'error', statusCode: 500, message: 'terjadi kesalahan' };
     }
 

@@ -1129,9 +1129,9 @@ export const ArmadaForm: React.FC = () => {
                         <SelectValue placeholder="Pilih jenis sewa" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">Citytour</SelectItem>
-                        <SelectItem value="2">Overland</SelectItem>
-                        <SelectItem value="3">Pickup / Drop Only</SelectItem>
+                        <SelectItem value="1">Citytour (Dalam Kota)</SelectItem>
+                        <SelectItem value="2">Overland (Luar Kota)</SelectItem>
+                        <SelectItem value="3">Citytour Pickup / Drop only</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

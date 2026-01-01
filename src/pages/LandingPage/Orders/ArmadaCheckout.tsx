@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, Users, MapPin, Plus, Minus, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Users, MapPin, Plus, Minus, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
+import { api } from '@/lib/api';
 
 // Sample data - in real app, this would come from API
 const sampleArmadaData = {
@@ -54,6 +55,8 @@ export const ArmadaCheckout: React.FC = () => {
     participants: 1
   });
 
+  const [loading, setLoading] = useState(false);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -95,11 +98,43 @@ export const ArmadaCheckout: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Armada checkout data:', formData);
-    // Handle checkout submission
-    navigate(`/payment/armada/${data.id}`);
+    setLoading(true);
+
+    const payload = {
+      order_type: 'fleet',
+      item_id: data.id,
+      customer_name: formData.fullName,
+      customer_email: formData.email,
+      customer_phone: formData.phone,
+      emergency_contact: formData.emergencyContact,
+      start_date: formData.pickupDate,
+      start_time: formData.pickupTime,
+      end_date: formData.returnDate,
+      pickup_location: formData.pickupLocation,
+      pickup_address: formData.pickupAddress,
+      destinations: formData.destinations.filter(d => d.trim()),
+      participants: formData.participants,
+      total_price: totalPrice,
+      duration: days
+    };
+
+    try {
+      const res = await api.post('/order/create', payload);
+      if (res.status === 'success') {
+        const orderData = res.data as { id?: string | number };
+        if (orderData?.id) {
+          navigate(`/payment/order/${orderData.id}`);
+        } else {
+          navigate(`/payment/armada/${data.id}`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to create order:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const calculateDays = () => {
@@ -115,7 +150,7 @@ export const ArmadaCheckout: React.FC = () => {
 
   const days = calculateDays();
   const basePrice = 800000;
-  const totalPrice = basePrice * days;
+  const totalPrice = basePrice; // + addons if any
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -399,8 +434,9 @@ export const ArmadaCheckout: React.FC = () => {
 
               {/* Submit Button */}
               <div className="flex justify-end">
-                <Button type="submit" size="lg" className="px-8">
-                  Lanjutkan Pembayaran
+                <Button type="submit" size="lg" className="px-8" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {loading ? 'Memproses...' : 'Lanjutkan Pembayaran'}
                 </Button>
               </div>
             </form>
@@ -436,7 +472,7 @@ export const ArmadaCheckout: React.FC = () => {
                   <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-300">
-                        Harga per hari
+                        Harga Sewa
                       </span>
                       <span className="text-gray-900 dark:text-white">
                         {data.price}
