@@ -47,7 +47,14 @@ export const Login: React.FC = () => {
           const role = json.role ?? json.user_role ?? 'user';
           const isAdmin = json.is_admin ?? json.isAdmin ?? false;
           localStorage.setItem('user', JSON.stringify({ name, email, role }));
-          navigate(isAdmin ? '/dashboard' : '/dashboard/partner');
+          
+          const redirectPath = localStorage.getItem('redirect_path');
+          if (redirectPath) {
+            localStorage.removeItem('redirect_path');
+            navigate(redirectPath);
+          } else {
+            navigate(isAdmin ? '/dashboard' : '/dashboard/partner');
+          }
           return;
         } catch {
           // ignore decode errors
@@ -56,7 +63,14 @@ export const Login: React.FC = () => {
       if (res.data?.user) {
         localStorage.setItem('user', JSON.stringify(res.data.user));
       }
-      navigate('/dashboard/partner');
+      
+      const redirectPath = localStorage.getItem('redirect_path');
+      if (redirectPath) {
+        localStorage.removeItem('redirect_path');
+        navigate(redirectPath);
+      } else {
+        navigate('/dashboard/partner');
+      }
     }
   };
 

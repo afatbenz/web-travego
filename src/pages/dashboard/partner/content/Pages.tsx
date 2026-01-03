@@ -104,13 +104,4 @@ export const SocialMediaContent = () => (
   />
 );
 
-export const BankAccountContent = () => (
-  <GenericContentPage 
-    title="Bank Account" 
-    description="Manage bank account details."
-    parent="bank-account"
-    initialSections={[
-      { id: 1, name: 'Bank Accounts', description: 'List of bank accounts', section_tag: 'bank-accounts', status: 'Checking...', lastUpdated: '-', type: 'list' }
-    ]}
-  />
-);
+export { BankAccountContent } from './BankAccount';

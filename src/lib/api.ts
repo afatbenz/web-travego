@@ -69,6 +69,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
       return { status: 'error', statusCode: 400, message };
     }
 
+    if (res.status === 401) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Sesi Habis',
+        text: 'Sesi Anda telah berakhir. Anda akan dialihkan ke halaman login.',
+        timer: 5000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+      
+      const currentPath = window.location.pathname + window.location.search;
+      if (!currentPath.includes('/auth/login')) {
+        localStorage.setItem('redirect_path', currentPath);
+      }
+      
+      window.location.href = '/auth/login';
+      return { status: 'error', statusCode: 401, message: 'Unauthorized' };
+    }
+
     if (res.status === 500) {
       Swal.fire({
         icon: 'error',
@@ -148,7 +169,7 @@ async function postMultipart<T>(path: string, formData: FormData, headers?: Reco
   }
 }
 
-export async function uploadCommon(type: 'armada' | 'package', files: File[], token?: string) {
+export async function uploadCommon(type: 'armada' | 'package' | 'bank', files: File[], token?: string) {
   const fd = new FormData();
   fd.append('type', type);
   files.forEach((f) => fd.append('files', f));
