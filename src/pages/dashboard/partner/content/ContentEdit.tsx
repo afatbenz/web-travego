@@ -95,7 +95,7 @@ const ContentEdit = () => {
           )}
           
           <div className="flex space-x-3 pt-4">
-            <Button onClick={handleSave} disabled={saving || loading} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleSave} disabled={saving || loading} className="bg-blue-600 hover:bg-blue-700 text-white">
               <Save className="h-4 w-4 mr-2" />
               {saving ? 'Saving...' : 'Simpan'}
             </Button>

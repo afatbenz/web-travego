@@ -15,7 +15,15 @@ import {
   Car,
   Settings,
   User,
-  Code
+  Users,
+  Code,
+  Shield,
+  Calendar,
+  UserCheck,
+  Gift,
+  CalendarClock,
+  Ticket,
+  PlusCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -66,9 +74,9 @@ export const Sidebar: React.FC = () => {
       title: 'Orders',
       icon: ShoppingBag,
       children: [
-        { title: 'Semua Order', icon: ShoppingBag, href: `${basePrefix}/orders/all-table` },
-        { title: 'Order Berlangsung', icon: Clock, href: `${basePrefix}/orders/ongoing-table` },
-        { title: 'Order Sukses', icon: CheckCircle, href: `${basePrefix}/orders/success` }
+        { title: 'Fleet Orders', icon: Car, href: `${basePrefix}/orders/fleet` },
+        { title: 'Tour Orders', icon: Package, href: `${basePrefix}/orders/tour` },
+        { title: 'Waiting Approval', icon: Clock, href: `${basePrefix}/orders/waiting-approval` }
       ]
     },
     {
@@ -83,8 +91,47 @@ export const Sidebar: React.FC = () => {
       title: 'Finance',
       icon: DollarSign,
       children: [
-        { title: 'Expenses', icon: DollarSign, href: `${basePrefix}/expenses` },
-        { title: 'Report', icon: FileText, href: `${basePrefix}/reports` }
+        { title: 'Revenue', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
+        { title: 'General Ledger', icon: FileText, href: `${basePrefix}/finance/general-ledger` },
+        { title: 'General Expenses', icon: ShoppingBag, href: `${basePrefix}/finance/general-expenses` },
+        { title: 'Fleet Expenses', icon: Car, href: `${basePrefix}/finance/fleet-expenses` },
+        { title: 'Operational Expenses', icon: Settings, href: `${basePrefix}/finance/operational-expenses` }
+      ]
+    },
+    {
+      title: 'Customers',
+      icon: Users,
+      children: [
+        { title: 'All Customers', icon: Users, href: `${basePrefix}/customers/all` },
+        { title: 'Registered Customers', icon: UserCheck, href: `${basePrefix}/customers/registered` },
+        { title: 'Customer Rewards', icon: Gift, href: `${basePrefix}/customers/rewards` }
+      ]
+    },
+    {
+      title: 'Schedules',
+      icon: Calendar,
+      children: [
+        { title: 'Fleet Management', icon: Car, href: `${basePrefix}/schedules/fleet-management` },
+        { title: 'Team Schedules', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
+        { title: 'Leave Management', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
+      ]
+    },
+    {
+      title: 'Organization',
+      icon: User,
+      children: [
+        { title: 'My Company', icon: FileText, href: `${basePrefix}/organization/company` },
+        { title: 'Team Members', icon: Users, href: `${basePrefix}/organization/team-members` },
+        { title: 'Roles', icon: Shield, href: `${basePrefix}/organization/roles` },
+        { title: 'Division', icon: Package, href: `${basePrefix}/organization/division` }
+      ]
+    },
+    {
+      title: 'Coupons',
+      icon: Ticket,
+      children: [
+        { title: 'All Coupons', icon: Ticket, href: `${basePrefix}/coupons/all` },
+        { title: 'Add Coupon', icon: PlusCircle, href: `${basePrefix}/coupons/add` }
       ]
     },
     {
@@ -210,6 +257,12 @@ export const Sidebar: React.FC = () => {
           <Link
             key={index}
             to={item.href}
+            onClick={() => {
+              if (item.title === 'Logout') {
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+              }
+            }}
             className={cn(
               "flex items-center space-x-3 px-2 py-1.5 rounded-lg transition-all duration-200",
               "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"

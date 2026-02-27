@@ -41,7 +41,7 @@ export const PartnerProfile: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profil Partner</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">Informasi profil anda</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => navigate('/dashboard/partner/profile/edit')}>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate('/dashboard/partner/profile/edit')}>
           Edit Profil
         </Button>
       </div>

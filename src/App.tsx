@@ -54,6 +54,9 @@ import { OrganizationJoinDashboard } from '@/pages/dashboard/organization/Organi
 import { OrganizationSettings } from '@/pages/dashboard/organization/OrganizationSettings';
 import { OrganizationUsers } from '@/pages/dashboard/organization/OrganizationUsers';
 import { OrganizationOpenApi } from '@/pages/dashboard/organization/OrganizationOpenApi';
+import { OrganizationCompany } from '@/pages/dashboard/organization/OrganizationCompany';
+import { OrganizationRoles } from '@/pages/dashboard/organization/OrganizationRoles';
+import { OrganizationDivision } from '@/pages/dashboard/organization/OrganizationDivision';
 import { PartnerProfile } from '@/pages/dashboard/partner/Profile';
 import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
 import PartnerContent from '@/pages/dashboard/partner/content/Content';
@@ -89,6 +92,27 @@ import { TeamMember } from '@/pages/dashboard/team/TeamMember';
 import { ScheduleArmada } from '@/pages/dashboard/team/ScheduleArmada';
 import { AddSchedule } from '@/pages/dashboard/team/AddSchedule';
 
+// New Customers Pages
+import { AllCustomers } from '@/pages/dashboard/customers/AllCustomers';
+import { RegisteredCustomers } from '@/pages/dashboard/customers/RegisteredCustomers';
+import { CustomerRewards } from '@/pages/dashboard/customers/CustomerRewards';
+
+// New Schedules Pages
+import { FleetManagement } from '@/pages/dashboard/schedules/FleetManagement';
+import { TeamSchedules } from '@/pages/dashboard/schedules/TeamSchedules';
+import { LeaveManagement } from '@/pages/dashboard/schedules/LeaveManagement';
+
+// Finance Pages
+import { Revenue } from '@/pages/dashboard/finance/Revenue';
+import { GeneralLedger } from '@/pages/dashboard/finance/GeneralLedger';
+import { GeneralExpenses } from '@/pages/dashboard/finance/GeneralExpenses';
+import { FleetExpenses } from '@/pages/dashboard/finance/FleetExpenses';
+import { OperationalExpenses } from '@/pages/dashboard/finance/OperationalExpenses';
+
+// New Coupons Pages
+import { AllCoupons } from '@/pages/dashboard/coupons/AllCoupons';
+import { AddCoupon } from '@/pages/dashboard/coupons/AddCoupon';
+
 // Layout wrapper for public pages
 const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -98,6 +122,32 @@ const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         {children}
       </main>
       <Footer />
+    </div>
+  );
+};
+
+const PartnerNotFound: React.FC = () => {
+  return (
+    <div className="w-full min-h-[60vh] flex items-center justify-center">
+      <div className="text-center space-y-2">
+        <p className="text-5xl font-bold text-gray-900 dark:text-white">404</p>
+        <p className="text-gray-600 dark:text-gray-300">Halaman tidak ditemukan</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Area partner</p>
+      </div>
+    </div>
+  );
+};
+
+const CustomersPage: React.FC = () => {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Customers</h1>
+        <p className="text-gray-600 dark:text-gray-300 mt-1">Daftar pelanggan organisasi</p>
+      </div>
+      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+        <p className="text-gray-600 dark:text-gray-300">Belum ada data pelanggan.</p>
+      </div>
     </div>
   );
 };
@@ -286,62 +336,255 @@ function App() {
               <OrganizationOpenApi />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/organization/company" element={
+            <DashboardLayout>
+              <OrganizationCompany />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/company" element={
+            <DashboardLayout>
+              <OrganizationCompany />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/team-members" element={
+            <DashboardLayout>
+              <TeamMember />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/team-members" element={
+            <DashboardLayout>
+              <TeamMember />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/customers" element={
+            <DashboardLayout>
+              <CustomersPage />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/customers" element={
+            <DashboardLayout>
+              <CustomersPage />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/roles" element={
+            <DashboardLayout>
+              <OrganizationRoles />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/roles" element={
+            <DashboardLayout>
+              <OrganizationRoles />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/division" element={
+            <DashboardLayout>
+              <OrganizationDivision />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/division" element={
+            <DashboardLayout>
+              <OrganizationDivision />
+            </DashboardLayout>
+          } />
+
+          {/* Customers Routes */}
+          <Route path="/dashboard/partner/customers/all" element={
+            <DashboardLayout>
+              <AllCustomers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/customers/all" element={
+            <DashboardLayout>
+              <AllCustomers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/customers/registered" element={
+            <DashboardLayout>
+              <RegisteredCustomers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/customers/registered" element={
+            <DashboardLayout>
+              <RegisteredCustomers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/customers/rewards" element={
+            <DashboardLayout>
+              <CustomerRewards />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/customers/rewards" element={
+            <DashboardLayout>
+              <CustomerRewards />
+            </DashboardLayout>
+          } />
+
+          {/* Schedules Routes */}
+          <Route path="/dashboard/partner/schedules/fleet-management" element={
+            <DashboardLayout>
+              <FleetManagement />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/schedules/fleet-management" element={
+            <DashboardLayout>
+              <FleetManagement />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/schedules/team-schedules" element={
+            <DashboardLayout>
+              <TeamSchedules />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/schedules/team-schedules" element={
+            <DashboardLayout>
+              <TeamSchedules />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/schedules/leave-management" element={
+            <DashboardLayout>
+              <LeaveManagement />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/schedules/leave-management" element={
+            <DashboardLayout>
+              <LeaveManagement />
+            </DashboardLayout>
+          } />
+
+          {/* Finance Routes */}
+          <Route path="/dashboard/partner/finance/revenue" element={
+            <DashboardLayout>
+              <Revenue />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/finance/revenue" element={
+            <DashboardLayout>
+              <Revenue />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/finance/general-ledger" element={
+            <DashboardLayout>
+              <GeneralLedger />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/finance/general-ledger" element={
+            <DashboardLayout>
+              <GeneralLedger />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/finance/general-expenses" element={
+            <DashboardLayout>
+              <GeneralExpenses />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/finance/general-expenses" element={
+            <DashboardLayout>
+              <GeneralExpenses />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/finance/fleet-expenses" element={
+            <DashboardLayout>
+              <FleetExpenses />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/finance/fleet-expenses" element={
+            <DashboardLayout>
+              <FleetExpenses />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/finance/operational-expenses" element={
+            <DashboardLayout>
+              <OperationalExpenses />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/finance/operational-expenses" element={
+            <DashboardLayout>
+              <OperationalExpenses />
+            </DashboardLayout>
+          } />
+
+          {/* Coupons Routes */}
+          <Route path="/dashboard/partner/coupons/all" element={
+            <DashboardLayout>
+              <AllCoupons />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/coupons/all" element={
+            <DashboardLayout>
+              <AllCoupons />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/coupons/add" element={
+            <DashboardLayout>
+              <AddCoupon />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/coupons/add" element={
+            <DashboardLayout>
+              <AddCoupon />
+            </DashboardLayout>
+          } />
+
           <Route path="/dashboard/organization/open-api" element={
             <DashboardLayout>
               <OrganizationOpenApi />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/all-table" element={
+          <Route path="/dashboard/partner/orders/fleet" element={
             <DashboardLayout>
               <OrdersTable 
                 status="all" 
-                title="Semua Order" 
-                description="Kelola semua pesanan pelanggan" 
+                type="fleet"
+                title="Fleet Orders" 
+                description="Kelola pesanan armada" 
               />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/orders/all-table" element={
+          <Route path="/dashboard/orders/fleet" element={
             <DashboardLayout>
               <OrdersTable 
                 status="all" 
-                title="Semua Order" 
-                description="Kelola semua pesanan pelanggan" 
+                type="fleet"
+                title="Fleet Orders" 
+                description="Kelola pesanan armada" 
               />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/ongoing-table" element={
+          <Route path="/dashboard/partner/orders/tour" element={
             <DashboardLayout>
               <OrdersTable 
-                status="ongoing" 
-                title="Order Berlangsung" 
-                description="Monitor pesanan yang sedang berlangsung" 
+                status="all" 
+                type="tour"
+                title="Tour Orders" 
+                description="Kelola pesanan paket wisata" 
               />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/orders/ongoing-table" element={
+          <Route path="/dashboard/orders/tour" element={
             <DashboardLayout>
               <OrdersTable 
-                status="ongoing" 
-                title="Order Berlangsung" 
-                description="Monitor pesanan yang sedang berlangsung" 
+                status="all" 
+                type="tour"
+                title="Tour Orders" 
+                description="Kelola pesanan paket wisata" 
               />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/success" element={
+          <Route path="/dashboard/partner/orders/waiting-approval" element={
             <DashboardLayout>
               <OrdersTable 
-                status="success" 
-                title="Order Sukses" 
-                description="Pesanan yang telah selesai dengan sukses" 
+                status="waiting-approval" 
+                title="Waiting Approval" 
+                description="Pesanan menunggu persetujuan" 
               />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/orders/success" element={
+          <Route path="/dashboard/orders/waiting-approval" element={
             <DashboardLayout>
               <OrdersTable 
-                status="success" 
-                title="Order Sukses" 
-                description="Pesanan yang telah selesai dengan sukses" 
+                status="waiting-approval" 
+                title="Waiting Approval" 
+                description="Pesanan menunggu persetujuan" 
               />
             </DashboardLayout>
           } />
@@ -538,6 +781,12 @@ function App() {
           <Route path="/dashboard/partner/content/image-layout" element={
             <DashboardLayout>
               <ImageLayout />
+            </DashboardLayout>
+          } />
+
+          <Route path="/dashboard/partner/*" element={
+            <DashboardLayout>
+              <PartnerNotFound />
             </DashboardLayout>
           } />
 

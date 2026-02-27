@@ -1,0 +1,15 @@
+import React from 'react';
+
+export const FleetExpenses: React.FC = () => {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Fleet Expenses</h1>
+        <p className="text-gray-600 dark:text-gray-300 mt-1">Track fleet-related expenses</p>
+      </div>
+      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+        <p className="text-gray-600 dark:text-gray-300">No fleet expense data available.</p>
+      </div>
+    </div>
+  );
+};

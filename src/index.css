@@ -134,62 +134,12 @@ button:focus-visible {
   }
 }
 
-@layer base {
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus,
-  textarea:-webkit-autofill,
-  textarea:-webkit-autofill:hover,
-  textarea:-webkit-autofill:focus,
-  select:-webkit-autofill {
-    -webkit-text-fill-color: hsl(var(--foreground));
-    caret-color: hsl(var(--foreground));
-    box-shadow: 0 0 0px 1000px transparent inset;
-    background-color: transparent !important;
-    transition: background-color 9999s ease-out 0s;
+@layer utilities {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
   }
-}
-
-/* Sidebar scrollbar styling */
-.sidebar-scroll {
-  scrollbar-width: thin;            /* Firefox */
-  scrollbar-color: #9CA3AF #FFFFFF; /* thumb color #9CA3AF (gray-400), track white */
-}
-.sidebar-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-.sidebar-scroll::-webkit-scrollbar-track {
-  background: #FFFFFF;              /* white track */
-}
-.sidebar-scroll::-webkit-scrollbar-thumb {
-  background-color: #9CA3AF;        /* gray thumb */
-  border-radius: 9999px;
-}
-
-/* DayPicker dropdown selects to white */
-.rdp-caption select,
-.rdp-caption_dropdowns select,
-.rdp-dropdown,
-.rdp-dropdown_month,
-.rdp-dropdown_year {
-  background-color: #ffffff !important;
-  color: #111827 !important; /* gray-900 */
-}
-
-.rdp-caption_label {
-  display: none !important;
-}
-
-/* Ensure blue buttons have white text */
-.bg-blue-600,
-.bg-blue-700,
-.hover\:bg-blue-700:hover,
-.hover\:bg-blue-600:hover {
-  color: #ffffff !important;
-}
-
-/* SweetAlert2 Z-Index Fix */
-.swal2-container {
-  z-index: 9999 !important;
-  pointer-events: auto !important;
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

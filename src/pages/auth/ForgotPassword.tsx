@@ -83,7 +83,7 @@ export const ForgotPassword: React.FC = () => {
           </p>
         </div>
 
-        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700">
+        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white">
           Kirim Reset Password
         </Button>
 

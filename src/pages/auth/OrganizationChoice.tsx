@@ -27,7 +27,7 @@ export const OrganizationChoice: React.FC = () => {
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
-          <Button onClick={handleCreate} className="h-12 w-full bg-blue-600 hover:bg-blue-700">
+          <Button onClick={handleCreate} className="h-12 w-full bg-blue-600 hover:bg-blue-700 text-white">
             <Building2 className="h-4 w-4 mr-2" />
             Buat Organisasi
           </Button>

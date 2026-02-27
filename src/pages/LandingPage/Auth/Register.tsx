@@ -283,7 +283,7 @@ export const Register: React.FC = () => {
           </label>
         </div>
 
-        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700" disabled={!formData.acceptTerms || submitting}>
+        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white" disabled={!formData.acceptTerms || submitting}>
           {submitting ? (<span className="flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Mendaftar...</span>) : 'Daftar Sekarang'}
         </Button>
 
@@ -330,7 +330,7 @@ export const Register: React.FC = () => {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setPolicyOpen(false)}>Tutup</Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => { setPolicyOpen(false); setFormData(prev => ({ ...prev, acceptTerms: true })); }}>Setuju</Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => { setPolicyOpen(false); setFormData(prev => ({ ...prev, acceptTerms: true })); }}>Setuju</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

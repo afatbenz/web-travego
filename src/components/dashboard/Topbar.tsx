@@ -113,7 +113,14 @@ export const Topbar: React.FC = () => {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600 cursor-pointer">
+              <DropdownMenuItem 
+                className="text-red-600 cursor-pointer"
+                onClick={() => {
+                  localStorage.removeItem('user');
+                  localStorage.removeItem('token');
+                  navigate('/auth/login');
+                }}
+              >
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

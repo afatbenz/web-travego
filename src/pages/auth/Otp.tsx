@@ -143,7 +143,7 @@ export const Otp: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3">
-          <Button onClick={handleVerify} disabled={verifying || digits.join('').length !== 6} className="h-12 w-full bg-blue-600 hover:bg-blue-700">
+          <Button onClick={handleVerify} disabled={verifying || digits.join('').length !== 6} className="h-12 w-full bg-blue-600 hover:bg-blue-700 text-white">
             {verifying ? (<span className="flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memverifikasi...</span>) : 'Verifikasi OTP'}
           </Button>
           <Button variant="outline" onClick={handleResend} disabled={resending || cooldown > 0} className="h-12 w-full">

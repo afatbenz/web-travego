@@ -100,7 +100,7 @@ export const ServicesPackages: React.FC = () => {
           </p>
         </div>
         <Button 
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
           onClick={() => navigate('/dashboard/partner/services/packages/create')}
         >
           <Plus className="h-4 w-4 mr-2" />

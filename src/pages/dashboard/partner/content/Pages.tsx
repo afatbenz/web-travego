@@ -1,4 +1,8 @@
+import React, { useState } from 'react';
 import GenericContentPage from './GenericContentPage';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export const GeneralContent = () => (
   <GenericContentPage 
@@ -60,16 +64,99 @@ export const ServicesContent = () => (
   />
 );
 
-export const TeamContent = () => (
-  <GenericContentPage 
-    title="Team" 
-    description="Manage team member profiles."
-    parent="team"
-    initialSections={[
-      { id: 1, name: 'Management Team', description: 'List of management team members', section_tag: 'team-management', status: 'Checking...', lastUpdated: '-', type: 'list' }
-    ]}
-  />
-);
+export const TeamContent: React.FC = () => {
+  const [members] = useState<Array<{
+    id: number;
+    name: string;
+    division: string;
+    jobdesc: string;
+    join_year: number;
+    photo: string;
+  }>>([
+    {
+      id: 1,
+      name: 'Ahmad Rizki',
+      division: 'Operations',
+      jobdesc: 'Koordinator Operasional',
+      join_year: 2021,
+      photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'
+    },
+    {
+      id: 2,
+      name: 'Siti Nurhaliza',
+      division: 'Marketing',
+      jobdesc: 'Spesialis Konten',
+      join_year: 2020,
+      photo: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face'
+    },
+    {
+      id: 3,
+      name: 'Budi Santoso',
+      division: 'Finance',
+      jobdesc: 'Analis Keuangan',
+      join_year: 2019,
+      photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face'
+    },
+    {
+      id: 4,
+      name: 'Dewi Kartika',
+      division: 'Operations',
+      jobdesc: 'Supervisor Lapangan',
+      join_year: 2022,
+      photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face'
+    }
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tim</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">Tampilkan daftar anggota tim organisasi.</p>
+        </div>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+          Tambah anggota tim
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Daftar Anggota Tim</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {members.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">Belum ada anggota tim.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Foto</TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>Divisi</TableHead>
+                  <TableHead>Jobdesc</TableHead>
+                  <TableHead>Tahun Join</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell>
+                      <img src={m.photo} alt={m.name} className="h-10 w-10 rounded-full object-cover" />
+                    </TableCell>
+                    <TableCell className="font-medium">{m.name}</TableCell>
+                    <TableCell>{m.division}</TableCell>
+                    <TableCell>{m.jobdesc}</TableCell>
+                    <TableCell>{m.join_year}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 export const ContactContent = () => (
   <GenericContentPage 
