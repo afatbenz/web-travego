@@ -52,6 +52,7 @@ export const MyProfile: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
     navigate('/');
   };
 
@@ -147,7 +148,7 @@ export const MyProfile: React.FC = () => {
                 <CardContent className="space-y-4 p-6">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                      {userProfile.totalOrders}
+                      {profile.totalOrders}
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-300">
                       Total Pemesanan
@@ -156,7 +157,7 @@ export const MyProfile: React.FC = () => {
                   
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {userProfile.totalSpent}
+                      {profile.totalSpent}
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-300">
                       Total Pengeluaran
@@ -166,7 +167,7 @@ export const MyProfile: React.FC = () => {
                   <div className="text-center">
                     <div className="flex items-center justify-center">
                       <Award className="h-5 w-5 text-purple-500 mr-1" />
-                      <span className="text-xl font-bold text-gray-900 dark:text-white">{userProfile.points.toLocaleString()}</span>
+                      <span className="text-xl font-bold text-gray-900 dark:text-white">{profile.points.toLocaleString()}</span>
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-300">
                       Poin Reward

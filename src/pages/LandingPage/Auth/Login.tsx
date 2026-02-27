@@ -42,11 +42,19 @@ export const Login: React.FC = () => {
           const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
           const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
           const json = JSON.parse(atob(padded));
-          const name = json.name ?? json.username ?? json.fullname ?? '';
-          const email = json.email ?? '';
+          
+          // Prioritize data from response, fallback to JWT
+          // Note: API response structure has fullname/username/avatar at root of data object
+          const responseData = res.data as any;
+          
+          const name = responseData.fullname ?? json.fullname ?? responseData.username ?? json.username ?? json.name ?? '';
+          const email = responseData.email ?? json.email ?? '';
           const role = json.role ?? json.user_role ?? 'user';
+          const avatar = responseData.avatar ?? '';
+          const username = responseData.username ?? json.username ?? '';
           const isAdmin = json.is_admin ?? json.isAdmin ?? false;
-          localStorage.setItem('user', JSON.stringify({ name, email, role }));
+
+          localStorage.setItem('user', JSON.stringify({ name, email, role, avatar, username }));
           
           const redirectPath = localStorage.getItem('redirect_path');
           if (redirectPath) {
@@ -153,7 +161,7 @@ export const Login: React.FC = () => {
           </Link>
         </div>
 
-        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700">
+        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white">
           Masuk
         </Button>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, MapPin, User, ShoppingBag } from 'lucide-react';
+import { Menu, X, MapPin, User, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 
@@ -12,8 +12,19 @@ export const Navbar: React.FC = () => {
   useEffect(() => {
     // Check if user is logged in
     const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
+    const token = localStorage.getItem('token');
+    
+    if (userData && token) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (error) {
+        console.error('Failed to parse user data:', error);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setUser(null);
+      }
+    } else {
+      setUser(null);
     }
   }, [location]);
 
@@ -61,15 +72,6 @@ export const Navbar: React.FC = () => {
             <ThemeToggle />
             {user ? (
               <>
-                <Link to="/myorders">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="!w-auto !h-auto p-2 border-2 border-gray-100 dark:border-gray-300 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                  >
-                    <ShoppingBag className="h-5 w-5 text-gray-700 dark:text-white" />
-                  </Button>
-                </Link>
                 <Link to="/myprofile">
                   <Button 
                     variant="outline" 
@@ -82,8 +84,12 @@ export const Navbar: React.FC = () => {
               </>
             ) : (
               <Link to="/auth/login">
-                <Button variant="outline" size="sm">
-                  Login
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  className="!w-auto !h-auto p-2 border-2 border-gray-100 dark:border-gray-300 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                >
+                  <LogIn className="h-5 w-5 text-gray-700 dark:text-white" />
                 </Button>
               </Link>
             )}
@@ -124,15 +130,13 @@ export const Navbar: React.FC = () => {
                 <div className="flex flex-col space-y-2">
                   {user ? (
                     <>
-                      <Link to="/myorders" onClick={() => setIsMenuOpen(false)}>
-                        <Button variant="outline" size="sm" className="w-full">
-                          <ShoppingBag className="h-4 w-4 mr-2" />
-                          Pesanan Saya
-                        </Button>
-                      </Link>
                       <Link to="/myprofile" onClick={() => setIsMenuOpen(false)}>
                         <Button variant="outline" size="sm" className="w-full">
-                          <User className="h-4 w-4 mr-2" />
+                          {user.avatar ? (
+                            <img src={user.avatar} alt={user.name} className="h-4 w-4 mr-2 rounded-full object-cover" />
+                          ) : (
+                            <User className="h-4 w-4 mr-2" />
+                          )}
                           Profil Saya
                         </Button>
                       </Link>
@@ -140,6 +144,7 @@ export const Navbar: React.FC = () => {
                   ) : (
                     <Link to="/auth/login" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="outline" size="sm" className="w-full">
+                        <LogIn className="h-4 w-4 mr-2" />
                         Login
                       </Button>
                     </Link>

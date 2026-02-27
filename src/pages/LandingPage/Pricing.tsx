@@ -153,7 +153,7 @@ export const Pricing: React.FC = () => {
                 <div className="mt-auto">
                   <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
                   <Button 
-                    className={`w-full ${plan.popular ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                    className={`w-full ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}
                   >
                     Pilih Paket
                   </Button>

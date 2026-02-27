@@ -136,7 +136,7 @@ export const TeamMember: React.FC = () => {
             Kelola anggota tim perusahaan
           </p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
           <Plus className="h-4 w-4 mr-2" />
           Tambah Team Member
         </Button>

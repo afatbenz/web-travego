@@ -406,7 +406,7 @@ export const OrganizationRegister: React.FC = () => {
           </div>
         </div>
 
-        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700" disabled={submitting}>
+        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white" disabled={submitting}>
           {submitting ? (<span className="flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Mengirim...</span>) : 'Daftarkan Organisasi'}
         </Button>
       </form>
