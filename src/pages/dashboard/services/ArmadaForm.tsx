@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { AspectRatio } from '@radix-ui/react-aspect-ratio';
 import { uploadCommon, deleteCommon, api } from '@/lib/api';
 
 const parseDuration = (str: string) => {
@@ -566,14 +565,14 @@ export const ArmadaForm: React.FC = () => {
   }, [cityQuery, showCityDropdown]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Header */}
       <div className="flex items-center space-x-4">
         <Button
           variant="outline"
           size="sm"
           onClick={() => navigate('/dashboard/partner/services/fleet')}
-          className="!w-auto !h-auto p-2"
+          className="!w-auto !h-auto p-2 bg-transparent hover:bg-transparent"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -587,681 +586,676 @@ export const ArmadaForm: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-
-            {/* Thumbnail Section - Single image */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Gambar Thumbnail</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <input
-                ref={thumbInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleThumbnailUpload}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => thumbInputRef.current?.click()}
-                className="flex items-center space-x-2"
-              >
-                <Upload className="h-4 w-4" />
-                <span>Upload Thumbnail</span>
-              </Button>
-              {thumbnailUploading && <span className="text-sm text-gray-500">Mengunggah...</span>}
-            </div>
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Left Column: Form Fields */}
+          <div className="lg:col-span-2 space-y-6">
             
-            {formData.thumbnail && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="relative group rounded-lg border overflow-hidden">
-                  <AspectRatio ratio={4 / 3}>
-                    <img
-                      src={formData.thumbnail}
-                      alt="Thumbnail"
-                      className="w-full h-full object-cover"
-                    />
-                  </AspectRatio>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={removeThumbnail}
-                    className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            )}
-            {errors.images && <p className="text-sm text-red-500 mt-1">{errors.images}</p>}
-          </CardContent>
-        </Card>
-
-        {/* Basic Information - Full Width */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Informasi Dasar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Nama Armada *
-                </label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Masukkan nama armada"
-                  className={errors.name ? 'border-red-500' : ''}
-                />
-                {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Jenis Armada *
-                </label>
-                <Select value={String(formData.type)} onValueChange={(value) => handleInputChange('type', value)}>
-                  <SelectTrigger className={errors.type ? 'border-red-500' : ''}>
-                    <SelectValue placeholder={loadingFleetTypes ? 'Memuat...' : 'Pilih jenis'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fleetTypes.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.type && <p className="text-sm text-red-500 mt-1">{errors.type}</p>}
-              </div>
-
-              <div className="relative">
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Mesin *
-                </label>
-                <Input
-                  value={formData.engine}
-                  onChange={(e) => { handleInputChange('engine', e.target.value); setEngineQuery(e.target.value); }}
-                  placeholder="Contoh: 2.5L Diesel"
-                  className={errors.engine ? 'border-red-500' : ''}
-                  onFocus={() => { setShowEngineDropdown(true); fetchEngine(''); }}
-                  onBlur={() => { window.setTimeout(() => setShowEngineDropdown(false), 150); }}
-                />
-                {showEngineDropdown && (
-                  <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
-                    {loadingEngine ? (
-                      <div className="p-2 text-sm text-gray-500">Memuat...</div>
-                    ) : engineSuggestions.length === 0 ? (
-                      <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
-                    ) : (
-                      engineSuggestions.map((name, idx) => (
-                        <button
-                          key={`eng-${name}-${idx}`}
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => { handleInputChange('engine', name); setEngineQuery(name); setShowEngineDropdown(false); }}
-                        >
-                          {name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-                {errors.engine && <p className="text-sm text-red-500 mt-1">{errors.engine}</p>}
-              </div>
-
-              <div className="relative">
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Body
-                </label>
-                <Input
-                  value={formData.body}
-                  onChange={(e) => { handleInputChange('body', e.target.value); setBodyQuery(e.target.value); }}
-                  placeholder="Contoh: Hiace, Elf, Bus Besar"
-                  onFocus={() => { setShowBodyDropdown(true); fetchBody(''); }}
-                  onBlur={() => { window.setTimeout(() => setShowBodyDropdown(false), 150); }}
-                />
-                {showBodyDropdown && (
-                  <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
-                    {loadingBody ? (
-                      <div className="p-2 text-sm text-gray-500">Memuat...</div>
-                    ) : bodySuggestions.length === 0 ? (
-                      <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
-                    ) : (
-                      bodySuggestions.map((name, idx) => (
-                        <button
-                          key={`body-${name}-${idx}`}
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => { handleInputChange('body', name); setBodyQuery(name); setShowBodyDropdown(false); }}
-                        >
-                          {name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Jenis Bahan Bakar *
-                </label>
-                <Select value={formData.fuel_type} onValueChange={(value) => handleInputChange('fuel_type', value)}>
-                  <SelectTrigger className={errors.fuel_type ? 'border-red-500' : ''}>
-                    <SelectValue placeholder="Pilih Bahan Bakar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="diesel">Diesel</SelectItem>
-                    <SelectItem value="bbg">BBG</SelectItem>
-                    <SelectItem value="bensin">Bensin</SelectItem>
-                    <SelectItem value="listrik">Listrik</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.fuel_type && <p className="text-sm text-red-500 mt-1">{errors.fuel_type}</p>}
-              </div>
-
-              <div className="relative">
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Transmisi *
-                </label>
-                <Select value={formData.transmission} onValueChange={(value) => handleInputChange('transmission', value)}>
-                  <SelectTrigger className={errors.transmission ? 'border-red-500' : ''}>
-                    <SelectValue placeholder="Pilih Transmisi" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Manual">Manual</SelectItem>
-                    <SelectItem value="Automatic">Automatic</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.transmission && <p className="text-sm text-red-500 mt-1">{errors.transmission}</p>}
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Tahun Produksi *
-                </label>
-                <Input
-                  type="number"
-                  min="1990"
-                  max={new Date().getFullYear()}
-                  value={formData.year}
-                  onChange={(e) => handleInputChange('year', parseInt(e.target.value) || 0)}
-                  placeholder="2022"
-                  className={errors.year ? 'border-red-500' : ''}
-                  style={{ colorScheme: 'light' }}
-                />
-                {errors.year && <p className="text-sm text-red-500 mt-1">{errors.year}</p>}
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Kapasitas (pax) *
-                </label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.capacity}
-                  onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 0)}
-                  placeholder="Contoh: 15"
-                  className={errors.capacity ? 'border-red-500' : ''}
-                  style={{ colorScheme: 'light' }}
-                />
-                {errors.capacity && <p className="text-sm text-red-500 mt-1">{errors.capacity}</p>}
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Titik Jemput
-                </label>
-                <div className="space-y-2">
-                  <div className="relative flex space-x-2">
+            {/* Basic Information - Full Width */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Informasi Dasar</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Nama Armada *
+                    </label>
                     <Input
-                      value={cityQuery}
-                      onChange={(e) => {
-                        const q = e.target.value;
-                        setCityQuery(q);
-                        if (!showCityDropdown) {
-                          setShowCityDropdown(true);
-                        }
-                      }}
-                      placeholder="Masukkan titik jemput"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addPickupPoint();
-                        }
-                      }}
-                      onFocus={() => {
-                        setShowCityDropdown(true);
-                        fetchCities('');
-                      }}
-                      onBlur={() => {
-                        window.setTimeout(() => setShowCityDropdown(false), 150);
-                      }}
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Masukkan nama armada"
+                      className={errors.name ? 'border-red-500' : ''}
                     />
-                    {showCityDropdown && (
+                    {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Jenis Armada *
+                    </label>
+                    <Select value={String(formData.type)} onValueChange={(value) => handleInputChange('type', value)}>
+                      <SelectTrigger className={errors.type ? 'border-red-500' : ''}>
+                        <SelectValue placeholder={loadingFleetTypes ? 'Memuat...' : 'Pilih jenis'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fleetTypes.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.type && <p className="text-sm text-red-500 mt-1">{errors.type}</p>}
+                  </div>
+
+                  <div className="relative">
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Mesin *
+                    </label>
+                    <Input
+                      value={formData.engine}
+                      onChange={(e) => { handleInputChange('engine', e.target.value); setEngineQuery(e.target.value); }}
+                      placeholder="Contoh: 2.5L Diesel"
+                      className={errors.engine ? 'border-red-500' : ''}
+                      onFocus={() => { setShowEngineDropdown(true); fetchEngine(''); }}
+                      onBlur={() => { window.setTimeout(() => setShowEngineDropdown(false), 150); }}
+                    />
+                    {showEngineDropdown && (
                       <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
-                        {loadingCities ? (
+                        {loadingEngine ? (
                           <div className="p-2 text-sm text-gray-500">Memuat...</div>
-                        ) : cities.length === 0 ? (
+                        ) : engineSuggestions.length === 0 ? (
                           <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
                         ) : (
-                          cities.map((city, idx) => (
+                          engineSuggestions.map((name, idx) => (
                             <button
-                              key={`${city.name}-${city.id}-${idx}`}
+                              key={`eng-${name}-${idx}`}
                               type="button"
                               className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
                               onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => {
-                                const exists = formData.pickupPoints.some((p: any) => (p?.id ?? p) === city.id);
-                                if (!exists) {
-                                  setFormData((prev) => ({ ...prev, pickupPoints: [...prev.pickupPoints, { id: city.id, name: city.name }] }));
-                                }
-                                setCityQuery('');
-                                setShowCityDropdown(false);
-                              }}
+                              onClick={() => { handleInputChange('engine', name); setEngineQuery(name); setShowEngineDropdown(false); }}
                             >
-                              {city.name}
+                              {name}
                             </button>
                           ))
                         )}
                       </div>
                     )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={addPickupPoint}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                    {errors.engine && <p className="text-sm text-red-500 mt-1">{errors.engine}</p>}
                   </div>
-                  {formData.pickupPoints.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {formData.pickupPoints.map((point: any, index) => (
-                        <Badge key={index} variant="secondary" className="flex items-center space-x-1">
-                          <span>{point?.name ?? String(point)}</span>
-                          <X
-                            className="h-3 w-3 cursor-pointer"
-                            onClick={() => removePickupPoint(point?.id ?? point)}
-                          />
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
 
-            {/* Description - Full Width */}
-            <div className="mt-6">
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                Deskripsi *
-              </label>
-              <div className="border rounded-md">
-                <div className="flex items-center space-x-2 p-2 border-b bg-gray-50 dark:bg-gray-800">
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('bold')}
-                    title="Bold"
-                  >
-                    <span className="font-bold text-gray-700 dark:text-gray-300">B</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('italic')}
-                    title="Italic"
-                  >
-                    <span className="italic text-gray-700 dark:text-gray-300">I</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('underline')}
-                    title="Underline"
-                  >
-                    <span className="underline text-gray-700 dark:text-gray-300">U</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('insertUnorderedList')}
-                    title="Bullet List"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">•</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('insertOrderedList')}
-                    title="Numbered List"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">1.</span>
-                  </Button>
-                  <div className="flex items-center space-x-1 ml-2">
-                    <Type className="h-4 w-4 text-gray-500" />
-                    <Select onValueChange={changeFontSize}>
-                      <SelectTrigger className="h-8 w-20 text-xs">
-                        <SelectValue placeholder="Size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Small</SelectItem>
-                        <SelectItem value="3">Normal</SelectItem>
-                        <SelectItem value="5">Large</SelectItem>
-                        <SelectItem value="7">X-Large</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  onInput={handleEditorChange}
-                  className={`min-h-[150px] p-3 border-0 resize-none focus:outline-none ${errors.description ? 'border-red-500' : ''}`}
-                  style={{ 
-                    minHeight: '150px',
-                    maxHeight: '300px',
-                    overflowY: 'auto'
-                  }}
-                  data-placeholder="Deskripsikan armada secara detail..."
-                />
-              </div>
-              {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Gallery Gambar */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Gallery Gambar</span>
-              <div className="flex items-center space-x-4">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-2">
-                  <Upload className="h-4 w-4" />
-                  <span>Upload Gambar</span>
-                </Button>
-                <span className="text-sm text-gray-500">Maksimal 10 gambar ({uploads.length}/10)</span>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {uploads.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {uploads.map((item, index) => (
-                  <div key={index} className="relative group rounded-lg border overflow-hidden">
-                    <AspectRatio ratio={4 / 3}>
-                      <img src={item.preview} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
-                    </AspectRatio>
-                    {item.status !== 'done' && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                        <Loader2 className="h-6 w-6 animate-spin text-white" />
+                  <div className="relative">
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Body
+                    </label>
+                    <Input
+                      value={formData.body}
+                      onChange={(e) => { handleInputChange('body', e.target.value); setBodyQuery(e.target.value); }}
+                      placeholder="Contoh: Hiace, Elf, Bus Besar"
+                      onFocus={() => { setShowBodyDropdown(true); fetchBody(''); }}
+                      onBlur={() => { window.setTimeout(() => setShowBodyDropdown(false), 150); }}
+                    />
+                    {showBodyDropdown && (
+                      <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
+                        {loadingBody ? (
+                          <div className="p-2 text-sm text-gray-500">Memuat...</div>
+                        ) : bodySuggestions.length === 0 ? (
+                          <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
+                        ) : (
+                          bodySuggestions.map((name, idx) => (
+                            <button
+                              key={`body-${name}-${idx}`}
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => { handleInputChange('body', name); setBodyQuery(name); setShowBodyDropdown(false); }}
+                            >
+                              {name}
+                            </button>
+                          ))
+                        )}
                       </div>
                     )}
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                  </div>
+
+                  <div className="relative">
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Jenis Bahan Bakar *
+                    </label>
+                    <Select value={formData.fuel_type} onValueChange={(value) => handleInputChange('fuel_type', value)}>
+                      <SelectTrigger className={errors.fuel_type ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Pilih Bahan Bakar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="diesel">Diesel</SelectItem>
+                        <SelectItem value="bbg">BBG</SelectItem>
+                        <SelectItem value="bensin">Bensin</SelectItem>
+                        <SelectItem value="listrik">Listrik</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.fuel_type && <p className="text-sm text-red-500 mt-1">{errors.fuel_type}</p>}
+                  </div>
+
+                  <div className="relative">
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Transmisi *
+                    </label>
+                    <Select value={formData.transmission} onValueChange={(value) => handleInputChange('transmission', value)}>
+                      <SelectTrigger className={errors.transmission ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Pilih Transmisi" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Manual">Manual</SelectItem>
+                        <SelectItem value="Automatic">Automatic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.transmission && <p className="text-sm text-red-500 mt-1">{errors.transmission}</p>}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Tahun Produksi *
+                    </label>
+                    <Input
+                      type="number"
+                      min="1990"
+                      max={new Date().getFullYear()}
+                      value={formData.year}
+                      onChange={(e) => handleInputChange('year', parseInt(e.target.value) || 0)}
+                      placeholder="2022"
+                      className={errors.year ? 'border-red-500' : ''}
+                      style={{ colorScheme: 'light' }}
+                    />
+                    {errors.year && <p className="text-sm text-red-500 mt-1">{errors.year}</p>}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Kapasitas (pax) *
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.capacity}
+                      onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 0)}
+                      placeholder="Contoh: 15"
+                      className={errors.capacity ? 'border-red-500' : ''}
+                      style={{ colorScheme: 'light' }}
+                    />
+                    {errors.capacity && <p className="text-sm text-red-500 mt-1">{errors.capacity}</p>}
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Titik Jemput
+                    </label>
+                    <div className="space-y-2">
+                      <div className="relative flex space-x-2">
+                        <Input
+                          value={cityQuery}
+                          onChange={(e) => {
+                            const q = e.target.value;
+                            setCityQuery(q);
+                            if (!showCityDropdown) {
+                              setShowCityDropdown(true);
+                            }
+                          }}
+                          placeholder="Masukkan titik jemput"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addPickupPoint();
+                            }
+                          }}
+                          onFocus={() => {
+                            setShowCityDropdown(true);
+                            fetchCities('');
+                          }}
+                          onBlur={() => {
+                            window.setTimeout(() => setShowCityDropdown(false), 150);
+                          }}
+                        />
+                        {showCityDropdown && (
+                          <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
+                            {loadingCities ? (
+                              <div className="p-2 text-sm text-gray-500">Memuat...</div>
+                            ) : cities.length === 0 ? (
+                              <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
+                            ) : (
+                              cities.map((city, idx) => (
+                                <button
+                                  key={`${city.name}-${city.id}-${idx}`}
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    const exists = formData.pickupPoints.some((p: any) => (p?.id ?? p) === city.id);
+                                    if (!exists) {
+                                      setFormData((prev) => ({ ...prev, pickupPoints: [...prev.pickupPoints, { id: city.id, name: city.name }] }));
+                                    }
+                                    setCityQuery('');
+                                    setShowCityDropdown(false);
+                                  }}
+                                >
+                                  {city.name}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="bg-transparent hover:bg-transparent"
+                          onClick={addPickupPoint}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {formData.pickupPoints.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {formData.pickupPoints.map((point: any, index) => (
+                            <Badge key={index} variant="secondary" className="flex items-center space-x-1">
+                              <span>{point?.name ?? String(point)}</span>
+                              <X
+                                className="h-3 w-3 cursor-pointer"
+                                onClick={() => removePickupPoint(point?.id ?? point)}
+                              />
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description - Full Width */}
+                <div className="mt-6">
+                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    Deskripsi *
+                  </label>
+                  <div className="border rounded-md">
+                    <div className="flex items-center space-x-2 p-2 border-b bg-gray-50 dark:bg-gray-800">
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        onClick={() => executeCommand('bold')}
+                        title="Bold"
+                      >
+                        <span className="font-bold text-gray-700 dark:text-gray-300">B</span>
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        onClick={() => executeCommand('italic')}
+                        title="Italic"
+                      >
+                        <span className="italic text-gray-700 dark:text-gray-300">I</span>
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        onClick={() => executeCommand('underline')}
+                        title="Underline"
+                      >
+                        <span className="underline text-gray-700 dark:text-gray-300">U</span>
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        onClick={() => executeCommand('insertUnorderedList')}
+                        title="Bullet List"
+                      >
+                        <span className="text-gray-700 dark:text-gray-300">•</span>
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        onClick={() => executeCommand('insertOrderedList')}
+                        title="Numbered List"
+                      >
+                        <span className="text-gray-700 dark:text-gray-300">1.</span>
+                      </Button>
+                      <div className="flex items-center space-x-1 ml-2">
+                        <Type className="h-4 w-4 text-gray-500" />
+                        <Select onValueChange={changeFontSize}>
+                          <SelectTrigger className="h-8 w-20 text-xs">
+                            <SelectValue placeholder="Size" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Small</SelectItem>
+                            <SelectItem value="3">Normal</SelectItem>
+                            <SelectItem value="5">Large</SelectItem>
+                            <SelectItem value="7">X-Large</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div
+                      ref={editorRef}
+                      contentEditable
+                      onInput={handleEditorChange}
+                      className={`min-h-[150px] p-3 border-0 resize-none focus:outline-none ${errors.description ? 'border-red-500' : ''}`}
+                      style={{ 
+                        minHeight: '150px',
+                        maxHeight: '300px',
+                        overflowY: 'auto'
+                      }}
+                      data-placeholder="Deskripsikan armada secara detail..."
+                    />
+                  </div>
+                  {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Features - Full Width */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Fasilitas</span>
+                  <Button type="button" variant="outline" size="sm" className="bg-transparent hover:bg-transparent" onClick={addFeature}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Tambah Fasilitas
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {formData.features.map((feature, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <Input
+                        value={feature}
+                        onChange={(e) => updateFeature(index, e.target.value)}
+                        placeholder="Masukkan fasilitas"
+                        className="flex-1"
+                      />
+                      {formData.features.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="bg-transparent hover:bg-transparent"
+                          onClick={() => removeFeature(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Rental Prices - Full Width */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Harga Sewa</span>
+                  <Button type="button" variant="outline" size="sm" className="bg-transparent hover:bg-transparent" onClick={addRentalPrice}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Tambah Durasi
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {formData.rentalPrices.map((price, index) => (
+                  <div key={index} className="border rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          Durasi
+                        </label>
+                        <div className="flex space-x-2">
+                          <Input
+                            value={price.duration}
+                            onChange={(e) => updateRentalPrice(index, 'duration', e.target.value)}
+                            placeholder="1"
+                            className="flex-1"
+                          />
+                          <Select
+                            value={(price as any).unit || 'hari'}
+                            onValueChange={(value) => updateRentalPrice(index, 'unit', value)}
+                          >
+                            <SelectTrigger className="w-28">
+                              <SelectValue placeholder="Satuan" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="jam">Jam</SelectItem>
+                              <SelectItem value="hari">Hari</SelectItem>
+                              <SelectItem value="pekan">Pekan</SelectItem>
+                              <SelectItem value="bulan">Bulan</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          Jenis Sewa
+                        </label>
+                        <Select 
+                          value={String(price.type)} 
+                          onValueChange={(value) => updateRentalPrice(index, 'type', parseInt(value) || 0)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih jenis sewa" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Citytour (Dalam Kota)</SelectItem>
+                            <SelectItem value="2">Overland (Luar Kota)</SelectItem>
+                            <SelectItem value="3">Citytour Pickup / Drop only</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          Harga (Rp)
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            type="text"
+                            value={price.price.toLocaleString()}
+                            onChange={(e) => updateRentalPrice(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
+                            placeholder="200,000"
+                            className="flex-1"
+                          />
+                          {formData.rentalPrices.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="bg-transparent hover:bg-transparent"
+                              onClick={() => removeRentalPrice(index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Addon Packages - Full Width */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Paket Addon</span>
+                  <Button type="button" variant="outline" size="sm" className="bg-transparent hover:bg-transparent" onClick={addAddon}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Tambah Addon
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {formData.addons.map((addon, index) => (
+                  <div key={index} className="border rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          Nama Addon
+                        </label>
+                        <Input
+                          value={addon.name}
+                          onChange={(e) => updateAddon(index, 'name', e.target.value)}
+                          placeholder="Contoh: Driver"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          Deskripsi
+                        </label>
+                        <Input
+                          value={addon.description}
+                          onChange={(e) => updateAddon(index, 'description', e.target.value)}
+                          placeholder="Contoh: Driver profesional"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          Harga Tambahan (Rp)
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            type="text"
+                            value={addon.price.toLocaleString()}
+                            onChange={(e) => updateAddon(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
+                            placeholder="100,000"
+                            className="flex-1"
+                          />
+                          {formData.addons.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="bg-transparent hover:bg-transparent"
+                              onClick={() => removeAddon(index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column: Images & Status */}
+          <div className="space-y-6">
+          {/* Thumbnail */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Thumbnail</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
+                  {formData.thumbnail ? (
+                    <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+                      <img src={formData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={removeThumbnail}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      {thumbnailUploading && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Loader2 className="h-8 w-8 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer block p-8">
+                      <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                      <span className="text-sm text-gray-500">Klik untuk upload thumbnail (Wajib)</span>
+                      <input type="file" className="hidden" accept="image/*" onChange={handleThumbnailUpload} />
+                    </label>
+                  )}
+                </div>
+                {errors.thumbnail && <p className="text-red-500 text-sm">{errors.thumbnail}</p>}
+                {errors.images && !formData.thumbnail && <p className="text-red-500 text-sm">{errors.images}</p>}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Gallery */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Galeri ({uploads.length}/10)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {uploads.map((item, index) => (
+                  <div key={index} className="relative aspect-square rounded overflow-hidden group">
+                    <img src={item.preview} alt={`Gallery ${index}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => removeImage(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {item.status === 'uploading' && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
-        {/* Features - Full Width */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Fasilitas</span>
-              <Button type="button" variant="outline" size="sm" onClick={addFeature}>
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Fasilitas
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {formData.features.map((feature, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <Input
-                    value={feature}
-                    onChange={(e) => updateFeature(index, e.target.value)}
-                    placeholder="Masukkan fasilitas"
-                    className="flex-1"
+              
+              {uploads.length < 10 && (
+                <label className="flex items-center justify-center w-full p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50">
+                  <div className="flex flex-col items-center">
+                    <Upload className="h-6 w-6 text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-500">Upload Foto</span>
+                  </div>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={handleImageUpload} 
                   />
-                  {formData.features.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeFeature(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                </label>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Rental Prices - Full Width */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Harga Sewa</span>
-              <Button type="button" variant="outline" size="sm" onClick={addRentalPrice}>
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Durasi
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {formData.rentalPrices.map((price, index) => (
-              <div key={index} className="border rounded-lg p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Durasi
-                    </label>
-                    <div className="flex space-x-2">
-                      <Input
-                        value={price.duration}
-                        onChange={(e) => updateRentalPrice(index, 'duration', e.target.value)}
-                        placeholder="1"
-                        className="flex-1"
-                      />
-                      <Select
-                        value={(price as any).unit || 'hari'}
-                        onValueChange={(value) => updateRentalPrice(index, 'unit', value)}
-                      >
-                        <SelectTrigger className="w-28">
-                          <SelectValue placeholder="Satuan" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="jam">Jam</SelectItem>
-                          <SelectItem value="hari">Hari</SelectItem>
-                          <SelectItem value="pekan">Pekan</SelectItem>
-                          <SelectItem value="bulan">Bulan</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Jenis Sewa
-                    </label>
-                    <Select 
-                      value={String(price.type)} 
-                      onValueChange={(value) => updateRentalPrice(index, 'type', parseInt(value) || 0)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih jenis sewa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Citytour (Dalam Kota)</SelectItem>
-                        <SelectItem value="2">Overland (Luar Kota)</SelectItem>
-                        <SelectItem value="3">Citytour Pickup / Drop only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Harga (Rp)
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        type="text"
-                        value={price.price.toLocaleString()}
-                        onChange={(e) => updateRentalPrice(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
-                        placeholder="200,000"
-                        className="flex-1"
-                      />
-                      {formData.rentalPrices.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeRentalPrice(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+            {/* Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Status Publikasi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Publikasi (Aktif)</SelectItem>
+                    <SelectItem value="inactive">Draft (Tidak Aktif)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
-        {/* Addon Packages - Full Width */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Paket Addon</span>
-              <Button type="button" variant="outline" size="sm" onClick={addAddon}>
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Addon
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {formData.addons.map((addon, index) => (
-              <div key={index} className="border rounded-lg p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Nama Addon
-                    </label>
-                    <Input
-                      value={addon.name}
-                      onChange={(e) => updateAddon(index, 'name', e.target.value)}
-                      placeholder="Contoh: Driver"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Deskripsi
-                    </label>
-                    <Input
-                      value={addon.description}
-                      onChange={(e) => updateAddon(index, 'description', e.target.value)}
-                      placeholder="Contoh: Driver profesional"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Harga Tambahan (Rp)
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        type="text"
-                        value={addon.price.toLocaleString()}
-                        onChange={(e) => updateAddon(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
-                        placeholder="100,000"
-                        className="flex-1"
-                      />
-                      {formData.addons.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeAddon(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-    {/* Bottom Buttons */}
-    <div className="flex justify-between items-center pt-6 border-t">
-      <div className="flex items-center space-x-4">
-        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-          Status:
-        </label>
-        <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Aktif</SelectItem>
-            <SelectItem value="inactive">Tidak Aktif</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex space-x-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/dashboard/partner/services/fleet')}
+        {/* Fixed Bottom Bar */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-50 flex justify-end lg:static lg:bg-transparent lg:border-none lg:p-0">
+          <Button 
+            type="submit" 
+            className="w-full lg:w-auto bg-blue-600 hover:bg-blue-700 text-white"
           >
-            <X className="h-4 w-4 mr-2" />
-            Batal
-          </Button>
-        
-          <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white">
             <Save className="h-4 w-4 mr-2" />
             {isEdit ? 'Update Armada' : 'Simpan Armada'}
           </Button>
-      </div>
-    </div>
+        </div>
       </form>
     </div>
   );

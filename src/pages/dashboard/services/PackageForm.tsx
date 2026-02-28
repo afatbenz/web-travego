@@ -1,304 +1,103 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Trash2, Upload, Clock, Type, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Upload, Loader2, Image as ImageIcon, Type, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { uploadCommon, deleteCommon } from '@/lib/api';
-import { AspectRatio } from '@radix-ui/react-aspect-ratio';
+import { uploadCommon, deleteCommon, api } from '@/lib/api';
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3100/api';
+const ASSET_BASE_URL = BASE_URL.replace('/api', '');
+
+const getImageUrl = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http') || path.startsWith('blob:')) return path;
+  return `${ASSET_BASE_URL}/${path}`;
+};
+
+// Interface for API response/request
+interface TourPackage {
+  id?: number;
+  package_name: string;
+  package_type: string;
+  package_description: string;
+  thumbnail: string;
+  images: string[];
+  features?: string[];
+  facilities?: string[];
+  itineraries: Array<{
+    day: number;
+    activities: Array<{
+      time: string;
+      description: string;
+      city?: { id: number; name: string };
+      location: string;
+    }>;
+  }>;
+  pricing: Array<{
+    min_pax: number;
+    max_pax: number;
+    price: number;
+  }>;
+  trip_date_start?: string;
+  trip_date_end?: string;
+  schedules?: Array<{
+    start_date: string;
+    end_date: string;
+  }>;
+  addons: Array<{
+    description: string;
+    price: number;
+  }>;
+  pickup_areas?: Array<{ id: number; name?: string }>;
+  active: boolean;
+}
 
 export const PackageForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
 
-  // Sample data for edit mode
-  const sampleData = {
-    id: 1,
-    title: 'Thailand Bangkok Tour Package - 4 Days 3 Nights',
-    location: 'Bangkok, Thailand',
-    duration: '4 Days 3 Nights',
-    price: 2500000,
-    originalPrice: 3000000,
-    rating: 4.8,
-    reviews: 24,
-    participants: '2-8 pax',
-    status: 'active',
-    image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-    description: 'Paket wisata lengkap ke Bangkok dengan hotel bintang 4, transportasi AC, dan tour guide profesional.',
-    features: ['Hotel bintang 4', 'Transportasi AC', 'Guide berbahasa Indonesia', 'Makan sesuai itinerary'],
-    itinerary: [
-      {
-        day: 1,
-        activities: [
-          { time: '08:00', description: 'Tiba di Bangkok' },
-          { time: '10:00', description: 'Check-in hotel' },
-          { time: '14:00', description: 'City tour Bangkok' },
-          { time: '19:00', description: 'Makan malam di restoran lokal' }
-        ]
-      },
-      {
-        day: 2,
-        activities: [
-          { time: '09:00', description: 'Kunjungi Grand Palace' },
-          { time: '11:00', description: 'Wat Pho Temple' },
-          { time: '14:00', description: 'Shopping di Chatuchak Market' },
-          { time: '16:00', description: 'Makan siang di floating market' }
-        ]
-      }
-    ]
-  };
-
+  // Initial State
   const [formData, setFormData] = useState({
-    title: isEdit ? sampleData.title : '',
-    location: isEdit ? sampleData.location : '',
-    packageType: 'overland',
-    pickupLocation: '',
-    coverageArea: [] as string[],
-    destinations: [] as string[],
-    duration: isEdit ? 4.0 : 0,
-    price: isEdit ? sampleData.price : 0,
-    originalPrice: isEdit ? sampleData.originalPrice : 0,
-    minParticipants: 1,
-    maxParticipants: 8,
-    freePax: 0,
-    status: isEdit ? sampleData.status : 'active',
-    images: isEdit ? [sampleData.image] : [],
-    imageFiles: [] as string[],
-    description: isEdit ? sampleData.description : '',
-    features: isEdit ? sampleData.features : [''],
-    itinerary: isEdit ? sampleData.itinerary : [{ day: 1, activities: [{ time: '08:00', description: '' }] }] as { day: number; activities: { time: string; description: string }[] }[],
-    addons: [{ name: '', description: '', price: 0 }]
+    title: '',
+    packageType: '2', // Default to Open Trip (2)
+    description: '',
+    tripDateStart: '',
+    tripDateEnd: '',
+    schedules: [{ start_date: '', end_date: '' }],
+    thumbnail: '', // Preview URL
+    thumbnailFile: '', // Server path
+    gallery: [] as string[], // Server paths
+    features: [''] as string[],
+    itinerary: [{ 
+      day: 1, 
+      activities: [{ time: '08:00', description: '', city: undefined as { id: number; name: string } | undefined, location: '' }] 
+    }],
+    pricing: [{ min_pax: 1, max_pax: 1, price: 0 }],
+    addons: [{ description: '', price: 0 }],
+    pickupAreas: [] as Array<{ id: number; name: string }>,
+    active: true
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const editorRef = useRef<HTMLDivElement>(null);
-
+  const [galleryPreviews, setGalleryPreviews] = useState<Array<{ url: string; path?: string; status: 'uploading' | 'done' | 'error' }>>([]);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
 
-  const [uploads, setUploads] = useState<Array<{
-    preview: string;
-    status: 'uploading' | 'done' | 'error';
-    path?: string;
-    url?: string;
-  }>>([]);
+  // City Search State
+  const [cities, setCities] = useState<Array<{ id: number; name: string }>>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [cityQuery, setCityQuery] = useState('');
+  const [activeCityDropdown, setActiveCityDropdown] = useState<{ dayIndex: number, activityIndex: number } | null>(null);
+  
+  // Pickup Area Search State
+  const [pickupQuery, setPickupQuery] = useState('');
+  const [showPickupDropdown, setShowPickupDropdown] = useState(false);
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.title.trim()) newErrors.title = 'Judul paket wajib diisi';
-    if (formData.duration <= 0) newErrors.duration = 'Durasi harus lebih dari 0';
-    if (formData.price <= 0) newErrors.price = 'Harga harus lebih dari 0';
-    if (formData.minParticipants <= 0) newErrors.minParticipants = 'Minimum peserta harus lebih dari 0';
-    if (formData.maxParticipants <= 0) newErrors.maxParticipants = 'Maksimum peserta harus lebih dari 0';
-    if (formData.minParticipants > formData.maxParticipants) newErrors.maxParticipants = 'Maksimum peserta harus lebih besar dari minimum peserta';
-    if (!formData.description.trim()) newErrors.description = 'Deskripsi wajib diisi';
-    const hasImages = (formData.imageFiles && formData.imageFiles.length > 0) || (formData.images && formData.images.length > 0);
-    if (!hasImages) newErrors.images = 'Minimal 1 gambar wajib diisi';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
-      // Handle form submission
-      console.log('Form submitted:', formData);
-      // In real app, this would make API call
-      navigate('/dashboard/partner/services/packages');
-    }
-  };
-
-  const handleInputChange = (field: string, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const maxAllowed = 10 - uploads.length;
-    const pick = Array.from(files).slice(0, Math.max(0, maxAllowed));
-    if (pick.length < files.length) {
-      alert('Maksimal 10 gambar');
-    }
-    const previews = pick.map((f) => URL.createObjectURL(f));
-    setUploads((prev) => [...prev, ...previews.map((p) => ({ preview: p, status: 'uploading' as const }))]);
-    try {
-      const res = await uploadCommon('package', pick);
-      if (res.status === 'success') {
-        const data = res.data as { files?: string[]; count?: number; first_url?: string } | undefined;
-        const returnedFiles = Array.isArray(data?.files) ? data!.files! : [];
-        setFormData((prev) => ({ ...prev, imageFiles: [...prev.imageFiles, ...returnedFiles] }));
-        setUploads((prev) => {
-          const updated = [...prev];
-          let idx = updated.findIndex((u) => u.status === 'uploading');
-          for (let i = 0; i < returnedFiles.length && idx !== -1; i++) {
-            updated[idx] = { ...updated[idx], status: 'done' as const, path: returnedFiles[i], url: data?.first_url ?? undefined };
-            idx = updated.findIndex((u) => u.status === 'uploading');
-          }
-          return updated;
-        });
-      } else {
-        setUploads((prev) => prev.map((u) => (u.status === 'uploading' ? { ...u, status: 'error' as const } : u)));
-      }
-    } catch {
-      setUploads((prev) => prev.map((u) => (u.status === 'uploading' ? { ...u, status: 'error' as const } : u)));
-    }
-  };
-
-  const removeImage = async (index: number) => {
-    const item = uploads[index];
-    if (item?.path) {
-      try {
-        await deleteCommon([item.path]);
-      } catch { void 0; }
-      setFormData((prev) => ({ ...prev, imageFiles: prev.imageFiles.filter((p) => p !== item.path) }));
-    }
-    setUploads((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const formatCurrency = (value: string) => {
-    return value.replace(/\D/g, '');
-  };
-
-  const handlePriceChange = (field: string, value: string) => {
-    const numericValue = formatCurrency(value);
-    handleInputChange(field, parseInt(numericValue) || 0);
-  };
-
-  const addFeature = () => {
-    setFormData(prev => ({
-      ...prev,
-      features: [...prev.features, '']
-    }));
-  };
-
-  const removeFeature = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      features: prev.features.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateFeature = (index: number, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      features: prev.features.map((feature, i) => i === index ? value : feature)
-    }));
-  };
-
-  const addItineraryDay = () => {
-    const newDay = formData.itinerary.length + 1;
-    setFormData(prev => ({
-      ...prev,
-      itinerary: [...prev.itinerary, { day: newDay, activities: [{ time: '08:00', description: '' }] }]
-    }));
-  };
-
-  const removeItineraryDay = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      itinerary: prev.itinerary.filter((_, i) => i !== index)
-    }));
-  };
-
-  const addActivity = (dayIndex: number) => {
-    setFormData(prev => ({
-      ...prev,
-      itinerary: prev.itinerary.map((day, i) => 
-        i === dayIndex 
-          ? { ...day, activities: [...day.activities, { time: '08:00', description: '' }] }
-          : day
-      )
-    }));
-  };
-
-  const removeActivity = (dayIndex: number, activityIndex: number) => {
-    setFormData(prev => ({
-      ...prev,
-      itinerary: prev.itinerary.map((day, i) => 
-        i === dayIndex 
-          ? { ...day, activities: day.activities.filter((_, ai) => ai !== activityIndex) }
-          : day
-      )
-    }));
-  };
-
-  const updateActivity = (dayIndex: number, activityIndex: number, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      itinerary: prev.itinerary.map((day, i) => 
-        i === dayIndex 
-          ? { ...day, activities: day.activities.map((activity, ai) => 
-              ai === activityIndex 
-                ? { ...(activity as { time: string; description: string }), description: value }
-                : activity
-            )}
-          : day
-      )
-    }));
-  };
-
-  const updateItineraryTime = (dayIndex: number, activityIndex: number, time: string) => {
-    setFormData(prev => ({
-      ...prev,
-      itinerary: prev.itinerary.map((day, i) => 
-        i === dayIndex 
-          ? { ...day, activities: day.activities.map((activity, ai) => 
-              ai === activityIndex 
-                ? { ...(activity as { time: string; description: string }), time }
-                : activity
-            )}
-          : day
-      )
-    }));
-  };
-
-  const addAddon = () => {
-    setFormData(prev => ({
-      ...prev,
-      addons: [...prev.addons, { name: '', description: '', price: 0 }]
-    }));
-  };
-
-  const removeAddon = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      addons: prev.addons.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateAddon = (index: number, field: string, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      addons: prev.addons.map((addon, i) => 
-        i === index ? { ...addon, [field]: value } : addon
-      )
-    }));
-  };
-
-  const addToMultiSelect = (field: 'coverageArea' | 'destinations', value: string) => {
-    const currentValues = formData[field] as string[];
-    if (value.trim() && !currentValues.includes(value)) {
-      setFormData(prev => ({
-        ...prev,
-        [field]: [...currentValues, value]
-      }));
-    }
-  };
-
-  const removeFromMultiSelect = (field: 'coverageArea' | 'destinations', value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: (prev[field] as string[]).filter(item => item !== value)
-    }));
-  };
+  const debounceRef = useRef<number | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   // WYSIWYG Editor Functions
   const executeCommand = (command: string, value?: string) => {
@@ -309,32 +108,9 @@ export const PackageForm: React.FC = () => {
   const handleEditorChange = () => {
     if (editorRef.current) {
       const content = editorRef.current.innerHTML;
-      handleInputChange('description', content);
-      
-      // Preserve cursor position
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const cursorPosition = range.startOffset;
-        
-        // Restore cursor position after state update
-        setTimeout(() => {
-          if (editorRef.current && selection.rangeCount > 0) {
-            const newRange = document.createRange();
-            const textNode = editorRef.current.childNodes[0];
-            if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-              const maxOffset = Math.min(cursorPosition, textNode.textContent?.length || 0);
-              newRange.setStart(textNode, maxOffset);
-              newRange.setEnd(textNode, maxOffset);
-              selection.removeAllRanges();
-              selection.addRange(newRange);
-            }
-          }
-        }, 0);
-      }
+      setFormData(prev => ({ ...prev, description: content }));
     }
   };
-
 
   const changeFontSize = (size: string) => {
     executeCommand('fontSize', size);
@@ -342,24 +118,8 @@ export const PackageForm: React.FC = () => {
 
   useEffect(() => {
     if (editorRef.current && formData.description) {
-      // Only update if content is different to avoid cursor jumping
       if (editorRef.current.innerHTML !== formData.description) {
-        const selection = window.getSelection();
-        const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-        
         editorRef.current.innerHTML = formData.description;
-        
-        // Restore cursor position if it was at the end
-        if (range && editorRef.current && selection) {
-          const textNode = editorRef.current.childNodes[0];
-          if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-            const newRange = document.createRange();
-            newRange.setStart(textNode, textNode.textContent?.length || 0);
-            newRange.setEnd(textNode, textNode.textContent?.length || 0);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-          }
-        }
       }
     }
   }, [formData.description]);
@@ -382,673 +142,1075 @@ export const PackageForm: React.FC = () => {
     };
   }, []);
 
+  // Load data for edit
+  useEffect(() => {
+    if (isEdit && id) {
+      setLoading(true);
+      // Mock fetch or actual fetch if API existed for single package
+      // For now we assume we need to fetch from list or a specific endpoint
+      // Since the user asked for GET /api/partner/tour-packages for list, likely GET /api/partner/tour-packages/{id} for detail
+      const fetchDetail = async () => {
+        try {
+          // const res = await api.get(`/partner/tour-packages/${id}`);
+          // if (res.status === 'success') { ... populate state ... }
+          // Placeholder for edit logic
+          console.log("Fetching detail for", id);
+        } catch (error) {
+          console.error("Failed to fetch package detail", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchDetail();
+    }
+  }, [isEdit, id]);
+
+  // City Search Logic
+  async function fetchCities(q: string) {
+    setLoadingCities(true);
+    try {
+      const res = await api.get<unknown>(`/general/cities${q ? `?search=${encodeURIComponent(q)}` : ''}`);
+      if (res.status === 'success') {
+        const payload = res.data as any;
+        let list: Array<{ id: number; name: string }> = [];
+        
+        const items = Array.isArray(payload) ? payload : (payload?.items || []);
+        
+        if (Array.isArray(items)) {
+            list = items.map((x: any, i: number) => {
+                const name = x?.name || (typeof x === 'string' ? x : '');
+                const id = x?.id || i;
+                return name ? { id, name } : null;
+            }).filter((v): v is { id: number; name: string } => Boolean(v));
+        }
+        setCities(list);
+      } else {
+        setCities([]);
+      }
+    } catch (e) {
+      setCities([]);
+    } finally {
+      setLoadingCities(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeCityDropdown) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = window.setTimeout(() => {
+        fetchCities(cityQuery);
+      }, 500);
+    } else if (showPickupDropdown) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = window.setTimeout(() => {
+        fetchCities(pickupQuery);
+      }, 500);
+    }
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [cityQuery, activeCityDropdown, pickupQuery, showPickupDropdown]);
+
+  // Handlers
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    
+    // Cleanup old preview
+    if (formData.thumbnail && formData.thumbnail.startsWith('blob:')) {
+      URL.revokeObjectURL(formData.thumbnail);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    const prevPath = formData.thumbnailFile;
+
+    // Delete old file from server if exists
+    if (prevPath) {
+      try { await deleteCommon([prevPath]); } catch { void 0; }
+    }
+
+    setFormData(prev => ({ ...prev, thumbnail: previewUrl, thumbnailFile: '' }));
+    setThumbnailUploading(true);
+
+    try {
+      const res = await uploadCommon('package', [file]);
+      if (res.status === 'success') {
+        const data = res.data as { files?: string[] };
+        const path = data?.files?.[0] || '';
+        setFormData(prev => ({ ...prev, thumbnailFile: path }));
+      }
+    } catch (error) {
+      console.error('Thumbnail upload failed', error);
+      // Revert or show error
+    } finally {
+      setThumbnailUploading(false);
+    }
+  };
+
+  const removeThumbnail = async () => {
+    if (formData.thumbnailFile) {
+      try { await deleteCommon([formData.thumbnailFile]); } catch { void 0; }
+    }
+    if (formData.thumbnail && formData.thumbnail.startsWith('blob:')) {
+      URL.revokeObjectURL(formData.thumbnail);
+    }
+    setFormData(prev => ({ ...prev, thumbnail: '', thumbnailFile: '' }));
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const currentCount = galleryPreviews.length;
+    const maxAllowed = 10;
+    const remaining = maxAllowed - currentCount;
+    
+    if (remaining <= 0) {
+      alert('Maksimal 10 foto galeri.');
+      return;
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remaining);
+    if (files.length > remaining) {
+      alert(`Hanya ${remaining} foto yang dapat ditambahkan.`);
+    }
+
+    const newPreviews = filesToUpload.map(f => ({
+      url: URL.createObjectURL(f),
+      status: 'uploading' as const
+    }));
+
+    setGalleryPreviews(prev => [...prev, ...newPreviews]);
+
+    try {
+      const res = await uploadCommon('package', filesToUpload);
+      if (res.status === 'success') {
+        const data = res.data as { files?: string[]; first_url?: string };
+        const paths = data?.files || [];
+        
+        setGalleryPreviews(prev => {
+          const updated = [...prev];
+          let pathIdx = 0;
+          return updated.map(item => {
+            if (item.status === 'uploading' && paths[pathIdx]) {
+              const newItem = { ...item, status: 'done' as const, path: paths[pathIdx] };
+              pathIdx++;
+              return newItem;
+            }
+            return item;
+          });
+        });
+
+        setFormData(prev => ({
+            ...prev,
+            gallery: [...prev.gallery, ...paths]
+        }));
+      } else {
+        // Handle error state for previews
+        setGalleryPreviews(prev => prev.map(p => p.status === 'uploading' ? { ...p, status: 'error' } : p));
+      }
+    } catch (error) {
+      setGalleryPreviews(prev => prev.map(p => p.status === 'uploading' ? { ...p, status: 'error' } : p));
+    }
+  };
+
+  const removeGalleryImage = async (index: number) => {
+    const item = galleryPreviews[index];
+    if (item.path) {
+      try { await deleteCommon([item.path]); } catch { void 0; }
+      setFormData(prev => ({
+        ...prev,
+        gallery: prev.gallery.filter(p => p !== item.path)
+      }));
+    }
+    if (item.url.startsWith('blob:')) {
+      URL.revokeObjectURL(item.url);
+    }
+    setGalleryPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatCurrency = (value: string) => {
+    return value.replace(/\D/g, '');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validation
+    const newErrors: Record<string, string> = {};
+    if (!formData.title) newErrors.title = 'Judul paket wajib diisi';
+    if (!formData.thumbnailFile) newErrors.thumbnail = 'Thumbnail wajib diisi';
+    
+    if (formData.packageType === '2') {
+      const validSchedules = formData.schedules.filter(s => s.start_date && s.end_date);
+      if (validSchedules.length === 0) {
+        newErrors.schedules = 'Minimal satu jadwal trip wajib diisi';
+      }
+    }
+    
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
+
+    // Construct Payload
+    const payload: TourPackage = {
+      package_name: formData.title,
+      package_type: formData.packageType,
+      package_description: formData.description,
+      thumbnail: formData.thumbnailFile,
+      images: formData.gallery,
+      facilities: formData.features.filter(f => f.trim() !== ''),
+      itineraries: formData.itinerary.map(day => ({
+        ...day,
+        activities: day.activities.map(activity => ({
+          ...activity,
+          city: activity.city ? { id: activity.city.id, name: activity.city.name } : undefined
+        }))
+      })),
+      pricing: formData.pricing.filter(p => p.price > 0),
+      addons: formData.addons.filter(a => a.description.trim() !== ''),
+      pickup_areas: formData.pickupAreas.map(area => ({ id: area.id })),
+      trip_date_start: formData.packageType === '2' && formData.schedules[0] ? formData.schedules[0].start_date : undefined,
+      trip_date_end: formData.packageType === '2' && formData.schedules[0] ? formData.schedules[0].end_date : undefined,
+      schedules: formData.packageType === '2' ? formData.schedules.filter(s => s.start_date && s.end_date) : undefined,
+      active: formData.active
+    };
+
+    console.log('Submitting Payload:', payload);
+    
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token') ?? '';
+      const headers = token ? { Authorization: token } : undefined;
+      
+      let res;
+      if (isEdit && id) {
+        res = await api.put<unknown>(`/partner/tour-packages/${id}`, payload, headers);
+      } else {
+        res = await api.post<unknown>('/partner/services/tour-packages/create', payload, headers);
+      }
+
+      if (res.status === 'success') {
+        navigate('/dashboard/partner/services/packages');
+      }
+    } catch (error) {
+      console.error('Failed to save package', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate('/dashboard/partner/services/packages')}
-          className="!w-auto !h-auto p-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {isEdit ? 'Edit Paket Wisata' : 'Tambah Paket Wisata'}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
-            {isEdit ? 'Ubah informasi paket wisata' : 'Tambahkan paket wisata baru'}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/partner/services/packages')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              {isEdit ? 'Edit Paket Wisata' : 'Tambah Paket Wisata'}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">
+              {isEdit ? 'Ubah informasi paket wisata' : 'Tambahkan paket wisata baru'}
+            </p>
+          </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Thumbnail Section - Moved to top */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Gambar Thumbnail</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {uploads.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {uploads.map((item, index) => (
-                  <div key={index} className="relative group rounded-lg border overflow-hidden">
-                    <AspectRatio ratio={4 / 3}>
-                      <img
-                        src={item.preview}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </AspectRatio>
-                    {item.status !== 'done' && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                        <Loader2 className="h-6 w-6 animate-spin text-white" />
-                      </div>
-                    )}
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center space-x-4">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center space-x-2"
-              >
-                <Upload className="h-4 w-4" />
-                <span>Upload Gambar</span>
-              </Button>
-              <span className="text-sm text-gray-500">
-                Maksimal 10 gambar ({uploads.length}/10)
-              </span>
-            </div>
-            {errors.images && <p className="text-sm text-red-500 mt-1">{errors.images}</p>}
-          </CardContent>
-        </Card>
-
-        {/* Basic Information - Full Width */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Informasi Dasar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Judul Paket *
-                  </label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    placeholder="Masukkan judul paket wisata"
-                    className={errors.title ? 'border-red-500' : ''}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Thumbnail & Basic Info */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Informasi Dasar */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Informasi Dasar</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Judul Paket</label>
+                  <Input 
+                    value={formData.title} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Contoh: Paket Wisata Bali 3H2M"
                   />
-                  {errors.title && <p className="text-sm text-red-500 mt-1">{errors.title}</p>}
+                  {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Durasi (hari) *
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.5"
-                      min="0.5"
-                      value={formData.duration}
-                      onChange={(e) => handleInputChange('duration', parseFloat(e.target.value) || 0)}
-                      placeholder="Contoh: 4.5"
-                      className={errors.duration ? 'border-red-500' : ''}
-                    />
-                    {errors.duration && <p className="text-sm text-red-500 mt-1">{errors.duration}</p>}
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Minimum Peserta *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={formData.minParticipants}
-                      onChange={(e) => handleInputChange('minParticipants', parseInt(e.target.value) || 0)}
-                      placeholder="Contoh: 2"
-                      className={errors.minParticipants ? 'border-red-500' : ''}
-                    />
-                    {errors.minParticipants && <p className="text-sm text-red-500 mt-1">{errors.minParticipants}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Maksimum Peserta *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={formData.maxParticipants}
-                      onChange={(e) => handleInputChange('maxParticipants', parseInt(e.target.value) || 0)}
-                      placeholder="Contoh: 8"
-                      className={errors.maxParticipants ? 'border-red-500' : ''}
-                    />
-                    {errors.maxParticipants && <p className="text-sm text-red-500 mt-1">{errors.maxParticipants}</p>}
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Free Pax
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={formData.freePax}
-                      onChange={(e) => handleInputChange('freePax', parseInt(e.target.value) || 0)}
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Harga Paket (Rp) *
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.price.toLocaleString()}
-                      onChange={(e) => handlePriceChange('price', e.target.value)}
-                      placeholder="2,500,000"
-                      className={errors.price ? 'border-red-500' : ''}
-                    />
-                    {errors.price && <p className="text-sm text-red-500 mt-1">{errors.price}</p>}
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Harga Asli (Rp)
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.originalPrice.toLocaleString()}
-                      onChange={(e) => handlePriceChange('originalPrice', e.target.value)}
-                      placeholder="3,000,000"
-                    />
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Right Column */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Jenis Paket
-                  </label>
-                  <Select value={formData.packageType} onValueChange={(value) => handleInputChange('packageType', value)}>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Jenis Paket</label>
+                  <Select 
+                    value={formData.packageType} 
+                    onValueChange={(val) => setFormData(prev => ({ ...prev, packageType: val }))}
+                  >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Pilih jenis paket" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="overland">Overland</SelectItem>
-                      <SelectItem value="citytour">Citytour</SelectItem>
+                      <SelectItem value="1">Private Trip</SelectItem>
+                      <SelectItem value="2">Open Trip</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Lokasi Pickup
-                  </label>
-                  <Input
-                    value={formData.pickupLocation}
-                    onChange={(e) => handleInputChange('pickupLocation', e.target.value)}
-                    placeholder="Masukkan lokasi pickup"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Coverage Area
-                  </label>
-                  <div className="space-y-2">
-                    <div className="flex space-x-2">
-                      <Input
-                        placeholder="Masukkan area coverage"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const input = e.target as HTMLInputElement;
-                            addToMultiSelect('coverageArea', input.value);
-                            input.value = '';
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          const input = document.querySelector('input[placeholder="Masukkan area coverage"]') as HTMLInputElement;
-                          if (input) {
-                            addToMultiSelect('coverageArea', input.value);
-                            input.value = '';
-                          }
-                        }}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {formData.coverageArea.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {formData.coverageArea.map((area, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center space-x-1">
-                            <span>{area}</span>
-                            <X
-                              className="h-3 w-3 cursor-pointer"
-                              onClick={() => removeFromMultiSelect('coverageArea', area)}
-                            />
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Destinasi
-                  </label>
-                  <div className="space-y-2">
-                    <div className="flex space-x-2">
-                      <Input
-                        placeholder="Masukkan destinasi"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const input = e.target as HTMLInputElement;
-                            addToMultiSelect('destinations', input.value);
-                            input.value = '';
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          const input = document.querySelector('input[placeholder="Masukkan destinasi"]') as HTMLInputElement;
-                          if (input) {
-                            addToMultiSelect('destinations', input.value);
-                            input.value = '';
-                          }
-                        }}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {formData.destinations.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {formData.destinations.map((destination, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center space-x-1">
-                            <span>{destination}</span>
-                            <X
-                              className="h-3 w-3 cursor-pointer"
-                              onClick={() => removeFromMultiSelect('destinations', destination)}
-                            />
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
-            </div>
 
-            {/* Description - Full Width */}
-            <div className="mt-6">
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                Deskripsi *
-              </label>
-              <div className="border rounded-md">
-                <div className="flex items-center space-x-2 p-2 border-b bg-gray-50 dark:bg-gray-800">
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('bold')}
-                    title="Bold"
-                  >
-                    <span className="font-bold text-gray-700 dark:text-gray-300">B</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('italic')}
-                    title="Italic"
-                  >
-                    <span className="italic text-gray-700 dark:text-gray-300">I</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('underline')}
-                    title="Underline"
-                  >
-                    <span className="underline text-gray-700 dark:text-gray-300">U</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('insertUnorderedList')}
-                    title="Bullet List"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">•</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('insertOrderedList')}
-                    title="Numbered List"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">1.</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('justifyLeft')}
-                    title="Align Left"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">⬅</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('justifyCenter')}
-                    title="Align Center"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">C</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('justifyRight')}
-                    title="Align Right"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">R</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => executeCommand('justifyFull')}
-                    title="Justify"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">J</span>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => {
-                      const url = prompt('Masukkan URL:');
-                      if (url) executeCommand('createLink', url);
-                    }}
-                    title="Insert Link"
-                  >
-                    <span className="text-gray-700 dark:text-gray-300">🔗</span>
-                  </Button>
-                  <div className="flex items-center space-x-1 ml-2">
-                    <Type className="h-4 w-4 text-gray-500" />
-                    <Select onValueChange={changeFontSize}>
-                      <SelectTrigger className="h-8 w-20 text-xs">
-                        <SelectValue placeholder="Size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Small</SelectItem>
-                        <SelectItem value="3">Normal</SelectItem>
-                        <SelectItem value="5">Large</SelectItem>
-                        <SelectItem value="7">X-Large</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  onInput={handleEditorChange}
-                  className={`min-h-[150px] p-3 border-0 resize-none focus:outline-none ${errors.description ? 'border-red-500' : ''}`}
-                  style={{ 
-                    minHeight: '150px',
-                    maxHeight: '300px',
-                    overflowY: 'auto'
-                  }}
-                  data-placeholder="Deskripsikan paket wisata secara detail..."
-                />
-              </div>
-              {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Features - Full Width */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Fasilitas</span>
-              <Button type="button" variant="outline" size="sm" onClick={addFeature}>
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Fasilitas
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {formData.features.map((feature, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <Input
-                    value={feature}
-                    onChange={(e) => updateFeature(index, e.target.value)}
-                    placeholder="Masukkan fasilitas"
-                    className="flex-1"
-                  />
-                  {formData.features.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeFeature(index)}
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Deskripsi</label>
+                <div className="border rounded-md">
+                  <div className="flex items-center space-x-2 p-2 border-b bg-gray-50 dark:bg-gray-800">
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                      onClick={() => executeCommand('bold')}
+                      title="Bold"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <span className="font-bold text-gray-700 dark:text-gray-300">B</span>
                     </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Itinerary - Full Width */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Itinerary</span>
-              <Button type="button" variant="outline" size="sm" onClick={addItineraryDay}>
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Hari
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {formData.itinerary.map((day, dayIndex) => (
-                <div key={dayIndex} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-gray-900 dark:text-white">
-                      Hari {day.day}
-                    </h4>
-                    {formData.itinerary.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeItineraryDay(dayIndex)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                      onClick={() => executeCommand('italic')}
+                      title="Italic"
+                    >
+                      <span className="italic text-gray-700 dark:text-gray-300">I</span>
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                      onClick={() => executeCommand('underline')}
+                      title="Underline"
+                    >
+                      <span className="underline text-gray-700 dark:text-gray-300">U</span>
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                      onClick={() => executeCommand('insertUnorderedList')}
+                      title="Bullet List"
+                    >
+                      <span className="text-gray-700 dark:text-gray-300">•</span>
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                      onClick={() => executeCommand('insertOrderedList')}
+                      title="Numbered List"
+                    >
+                      <span className="text-gray-700 dark:text-gray-300">1.</span>
+                    </Button>
+                    <div className="flex items-center space-x-1 ml-2">
+                      <Type className="h-4 w-4 text-gray-500" />
+                      <Select onValueChange={changeFontSize}>
+                        <SelectTrigger className="h-8 w-20 text-xs">
+                          <SelectValue placeholder="Size" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Small</SelectItem>
+                          <SelectItem value="3">Normal</SelectItem>
+                          <SelectItem value="5">Large</SelectItem>
+                          <SelectItem value="7">X-Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    {day.activities.map((activity, activityIndex) => (
-                      <div key={activityIndex} className="flex items-center space-x-2">
-                        <div className="flex items-center space-x-2 w-40">
-                          <Clock className="h-4 w-4 text-gray-500" />
-                          <Input
-                            type="time"
-                            value={(activity as { time: string; description: string }).time || '08:00'}
-                            onChange={(e) => updateItineraryTime(dayIndex, activityIndex, e.target.value)}
-                            className="w-24"
-                          />
-                        </div>
-                        <Input
-                          value={(activity as { time: string; description: string }).description || ''}
-                          onChange={(e) => updateActivity(dayIndex, activityIndex, e.target.value)}
-                          placeholder="Masukkan aktivitas"
-                          className="flex-1"
-                        />
-                        {day.activities.length > 1 && (
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    onInput={handleEditorChange}
+                    className="min-h-[150px] p-3 border-0 resize-none focus:outline-none"
+                    style={{ 
+                      minHeight: '150px',
+                      maxHeight: '300px',
+                      overflowY: 'auto'
+                    }}
+                    data-placeholder="Deskripsi lengkap paket wisata..."
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Jadwal Trip - Only for Open Trip */}
+          {formData.packageType === '2' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Jadwal Trip</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent hover:bg-transparent"
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      schedules: [...(prev.schedules || []), { start_date: '', end_date: '' }]
+                    }))}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Tambah Jadwal
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {formData.schedules?.map((schedule, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative border-b pb-4 last:border-0">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Tanggal Mulai
+                      </label>
+                      <Input
+                        type="date"
+                        min={new Date().toISOString().split('T')[0]}
+                        value={schedule.start_date}
+                        onChange={(e) => {
+                          const newSchedules = [...(formData.schedules || [])];
+                          newSchedules[index].start_date = e.target.value;
+                          setFormData(prev => ({ ...prev, schedules: newSchedules }));
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          Tanggal Selesai
+                        </label>
+                        {formData.schedules && formData.schedules.length > 1 && (
                           <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeActivity(dayIndex, activityIndex)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-red-500 hover:text-red-700 bg-transparent hover:bg-transparent"
+                            onClick={() => {
+                              const newSchedules = formData.schedules?.filter((_, i) => i !== index);
+                              setFormData(prev => ({ ...prev, schedules: newSchedules }));
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addActivity(dayIndex)}
-                      className="w-full"
+                      <Input
+                        type="date"
+                        min={schedule.start_date || new Date().toISOString().split('T')[0]}
+                        value={schedule.end_date}
+                        onChange={(e) => {
+                          const newSchedules = [...(formData.schedules || [])];
+                          newSchedules[index].end_date = e.target.value;
+                          setFormData(prev => ({ ...prev, schedules: newSchedules }));
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {errors.schedules && <p className="text-red-500 text-sm">{errors.schedules}</p>}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Itinerary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Itinerary</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Area Penjemputan */}
+              <div className="space-y-4 border-b pb-6">
+                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Area Penjemputan</label>
+                <div className="flex flex-wrap gap-2">
+                  {formData.pickupAreas?.map((area) => (
+                    <div key={area.id} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                      <span>{area.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                           const newAreas = formData.pickupAreas.filter(a => a.id !== area.id);
+                           setFormData(prev => ({ ...prev, pickupAreas: newAreas }));
+                        }}
+                        className="hover:text-red-600 focus:outline-none bg-transparent p-0 border-0"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="relative">
+                  <Input
+                    value={pickupQuery}
+                    onChange={(e) => {
+                      setPickupQuery(e.target.value);
+                      setShowPickupDropdown(true);
+                    }}
+                    onFocus={() => {
+                      setShowPickupDropdown(true);
+                      if (pickupQuery) fetchCities(pickupQuery);
+                    }}
+                    placeholder="Cari area penjemputan..."
+                  />
+                  
+                  {showPickupDropdown && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowPickupDropdown(false)}
+                      />
+                      <div className="absolute z-20 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {loadingCities ? (
+                          <div className="p-2 text-center text-sm text-gray-500">Loading...</div>
+                        ) : cities.length > 0 ? (
+                          cities.map((city) => {
+                             const isSelected = formData.pickupAreas.some(a => a.id === city.id);
+                             if (isSelected) return null;
+                             return (
+                              <div
+                                key={city.id}
+                                className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    pickupAreas: [...prev.pickupAreas, city]
+                                  }));
+                                  setPickupQuery('');
+                                  setShowPickupDropdown(false);
+                                }}
+                              >
+                                {city.name}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="p-2 text-center text-sm text-gray-500">Tidak ada data</div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {formData.itinerary.map((day, dayIndex) => (
+                <div key={dayIndex} className="border rounded-lg p-4 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold">Hari ke-{day.day}</h3>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        const newItinerary = formData.itinerary.filter((_, i) => i !== dayIndex);
+                        setFormData(prev => ({ ...prev, itinerary: newItinerary }));
+                      }}
+                      className="text-red-500 bg-transparent hover:bg-transparent"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Tambah Aktivitas
+                      Hapus Hari
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                    {day.activities.map((activity, actIndex) => (
+                      <div key={actIndex} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start bg-gray-50 p-3 rounded">
+                        {/* Activity */}
+                        <div className="md:col-span-3">
+                          <label className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Aktifitas</label>
+                          <Input 
+                            value={activity.description}
+                            onChange={(e) => {
+                              const newItinerary = [...formData.itinerary];
+                              newItinerary[dayIndex].activities[actIndex].description = e.target.value;
+                              setFormData(prev => ({ ...prev, itinerary: newItinerary }));
+                            }}
+                            placeholder="Kegiatan..."
+                          />
+                        </div>
+
+                        {/* City */}
+                        <div className="md:col-span-3 relative">
+                          <label className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Kota</label>
+                          <div 
+                            className="relative"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Input
+                              className={`relative ${activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex ? 'z-50' : ''}`}
+                              value={
+                                activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex
+                                  ? cityQuery
+                                  : (activity.city?.name || '')
+                              }
+                              onChange={(e) => {
+                                setCityQuery(e.target.value);
+                                if (!activeCityDropdown || activeCityDropdown.dayIndex !== dayIndex || activeCityDropdown.activityIndex !== actIndex) {
+                                  setActiveCityDropdown({ dayIndex, activityIndex: actIndex });
+                                }
+                              }}
+                              onFocus={() => {
+                                setActiveCityDropdown({ dayIndex, activityIndex: actIndex });
+                                setCityQuery(activity.city?.name || '');
+                                fetchCities(activity.city?.name || '');
+                              }}
+                              placeholder="Cari Kota..."
+                            />
+                            {activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex && (
+                              <>
+                                <div 
+                                  className="fixed inset-0 z-40" 
+                                  onClick={() => setActiveCityDropdown(null)}
+                                />
+                                <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                                  {loadingCities ? (
+                                    <div className="p-2 text-center text-sm text-gray-500">Loading...</div>
+                                  ) : cities.length > 0 ? (
+                                    cities.map((city) => (
+                                      <div
+                                        key={city.id}
+                                        className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
+                                        onClick={() => {
+                                          const newItinerary = [...formData.itinerary];
+                                          newItinerary[dayIndex].activities[actIndex].city = city;
+                                          setFormData(prev => ({ ...prev, itinerary: newItinerary }));
+                                          setActiveCityDropdown(null);
+                                          setCityQuery('');
+                                        }}
+                                      >
+                                        {city.name}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="p-2 text-center text-sm text-gray-500">Tidak ada data</div>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Location */}
+                        <div className="md:col-span-5">
+                          <label className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Lokasi</label>
+                          <Input 
+                            value={activity.location}
+                            onChange={(e) => {
+                              const newItinerary = [...formData.itinerary];
+                              newItinerary[dayIndex].activities[actIndex].location = e.target.value;
+                              setFormData(prev => ({ ...prev, itinerary: newItinerary }));
+                            }}
+                            placeholder="Lokasi spesifik..."
+                          />
+                        </div>
+
+                        {/* Delete Action */}
+                        <div className="md:col-span-1 flex justify-center pt-5">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-red-500 hover:text-red-700 bg-transparent hover:bg-transparent"
+                            onClick={() => {
+                              const newItinerary = [...formData.itinerary];
+                              newItinerary[dayIndex].activities = newItinerary[dayIndex].activities.filter((_, i) => i !== actIndex);
+                              setFormData(prev => ({ ...prev, itinerary: newItinerary }));
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="bg-transparent hover:bg-transparent"
+                      onClick={() => {
+                        const newItinerary = [...formData.itinerary];
+                        newItinerary[dayIndex].activities.push({ time: '09:00', description: '', location: '' });
+                        setFormData(prev => ({ ...prev, itinerary: newItinerary }));
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Tambah Kegiatan
                     </Button>
                   </div>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Addon Packages - Full Width */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Paket Addon</span>
-              <Button type="button" variant="outline" size="sm" onClick={addAddon}>
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Addon
+              
+              <Button 
+                variant="outline" 
+                className="w-full bg-transparent hover:bg-transparent"
+                onClick={() => {
+                  setFormData(prev => ({
+                    ...prev,
+                    itinerary: [...prev.itinerary, { 
+                      day: prev.itinerary.length + 1, 
+                      activities: [{ time: '08:00', description: '', location: '' }] 
+                    }]
+                  }));
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" /> Tambah Hari
               </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {formData.addons.map((addon, index) => (
-              <div key={index} className="border rounded-lg p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Nama Addon
-                    </label>
-                    <Input
-                      value={addon.name}
-                      onChange={(e) => updateAddon(index, 'name', e.target.value)}
-                      placeholder="Contoh: Asuransi Perjalanan"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Harga Tambahan (Rp)
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        type="text"
-                        value={addon.price.toLocaleString()}
-                        onChange={(e) => updateAddon(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
-                        placeholder="100,000"
-                        className="flex-1"
+            </CardContent>
+          </Card>
+
+          {/* Fasilitas */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Fasilitas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {formData.features.map((feature, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <Input 
+                    value={feature}
+                    onChange={(e) => {
+                      const newFeatures = [...formData.features];
+                      newFeatures[index] = e.target.value;
+                      setFormData(prev => ({ ...prev, features: newFeatures }));
+                    }}
+                    placeholder="Contoh: Hotel Bintang 4"
+                    className="flex-1"
+                  />
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="bg-transparent hover:bg-transparent"
+                    onClick={() => {
+                      const newFeatures = formData.features.filter((_, i) => i !== index);
+                      setFormData(prev => ({ ...prev, features: newFeatures }));
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              ))}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setFormData(prev => ({ ...prev, features: [...prev.features, ''] }))}
+              >
+                <Plus className="h-4 w-4 mr-2" /> Tambah Fasilitas
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Harga Paket */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Harga Paket</span>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-transparent hover:bg-transparent"
+                  onClick={() => setFormData(prev => ({ ...prev, pricing: [...prev.pricing, { min_pax: 1, max_pax: 1, price: 0 }] }))}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tambah Harga
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {formData.pricing.map((price, index) => (
+                <div key={index} className="border rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Min Pax
+                      </label>
+                      <Input 
+                        type="number"
+                        min="1"
+                        value={price.min_pax}
+                        onChange={(e) => {
+                          const newPricing = [...formData.pricing];
+                          newPricing[index].min_pax = parseInt(e.target.value) || 0;
+                          setFormData(prev => ({ ...prev, pricing: newPricing }));
+                        }}
+                        placeholder="Min Pax"
                       />
-                      {formData.addons.length > 1 && (
-                        <Button
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Max Pax
+                      </label>
+                      <Input 
+                        type="number"
+                        min="1"
+                        value={price.max_pax}
+                        onChange={(e) => {
+                          const newPricing = [...formData.pricing];
+                          newPricing[index].max_pax = parseInt(e.target.value) || 0;
+                          setFormData(prev => ({ ...prev, pricing: newPricing }));
+                        }}
+                        placeholder="Max Pax"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Harga (Rp)
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <Input 
+                          type="text"
+                          value={price.price.toLocaleString()}
+                          onChange={(e) => {
+                            const newPricing = [...formData.pricing];
+                            newPricing[index].price = parseInt(formatCurrency(e.target.value)) || 0;
+                            setFormData(prev => ({ ...prev, pricing: newPricing }));
+                          }}
+                          placeholder="0"
+                          className="flex-1"
+                        />
+                        <Button 
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeAddon(index)}
+                          variant="ghost" 
+                          size="icon" 
+                          className="bg-transparent hover:bg-transparent"
+                          onClick={() => {
+                            const newPricing = formData.pricing.filter((_, i) => i !== index);
+                            setFormData(prev => ({ ...prev, pricing: newPricing }));
+                          }}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+              {formData.pricing.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed rounded-lg text-gray-500">
+                  <p>Belum ada harga paket</p>
+                  <Button 
+                    variant="link" 
+                    onClick={() => setFormData(prev => ({ ...prev, pricing: [...prev.pricing, { min_pax: 1, max_pax: 1, price: 0 }] }))}
+                  >
+                    Tambah Harga Baru
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Bottom Buttons */}
-        <div className="flex justify-between items-center pt-6 border-t">
-          <div className="flex items-center space-x-4">
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              Status:
-            </label>
-            <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Aktif</SelectItem>
-                <SelectItem value="inactive">Tidak Aktif</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex space-x-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/dashboard/partner/services/packages')}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Batal
-            </Button>
-            <Button type="submit">
-              <Save className="h-4 w-4 mr-2" />
-              {isEdit ? 'Update Paket' : 'Simpan Paket'}
-            </Button>
-          </div>
+          {/* Addon */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Paket Addon</span>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-transparent hover:bg-transparent"
+                  onClick={() => setFormData(prev => ({ ...prev, addons: [...prev.addons, { description: '', price: 0 }] }))}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tambah Addon
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {formData.addons.map((addon, index) => (
+                <div key={index} className="border rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Deskripsi
+                      </label>
+                      <Input 
+                        value={addon.description}
+                        onChange={(e) => {
+                          const newAddons = [...formData.addons];
+                          newAddons[index].description = e.target.value;
+                          setFormData(prev => ({ ...prev, addons: newAddons }));
+                        }}
+                        placeholder="Contoh: Bed tambahan untuk 1 orang"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Harga (Rp)
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <Input 
+                          type="text"
+                          value={addon.price.toLocaleString()}
+                          onChange={(e) => {
+                            const newAddons = [...formData.addons];
+                            newAddons[index].price = parseInt(formatCurrency(e.target.value)) || 0;
+                            setFormData(prev => ({ ...prev, addons: newAddons }));
+                          }}
+                          placeholder="0"
+                          className="flex-1"
+                        />
+                        <Button 
+                          type="button"
+                          variant="ghost" 
+                          size="icon" 
+                          className="bg-transparent hover:bg-transparent"
+                          onClick={() => {
+                            const newAddons = formData.addons.filter((_, i) => i !== index);
+                            setFormData(prev => ({ ...prev, addons: newAddons }));
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {formData.addons.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed rounded-lg text-gray-500">
+                  <p>Belum ada addon tambahan</p>
+                  <Button 
+                    variant="link" 
+                    onClick={() => setFormData(prev => ({ ...prev, addons: [...prev.addons, { name: '', description: '', price: 0 }] }))}
+                  >
+                    Tambah Addon Baru
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      </form>
+
+        {/* Right Column: Images & Status */}
+        <div className="space-y-6">
+          {/* Thumbnail */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Thumbnail</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
+                  {formData.thumbnail ? (
+                    <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+                      <img src={formData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={removeThumbnail}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      {thumbnailUploading && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Loader2 className="h-8 w-8 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer block p-8">
+                      <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                      <span className="text-sm text-gray-500">Klik untuk upload thumbnail (Wajib)</span>
+                      <input type="file" className="hidden" accept="image/*" onChange={handleThumbnailUpload} />
+                    </label>
+                  )}
+                </div>
+                {errors.thumbnail && <p className="text-red-500 text-sm">{errors.thumbnail}</p>}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Gallery */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Galeri ({galleryPreviews.length}/10)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {galleryPreviews.map((item, index) => (
+                  <div key={index} className="relative aspect-square rounded overflow-hidden group">
+                    <img src={item.url} alt={`Gallery ${index}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => removeGalleryImage(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {item.status === 'uploading' && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              {galleryPreviews.length < 10 && (
+                <label className="flex items-center justify-center w-full p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50">
+                  <div className="flex flex-col items-center">
+                    <Upload className="h-6 w-6 text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-500">Upload Foto</span>
+                  </div>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={handleGalleryUpload} 
+                  />
+                </label>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Status Publikasi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select 
+                value={formData.status} 
+                onValueChange={(val) => setFormData(prev => ({ ...prev, status: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Publikasi (Aktif)</SelectItem>
+                  <SelectItem value="inactive">Draft (Tidak Aktif)</SelectItem>
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Close Dropdown on Click Outside */}
+      {activeCityDropdown && (
+        <div 
+          className="fixed inset-0 z-0" 
+          onClick={() => setActiveCityDropdown(null)}
+        />
+      )}
+
+      {/* Save Button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-50 flex justify-end lg:static lg:bg-transparent lg:border-none lg:p-0">
+        <Button 
+          onClick={handleSubmit} 
+          disabled={thumbnailUploading || galleryPreviews.some(p => p.status === 'uploading')}
+          className="w-full lg:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          <Save className="h-4 w-4 mr-2" />
+          Simpan Paket Wisata
+        </Button>
+      </div>
     </div>
   );
 };
