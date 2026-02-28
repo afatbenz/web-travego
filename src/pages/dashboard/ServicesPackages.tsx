@@ -1,66 +1,85 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search, Filter, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { api } from '@/lib/api';
+import Swal from 'sweetalert2';
+
+interface TourPackage {
+  package_id: number;
+  package_name: string;
+  thumbnail: string;
+  package_description: string;
+  min_pax: number;
+  max_pax: number;
+  min_price: number;
+  status: string;
+}
 
 export const ServicesPackages: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [packages, setPackages] = useState<TourPackage[]>([]);
+  const [loading, setLoading] = useState(true);
   const itemsPerPage = 10;
 
-  const packages = [
-    {
-      id: 1,
-      title: 'Thailand Bangkok Tour Package - 4 Days 3 Nights',
-      location: 'Bangkok, Thailand',
-      duration: '4 Days 3 Nights',
-      price: 2500000,
-      originalPrice: 3000000,
-      rating: 4.8,
-      reviews: 24,
-      participants: '2-8 pax',
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'Paket wisata lengkap ke Bangkok dengan hotel bintang 4, transportasi AC, dan tour guide profesional.',
-      features: ['Hotel bintang 4', 'Transportasi AC', 'Guide berbahasa Indonesia', 'Makan sesuai itinerary']
-    },
-    {
-      id: 2,
-      title: 'Bali 3D2N Tour Package',
-      location: 'Bali, Indonesia',
-      duration: '3 Days 2 Nights',
-      price: 1500000,
-      originalPrice: 1800000,
-      rating: 4.9,
-      reviews: 156,
-      participants: '2-6 pax',
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'Paket wisata Bali dengan destinasi populer seperti Ubud, Kuta, dan Tanah Lot.',
-      features: ['Hotel bintang 3', 'Transportasi AC', 'Guide lokal', 'Tiket masuk tempat wisata']
-    },
-    {
-      id: 3,
-      title: 'Singapore 4D3N Tour Package',
-      location: 'Singapore',
-      duration: '4 Days 3 Nights',
-      price: 3500000,
-      originalPrice: 4000000,
-      rating: 4.7,
-      reviews: 89,
-      participants: '2-4 pax',
-      status: 'inactive',
-      image: 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop',
-      description: 'Paket wisata Singapore dengan Universal Studios, Marina Bay Sands, dan Sentosa Island.',
-      features: ['Hotel bintang 4', 'Transportasi MRT', 'Guide berbahasa Inggris', 'Tiket Universal Studios']
+  useEffect(() => {
+    fetchPackages();
+  }, []);
+
+  const fetchPackages = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await api.get('/partner/services/tour-packages/list', token ? { Authorization: token } : undefined);
+      if (response.data && Array.isArray(response.data)) {
+        setPackages(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching packages:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const handleDelete = async (id: number) => {
+    const result = await Swal.fire({
+      title: 'Apakah anda yakin?',
+      text: "Data yang dihapus tidak dapat dikembalikan!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Ya, hapus!',
+      cancelButtonText: 'Batal'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const token = localStorage.getItem('token');
+        await api.delete(`/partner/tour-packages/${id}`, token ? { Authorization: token } : undefined);
+        Swal.fire(
+          'Terhapus!',
+          'Data paket telah dihapus.',
+          'success'
+        );
+        fetchPackages();
+      } catch (error) {
+        console.error('Error deleting package:', error);
+        Swal.fire(
+          'Gagal!',
+          'Terjadi kesalahan saat menghapus data.',
+          'error'
+        );
+      }
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -74,7 +93,7 @@ export const ServicesPackages: React.FC = () => {
   };
 
   const filteredPackages = packages.filter(pkg => {
-    const matchesSearch = pkg.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = pkg.package_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || pkg.status === statusFilter;
     
     return matchesSearch && matchesStatus;
@@ -155,75 +174,72 @@ export const ServicesPackages: React.FC = () => {
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Nama</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Durasi</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Pax</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Harga</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Rating</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Harga Mulai</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {currentPackages.map((pkg) => (
-                  <tr key={pkg.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src={pkg.image}
-                          alt={pkg.title}
-                          className="w-12 h-12 object-cover rounded-lg"
-                        />
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{pkg.title}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">{pkg.description}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-sm text-gray-900 dark:text-white">{pkg.duration}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-sm text-gray-900 dark:text-white">{pkg.participants}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          Rp {pkg.price.toLocaleString()}
-                        </p>
-                        {pkg.originalPrice > pkg.price && (
-                          <p className="text-sm text-gray-500 line-through">
-                            Rp {pkg.originalPrice.toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {pkg.rating} ({pkg.reviews})
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(pkg.status)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => navigate(`/dashboard/partner/services/packages/edit/${pkg.id}`)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4">Loading...</td>
                   </tr>
-                ))}
+                ) : currentPackages.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4">Tidak ada data</td>
+                  </tr>
+                ) : (
+                  currentPackages.map((pkg) => (
+                    <tr key={pkg.package_id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-3">
+                          <img
+                            src={pkg.thumbnail}
+                            alt={pkg.package_name}
+                            className="w-12 h-12 object-cover rounded-lg"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
+                            }}
+                          />
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">{pkg.package_name}</p>
+                            <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1" dangerouslySetInnerHTML={{ __html: pkg.package_description }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-gray-900 dark:text-white">{pkg.min_pax} - {pkg.max_pax} Pax</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          Rp {pkg.min_price?.toLocaleString()}
+                        </p>
+                      </td>
+                      <td className="py-3 px-4">
+                        {getStatusBadge(pkg.status)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => navigate(`/dashboard/partner/services/packages/edit/${pkg.package_id}`)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDelete(pkg.package_id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -274,7 +290,7 @@ export const ServicesPackages: React.FC = () => {
       {/* Summary */}
       <Card>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{packages.length}</p>
               <p className="text-sm text-gray-600 dark:text-gray-300">Total Paket</p>
@@ -290,12 +306,6 @@ export const ServicesPackages: React.FC = () => {
                 {packages.filter(p => p.status === 'inactive').length}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300">Tidak Aktif</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-blue-600">
-                {(packages.reduce((acc, pkg) => acc + pkg.rating, 0) / packages.length).toFixed(1)}
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Rata-rata Rating</p>
             </div>
           </div>
         </CardContent>

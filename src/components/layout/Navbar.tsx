@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, MapPin, User, LogIn } from 'lucide-react';
+import { Menu, X, MapPin, User, LogIn, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { isTokenValid } from '@/lib/utils';
 
 export const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ id: number; name: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ id: number; name: string; role: string; avatar?: string } | null>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -14,7 +15,7 @@ export const Navbar: React.FC = () => {
     const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     
-    if (userData && token) {
+    if (userData && token && isTokenValid(token)) {
       try {
         setUser(JSON.parse(userData));
       } catch (error) {
@@ -72,6 +73,16 @@ export const Navbar: React.FC = () => {
             <ThemeToggle />
             {user ? (
               <>
+                <Link to="/dashboard/partner">
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    className="!w-auto !h-auto p-2 border-2 border-gray-100 dark:border-gray-300 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    title="Dashboard"
+                  >
+                    <LayoutDashboard className="h-5 w-5 text-gray-700 dark:text-white" />
+                  </Button>
+                </Link>
                 <Link to="/myprofile">
                   <Button 
                     variant="outline" 
@@ -130,6 +141,12 @@ export const Navbar: React.FC = () => {
                 <div className="flex flex-col space-y-2">
                   {user ? (
                     <>
+                      <Link to="/dashboard/partner" onClick={() => setIsMenuOpen(false)}>
+                        <Button variant="outline" size="sm" className="w-full mb-2">
+                          <LayoutDashboard className="h-4 w-4 mr-2" />
+                          Dashboard
+                        </Button>
+                      </Link>
                       <Link to="/myprofile" onClick={() => setIsMenuOpen(false)}>
                         <Button variant="outline" size="sm" className="w-full">
                           {user.avatar ? (
