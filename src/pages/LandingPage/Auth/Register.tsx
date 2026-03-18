@@ -97,7 +97,7 @@ export const Register: React.FC = () => {
           password: formData.password,
           phone: normalizePhoneForApi(formData.phone),
         };
-        const res = await (await import('@/lib/api')).api.post<any>('/auth/register', payload);
+        const res = await (await import('@/lib/api')).api.post<{ token?: string; profile?: { email?: string } }>('/auth/register', payload);
         if (res.status === 'success') {
           const token = (res.data?.token) ?? '';
           const email = (res.data?.profile?.email) ?? formData.email;
@@ -134,7 +134,7 @@ export const Register: React.FC = () => {
                 placeholder="Masukkan nama lengkap"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                className="pl-10 h-12"
+                className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
               />
             </div>
           </div>
@@ -153,7 +153,7 @@ export const Register: React.FC = () => {
                 placeholder="contoh@email.com"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="pl-10 h-12"
+                className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
               />
             </div>
           </div>
@@ -173,7 +173,7 @@ export const Register: React.FC = () => {
                 value={formData.phone}
                 onChange={handlePhoneChange}
                 onKeyDown={handlePhoneKeyDown}
-                className="pl-10 h-12"
+                className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
               />
             </div>
           </div>
@@ -193,7 +193,7 @@ export const Register: React.FC = () => {
                   placeholder="Masukkan password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="pl-10 pr-10 h-12"
+                  className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
                 />
                 <button
                   type="button"
@@ -219,7 +219,7 @@ export const Register: React.FC = () => {
                   placeholder="Ulangi password"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className="pl-10 pr-10 h-12"
+                  className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
                 />
                 <button
                   type="button"
@@ -244,7 +244,7 @@ export const Register: React.FC = () => {
               onCheckedChange={(checked) => 
                 setFormData(prev => ({ ...prev, acceptTerms: checked as boolean }))
               }
-              className="cursor-pointer bg-transparent data-[state=checked]:bg-transparent data-[state=checked]:border-blue-600 data-[state=checked]:text-blue-600"
+              className="cursor-pointer bg-transparent border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 data-[state=checked]:bg-transparent data-[state=checked]:border-blue-600 dark:data-[state=checked]:border-blue-400 data-[state=checked]:text-blue-600 dark:data-[state=checked]:text-blue-400"
             />
           </div>
           <label 

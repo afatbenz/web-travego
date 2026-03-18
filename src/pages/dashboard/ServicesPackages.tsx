@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
 interface TourPackage {
-  package_id: number;
+  package_id: string | number;
   package_name: string;
   thumbnail: string;
   package_description: string;
@@ -22,6 +21,8 @@ interface TourPackage {
 
 export const ServicesPackages: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,13 +34,42 @@ export const ServicesPackages: React.FC = () => {
     fetchPackages();
   }, []);
 
+  const normalizeStatus = (raw: unknown): 'active' | 'inactive' => {
+    if (raw === 1 || raw === '1') return 'active';
+    if (raw === 0 || raw === '0') return 'inactive';
+    if (raw === true) return 'active';
+    if (raw === false) return 'inactive';
+    if (typeof raw === 'string') {
+      const s = raw.toLowerCase();
+      if (s === 'active') return 'active';
+      if (s === 'inactive') return 'inactive';
+    }
+    return 'inactive';
+  };
+
   const fetchPackages = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await api.get('/partner/services/tour-packages/list', token ? { Authorization: token } : undefined);
       if (response.data && Array.isArray(response.data)) {
-        setPackages(response.data);
+        const mapped = (response.data as unknown[]).map((x) => {
+          const item = x as Record<string, unknown>;
+          const rawId = item.package_id ?? item.id ?? item.packageId;
+          const package_id =
+            typeof rawId === 'string' || typeof rawId === 'number' ? rawId : String(rawId ?? '');
+          return {
+            package_id,
+            package_name: String(item.package_name ?? item.name ?? ''),
+            thumbnail: String(item.thumbnail ?? ''),
+            package_description: String(item.package_description ?? item.description ?? ''),
+            min_pax: Number(item.min_pax ?? 0),
+            max_pax: Number(item.max_pax ?? 0),
+            min_price: Number(item.min_price ?? 0),
+            status: normalizeStatus(item.status ?? item.active),
+          } satisfies TourPackage;
+        });
+        setPackages(mapped);
       }
     } catch (error) {
       console.error('Error fetching packages:', error);
@@ -48,7 +78,7 @@ export const ServicesPackages: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string | number) => {
     const result = await Swal.fire({
       title: 'Apakah anda yakin?',
       text: "Data yang dihapus tidak dapat dikembalikan!",
@@ -63,7 +93,7 @@ export const ServicesPackages: React.FC = () => {
     if (result.isConfirmed) {
       try {
         const token = localStorage.getItem('token');
-        await api.delete(`/partner/tour-packages/${id}`, token ? { Authorization: token } : undefined);
+        await api.delete(`/partner/tour-packages/${encodeURIComponent(String(id))}`, token ? { Authorization: token } : undefined);
         Swal.fire(
           'Terhapus!',
           'Data paket telah dihapus.',
@@ -81,15 +111,16 @@ export const ServicesPackages: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">Aktif</Badge>;
-      case 'inactive':
-        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300">Tidak Aktif</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
+  const getStatusText = (status: string) => {
+    const s = status === 'active' ? 'active' : status === 'inactive' ? 'inactive' : status;
+    const label = s === 'active' ? 'Aktif' : s === 'inactive' ? 'Tidak Aktif' : status;
+    const cls =
+      s === 'active'
+        ? 'text-green-600 dark:text-green-400'
+        : s === 'inactive'
+          ? 'text-gray-600 dark:text-gray-300'
+          : 'text-gray-900 dark:text-white';
+    return <span className={`text-sm font-medium ${cls}`}>{label}</span>;
   };
 
   const filteredPackages = packages.filter(pkg => {
@@ -120,7 +151,7 @@ export const ServicesPackages: React.FC = () => {
         </div>
         <Button 
           className="bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={() => navigate('/dashboard/partner/services/packages/create')}
+          onClick={() => navigate(`${basePrefix}/services/packages/create`)}
         >
           <Plus className="h-4 w-4 mr-2" />
           Tambah Paket
@@ -166,7 +197,7 @@ export const ServicesPackages: React.FC = () => {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Data Paket Wisata ({filteredPackages.length} total)</CardTitle>
+          <CardTitle className="font-bold">Data Paket Wisata ({filteredPackages.length} total)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -174,9 +205,9 @@ export const ServicesPackages: React.FC = () => {
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Nama</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Pax</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Harga Mulai</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white w-[170px]">Pax</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white w-[170px]">Harga Mulai</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white w-[140px]">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Aksi</th>
                 </tr>
               </thead>
@@ -191,7 +222,7 @@ export const ServicesPackages: React.FC = () => {
                   </tr>
                 ) : (
                   currentPackages.map((pkg) => (
-                    <tr key={pkg.package_id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <tr key={String(pkg.package_id)} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
                           <img
@@ -203,28 +234,35 @@ export const ServicesPackages: React.FC = () => {
                             }}
                           />
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-white">{pkg.package_name}</p>
+                            <p className={`font-bold ${pkg.status === 'inactive' ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'}`}>{pkg.package_name}</p>
                             <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1" dangerouslySetInnerHTML={{ __html: pkg.package_description }} />
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 w-[170px]">
                         <span className="text-sm text-gray-900 dark:text-white">{pkg.min_pax} - {pkg.max_pax} Pax</span>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 w-[170px]">
                         <p className="font-medium text-gray-900 dark:text-white">
                           Rp {pkg.min_price?.toLocaleString()}
                         </p>
                       </td>
-                      <td className="py-3 px-4">
-                        {getStatusBadge(pkg.status)}
+                      <td className="py-3 px-4 w-[140px]">
+                        {getStatusText(pkg.status)}
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`${basePrefix}/services/packages/detail/${encodeURIComponent(String(pkg.package_id))}`)}
+                          >
+                            Detail
+                          </Button>
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => navigate(`/dashboard/partner/services/packages/edit/${pkg.package_id}`)}
+                            onClick={() => navigate(`${basePrefix}/services/packages/edit/${encodeURIComponent(String(pkg.package_id))}`)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>

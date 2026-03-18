@@ -4,7 +4,6 @@ import { Plus, Edit, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'l
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 
@@ -68,15 +67,16 @@ export const ServicesArmada: React.FC = () => {
     load();
   }, [currentPage, itemsPerPage, searchTerm, statusFilter]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">Aktif</Badge>;
-      case 'inactive':
-        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300">Tidak Aktif</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
+  const getStatusText = (status: string) => {
+    const s = status === 'active' ? 'active' : status === 'inactive' ? 'inactive' : status;
+    const label = s === 'active' ? 'Aktif' : s === 'inactive' ? 'Tidak Aktif' : status;
+    const cls =
+      s === 'active'
+        ? 'text-green-600 dark:text-green-400'
+        : s === 'inactive'
+          ? 'text-gray-600 dark:text-gray-300'
+          : 'text-gray-900 dark:text-white';
+    return <span className={`text-sm font-medium ${cls}`}>{label}</span>;
   };
 
   const filteredArmada = armada; // server-side filtering/pagination
@@ -157,7 +157,6 @@ export const ServicesArmada: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Nama</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Tipe</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Kapasitas</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Spesifikasi</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Aksi</th>
                 </tr>
@@ -174,7 +173,9 @@ export const ServicesArmada: React.FC = () => {
                         />
                         <div>
                           <p className="font-bold text-gray-900 dark:text-white">{item.name}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">{item.description}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">
+                            {[item.body, item.engine].filter(Boolean).join(' - ') || item.description}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -185,10 +186,7 @@ export const ServicesArmada: React.FC = () => {
                       <span className="text-sm text-gray-900 dark:text-white">{item.capacity}</span>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-sm text-gray-900 dark:text-white">{[item.body, item.engine].filter(Boolean).join(' - ')}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(item.status)}
+                      {getStatusText(item.status)}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex space-x-2">

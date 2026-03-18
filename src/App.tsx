@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { AlertCenter } from '@/components/ui/alert-center';
+import { isTokenValid } from '@/lib/utils';
 
 // Layouts
 import { Navbar } from '@/components/layout/Navbar';
@@ -16,6 +17,29 @@ const ScrollToTop: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  return null;
+};
+
+const AuthGuard: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const path = location.pathname;
+    const protectedExact = new Set(['/myprofile', '/myorders', '/edit-profile']);
+    const requiresAuth = protectedExact.has(path) || path === '/dashboard' || path.startsWith('/dashboard/');
+    if (!requiresAuth) return;
+
+    const token = localStorage.getItem('token');
+    if (!token || !isTokenValid(token)) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      const currentPath = location.pathname + location.search;
+      localStorage.setItem('redirect_path', currentPath);
+      navigate('/auth/login', { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
 
   return null;
 };
@@ -88,6 +112,7 @@ import { PackageForm } from '@/pages/dashboard/services/PackageForm';
 import { CreateArmada } from '@/pages/dashboard/services/CreateArmada';
 import { EditArmada } from '@/pages/dashboard/services/EditArmada';
 import { FleetDetail } from '@/pages/dashboard/services/FleetDetail';
+import { PackageDetail } from '@/pages/dashboard/services/PackageDetail';
 import { TeamMember } from '@/pages/dashboard/team/TeamMember';
 import { ScheduleArmada } from '@/pages/dashboard/team/ScheduleArmada';
 import { AddSchedule } from '@/pages/dashboard/team/AddSchedule';
@@ -157,6 +182,7 @@ function App() {
     <ThemeProvider>
       <Router>
         <ScrollToTop />
+        <AuthGuard />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={
@@ -606,6 +632,16 @@ function App() {
           <Route path="/dashboard/services/packages" element={
             <DashboardLayout>
               <ServicesPackages />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/services/packages/detail/:id" element={
+            <DashboardLayout>
+              <PackageDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/services/packages/detail/:id" element={
+            <DashboardLayout>
+              <PackageDetail />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/services/packages/create" element={

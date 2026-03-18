@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import heroIllustration from '@/assets/landing-page/hero-illustration.png';
-import relationIllustration from '@/assets/landing-page/relation-ilustration.png';
+import heroIllustration from '@/assets/landing-page/hero-illustration.svg';
+import relationIllustration from '@/assets/landing-page/relation-ilustration.svg';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -233,7 +233,7 @@ export const Home: React.FC = () => {
             preserveAspectRatio="none"
           >
             <path 
-              d="M0,120 L1200,120 L1200,40 L0,20 Z" 
+              d="M0,120 L1200,120 L1200,20 L600,60 L0,20 Z" 
               className="fill-blue-600 dark:fill-blue-900"
             />
           </svg>
@@ -282,7 +282,7 @@ export const Home: React.FC = () => {
             preserveAspectRatio="none"
           >
             <path 
-              d="M0,0 L1200,0 L1200,40 Z" 
+              d="M0,0 L1200,0 L1200,40 L600,80 L0,40 Z" 
               className="fill-blue-600 dark:fill-blue-900"
             />
           </svg>
@@ -495,7 +495,7 @@ export const Home: React.FC = () => {
             preserveAspectRatio="none"
           >
             <path 
-              d="M1200,120 L0,120 L0,60 L1200,80 Z" 
+              d="M0,120 L1200,120 L1200,80 L600,60 L0,80 Z" 
               className="fill-gray-900 dark:fill-black"
             />
           </svg>

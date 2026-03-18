@@ -10,7 +10,6 @@ import {
   LogOut,
   ShoppingBag,
   Clock,
-  CheckCircle,
   Package,
   Car,
   Settings,

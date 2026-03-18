@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Car, Search, Filter, ChevronLeft, ChevronRight, Eye, Download } from 'lucide-react';
+import { Search, Filter, ChevronLeft, ChevronRight, Eye, Download } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

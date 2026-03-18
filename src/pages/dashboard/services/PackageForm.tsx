@@ -7,15 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { uploadCommon, deleteCommon, api } from '@/lib/api';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3100/api';
-const ASSET_BASE_URL = BASE_URL.replace('/api', '');
-
-const getImageUrl = (path: string) => {
-  if (!path) return '';
-  if (path.startsWith('http') || path.startsWith('blob:')) return path;
-  return `${ASSET_BASE_URL}/${path}`;
-};
-
 // Interface for API response/request
 interface TourPackage {
   id?: number;
@@ -84,7 +75,6 @@ export const PackageForm: React.FC = () => {
   const [galleryPreviews, setGalleryPreviews] = useState<Array<{ url: string; path?: string; status: 'uploading' | 'done' | 'error' }>>([]);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
 
   // City Search State
   const [cities, setCities] = useState<Array<{ id: number; name: string }>>([]);
@@ -145,20 +135,196 @@ export const PackageForm: React.FC = () => {
   // Load data for edit
   useEffect(() => {
     if (isEdit && id) {
-      setLoading(true);
-      // Mock fetch or actual fetch if API existed for single package
-      // For now we assume we need to fetch from list or a specific endpoint
-      // Since the user asked for GET /api/partner/tour-packages for list, likely GET /api/partner/tour-packages/{id} for detail
       const fetchDetail = async () => {
         try {
-          // const res = await api.get(`/partner/tour-packages/${id}`);
-          // if (res.status === 'success') { ... populate state ... }
-          // Placeholder for edit logic
-          console.log("Fetching detail for", id);
-        } catch (error) {
-          console.error("Failed to fetch package detail", error);
+          const packageIdParam = decodeURIComponent(id);
+          const token = localStorage.getItem('token') ?? '';
+          const headers = token ? { Authorization: token } : undefined;
+          const res = await api.post<unknown>(
+            '/partner/services/tour-packages/detail',
+            { package_id: packageIdParam },
+            headers
+          );
+          if (res.status !== 'success') return;
+
+          const payload = res.data;
+          const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+          const metaRaw = (root.meta && typeof root.meta === 'object' ? (root.meta as Record<string, unknown>) : root) as Record<string, unknown>;
+
+          const toServerPath = (value: string) => {
+            if (!value) return '';
+            if (value.startsWith('http')) {
+              try {
+                const u = new URL(value);
+                return u.pathname.replace(/^\/+/, '');
+              } catch {
+                return value;
+              }
+            }
+            return value.replace(/^\/+/, '');
+          };
+
+          const packageName = String(metaRaw.package_name ?? metaRaw.name ?? '');
+          const packageType = String(metaRaw.package_type ?? metaRaw.type ?? '2');
+          const packageDescription = String(metaRaw.package_description ?? metaRaw.description ?? '');
+          const thumbnailUrl = String(metaRaw.thumbnail ?? '');
+          const thumbnailFile = toServerPath(thumbnailUrl);
+          const active = typeof metaRaw.active === 'boolean' ? metaRaw.active : Boolean(metaRaw.status === 1 || metaRaw.status === '1');
+
+          const facilitiesRaw = root.facilities ?? root.features ?? metaRaw.facilities ?? metaRaw.features;
+          const features = Array.isArray(facilitiesRaw)
+            ? (facilitiesRaw as unknown[]).map((x) => (typeof x === 'string' ? x : '')).filter((x) => x)
+            : [];
+
+          const pricingRaw = root.pricing ?? metaRaw.pricing;
+          const pricing = Array.isArray(pricingRaw)
+            ? (pricingRaw as unknown[])
+                .map((x) => {
+                  if (!x || typeof x !== 'object') return null;
+                  const obj = x as Record<string, unknown>;
+                  const min_pax = typeof obj.min_pax === 'number' ? obj.min_pax : Number(obj.min_pax ?? 0);
+                  const max_pax = typeof obj.max_pax === 'number' ? obj.max_pax : Number(obj.max_pax ?? 0);
+                  const price = typeof obj.price === 'number' ? obj.price : Number(obj.price ?? 0);
+                  return { min_pax, max_pax, price };
+                })
+                .filter((v): v is { min_pax: number; max_pax: number; price: number } => v !== null)
+            : [];
+
+          const schedulesRaw = root.schedules ?? metaRaw.schedules;
+          const schedules = Array.isArray(schedulesRaw)
+            ? (schedulesRaw as unknown[])
+                .map((x) => {
+                  if (!x || typeof x !== 'object') return null;
+                  const obj = x as Record<string, unknown>;
+                  const start_date = typeof obj.start_date === 'string' ? obj.start_date : '';
+                  const end_date = typeof obj.end_date === 'string' ? obj.end_date : '';
+                  return start_date || end_date ? { start_date, end_date } : null;
+                })
+                .filter((v): v is { start_date: string; end_date: string } => v !== null)
+            : [];
+
+          const addonsRaw = root.addons ?? metaRaw.addons;
+          const addons = Array.isArray(addonsRaw)
+            ? (addonsRaw as unknown[])
+                .map((x) => {
+                  if (!x || typeof x !== 'object') return null;
+                  const obj = x as Record<string, unknown>;
+                  const description = typeof obj.description === 'string' ? obj.description : '';
+                  const price = typeof obj.price === 'number' ? obj.price : Number(obj.price ?? 0);
+                  return description ? { description, price } : null;
+                })
+                .filter((v): v is { description: string; price: number } => v !== null)
+            : [];
+
+          const pickupRaw = root.pickup_areas ?? root.pickup ?? metaRaw.pickup_areas ?? metaRaw.pickup;
+          const pickupAreas = Array.isArray(pickupRaw)
+            ? (pickupRaw as unknown[])
+                .map((x, i) => {
+                  if (!x || typeof x !== 'object') return null;
+                  const obj = x as Record<string, unknown>;
+                  const idVal = obj.id ?? obj.city_id ?? i;
+                  const idNum = typeof idVal === 'number' ? idVal : typeof idVal === 'string' ? Number(idVal) : i;
+                  const id = Number.isFinite(idNum) ? idNum : i;
+                  const name = typeof obj.name === 'string' ? obj.name : typeof obj.city_name === 'string' ? obj.city_name : '';
+                  return { id, name };
+                })
+                .filter((v): v is { id: number; name: string } => v !== null)
+            : [];
+
+          const imagesRaw = root.images ?? metaRaw.images;
+          const imagesUrl = Array.isArray(imagesRaw)
+            ? (imagesRaw as unknown[])
+                .map((x) => (typeof x === 'string' ? x : ''))
+                .filter((x) => x)
+            : [];
+          const uniqueImagesUrl = Array.from(new Set(imagesUrl));
+          const gallery = uniqueImagesUrl.map(toServerPath);
+          setGalleryPreviews(uniqueImagesUrl.map((url) => ({ url, path: toServerPath(url), status: 'done' as const })));
+
+          const itinerariesRaw = root.itineraries ?? root.itinerary ?? metaRaw.itineraries ?? metaRaw.itinerary;
+          const toMinutes = (time: string) => {
+            const hh = Number(time.slice(0, 2));
+            const mm = Number(time.slice(3, 5));
+            if (!Number.isFinite(hh) || !Number.isFinite(mm)) return -1;
+            return hh * 60 + mm;
+          };
+          type ItAct = { time: string; description: string; city: { id: number; name: string } | undefined; location: string };
+          const readActivity = (input: unknown): ItAct | null => {
+            if (!input || typeof input !== 'object') return null;
+            const ao = input as Record<string, unknown>;
+            const timeRaw = typeof ao.time === 'string' ? ao.time : '';
+            const time = timeRaw ? timeRaw.slice(0, 5) : '';
+            const description = typeof ao.description === 'string' ? ao.description : '';
+            const location = typeof ao.location === 'string' ? ao.location : '';
+            const cityIdRaw = ao.city_id ?? ao.cityId;
+            const cityNameRaw = ao.city_name ?? ao.cityName;
+            const cityIdNum = typeof cityIdRaw === 'number' ? cityIdRaw : typeof cityIdRaw === 'string' ? Number(cityIdRaw) : undefined;
+            const city_id = typeof cityIdNum === 'number' && Number.isFinite(cityIdNum) ? cityIdNum : undefined;
+            const city_name = typeof cityNameRaw === 'string' ? cityNameRaw : undefined;
+            const city = city_id && city_name ? { id: city_id, name: city_name } : undefined;
+            return { time, description, city, location };
+          };
+          const itinerary = (() => {
+            if (!Array.isArray(itinerariesRaw)) return [];
+            const arr = itinerariesRaw as unknown[];
+            const first = arr[0];
+            if (first && typeof first === 'object' && 'activities' in (first as Record<string, unknown>)) {
+              return arr
+                .map((x, i) => {
+                  if (!x || typeof x !== 'object') return null;
+                  const obj = x as Record<string, unknown>;
+                  const dayRaw = obj.day ?? i + 1;
+                  const day = typeof dayRaw === 'number' ? dayRaw : typeof dayRaw === 'string' ? Number(dayRaw) : i + 1;
+                  const activitiesRaw = obj.activities;
+                  const activities = Array.isArray(activitiesRaw)
+                    ? (activitiesRaw as unknown[])
+                        .map(readActivity)
+                        .filter((v): v is ItAct => v !== null)
+                    : [];
+                  return { day: Number.isFinite(day) ? day : i + 1, activities };
+                })
+                .filter((v): v is { day: number; activities: ItAct[] } => v !== null);
+            }
+            const flat = arr
+              .map(readActivity)
+              .filter((v): v is ItAct => v !== null);
+            let day = 1;
+            let prevMin = -1;
+            const byDay = new Map<number, ItAct[]>();
+            for (const a of flat) {
+              const m = toMinutes(a.time);
+              if (prevMin !== -1 && m !== -1 && m < prevMin) day += 1;
+              prevMin = m !== -1 ? m : prevMin;
+              const list = byDay.get(day) ?? [];
+              list.push(a);
+              byDay.set(day, list);
+            }
+            return Array.from(byDay.entries())
+              .sort((a, b) => a[0] - b[0])
+              .map(([d, activities]) => ({ day: d, activities }));
+          })();
+
+          setFormData(prev => ({
+            ...prev,
+            title: packageName,
+            packageType,
+            description: packageDescription,
+            thumbnail: thumbnailUrl,
+            thumbnailFile,
+            gallery,
+            features: features.length > 0 ? features : [''],
+            pricing: pricing.length > 0 ? pricing : [{ min_pax: 1, max_pax: 1, price: 0 }],
+            schedules: schedules.length > 0 ? schedules : prev.schedules,
+            addons: addons.length > 0 ? addons : [{ description: '', price: 0 }],
+            pickupAreas,
+            itinerary: itinerary.length > 0 ? itinerary : prev.itinerary,
+            active,
+          }));
+          setErrors({});
+        } catch {
+          void 0;
         } finally {
-          setLoading(false);
+          void 0;
         }
       };
       fetchDetail();
@@ -171,23 +337,45 @@ export const PackageForm: React.FC = () => {
     try {
       const res = await api.get<unknown>(`/general/cities${q ? `?search=${encodeURIComponent(q)}` : ''}`);
       if (res.status === 'success') {
-        const payload = res.data as any;
+        const payload = res.data as unknown;
         let list: Array<{ id: number; name: string }> = [];
         
-        const items = Array.isArray(payload) ? payload : (payload?.items || []);
+        let items: unknown = undefined;
+        if (Array.isArray(payload)) {
+          items = payload;
+        } else if (payload && typeof payload === 'object') {
+          items = (payload as Record<string, unknown>).items;
+        }
         
         if (Array.isArray(items)) {
-            list = items.map((x: any, i: number) => {
-                const name = x?.name || (typeof x === 'string' ? x : '');
-                const id = x?.id || i;
+          list = items
+            .map((x, i: number) => {
+              if (x && typeof x === 'object') {
+                const rec = x as Record<string, unknown>;
+                const nameVal = rec.name;
+                const idVal = rec.id;
+                const name = typeof nameVal === 'string' ? nameVal : '';
+                const idNum =
+                  typeof idVal === 'number'
+                    ? idVal
+                    : typeof idVal === 'string'
+                      ? Number(idVal)
+                      : i;
+                const id = Number.isFinite(idNum) ? idNum : i;
                 return name ? { id, name } : null;
-            }).filter((v): v is { id: number; name: string } => Boolean(v));
+              }
+              if (typeof x === 'string') {
+                return x ? { id: i, name: x } : null;
+              }
+              return null;
+            })
+            .filter((v): v is { id: number; name: string } => Boolean(v));
         }
         setCities(list);
       } else {
         setCities([]);
       }
-    } catch (e) {
+    } catch {
       setCities([]);
     } finally {
       setLoadingCities(false);
@@ -310,7 +498,7 @@ export const PackageForm: React.FC = () => {
         // Handle error state for previews
         setGalleryPreviews(prev => prev.map(p => p.status === 'uploading' ? { ...p, status: 'error' } : p));
       }
-    } catch (error) {
+    } catch {
       setGalleryPreviews(prev => prev.map(p => p.status === 'uploading' ? { ...p, status: 'error' } : p));
     }
   };
@@ -379,7 +567,6 @@ export const PackageForm: React.FC = () => {
     console.log('Submitting Payload:', payload);
     
     try {
-      setLoading(true);
       const token = localStorage.getItem('token') ?? '';
       const headers = token ? { Authorization: token } : undefined;
       
@@ -396,7 +583,7 @@ export const PackageForm: React.FC = () => {
     } catch (error) {
       console.error('Failed to save package', error);
     } finally {
-      setLoading(false);
+      void 0;
     }
   };
 
@@ -830,7 +1017,7 @@ export const PackageForm: React.FC = () => {
                       className="bg-transparent hover:bg-transparent"
                       onClick={() => {
                         const newItinerary = [...formData.itinerary];
-                        newItinerary[dayIndex].activities.push({ time: '09:00', description: '', location: '' });
+                        newItinerary[dayIndex].activities.push({ time: '09:00', description: '', city: undefined, location: '' });
                         setFormData(prev => ({ ...prev, itinerary: newItinerary }));
                       }}
                     >
@@ -848,7 +1035,7 @@ export const PackageForm: React.FC = () => {
                     ...prev,
                     itinerary: [...prev.itinerary, { 
                       day: prev.itinerary.length + 1, 
-                      activities: [{ time: '08:00', description: '', location: '' }] 
+                      activities: [{ time: '08:00', description: '', city: undefined, location: '' }] 
                     }]
                   }));
                 }}
@@ -1176,15 +1363,15 @@ export const PackageForm: React.FC = () => {
             </CardHeader>
             <CardContent>
               <Select 
-                value={formData.status} 
-                onValueChange={(val) => setFormData(prev => ({ ...prev, status: val }))}
+                value={formData.active ? 'true' : 'false'} 
+                onValueChange={(val) => setFormData(prev => ({ ...prev, active: val === 'true' }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Publikasi (Aktif)</SelectItem>
-                  <SelectItem value="inactive">Draft (Tidak Aktif)</SelectItem>
+                  <SelectItem value="true">Publikasi (Aktif)</SelectItem>
+                  <SelectItem value="false">Draft (Tidak Aktif)</SelectItem>
                 </SelectContent>
               </Select>
             </CardContent>
