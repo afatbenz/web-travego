@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,6 +10,7 @@ import { toast } from '@/hooks/use-toast';
 
 export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -29,56 +30,74 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await api.post<{ token?: string; user?: { role?: string } }>(
-      '/auth/login',
-      { email: formData.email, password: formData.password }
-    );
-    if (res.status === 'success') {
-      toast({ title: 'Login berhasil', description: 'Selamat datang kembali!' });
-      if (res.data?.token) {
-        localStorage.setItem('token', res.data.token);
-        try {
-          const payloadStr = res.data.token.split('.')[1];
-          const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
-          const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-          const json = JSON.parse(atob(padded));
-          
-          // Prioritize data from response, fallback to JWT
-          // Note: API response structure has fullname/username/avatar at root of data object
-          const responseData = res.data as any;
-          
-          const name = responseData.fullname ?? json.fullname ?? responseData.username ?? json.username ?? json.name ?? '';
-          const email = responseData.email ?? json.email ?? '';
-          const role = json.role ?? json.user_role ?? 'user';
-          const avatar = responseData.avatar ?? '';
-          const username = responseData.username ?? json.username ?? '';
-          const isAdmin = json.is_admin ?? json.isAdmin ?? false;
+    if (submitting) return;
+    try {
+      setSubmitting(true);
+      const res = await api.post<{
+        token?: string;
+        user?: { role?: string };
+        fullname?: string;
+        email?: string;
+        avatar?: string;
+        username?: string;
+      }>(
+        '/auth/login',
+        { email: formData.email, password: formData.password }
+      );
+      if (res.status === 'success') {
+        toast({ title: 'Login berhasil', description: 'Selamat datang kembali!' });
+        if (res.data?.token) {
+          localStorage.setItem('token', res.data.token);
+          try {
+            const payloadStr = res.data.token.split('.')[1];
+            const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+            const claims = JSON.parse(atob(padded)) as {
+              fullname?: string;
+              username?: string;
+              name?: string;
+              email?: string;
+              role?: string;
+              user_role?: string;
+              is_admin?: boolean;
+              isAdmin?: boolean;
+            };
 
-          localStorage.setItem('user', JSON.stringify({ name, email, role, avatar, username }));
-          
-          const redirectPath = localStorage.getItem('redirect_path');
-          if (redirectPath) {
-            localStorage.removeItem('redirect_path');
-            navigate(redirectPath);
-          } else {
-            navigate(isAdmin ? '/dashboard' : '/dashboard/partner');
+            const name = res.data?.fullname ?? claims.fullname ?? res.data?.username ?? claims.username ?? claims.name ?? '';
+            const email = res.data?.email ?? claims.email ?? '';
+            const role = claims.role ?? claims.user_role ?? 'user';
+            const avatar = res.data?.avatar ?? '';
+            const username = res.data?.username ?? claims.username ?? '';
+            const isAdmin = claims.is_admin ?? claims.isAdmin ?? false;
+
+            localStorage.setItem('user', JSON.stringify({ name, email, role, avatar, username }));
+
+            const redirectPath = localStorage.getItem('redirect_path');
+            if (redirectPath) {
+              localStorage.removeItem('redirect_path');
+              navigate(redirectPath);
+            } else {
+              navigate(isAdmin ? '/dashboard' : '/dashboard/partner');
+            }
+            return;
+          } catch {
+            void 0;
           }
-          return;
-        } catch {
-          // ignore decode errors
+        }
+        if (res.data?.user) {
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+        }
+
+        const redirectPath = localStorage.getItem('redirect_path');
+        if (redirectPath) {
+          localStorage.removeItem('redirect_path');
+          navigate(redirectPath);
+        } else {
+          navigate('/dashboard/partner');
         }
       }
-      if (res.data?.user) {
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-      }
-      
-      const redirectPath = localStorage.getItem('redirect_path');
-      if (redirectPath) {
-        localStorage.removeItem('redirect_path');
-        navigate(redirectPath);
-      } else {
-        navigate('/dashboard/partner');
-      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -161,8 +180,15 @@ export const Login: React.FC = () => {
           </Link>
         </div>
 
-        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white">
-          Masuk
+        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white" disabled={submitting}>
+          {submitting ? (
+            <span className="flex items-center justify-center">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Memproses...
+            </span>
+          ) : (
+            'Masuk'
+          )}
         </Button>
 
         <div className="text-center">

@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import { ImagePopup } from '@/components/common/ImagePopup';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import Swal from 'sweetalert2';
 
 type FleetMeta = {
   fleet_id: string;
@@ -17,6 +18,7 @@ type FleetMeta = {
   engine: string;
   body: string;
   thumbnail: string;
+  active?: boolean;
   created_at: string;
   created_by: string;
   updated_at?: string;
@@ -40,10 +42,13 @@ type FleetDetailData = {
 export const FleetDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [fleet, setFleet] = useState<FleetDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -75,6 +80,16 @@ export const FleetDetail: React.FC = () => {
         const pricing = p.pricing as unknown;
         const images = p.images as unknown;
 
+        const activeRaw = (meta as { active?: unknown; status?: unknown })?.active ?? (meta as { status?: unknown })?.status;
+        const active =
+          typeof activeRaw === 'boolean'
+            ? activeRaw
+            : activeRaw === 1 || activeRaw === '1'
+              ? true
+              : activeRaw === 0 || activeRaw === '0'
+                ? false
+                : undefined;
+
         const metaObj: FleetMeta = {
           fleet_id: typeof (meta as { fleet_id?: unknown })?.fleet_id === 'string' ? (meta as { fleet_id?: unknown }).fleet_id as string : '',
           fleet_type: typeof (meta as { fleet_type?: unknown })?.fleet_type === 'string' ? (meta as { fleet_type?: unknown }).fleet_type as string : '',
@@ -83,6 +98,7 @@ export const FleetDetail: React.FC = () => {
           engine: typeof (meta as { engine?: unknown })?.engine === 'string' ? (meta as { engine?: unknown }).engine as string : '',
           body: typeof (meta as { body?: unknown })?.body === 'string' ? (meta as { body?: unknown }).body as string : '',
           thumbnail: typeof (meta as { thumbnail?: unknown })?.thumbnail === 'string' ? (meta as { thumbnail?: unknown }).thumbnail as string : '',
+          active,
           created_at: typeof (meta as { created_at?: unknown })?.created_at === 'string' ? (meta as { created_at?: unknown }).created_at as string : '',
           created_by: typeof (meta as { created_by?: unknown })?.created_by === 'string' ? (meta as { created_by?: unknown }).created_by as string : '',
           updated_at: typeof (meta as { updated_at?: unknown })?.updated_at === 'string' ? (meta as { updated_at?: unknown }).updated_at as string : '',
@@ -137,10 +153,78 @@ export const FleetDetail: React.FC = () => {
       setLoading(false);
     };
     load();
-  }, [id]);
+  }, [id, reloadNonce]);
 
   if (loading) return <div>Memuat...</div>;
   if (!fleet) return <div>Armada tidak ditemukan</div>;
+
+  const handleActivate = async () => {
+    if (fleet.meta.active === true) return;
+    const result = await Swal.fire({
+      title: 'Aktifkan armada?',
+      text: 'Armada akan diset menjadi aktif.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Ya, aktifkan',
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    const res = await api.post<unknown>('/partner/services/fleet/active', { fleet_id: fleet.meta.fleet_id }, headers);
+    if (res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Armada berhasil diaktifkan.' });
+      setReloadNonce((v) => v + 1);
+    }
+  };
+
+  const handleInactive = async () => {
+    if (fleet.meta.active === false) return;
+    const result = await Swal.fire({
+      title: 'Nonaktifkan armada?',
+      text: 'Armada akan diset menjadi tidak aktif.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Ya, nonaktifkan',
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    const res = await api.post<unknown>('/partner/services/fleet/inactive', { fleet_id: fleet.meta.fleet_id }, headers);
+    if (res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Armada berhasil dinonaktifkan.' });
+      setReloadNonce((v) => v + 1);
+    }
+  };
+
+  const handleDelete = async () => {
+    const result = await Swal.fire({
+      title: 'Hapus armada?',
+      text: 'Data yang dihapus tidak dapat dikembalikan.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    const res = await api.post<unknown>('/partner/services/fleet/delete', { fleet_id: fleet.meta.fleet_id }, headers);
+    if (res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Terhapus', text: 'Armada berhasil dihapus.' });
+      navigate(`${basePrefix}/services/fleet`);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -277,6 +361,40 @@ export const FleetDetail: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-2 justify-start">
+        <Button
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+          onClick={() => navigate(`${basePrefix}/services/fleet/edit/${encodeURIComponent(fleet.meta.fleet_id)}`)}
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit Armada
+        </Button>
+        {fleet.meta.active === false ? (
+          <Button
+            variant="outline"
+            className="border-green-600 text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+            onClick={handleActivate}
+          >
+            Aktifkan Armada
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+            onClick={handleInactive}
+          >
+            Nonaktifkan Armada
+          </Button>
+        )}
+        <Button
+          className="bg-red-600 hover:bg-red-700 text-white"
+          onClick={handleDelete}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Hapus Armada
+        </Button>
       </div>
 
       <ImagePopup

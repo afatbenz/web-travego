@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { uploadCommon, deleteCommon, api } from '@/lib/api';
+import Swal from 'sweetalert2';
 
 const parseDuration = (str: string) => {
   const units = ['jam', 'hari', 'pekan', 'bulan'];
@@ -85,8 +86,6 @@ export const ArmadaForm: React.FC = () => {
     description: isEdit ? sampleData.description : ''
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const thumbInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -198,6 +197,28 @@ export const ArmadaForm: React.FC = () => {
             navigate('/dashboard/partner/services/fleet');
           }
         });
+    }
+  };
+
+  const handleInactive = async () => {
+    if (!id) return;
+    const result = await Swal.fire({
+      title: 'Nonaktifkan armada?',
+      text: 'Armada akan diset menjadi tidak aktif.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Ya, nonaktifkan',
+      cancelButtonText: 'Batal'
+    });
+    if (!result.isConfirmed) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const res = await api.post<unknown>('/partner/services/fleet/inactive', { fleet_id: id }, token ? { Authorization: token } : undefined);
+    if (res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Armada berhasil dinonaktifkan.' });
+      setFormData(prev => ({ ...prev, status: 'inactive' }));
     }
   };
 
@@ -1134,6 +1155,27 @@ export const ArmadaForm: React.FC = () => {
                 ))}
               </CardContent>
             </Card>
+
+            <div className="flex flex-col sm:flex-row gap-2 justify-start">
+              {isEdit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                  onClick={handleInactive}
+                  disabled={formData.status === 'inactive'}
+                >
+                  Nonaktifkan Armada
+                </Button>
+              )}
+              <Button
+                type="submit"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isEdit ? 'Simpan Perubahan' : 'Simpan Armada'}
+              </Button>
+            </div>
           </div>
 
           {/* Right Column: Images & Status */}
@@ -1246,16 +1288,6 @@ export const ArmadaForm: React.FC = () => {
           </div>
         </div>
 
-        {/* Fixed Bottom Bar */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-50 flex justify-end lg:static lg:bg-transparent lg:border-none lg:p-0">
-          <Button 
-            type="submit" 
-            className="w-full lg:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isEdit ? 'Update Armada' : 'Simpan Armada'}
-          </Button>
-        </div>
       </form>
     </div>
   );

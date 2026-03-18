@@ -20,12 +20,12 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
         <ThemeToggle />
       </div>
       
-      <div className="flex h-screen w-full py-2 sm:py-4 lg:py-6 xl:py-8">
+      <div className="flex min-h-screen w-full py-4 sm:py-6 lg:py-8">
         {/* Left Side - Form */}
-        <div className="flex-1 flex items-center justify-center px-4 lg:px-8 xl:px-12 2xl:px-16">
+        <div className="flex-1 flex items-start lg:items-center justify-center px-4 lg:px-8 xl:px-12 2xl:px-16 py-4 lg:py-0">
           <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg xl:max-w-xl">
             {/* Logo */}
-            <div className="text-center mb-2 sm:mb-3 lg:mb-4">
+            <div className="text-center mb-4 sm:mb-5 lg:mb-6">
               <Link to="/" className="inline-flex items-center space-x-2">
                 <MapPin className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-blue-600 dark:text-blue-400" />
                 <span className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
