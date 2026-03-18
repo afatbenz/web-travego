@@ -1,96 +1,51 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { uploadCommon, deleteCommon, api } from '@/lib/api';
+import { uploadCommon, deleteCommon, api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
-
-const parseDuration = (str: string) => {
-  const units = ['jam', 'hari', 'pekan', 'bulan'];
-  const parts = str.trim().split(' ');
-  let value = str;
-  let unit = 'hari';
-  
-  if (parts.length > 1) {
-    const last = parts[parts.length - 1].toLowerCase();
-    if (units.includes(last)) {
-      unit = last;
-      value = parts.slice(0, -1).join(' ');
-    }
-  }
-  return { value, unit };
-};
 
 export const ArmadaForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const isEdit = Boolean(id);
-
-  // Sample data for edit mode
-  const sampleData = {
-    id: 1,
-    name: 'Toyota Hiace Premio',
-    type: 'Minibus',
-    capacity: 15,
-    year: 2022,
-    engine: '2.5L Diesel',
-    features: ['AC', 'Reclining seats', 'Audio system', 'Safety equipment'],
-    pickupPoints: [
-      { id: 3173, name: 'Jakarta' },
-      { id: 3201, name: 'Bandung' },
-      { id: 3031, name: 'Yogyakarta' }
-    ],
-    rentalPrices: [
-      { duration: '1-3 hari', price: 200000, type: 1 },
-      { duration: '4-7 hari', price: 180000, type: 2 },
-      { duration: '8+ hari', price: 160000, type: 1 }
-    ],
-    addons: [
-      { name: 'Driver', description: 'Driver profesional', price: 100000 },
-      { name: 'Bahan Bakar', description: 'Full tank', price: 500000 }
-    ],
-    status: 'active',
-    images: ['https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=400&h=300&fit=crop'],
-    description: 'Minibus nyaman untuk perjalanan jarak jauh dengan fasilitas lengkap.',
-    fuel_type: 'diesel',
-    transmission: 'Manual'
-  };
+  const isUuid = (value: unknown): value is string =>
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
   const [formData, setFormData] = useState({
-    name: isEdit ? sampleData.name : '',
-    type: isEdit ? sampleData.type : '',
-    capacity: isEdit ? sampleData.capacity : 0,
-    year: isEdit ? sampleData.year : new Date().getFullYear(),
-    engine: isEdit ? sampleData.engine : '',
+    name: '',
+    type: '',
+    capacity: 0,
+    year: new Date().getFullYear(),
+    engine: '',
     body: '',
-    fuel_type: isEdit ? sampleData.fuel_type : '',
-    transmission: isEdit ? sampleData.transmission : '',
-    features: isEdit ? sampleData.features : [''],
-    pickupPoints: isEdit ? sampleData.pickupPoints : [],
-    rentalPrices: isEdit 
-      ? sampleData.rentalPrices.map(p => {
-          const { value, unit } = parseDuration(p.duration);
-          return { ...p, duration: value, unit };
-        })
-      : [{ duration: '', unit: 'hari', price: 0, type: 1 }],
-    addons: isEdit ? sampleData.addons : [{ name: '', description: '', price: 0 }],
-    status: isEdit ? sampleData.status : 'active',
-    images: isEdit ? sampleData.images : [],
+    fuel_type: '',
+    transmission: '',
+    features: [''],
+    pickupPoints: [] as Array<{ id: number; name: string; uuid?: string }>,
+    rentalPrices: [{ uuid: undefined as string | undefined, duration: '', unit: 'hari', price: 0, type: 1 }],
+    addons: [{ uuid: undefined as string | undefined, name: '', description: '', price: 0 }],
+    status: 'active',
+    images: [] as string[],
     imageFiles: [] as string[],
     thumbnail: '',
     thumbnailFile: '',
-    description: isEdit ? sampleData.description : ''
+    description: ''
   });
 
   const editorRef = useRef<HTMLDivElement>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [uploads, setUploads] = useState<Array<{ preview: string; status: 'uploading' | 'done' | 'error'; path?: string; url?: string }>>([]);
+  const [uploads, setUploads] = useState<Array<{ uuid?: string; preview: string; status: 'uploading' | 'done' | 'error'; path?: string; url?: string }>>([]);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [cityQuery, setCityQuery] = useState('');
   const [cities, setCities] = useState<Array<{ id: number; name: string }>>([]);
   const [loadingCities, setLoadingCities] = useState(false);
@@ -164,13 +119,20 @@ export const ArmadaForm: React.FC = () => {
     setFormData((prev) => ({ ...prev, thumbnailFile: '', thumbnail: '' }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
 
     if (validateForm()) {
+      setSaving(true);
       const addonItems = formData.addons
         .filter((a) => a && (a.name?.trim() || a.description?.trim() || (a.price ?? 0) > 0))
-        .map((a) => ({ addon_name: a.name, description: a.description, price: a.price }));
+        .map((a) => ({
+          ...(isUuid(a.uuid) ? { uuid: a.uuid } : {}),
+          addon_name: a.name,
+          description: a.description,
+          price: a.price,
+        }));
 
       const payload = {
         fleet_name: formData.name,
@@ -183,20 +145,44 @@ export const ArmadaForm: React.FC = () => {
         transmission: formData.transmission,
         description: formData.description,
         active: formData.status === 'active',
-        pickup_point: formData.pickupPoints.map((p: any) => p?.id ?? p),
+        pickup_point: isEdit
+          ? formData.pickupPoints.map((p) => ({
+              ...(isUuid(p.uuid) ? { uuid: p.uuid } : {}),
+              city_id: p.id,
+            }))
+          : formData.pickupPoints.map((p) => p.id),
         fascilities: formData.features.filter((x) => x.trim()),
-        prices: formData.rentalPrices.map((p) => ({ duration: parseInt(String(p.duration).replace(/\D/g, '')) || 0, rent_category: (typeof p.type === 'number' ? p.type : (String(p.type).toLowerCase() === 'citytour' ? 1 : (String(p.type).toLowerCase() === 'overland' ? 2 : 3))), price: p.price, uom: (p as any).unit || 'hari' })),
+        prices: formData.rentalPrices.map((p) => ({
+          ...(isUuid(p.uuid) ? { uuid: p.uuid } : {}),
+          duration: parseInt(String(p.duration).replace(/\D/g, '')) || 0,
+          rent_category:
+            typeof p.type === 'number'
+              ? p.type
+              : String(p.type).toLowerCase() === 'citytour'
+                ? 1
+                : String(p.type).toLowerCase() === 'overland'
+                  ? 2
+                  : 3,
+          price: p.price,
+          uom: (p as any).unit || 'hari',
+        })),
         ...(addonItems.length > 0 ? { addon: addonItems } : {}),
         thumbnail: formData.thumbnailFile || undefined,
         images: formData.imageFiles,
       };
       const token = localStorage.getItem('token') ?? '';
-      api.post<unknown>('/partner/services/fleet/create', payload, token ? { Authorization: token } : undefined)
-        .then((res) => {
-          if (res.status === 'success') {
-            navigate('/dashboard/partner/services/fleet');
-          }
-        });
+      const endpoint = isEdit ? '/partner/services/fleet/update' : '/partner/services/fleet/create';
+      const body = isEdit && id ? { fleet_id: decodeURIComponent(id), ...payload } : payload;
+      try {
+        const res = await api.post<unknown>(endpoint, body, token ? { Authorization: token } : undefined);
+        if (res.status === 'success') {
+          navigate(`${basePrefix}/services/fleet`);
+        }
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      setSaving(false);
     }
   };
 
@@ -244,12 +230,16 @@ export const ArmadaForm: React.FC = () => {
       if (res.status === 'success') {
         const data = res.data as { files?: string[]; count?: number; first_url?: string } | undefined;
         const returnedFiles = Array.isArray(data?.files) ? data!.files! : [];
-        setFormData((prev) => ({ ...prev, imageFiles: [...prev.imageFiles, ...returnedFiles], images: [...prev.images, ...(returnedFiles.map((p) => data?.first_url ?? p))] }));
+        setFormData((prev) => ({
+          ...prev,
+          imageFiles: [...prev.imageFiles, ...returnedFiles],
+          images: [...prev.images, ...returnedFiles.map((p) => toFileUrl(data?.first_url ?? p))],
+        }));
         setUploads((prev) => {
           const updated = [...prev];
           let idx = updated.findIndex((u) => u.status === 'uploading');
           for (let i = 0; i < returnedFiles.length && idx !== -1; i++) {
-            updated[idx] = { ...updated[idx], status: 'done', path: returnedFiles[i], url: data?.first_url ?? undefined };
+            updated[idx] = { ...updated[idx], status: 'done', path: returnedFiles[i], url: toFileUrl(data?.first_url ?? returnedFiles[i]) };
             idx = updated.findIndex((u) => u.status === 'uploading');
           }
           return updated;
@@ -326,7 +316,7 @@ export const ArmadaForm: React.FC = () => {
   const addRentalPrice = () => {
     setFormData(prev => ({
       ...prev,
-      rentalPrices: [...prev.rentalPrices, { duration: '', unit: 'hari', price: 0, type: 1 }]
+      rentalPrices: [...prev.rentalPrices, { uuid: undefined, duration: '', unit: 'hari', price: 0, type: 1 }]
     }));
   };
 
@@ -349,7 +339,7 @@ export const ArmadaForm: React.FC = () => {
   const addAddon = () => {
     setFormData(prev => ({
       ...prev,
-      addons: [...prev.addons, { name: '', description: '', price: 0 }]
+      addons: [...prev.addons, { uuid: undefined, name: '', description: '', price: 0 }]
     }));
   };
 
@@ -411,6 +401,182 @@ export const ArmadaForm: React.FC = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const toServerPath = (value: string) => {
+      if (!value) return '';
+      if (value.startsWith('http')) {
+        try {
+          const u = new URL(value);
+          return u.pathname.replace(/^\/+/, '');
+        } catch {
+          return value;
+        }
+      }
+      return value.replace(/^\/+/, '');
+    };
+
+    const loadDetail = async () => {
+      if (!isEdit || !id) return;
+      const token = localStorage.getItem('token') ?? '';
+      const headers = token ? { Authorization: token } : undefined;
+      const res = await api.post<unknown>('/partner/services/fleet/detail', { fleet_id: decodeURIComponent(id) }, headers);
+      if (res.status !== 'success') return;
+
+      const payload = res.data as unknown;
+      const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+      const meta = p.meta as unknown;
+      const facilities = p.facilities as unknown;
+      const pickup = p.pickup as unknown;
+      const addon = p.addon as unknown;
+      const pricing = p.pricing as unknown;
+      const images = p.images as unknown;
+
+      const metaObj = meta && typeof meta === 'object' ? (meta as Record<string, unknown>) : {};
+      const name = typeof metaObj.fleet_name === 'string' ? metaObj.fleet_name : '';
+      const type = typeof metaObj.fleet_type === 'string' ? metaObj.fleet_type : '';
+      const capacity = typeof metaObj.capacity === 'number' ? metaObj.capacity : Number(metaObj.capacity ?? 0);
+      const year = typeof metaObj.production_year === 'number'
+        ? metaObj.production_year
+        : typeof metaObj.production_year === 'string'
+          ? Number(metaObj.production_year)
+          : typeof metaObj.year === 'number'
+            ? metaObj.year
+            : new Date().getFullYear();
+      const engine = typeof metaObj.engine === 'string' ? metaObj.engine : '';
+      const body = typeof metaObj.body === 'string' ? metaObj.body : '';
+      const fuel_type = typeof metaObj.fuel_type === 'string' ? metaObj.fuel_type : '';
+      const transmission = typeof metaObj.transmission === 'string' ? metaObj.transmission : '';
+      const description = typeof metaObj.description === 'string' ? metaObj.description : '';
+
+      const activeRaw = metaObj.active ?? metaObj.status;
+      const active =
+        typeof activeRaw === 'boolean'
+          ? activeRaw
+          : activeRaw === 1 || activeRaw === '1'
+            ? true
+            : activeRaw === 0 || activeRaw === '0'
+              ? false
+              : true;
+      const status = active ? 'active' : 'inactive';
+
+      const facilitiesArr = Array.isArray(facilities)
+        ? (facilities as unknown[]).map((x) => (typeof x === 'string' ? x : '')).filter((x) => x)
+        : [];
+
+      const pickupArr = Array.isArray(pickup)
+        ? (pickup as unknown[])
+            .map((x) => {
+              if (!x || typeof x !== 'object') return null;
+              const obj = x as Record<string, unknown>;
+              const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
+              const city_id = typeof obj.city_id === 'number' ? obj.city_id : Number(obj.city_id ?? 0);
+              const city_name = typeof obj.city_name === 'string' ? obj.city_name : '';
+              return city_id ? { uuid, id: city_id, name: city_name || String(city_id) } : null;
+            })
+            .filter((v): v is { uuid: string | undefined; id: number; name: string } => v !== null)
+        : [];
+
+      const addonArr = Array.isArray(addon)
+        ? (addon as unknown[])
+            .map((x) => {
+              if (!x || typeof x !== 'object') return null;
+              const obj = x as Record<string, unknown>;
+              const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
+              const nameVal = obj.addon_name ?? obj.name ?? obj.title;
+              const descriptionVal = obj.addon_desc ?? obj.description;
+              const priceVal = obj.addon_price ?? obj.price;
+              const name = typeof nameVal === 'string' ? nameVal : '';
+              const description = typeof descriptionVal === 'string' ? descriptionVal : '';
+              const price = typeof priceVal === 'number' ? priceVal : Number(priceVal ?? 0);
+              return name || description || price ? { uuid, name, description, price } : null;
+            })
+            .filter((v): v is { uuid: string | undefined; name: string; description: string; price: number } => v !== null)
+        : [];
+
+      const pricingArr = Array.isArray(pricing)
+        ? (pricing as unknown[])
+            .map((x) => {
+              if (!x || typeof x !== 'object') return null;
+              const obj = x as Record<string, unknown>;
+              const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
+              const durationNum = typeof obj.duration === 'number' ? obj.duration : Number(obj.duration ?? 0);
+              const uom = typeof obj.uom === 'string' ? obj.uom : 'hari';
+              const rent_type = typeof obj.rent_type === 'number' ? obj.rent_type : Number(obj.rent_type ?? 1);
+              const disc_price = typeof obj.disc_price === 'number' ? obj.disc_price : Number(obj.disc_price ?? 0);
+              const base_price = typeof obj.price === 'number' ? obj.price : Number(obj.price ?? 0);
+              const price = disc_price > 0 ? disc_price : base_price;
+              return durationNum > 0 ? { uuid, duration: String(durationNum), unit: uom, price, type: rent_type } : null;
+            })
+            .filter((v): v is { uuid: string | undefined; duration: string; unit: string; price: number; type: number } => v !== null)
+        : [];
+
+      const thumbnailUrl = typeof metaObj.thumbnail === 'string' ? metaObj.thumbnail : '';
+      const thumbnailFile = toServerPath(thumbnailUrl);
+      const thumbnailDisplayUrl = toFileUrl(thumbnailUrl);
+
+      const imagesRaw = Array.isArray(images)
+        ? (images as unknown[])
+        : Array.isArray((meta as unknown as { images?: unknown[] })?.images)
+          ? ((meta as unknown as { images?: unknown[] }).images as unknown[])
+          : [];
+      const imageItems = imagesRaw
+        .map((x) => {
+          if (typeof x === 'string') {
+            const path = toServerPath(x);
+            return path ? { uuid: undefined, url: toFileUrl(x), path } : null;
+          }
+          if (x && typeof x === 'object') {
+            const obj = x as Record<string, unknown>;
+            const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
+            const url = obj.path_file ?? obj.url ?? obj.path;
+            const u = typeof url === 'string' ? url : '';
+            const path = toServerPath(u);
+            return path ? { uuid, url: toFileUrl(u), path } : null;
+          }
+          return null;
+        })
+        .filter((v): v is { uuid: string | undefined; url: string; path: string } => v !== null);
+
+      const seen = new Set<string>();
+      const uniqueImageItems = imageItems.filter((it) => {
+        const key = it.path;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      const imageFiles = uniqueImageItems.map((x) => x.path);
+
+      setUploads(uniqueImageItems.map((u) => ({ uuid: u.uuid, preview: u.url, status: 'done' as const, path: u.path, url: u.url })));
+      setFormData((prev) => ({
+        ...prev,
+        name,
+        type,
+        capacity: Number.isFinite(capacity) ? capacity : 0,
+        year: Number.isFinite(year) ? year : prev.year,
+        engine,
+        body,
+        fuel_type,
+        transmission,
+        features: facilitiesArr.length > 0 ? facilitiesArr : [''],
+        pickupPoints: pickupArr,
+        rentalPrices: pricingArr.length > 0 ? pricingArr : [{ uuid: undefined, duration: '', unit: 'hari', price: 0, type: 1 }],
+        addons: addonArr.length > 0 ? addonArr : [{ uuid: undefined, name: '', description: '', price: 0 }],
+        status,
+        thumbnail: thumbnailDisplayUrl,
+        thumbnailFile,
+        images: uniqueImageItems.map((x) => x.url),
+        imageFiles,
+        description,
+      }));
+      setBodyQuery(body);
+      setEngineQuery(engine);
+      setShowBodyDropdown(false);
+      setShowEngineDropdown(false);
+    };
+
+    loadDetail();
+  }, [isEdit, id]);
 
   useEffect(() => {
     async function fetchFleetTypes() {
@@ -747,8 +913,8 @@ export const ArmadaForm: React.FC = () => {
                         <SelectValue placeholder="Pilih Transmisi" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Manual">Manual</SelectItem>
-                        <SelectItem value="Automatic">Automatic</SelectItem>
+                        <SelectItem value="manual">Manual</SelectItem>
+                        <SelectItem value="automatic">Automatic</SelectItem>
                       </SelectContent>
                     </Select>
                     {errors.transmission && <p className="text-sm text-red-500 mt-1">{errors.transmission}</p>}
@@ -1163,7 +1329,7 @@ export const ArmadaForm: React.FC = () => {
                   variant="outline"
                   className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                   onClick={handleInactive}
-                  disabled={formData.status === 'inactive'}
+                  disabled={saving || formData.status === 'inactive'}
                 >
                   Nonaktifkan Armada
                 </Button>
@@ -1171,9 +1337,14 @@ export const ArmadaForm: React.FC = () => {
               <Button
                 type="submit"
                 className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={saving}
               >
-                <Save className="h-4 w-4 mr-2" />
-                {isEdit ? 'Simpan Perubahan' : 'Simpan Armada'}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Armada'}
               </Button>
             </div>
           </div>

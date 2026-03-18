@@ -1,8 +1,8 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import travegoLogo from '@/assets/general/travego.svg';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -27,10 +27,11 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
             {/* Logo */}
             <div className="text-center mb-4 sm:mb-5 lg:mb-6">
               <Link to="/" className="inline-flex items-center space-x-2">
-                <MapPin className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-blue-600 dark:text-blue-400" />
-                <span className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                  <span className="text-cyan-500">Trave</span><span className="text-orange-500">GO</span>
-                </span>
+                <img
+                  src={travegoLogo}
+                  alt="TraveGO"
+                  className="h-7 sm:h-9 lg:h-11 w-auto"
+                />
               </Link>
             </div>
 
@@ -51,7 +52,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
             {/* Footer */}
             <div className="mt-2 sm:mt-3 lg:mt-4 text-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               <p>
-                &copy; 2025 <span className="text-cyan-500">Trave</span><span className="text-orange-500">GO</span>. All rights reserved.
+                &copy; 2025 TraveGO. All rights reserved.
               </p>
             </div>
           </div>
