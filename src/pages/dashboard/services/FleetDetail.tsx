@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { api } from '@/lib/api';
+import { api, toFileUrl } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -97,7 +97,7 @@ export const FleetDetail: React.FC = () => {
           capacity: typeof (meta as { capacity?: unknown })?.capacity === 'number' ? (meta as { capacity?: unknown }).capacity as number : 0,
           engine: typeof (meta as { engine?: unknown })?.engine === 'string' ? (meta as { engine?: unknown }).engine as string : '',
           body: typeof (meta as { body?: unknown })?.body === 'string' ? (meta as { body?: unknown }).body as string : '',
-          thumbnail: typeof (meta as { thumbnail?: unknown })?.thumbnail === 'string' ? (meta as { thumbnail?: unknown }).thumbnail as string : '',
+          thumbnail: typeof (meta as { thumbnail?: unknown })?.thumbnail === 'string' ? toFileUrl((meta as { thumbnail?: unknown }).thumbnail as string) : '',
           active,
           created_at: typeof (meta as { created_at?: unknown })?.created_at === 'string' ? (meta as { created_at?: unknown }).created_at as string : '',
           created_by: typeof (meta as { created_by?: unknown })?.created_by === 'string' ? (meta as { created_by?: unknown }).created_by as string : '',
@@ -143,7 +143,7 @@ export const FleetDetail: React.FC = () => {
           .map((x) => {
             const obj = x as Record<string, unknown>;
             const uuid = typeof obj.uuid === 'string' ? obj.uuid : '';
-            const path_file = typeof obj.path_file === 'string' ? obj.path_file : '';
+            const path_file = typeof obj.path_file === 'string' ? toFileUrl(obj.path_file) : '';
             return path_file ? { uuid: uuid || `${Math.random()}`.slice(2), path_file } : null;
           })
           .filter((v): v is FleetImageItem => Boolean(v));

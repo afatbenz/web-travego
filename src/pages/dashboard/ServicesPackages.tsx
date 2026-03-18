@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api } from '@/lib/api';
+import { api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
 
 interface TourPackage {
@@ -61,7 +61,7 @@ export const ServicesPackages: React.FC = () => {
           return {
             package_id,
             package_name: String(item.package_name ?? item.name ?? ''),
-            thumbnail: String(item.thumbnail ?? ''),
+            thumbnail: toFileUrl(String(item.thumbnail ?? '')),
             package_description: String(item.package_description ?? item.description ?? ''),
             min_pax: Number(item.min_pax ?? 0),
             max_pax: Number(item.max_pax ?? 0),

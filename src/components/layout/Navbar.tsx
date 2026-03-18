@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, MapPin, User, LogIn, LayoutDashboard } from 'lucide-react';
+import { Menu, X, User, LogIn, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { isTokenValid } from '@/lib/utils';
+import travegoLogo from '@/assets/general/travego.svg';
 
 export const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -45,10 +46,7 @@ export const Navbar: React.FC = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-            <span className="text-xl font-bold text-gray-900 dark:text-white">
-              <span className="text-cyan-500">Trave</span><span className="text-orange-500">GO</span>
-            </span>
+            <img src={travegoLogo} alt="TraveGO" className="h-8 w-auto" />
           </Link>
 
           {/* Desktop Navigation */}

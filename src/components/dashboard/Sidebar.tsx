@@ -6,7 +6,6 @@ import {
   Home,
   DollarSign,
   FileText,
-  MapPin,
   LogOut,
   ShoppingBag,
   Clock,
@@ -26,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import dashboardLogo from '@/assets/general/logo.svg';
 
 export const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -169,17 +169,14 @@ export const Sidebar: React.FC = () => {
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
         <div className="flex items-center justify-between">
-          {!collapsed && (
-            <div className="flex items-center space-x-2">
-              <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+          <Link to="/" className="flex items-center space-x-2">
+            <img src={dashboardLogo} alt="TraveGO" className="h-8 w-8 object-contain" />
+            {!collapsed && (
               <div className="flex flex-col">
                 <span className="text-xl font-bold text-gray-900 dark:text-white">{orgTitleDisplay}</span>
-                <span className="text-xs text-gray-600 dark:text-gray-300">
-                  by <span className="text-cyan-500">Trave</span><span className="text-orange-500">GO</span>
-                </span>
               </div>
-            </div>
-          )}
+            )}
+          </Link>
           <Button
             variant="ghost"
             size="icon"

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { uploadCommon, deleteCommon, api } from '@/lib/api';
+import { uploadCommon, deleteCommon, api, toFileUrl } from '@/lib/api';
+import Swal from 'sweetalert2';
 
 // Interface for API response/request
 interface TourPackage {
@@ -19,7 +20,9 @@ interface TourPackage {
   facilities?: string[];
   itineraries: Array<{
     day: number;
+    uuid?: string;
     activities: Array<{
+      uuid?: string;
       time: string;
       description: string;
       city?: { id: number; name: string };
@@ -27,6 +30,7 @@ interface TourPackage {
     }>;
   }>;
   pricing: Array<{
+    uuid?: string;
     min_pax: number;
     max_pax: number;
     price: number;
@@ -34,14 +38,16 @@ interface TourPackage {
   trip_date_start?: string;
   trip_date_end?: string;
   schedules?: Array<{
+    uuid?: string;
     start_date: string;
     end_date: string;
   }>;
   addons: Array<{
+    uuid?: string;
     description: string;
     price: number;
   }>;
-  pickup_areas?: Array<{ id: number; name?: string }>;
+  pickup_areas?: Array<{ id: number; name?: string; uuid?: string }>;
   active: boolean;
 }
 
@@ -49,6 +55,9 @@ export const PackageForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
+  const isUuid = (value: unknown): value is string =>
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
   // Initial State
   const [formData, setFormData] = useState({
@@ -57,24 +66,26 @@ export const PackageForm: React.FC = () => {
     description: '',
     tripDateStart: '',
     tripDateEnd: '',
-    schedules: [{ start_date: '', end_date: '' }],
+    schedules: [{ start_date: '', end_date: '', uuid: undefined as string | undefined }],
     thumbnail: '', // Preview URL
     thumbnailFile: '', // Server path
     gallery: [] as string[], // Server paths
     features: [''] as string[],
     itinerary: [{ 
       day: 1, 
-      activities: [{ time: '08:00', description: '', city: undefined as { id: number; name: string } | undefined, location: '' }] 
+      uuid: undefined as string | undefined,
+      activities: [{ uuid: undefined as string | undefined, time: '08:00', description: '', city: undefined as { id: number; name: string } | undefined, location: '' }] 
     }],
-    pricing: [{ min_pax: 1, max_pax: 1, price: 0 }],
-    addons: [{ description: '', price: 0 }],
-    pickupAreas: [] as Array<{ id: number; name: string }>,
+    pricing: [{ uuid: undefined as string | undefined, min_pax: 1, max_pax: 1, price: 0 }],
+    addons: [{ uuid: undefined as string | undefined, description: '', price: 0 }],
+    pickupAreas: [] as Array<{ id: number; name: string; uuid?: string }>,
     active: true
   });
 
   const [galleryPreviews, setGalleryPreviews] = useState<Array<{ url: string; path?: string; status: 'uploading' | 'done' | 'error' }>>([]);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   // City Search State
   const [cities, setCities] = useState<Array<{ id: number; name: string }>>([]);
@@ -169,6 +180,7 @@ export const PackageForm: React.FC = () => {
           const packageDescription = String(metaRaw.package_description ?? metaRaw.description ?? '');
           const thumbnailUrl = String(metaRaw.thumbnail ?? '');
           const thumbnailFile = toServerPath(thumbnailUrl);
+          const thumbnailDisplayUrl = toFileUrl(thumbnailUrl);
           const active = typeof metaRaw.active === 'boolean' ? metaRaw.active : Boolean(metaRaw.status === 1 || metaRaw.status === '1');
 
           const facilitiesRaw = root.facilities ?? root.features ?? metaRaw.facilities ?? metaRaw.features;
@@ -182,12 +194,13 @@ export const PackageForm: React.FC = () => {
                 .map((x) => {
                   if (!x || typeof x !== 'object') return null;
                   const obj = x as Record<string, unknown>;
+                  const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
                   const min_pax = typeof obj.min_pax === 'number' ? obj.min_pax : Number(obj.min_pax ?? 0);
                   const max_pax = typeof obj.max_pax === 'number' ? obj.max_pax : Number(obj.max_pax ?? 0);
                   const price = typeof obj.price === 'number' ? obj.price : Number(obj.price ?? 0);
-                  return { min_pax, max_pax, price };
+                  return { uuid, min_pax, max_pax, price };
                 })
-                .filter((v): v is { min_pax: number; max_pax: number; price: number } => v !== null)
+                .filter((v): v is { uuid: string | undefined; min_pax: number; max_pax: number; price: number } => v !== null)
             : [];
 
           const schedulesRaw = root.schedules ?? metaRaw.schedules;
@@ -196,11 +209,12 @@ export const PackageForm: React.FC = () => {
                 .map((x) => {
                   if (!x || typeof x !== 'object') return null;
                   const obj = x as Record<string, unknown>;
+                  const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
                   const start_date = typeof obj.start_date === 'string' ? obj.start_date : '';
                   const end_date = typeof obj.end_date === 'string' ? obj.end_date : '';
-                  return start_date || end_date ? { start_date, end_date } : null;
+                  return start_date || end_date ? { uuid, start_date, end_date } : null;
                 })
-                .filter((v): v is { start_date: string; end_date: string } => v !== null)
+                .filter((v): v is { uuid: string | undefined; start_date: string; end_date: string } => v !== null)
             : [];
 
           const addonsRaw = root.addons ?? metaRaw.addons;
@@ -209,11 +223,12 @@ export const PackageForm: React.FC = () => {
                 .map((x) => {
                   if (!x || typeof x !== 'object') return null;
                   const obj = x as Record<string, unknown>;
+                  const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
                   const description = typeof obj.description === 'string' ? obj.description : '';
                   const price = typeof obj.price === 'number' ? obj.price : Number(obj.price ?? 0);
-                  return description ? { description, price } : null;
+                  return description ? { uuid, description, price } : null;
                 })
-                .filter((v): v is { description: string; price: number } => v !== null)
+                .filter((v): v is { uuid: string | undefined; description: string; price: number } => v !== null)
             : [];
 
           const pickupRaw = root.pickup_areas ?? root.pickup ?? metaRaw.pickup_areas ?? metaRaw.pickup;
@@ -222,13 +237,14 @@ export const PackageForm: React.FC = () => {
                 .map((x, i) => {
                   if (!x || typeof x !== 'object') return null;
                   const obj = x as Record<string, unknown>;
+                  const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
                   const idVal = obj.id ?? obj.city_id ?? i;
                   const idNum = typeof idVal === 'number' ? idVal : typeof idVal === 'string' ? Number(idVal) : i;
                   const id = Number.isFinite(idNum) ? idNum : i;
                   const name = typeof obj.name === 'string' ? obj.name : typeof obj.city_name === 'string' ? obj.city_name : '';
-                  return { id, name };
+                  return { uuid, id, name };
                 })
-                .filter((v): v is { id: number; name: string } => v !== null)
+                .filter((v): v is { uuid: string | undefined; id: number; name: string } => v !== null)
             : [];
 
           const imagesRaw = root.images ?? metaRaw.images;
@@ -239,7 +255,7 @@ export const PackageForm: React.FC = () => {
             : [];
           const uniqueImagesUrl = Array.from(new Set(imagesUrl));
           const gallery = uniqueImagesUrl.map(toServerPath);
-          setGalleryPreviews(uniqueImagesUrl.map((url) => ({ url, path: toServerPath(url), status: 'done' as const })));
+          setGalleryPreviews(uniqueImagesUrl.map((url) => ({ url: toFileUrl(url), path: toServerPath(url), status: 'done' as const })));
 
           const itinerariesRaw = root.itineraries ?? root.itinerary ?? metaRaw.itineraries ?? metaRaw.itinerary;
           const toMinutes = (time: string) => {
@@ -248,10 +264,11 @@ export const PackageForm: React.FC = () => {
             if (!Number.isFinite(hh) || !Number.isFinite(mm)) return -1;
             return hh * 60 + mm;
           };
-          type ItAct = { time: string; description: string; city: { id: number; name: string } | undefined; location: string };
+          type ItAct = { uuid: string | undefined; time: string; description: string; city: { id: number; name: string } | undefined; location: string };
           const readActivity = (input: unknown): ItAct | null => {
             if (!input || typeof input !== 'object') return null;
             const ao = input as Record<string, unknown>;
+            const uuid = isUuid(ao.uuid) ? ao.uuid : undefined;
             const timeRaw = typeof ao.time === 'string' ? ao.time : '';
             const time = timeRaw ? timeRaw.slice(0, 5) : '';
             const description = typeof ao.description === 'string' ? ao.description : '';
@@ -262,7 +279,7 @@ export const PackageForm: React.FC = () => {
             const city_id = typeof cityIdNum === 'number' && Number.isFinite(cityIdNum) ? cityIdNum : undefined;
             const city_name = typeof cityNameRaw === 'string' ? cityNameRaw : undefined;
             const city = city_id && city_name ? { id: city_id, name: city_name } : undefined;
-            return { time, description, city, location };
+            return { uuid, time, description, city, location };
           };
           const itinerary = (() => {
             if (!Array.isArray(itinerariesRaw)) return [];
@@ -273,6 +290,7 @@ export const PackageForm: React.FC = () => {
                 .map((x, i) => {
                   if (!x || typeof x !== 'object') return null;
                   const obj = x as Record<string, unknown>;
+                  const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
                   const dayRaw = obj.day ?? i + 1;
                   const day = typeof dayRaw === 'number' ? dayRaw : typeof dayRaw === 'string' ? Number(dayRaw) : i + 1;
                   const activitiesRaw = obj.activities;
@@ -281,9 +299,9 @@ export const PackageForm: React.FC = () => {
                         .map(readActivity)
                         .filter((v): v is ItAct => v !== null)
                     : [];
-                  return { day: Number.isFinite(day) ? day : i + 1, activities };
+                  return { uuid, day: Number.isFinite(day) ? day : i + 1, activities };
                 })
-                .filter((v): v is { day: number; activities: ItAct[] } => v !== null);
+                .filter((v): v is { uuid: string | undefined; day: number; activities: ItAct[] } => v !== null);
             }
             const flat = arr
               .map(readActivity)
@@ -301,7 +319,7 @@ export const PackageForm: React.FC = () => {
             }
             return Array.from(byDay.entries())
               .sort((a, b) => a[0] - b[0])
-              .map(([d, activities]) => ({ day: d, activities }));
+              .map(([d, activities]) => ({ uuid: undefined, day: d, activities }));
           })();
 
           setFormData(prev => ({
@@ -309,13 +327,13 @@ export const PackageForm: React.FC = () => {
             title: packageName,
             packageType,
             description: packageDescription,
-            thumbnail: thumbnailUrl,
+            thumbnail: thumbnailDisplayUrl,
             thumbnailFile,
             gallery,
             features: features.length > 0 ? features : [''],
-            pricing: pricing.length > 0 ? pricing : [{ min_pax: 1, max_pax: 1, price: 0 }],
+            pricing: pricing.length > 0 ? pricing : [{ uuid: undefined, min_pax: 1, max_pax: 1, price: 0 }],
             schedules: schedules.length > 0 ? schedules : prev.schedules,
-            addons: addons.length > 0 ? addons : [{ description: '', price: 0 }],
+            addons: addons.length > 0 ? addons : [{ uuid: undefined, description: '', price: 0 }],
             pickupAreas,
             itinerary: itinerary.length > 0 ? itinerary : prev.itinerary,
             active,
@@ -522,8 +540,9 @@ export const PackageForm: React.FC = () => {
     return value.replace(/\D/g, '');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.SyntheticEvent) => {
+    e?.preventDefault?.();
+    if (saving) return;
     
     // Validation
     const newErrors: Record<string, string> = {};
@@ -540,6 +559,52 @@ export const PackageForm: React.FC = () => {
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
+    setSaving(true);
+    const pricingPayload = formData.pricing
+      .filter((p) => p.price > 0)
+      .map((p) => ({
+        ...(isUuid(p.uuid) ? { uuid: p.uuid } : {}),
+        min_pax: p.min_pax,
+        max_pax: p.max_pax,
+        price: p.price,
+      }));
+
+    const schedulesPayload =
+      formData.packageType === '2'
+        ? formData.schedules
+            .filter((s) => s.start_date && s.end_date)
+            .map((s) => ({
+              ...(isUuid(s.uuid) ? { uuid: s.uuid } : {}),
+              start_date: s.start_date,
+              end_date: s.end_date,
+            }))
+        : undefined;
+
+    const addonsPayload = formData.addons
+      .filter((a) => a.description.trim() !== '')
+      .map((a) => ({
+        ...(isUuid(a.uuid) ? { uuid: a.uuid } : {}),
+        description: a.description,
+        price: a.price,
+      }));
+
+    const pickupAreasPayload = formData.pickupAreas.map((area) => ({
+      ...(isUuid(area.uuid) ? { uuid: area.uuid } : {}),
+      id: area.id,
+    }));
+
+    const itineraryPayload = formData.itinerary.map((day) => ({
+      ...(isUuid(day.uuid) ? { uuid: day.uuid } : {}),
+      day: day.day,
+      activities: day.activities.map((activity) => ({
+        ...(isUuid(activity.uuid) ? { uuid: activity.uuid } : {}),
+        time: activity.time,
+        description: activity.description,
+        location: activity.location,
+        city: activity.city ? { id: activity.city.id, name: activity.city.name } : undefined,
+      })),
+    }));
+
     // Construct Payload
     const payload: TourPackage = {
       package_name: formData.title,
@@ -548,23 +613,15 @@ export const PackageForm: React.FC = () => {
       thumbnail: formData.thumbnailFile,
       images: formData.gallery,
       facilities: formData.features.filter(f => f.trim() !== ''),
-      itineraries: formData.itinerary.map(day => ({
-        ...day,
-        activities: day.activities.map(activity => ({
-          ...activity,
-          city: activity.city ? { id: activity.city.id, name: activity.city.name } : undefined
-        }))
-      })),
-      pricing: formData.pricing.filter(p => p.price > 0),
-      addons: formData.addons.filter(a => a.description.trim() !== ''),
-      pickup_areas: formData.pickupAreas.map(area => ({ id: area.id })),
+      itineraries: itineraryPayload,
+      pricing: pricingPayload,
+      addons: addonsPayload,
+      pickup_areas: pickupAreasPayload,
       trip_date_start: formData.packageType === '2' && formData.schedules[0] ? formData.schedules[0].start_date : undefined,
       trip_date_end: formData.packageType === '2' && formData.schedules[0] ? formData.schedules[0].end_date : undefined,
-      schedules: formData.packageType === '2' ? formData.schedules.filter(s => s.start_date && s.end_date) : undefined,
+      schedules: schedulesPayload,
       active: formData.active
     };
-
-    console.log('Submitting Payload:', payload);
     
     try {
       const token = localStorage.getItem('token') ?? '';
@@ -572,7 +629,11 @@ export const PackageForm: React.FC = () => {
       
       let res;
       if (isEdit && id) {
-        res = await api.put<unknown>(`/partner/tour-packages/${id}`, payload, headers);
+        res = await api.post<unknown>(
+          '/partner/services/tour-packages/update',
+          { package_id: decodeURIComponent(id), ...payload },
+          headers
+        );
       } else {
         res = await api.post<unknown>('/partner/services/tour-packages/create', payload, headers);
       }
@@ -583,12 +644,60 @@ export const PackageForm: React.FC = () => {
     } catch (error) {
       console.error('Failed to save package', error);
     } finally {
-      void 0;
+      setSaving(false);
+    }
+  };
+
+  const handleInactive = async () => {
+    if (!isEdit || !id) return;
+    if (!formData.active) return;
+    const result = await Swal.fire({
+      title: 'Nonaktifkan paket?',
+      text: 'Paket akan diset menjadi tidak aktif.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Ya, nonaktifkan',
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    const res = await api.post<unknown>('/partner/services/tour-packages/inactive', { package_id: decodeURIComponent(id) }, headers);
+    if (res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Paket berhasil dinonaktifkan.' });
+      setFormData((prev) => ({ ...prev, active: false }));
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!isEdit || !id) return;
+    if (formData.active) return;
+    const result = await Swal.fire({
+      title: 'Aktifkan paket?',
+      text: 'Paket akan diset menjadi aktif.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Ya, aktifkan',
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    const res = await api.post<unknown>('/partner/services/tour-packages/active', { package_id: decodeURIComponent(id) }, headers);
+    if (res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Paket berhasil diaktifkan.' });
+      setFormData((prev) => ({ ...prev, active: true }));
     }
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -742,7 +851,7 @@ export const PackageForm: React.FC = () => {
                     className="bg-transparent hover:bg-transparent"
                     onClick={() => setFormData(prev => ({
                       ...prev,
-                      schedules: [...(prev.schedules || []), { start_date: '', end_date: '' }]
+                      schedules: [...(prev.schedules || []), { start_date: '', end_date: '', uuid: undefined }]
                     }))}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -1017,7 +1126,7 @@ export const PackageForm: React.FC = () => {
                       className="bg-transparent hover:bg-transparent"
                       onClick={() => {
                         const newItinerary = [...formData.itinerary];
-                        newItinerary[dayIndex].activities.push({ time: '09:00', description: '', city: undefined, location: '' });
+                        newItinerary[dayIndex].activities.push({ uuid: undefined, time: '09:00', description: '', city: undefined, location: '' });
                         setFormData(prev => ({ ...prev, itinerary: newItinerary }));
                       }}
                     >
@@ -1034,8 +1143,9 @@ export const PackageForm: React.FC = () => {
                   setFormData(prev => ({
                     ...prev,
                     itinerary: [...prev.itinerary, { 
+                      uuid: undefined,
                       day: prev.itinerary.length + 1, 
-                      activities: [{ time: '08:00', description: '', city: undefined, location: '' }] 
+                      activities: [{ uuid: undefined, time: '08:00', description: '', city: undefined, location: '' }] 
                     }]
                   }));
                 }}
@@ -1096,7 +1206,7 @@ export const PackageForm: React.FC = () => {
                   variant="outline" 
                   size="sm" 
                   className="bg-transparent hover:bg-transparent"
-                  onClick={() => setFormData(prev => ({ ...prev, pricing: [...prev.pricing, { min_pax: 1, max_pax: 1, price: 0 }] }))}
+                  onClick={() => setFormData(prev => ({ ...prev, pricing: [...prev.pricing, { uuid: undefined, min_pax: 1, max_pax: 1, price: 0 }] }))}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Tambah Harga
@@ -1177,7 +1287,7 @@ export const PackageForm: React.FC = () => {
                   <p>Belum ada harga paket</p>
                   <Button 
                     variant="link" 
-                    onClick={() => setFormData(prev => ({ ...prev, pricing: [...prev.pricing, { min_pax: 1, max_pax: 1, price: 0 }] }))}
+                    onClick={() => setFormData(prev => ({ ...prev, pricing: [...prev.pricing, { uuid: undefined, min_pax: 1, max_pax: 1, price: 0 }] }))}
                   >
                     Tambah Harga Baru
                   </Button>
@@ -1196,7 +1306,7 @@ export const PackageForm: React.FC = () => {
                   variant="outline" 
                   size="sm" 
                   className="bg-transparent hover:bg-transparent"
-                  onClick={() => setFormData(prev => ({ ...prev, addons: [...prev.addons, { description: '', price: 0 }] }))}
+                  onClick={() => setFormData(prev => ({ ...prev, addons: [...prev.addons, { uuid: undefined, description: '', price: 0 }] }))}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Tambah Addon
@@ -1259,7 +1369,7 @@ export const PackageForm: React.FC = () => {
                   <p>Belum ada addon tambahan</p>
                   <Button 
                     variant="link" 
-                    onClick={() => setFormData(prev => ({ ...prev, addons: [...prev.addons, { name: '', description: '', price: 0 }] }))}
+                    onClick={() => setFormData(prev => ({ ...prev, addons: [...prev.addons, { uuid: undefined, description: '', price: 0 }] }))}
                   >
                     Tambah Addon Baru
                   </Button>
@@ -1267,6 +1377,42 @@ export const PackageForm: React.FC = () => {
               )}
             </CardContent>
           </Card>
+
+          <div className="flex flex-col sm:flex-row gap-2 justify-start">
+            {isEdit && (
+              formData.active ? (
+                <Button
+                  variant="outline"
+                  className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                  onClick={handleInactive}
+                  disabled={saving || thumbnailUploading || galleryPreviews.some(p => p.status === 'uploading')}
+                >
+                  Nonaktifkan Paket
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="border-green-600 text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                  onClick={handleActivate}
+                  disabled={saving || thumbnailUploading || galleryPreviews.some(p => p.status === 'uploading')}
+                >
+                  Aktifkan Paket
+                </Button>
+              )
+            )}
+            <Button 
+              onClick={handleSubmit} 
+              disabled={saving || thumbnailUploading || galleryPreviews.some(p => p.status === 'uploading')}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Paket Wisata'}
+            </Button>
+          </div>
         </div>
 
         {/* Right Column: Images & Status */}
@@ -1387,17 +1533,6 @@ export const PackageForm: React.FC = () => {
         />
       )}
 
-      {/* Save Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-50 flex justify-end lg:static lg:bg-transparent lg:border-none lg:p-0">
-        <Button 
-          onClick={handleSubmit} 
-          disabled={thumbnailUploading || galleryPreviews.some(p => p.status === 'uploading')}
-          className="w-full lg:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          Simpan Paket Wisata
-        </Button>
-      </div>
     </div>
   );
 };

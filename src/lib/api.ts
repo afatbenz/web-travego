@@ -9,6 +9,19 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api
 import { showAlert } from '@/hooks/use-alert';
 import Swal from 'sweetalert2';
 
+const FILE_BASE_URL = (() => {
+  const explicit = import.meta.env.VITE_FILE_BASE_URL;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.replace(/\/+$/, '');
+  return BASE_URL.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+})();
+
+export function toFileUrl(value: string): string {
+  if (!value) return '';
+  if (/^(https?:)?\/\//i.test(value) || value.startsWith('blob:') || value.startsWith('data:')) return value;
+  const clean = value.replace(/^\/+/, '');
+  return `${FILE_BASE_URL}/${clean}`;
+}
+
 function extractMessage(payload: unknown): string | undefined {
   if (payload && typeof payload === 'object') {
     const msg = (payload as Record<string, unknown>).message;

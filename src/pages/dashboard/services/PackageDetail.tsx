@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -107,7 +107,7 @@ export const PackageDetail: React.FC = () => {
       const package_type_label = metaRaw.package_type_label;
       const package_type = typeof package_type_label === 'string' && package_type_label ? package_type_label : String(metaRaw.package_type ?? metaRaw.type ?? '');
       const package_description = String(metaRaw.package_description ?? metaRaw.description ?? '');
-      const thumbnail = String(metaRaw.thumbnail ?? '');
+      const thumbnail = toFileUrl(String(metaRaw.thumbnail ?? ''));
       const status = normalizeStatus(metaRaw.status ?? metaRaw.active ?? root.status ?? root.active);
 
       const facilitiesRaw = root.facilities ?? root.features ?? metaRaw.facilities ?? metaRaw.features;
@@ -249,7 +249,7 @@ export const PackageDetail: React.FC = () => {
             .filter((x) => x)
         : [];
 
-      const allImages = [thumbnail, ...extraImages].filter((x) => x);
+      const allImages = [thumbnail, ...extraImages].filter((x) => x).map((x) => toFileUrl(x));
       const images = Array.from(new Set(allImages));
 
       setPkg({
