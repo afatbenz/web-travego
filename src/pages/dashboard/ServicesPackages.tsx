@@ -51,7 +51,7 @@ export const ServicesPackages: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await api.get('/partner/services/tour-packages/list', token ? { Authorization: token } : undefined);
+      const response = await api.get('/services/tour-packages/list', token ? { Authorization: token } : undefined);
       if (response.data && Array.isArray(response.data)) {
         const mapped = (response.data as unknown[]).map((x) => {
           const item = x as Record<string, unknown>;
@@ -93,7 +93,7 @@ export const ServicesPackages: React.FC = () => {
     if (result.isConfirmed) {
       try {
         const token = localStorage.getItem('token');
-        await api.delete(`/partner/tour-packages/${encodeURIComponent(String(id))}`, token ? { Authorization: token } : undefined);
+        await api.delete(`/tour-packages/${encodeURIComponent(String(id))}`, token ? { Authorization: token } : undefined);
         Swal.fire(
           'Terhapus!',
           'Data paket telah dihapus.',

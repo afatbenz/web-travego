@@ -27,7 +27,7 @@ export const ServicesArmada: React.FC = () => {
         search: searchTerm || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
       };
-      const res = await api.post<unknown>('/partner/services/fleet/list', body, token ? { Authorization: token } : undefined);
+      const res = await api.post<unknown>('/services/fleet/list', body, token ? { Authorization: token } : undefined);
       if (res.status === 'success') {
         const payload = res.data as unknown;
         let items: any[] = [];

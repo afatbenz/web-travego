@@ -22,6 +22,12 @@ export function toFileUrl(value: string): string {
   return `${FILE_BASE_URL}/${clean}`;
 }
 
+function toApiUrl(path: string): string {
+  if (/^(https?:)?\/\//i.test(path)) return path;
+  if (path.startsWith('/')) return `${BASE_URL}${path}`;
+  return `${BASE_URL}/${path}`;
+}
+
 function extractMessage(payload: unknown): string | undefined {
   if (payload && typeof payload === 'object') {
     const msg = (payload as Record<string, unknown>).message;
@@ -52,7 +58,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
       mergedHeaders['Content-Type'] = 'application/json';
     }
 
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const res = await fetch(toApiUrl(path), {
       ...init,
       headers: mergedHeaders,
     });
@@ -69,6 +75,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
         status: 'success',
         statusCode: 200,
         data: extractData<T>(json),
+        message: extractMessage(json),
       };
     }
 
@@ -152,7 +159,7 @@ async function postMultipart<T>(path: string, formData: FormData, headers?: Reco
       ...(headers ?? {}),
     };
 
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const res = await fetch(toApiUrl(path), {
       method: 'POST',
       headers: mergedHeaders,
       body: formData,
@@ -182,7 +189,7 @@ async function postMultipart<T>(path: string, formData: FormData, headers?: Reco
   }
 }
 
-export async function uploadCommon(type: 'armada' | 'package' | 'bank', files: File[], token?: string) {
+export async function uploadCommon(type: 'armada' | 'package' | 'bank' | 'avatar', files: File[], token?: string) {
   const fd = new FormData();
   fd.append('type', type);
   files.forEach((f) => fd.append('files', f));

@@ -171,7 +171,7 @@ export const ArmadaForm: React.FC = () => {
         images: formData.imageFiles,
       };
       const token = localStorage.getItem('token') ?? '';
-      const endpoint = isEdit ? '/partner/services/fleet/update' : '/partner/services/fleet/create';
+      const endpoint = isEdit ? '/services/fleet/update' : '/services/fleet/create';
       const body = isEdit && id ? { fleet_id: decodeURIComponent(id), ...payload } : payload;
       try {
         const res = await api.post<unknown>(endpoint, body, token ? { Authorization: token } : undefined);
@@ -201,7 +201,7 @@ export const ArmadaForm: React.FC = () => {
     if (!result.isConfirmed) return;
 
     const token = localStorage.getItem('token') ?? '';
-    const res = await api.post<unknown>('/partner/services/fleet/inactive', { fleet_id: id }, token ? { Authorization: token } : undefined);
+    const res = await api.post<unknown>('/services/fleet/inactive', { fleet_id: id }, token ? { Authorization: token } : undefined);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Armada berhasil dinonaktifkan.' });
       setFormData(prev => ({ ...prev, status: 'inactive' }));
@@ -420,7 +420,7 @@ export const ArmadaForm: React.FC = () => {
       if (!isEdit || !id) return;
       const token = localStorage.getItem('token') ?? '';
       const headers = token ? { Authorization: token } : undefined;
-      const res = await api.post<unknown>('/partner/services/fleet/detail', { fleet_id: decodeURIComponent(id) }, headers);
+      const res = await api.post<unknown>('/services/fleet/detail', { fleet_id: decodeURIComponent(id) }, headers);
       if (res.status !== 'success') return;
 
       const payload = res.data as unknown;

@@ -88,7 +88,7 @@ export const PackageDetail: React.FC = () => {
       const headers = token ? { Authorization: token } : undefined;
 
       const res = await api.post<unknown>(
-        '/partner/services/tour-packages/detail',
+        '/services/tour-packages/detail',
         { package_id: packageIdParam },
         headers
       );
@@ -292,7 +292,7 @@ export const PackageDetail: React.FC = () => {
 
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
-    const res = await api.post<unknown>('/partner/services/tour-packages/active', { package_id: pkg.package_id }, headers);
+    const res = await api.post<unknown>('/services/tour-packages/active', { package_id: pkg.package_id }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Paket berhasil diaktifkan.' });
       setReloadNonce((v) => v + 1);
@@ -315,7 +315,7 @@ export const PackageDetail: React.FC = () => {
 
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
-    const res = await api.post<unknown>('/partner/services/tour-packages/inactive', { package_id: pkg.package_id }, headers);
+    const res = await api.post<unknown>('/services/tour-packages/inactive', { package_id: pkg.package_id }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Paket berhasil dinonaktifkan.' });
       setReloadNonce((v) => v + 1);
@@ -337,7 +337,7 @@ export const PackageDetail: React.FC = () => {
 
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
-    const res = await api.post<unknown>('/partner/services/tour-packages/delete', { package_id: pkg.package_id }, headers);
+    const res = await api.post<unknown>('/services/tour-packages/delete', { package_id: pkg.package_id }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Terhapus', text: 'Paket berhasil dihapus.' });
       navigate('/dashboard/partner/services/packages');

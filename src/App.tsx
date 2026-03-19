@@ -83,6 +83,7 @@ import { OrganizationRoles } from '@/pages/dashboard/organization/OrganizationRo
 import { OrganizationDivision } from '@/pages/dashboard/organization/OrganizationDivision';
 import { PartnerProfile } from '@/pages/dashboard/partner/Profile';
 import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
+import { PartnerChangePassword } from '@/pages/dashboard/partner/ChangePassword';
 import PartnerContent from '@/pages/dashboard/partner/content/Content';
 import ContentMenu from '@/pages/dashboard/partner/content/ContentMenu';
 import { 
@@ -742,6 +743,11 @@ function App() {
           <Route path="/dashboard/partner/profile/edit" element={
             <DashboardLayout>
               <PartnerProfileEdit />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/profile/password" element={
+            <DashboardLayout>
+              <PartnerChangePassword />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/content" element={

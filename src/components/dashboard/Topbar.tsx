@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Search, User } from 'lucide-react';
+import { Bell, LogOut, Search, Settings, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
@@ -14,10 +14,23 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import defaultAvatar from '@/assets/general/avatar.svg';
 
 export const Topbar: React.FC = () => {
-  const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [user, setUser] = useState<{ name?: string; email?: string; avatar?: string } | null>(null);
   const navigate = useNavigate();
+  const token = localStorage.getItem('token') ?? '';
+  let isAdmin = false;
+  try {
+    const payloadStr = token.split('.')[1];
+    if (payloadStr) {
+      const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const json = JSON.parse(atob(padded));
+      isAdmin = Boolean(json.is_admin ?? json.isAdmin ?? false);
+    }
+  } catch {}
+  const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
 
   useEffect(() => {
     const uStr = localStorage.getItem('user');
@@ -92,12 +105,14 @@ export const Topbar: React.FC = () => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=100" />
-                  <AvatarFallback>AR</AvatarFallback>
+                  <AvatarImage src={user?.avatar || defaultAvatar} />
+                  <AvatarFallback>
+                    <User className="h-5 w-5" />
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium">{user?.name || 'User'}</p>
@@ -105,22 +120,30 @@ export const Topbar: React.FC = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/dashboard/partner/profile')}>
+              <DropdownMenuItem
+                className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                onClick={() => navigate(`${basePrefix}/profile`)}
+              >
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
+              <DropdownMenuItem
+                className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                onClick={() => navigate(`${basePrefix}/organization/settings`)}
+              >
+                <Settings className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
-                className="text-red-600 cursor-pointer"
+                className="text-red-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                 onClick={() => {
                   localStorage.removeItem('user');
                   localStorage.removeItem('token');
                   navigate('/auth/login');
                 }}
               >
+                <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

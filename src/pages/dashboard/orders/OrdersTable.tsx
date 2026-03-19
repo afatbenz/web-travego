@@ -47,13 +47,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     const fetchOrders = async () => {
       try {
         const token = localStorage.getItem('token');
-        let endpoint = '/partner/services/fleet/orders';
+        let endpoint = '/services/fleet/orders';
         
         // If type is explicitly tour, use tour endpoint (placeholder for now if not confirmed)
         if (type === 'tour') {
            // Assuming this endpoint exists based on convention, or falling back to fleet if it's the same table
            // For now, let's assume there's a separate endpoint or query
-           endpoint = '/partner/services/packages/orders'; 
+           endpoint = '/services/packages/orders'; 
         }
 
         const response = await api.get<any[]>(endpoint, token ? { Authorization: token } : undefined);
