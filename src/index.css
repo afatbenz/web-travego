@@ -143,3 +143,44 @@ button:focus-visible {
     scrollbar-width: none;
   }
 }
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgb(17, 24, 39);
+  -webkit-box-shadow: 0 0 0px 1000px rgb(243, 244, 246) inset;
+  box-shadow: 0 0 0px 1000px rgb(243, 244, 246) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark textarea:-webkit-autofill,
+.dark textarea:-webkit-autofill:hover,
+.dark textarea:-webkit-autofill:focus,
+.dark select:-webkit-autofill,
+.dark select:-webkit-autofill:hover,
+.dark select:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgb(229, 231, 235);
+  -webkit-box-shadow: 0 0 0px 1000px rgb(15, 23, 42) inset;
+  box-shadow: 0 0 0px 1000px rgb(15, 23, 42) inset;
+}
+
+input:-moz-autofill,
+textarea:-moz-autofill,
+select:-moz-autofill {
+  box-shadow: 0 0 0px 1000px rgb(243, 244, 246) inset;
+}
+
+.dark input:-moz-autofill,
+.dark textarea:-moz-autofill,
+.dark select:-moz-autofill {
+  box-shadow: 0 0 0px 1000px rgb(15, 23, 42) inset;
+}

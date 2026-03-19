@@ -152,7 +152,7 @@ export const PackageForm: React.FC = () => {
           const token = localStorage.getItem('token') ?? '';
           const headers = token ? { Authorization: token } : undefined;
           const res = await api.post<unknown>(
-            '/partner/services/tour-packages/detail',
+            '/services/tour-packages/detail',
             { package_id: packageIdParam },
             headers
           );
@@ -630,12 +630,12 @@ export const PackageForm: React.FC = () => {
       let res;
       if (isEdit && id) {
         res = await api.post<unknown>(
-          '/partner/services/tour-packages/update',
+          '/services/tour-packages/update',
           { package_id: decodeURIComponent(id), ...payload },
           headers
         );
       } else {
-        res = await api.post<unknown>('/partner/services/tour-packages/create', payload, headers);
+        res = await api.post<unknown>('/services/tour-packages/create', payload, headers);
       }
 
       if (res.status === 'success') {
@@ -665,7 +665,7 @@ export const PackageForm: React.FC = () => {
 
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
-    const res = await api.post<unknown>('/partner/services/tour-packages/inactive', { package_id: decodeURIComponent(id) }, headers);
+    const res = await api.post<unknown>('/services/tour-packages/inactive', { package_id: decodeURIComponent(id) }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Paket berhasil dinonaktifkan.' });
       setFormData((prev) => ({ ...prev, active: false }));
@@ -689,7 +689,7 @@ export const PackageForm: React.FC = () => {
 
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
-    const res = await api.post<unknown>('/partner/services/tour-packages/active', { package_id: decodeURIComponent(id) }, headers);
+    const res = await api.post<unknown>('/services/tour-packages/active', { package_id: decodeURIComponent(id) }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Paket berhasil diaktifkan.' });
       setFormData((prev) => ({ ...prev, active: true }));

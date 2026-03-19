@@ -195,26 +195,42 @@ export const OrganizationSettings: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Organization Settings</h1>
         <p className="text-gray-600 dark:text-gray-300 mt-1">Perbarui informasi organisasi</p>
       </div>
-      <div className="bg-white rounded-lg shadow p-6">
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
-            <div className="space-y-3">
-              <label className="text-sm font-medium">Logo</label>
-              <div className="flex flex-col items-start gap-3">
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-lg shadow p-6 md:col-span-1 flex">
+            <div className="flex flex-col flex-1">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Logo Organisasi</h2>
+              </div>
+              <div className="mt-3 h-px bg-gray-200" />
+              <div className="mt-4 flex flex-col items-start gap-3">
                 <div className="relative w-full">
                   {form.logo ? (
-                    <img src={form.logo} alt={form.organization_name} className="w-full h-32 rounded bg-slate-100 object-contain" />
+                    <img src={form.logo} alt={form.organization_name} className="w-full h-44 rounded bg-slate-100 object-contain" />
                   ) : (
-                    <div className="w-full h-32 rounded bg-slate-100" />
+                    <div className="w-full h-44 rounded bg-slate-100" />
                   )}
-                  <Button type="button" size="icon" className="absolute -top-2 -right-2 h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 shadow text-white" onClick={() => fileInputRef.current?.click()}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 shadow text-white"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading || saving}
+                  >
                     <Pencil className="h-4 w-4 text-white" />
                   </Button>
                   <Input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                 </div>
               </div>
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Detail Organisasi</h2>
+            </div>
+            <div className="mt-3 h-px bg-gray-200" />
+            <div className="mt-4 grid md:grid-cols-2 gap-4">
               <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-medium">Nama Organisasi</label>
                 <div className="relative">
@@ -380,11 +396,13 @@ export const OrganizationSettings: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={saving || loading}>{saving ? 'Menyimpan Perubahan...' : 'Simpan Perubahan'}</Button>
-          </div>
-        </form>
-      </div>
+        </div>
+        <div className="flex justify-end">
+          <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={saving || loading}>
+            {saving ? 'Menyimpan Perubahan...' : 'Simpan Perubahan'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };

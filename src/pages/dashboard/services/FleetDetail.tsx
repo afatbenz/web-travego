@@ -69,7 +69,7 @@ export const FleetDetail: React.FC = () => {
     const load = async () => {
       if (!id) return;
       const token = localStorage.getItem('token') ?? '';
-      const res = await api.post<unknown>('/partner/services/fleet/detail', { fleet_id: id }, token ? { Authorization: token } : undefined);
+      const res = await api.post<unknown>('/services/fleet/detail', { fleet_id: id }, token ? { Authorization: token } : undefined);
       if (res.status === 'success') {
         const payload = res.data as unknown;
         const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
@@ -174,7 +174,7 @@ export const FleetDetail: React.FC = () => {
 
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
-    const res = await api.post<unknown>('/partner/services/fleet/active', { fleet_id: fleet.meta.fleet_id }, headers);
+    const res = await api.post<unknown>('/services/fleet/active', { fleet_id: fleet.meta.fleet_id }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Armada berhasil diaktifkan.' });
       setReloadNonce((v) => v + 1);
@@ -197,7 +197,7 @@ export const FleetDetail: React.FC = () => {
 
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
-    const res = await api.post<unknown>('/partner/services/fleet/inactive', { fleet_id: fleet.meta.fleet_id }, headers);
+    const res = await api.post<unknown>('/services/fleet/inactive', { fleet_id: fleet.meta.fleet_id }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Armada berhasil dinonaktifkan.' });
       setReloadNonce((v) => v + 1);
@@ -219,7 +219,7 @@ export const FleetDetail: React.FC = () => {
 
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
-    const res = await api.post<unknown>('/partner/services/fleet/delete', { fleet_id: fleet.meta.fleet_id }, headers);
+    const res = await api.post<unknown>('/services/fleet/delete', { fleet_id: fleet.meta.fleet_id }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Terhapus', text: 'Armada berhasil dihapus.' });
       navigate(`${basePrefix}/services/fleet`);

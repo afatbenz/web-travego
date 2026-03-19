@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
-import { ArrowLeft, MapPin, Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { api, deleteCommon, toFileUrl, uploadCommon } from '@/lib/api';
+import { ArrowLeft, Calendar as CalendarIcon, Loader2, MapPin, Trash2, Upload } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import defaultAvatar from '@/assets/general/avatar.svg';
 
 export const PartnerProfileEdit: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +32,9 @@ export const PartnerProfileEdit: React.FC = () => {
   const [showCityList, setShowCityList] = useState(false);
   const [provinceDisplay, setProvinceDisplay] = useState('');
   const [cityDisplay, setCityDisplay] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarFile, setAvatarFile] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -48,11 +52,83 @@ export const PartnerProfileEdit: React.FC = () => {
       date_of_birth: dob
         ? `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, '0')}-${String(dob.getDate()).padStart(2, '0')}`
         : form.date_of_birth,
+      avatar: avatarFile,
     };
     const res = await api.post('/profile/update', payload, { Authorization: token });
     setSaving(false);
     if (res.status === 'success') {
       navigate('/dashboard/partner/profile');
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const prevUrl = avatarUrl;
+    const preview = URL.createObjectURL(file);
+    setAvatarUrl(preview);
+    setAvatarUploading(true);
+
+    try {
+      const res = await uploadCommon('avatar', [file]);
+      if (res.status === 'success') {
+        const data = res.data as { files?: string[] } | undefined;
+        const path = data?.files?.[0] ?? '';
+        if (path) {
+          setAvatarFile(path);
+          const url = toFileUrl(path);
+          setAvatarUrl(url);
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const u = JSON.parse(userStr) as Record<string, unknown>;
+              localStorage.setItem('user', JSON.stringify({ ...u, avatar: url }));
+            } catch {
+              void 0;
+            }
+          }
+        }
+      }
+    } finally {
+      setAvatarUploading(false);
+      if (prevUrl && prevUrl.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(prevUrl);
+        } catch {
+          void 0;
+        }
+      }
+      e.target.value = '';
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    if (avatarUploading) return;
+    if (avatarFile) {
+      try {
+        await deleteCommon([avatarFile]);
+      } catch {
+        void 0;
+      }
+    }
+    if (avatarUrl && avatarUrl.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(avatarUrl);
+      } catch {
+        void 0;
+      }
+    }
+    setAvatarFile('');
+    setAvatarUrl('');
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr) as Record<string, unknown>;
+        localStorage.setItem('user', JSON.stringify({ ...u, avatar: '' }));
+      } catch {
+        void 0;
+      }
     }
   };
 
@@ -118,25 +194,35 @@ export const PartnerProfileEdit: React.FC = () => {
       const token = localStorage.getItem('token') ?? '';
       const res = await api.get('/profile/detail', { Authorization: token });
       if (res.status === 'success' && res.data) {
-        const d = res.data as Record<string, string>;
+        const d = res.data as Record<string, unknown>;
         setForm((p) => ({
           ...p,
-          name: d.name ?? p.name,
-          phone: d.phone ?? p.phone,
-          npwp: d.npwp ?? p.npwp,
-          gender: (d.gender as 'M' | 'F') ?? p.gender,
-          date_of_birth: d.date_of_birth ?? p.date_of_birth,
-          address: d.address ?? p.address,
-          city: d.city ?? p.city,
-          province: d.province ?? p.province,
-          postal_code: d.postal_code ?? p.postal_code,
+          name: typeof d.name === 'string' ? d.name : p.name,
+          phone: typeof d.phone === 'string' ? d.phone : p.phone,
+          npwp: typeof d.npwp === 'string' ? d.npwp : p.npwp,
+          gender: (typeof d.gender === 'string' ? (d.gender as 'M' | 'F') : p.gender),
+          date_of_birth: typeof d.date_of_birth === 'string' ? d.date_of_birth : p.date_of_birth,
+          address: typeof d.address === 'string' ? d.address : p.address,
+          city: typeof d.city === 'string' ? d.city : p.city,
+          province: typeof d.province === 'string' ? d.province : p.province,
+          postal_code: typeof d.postal_code === 'string' ? d.postal_code : p.postal_code,
         }));
-        setProvinceDisplay(d.province ?? '');
-        setCityDisplay(d.city ?? '');
-        const dobStr = d.date_of_birth ?? '';
+        const provinceStr = typeof d.province === 'string' ? d.province : '';
+        const cityStr = typeof d.city === 'string' ? d.city : '';
+        const provinceLabel = typeof d.province_label === 'string' ? d.province_label : '';
+        const cityLabel = typeof d.city_label === 'string' ? d.city_label : '';
+        setProvinceDisplay(provinceLabel || provinceStr);
+        setCityDisplay(cityLabel || cityStr);
+        const dobStr = typeof d.date_of_birth === 'string' ? d.date_of_birth : '';
         if (dobStr) {
           const parsed = new Date(dobStr);
           if (!Number.isNaN(parsed.getTime())) setDob(parsed);
+        }
+        const avatarRaw = d.avatar ?? d.photo ?? d.profile_photo ?? d.profilePhoto;
+        const avatarPath = typeof avatarRaw === 'string' ? avatarRaw : '';
+        if (avatarPath) {
+          setAvatarFile(avatarPath);
+          setAvatarUrl(toFileUrl(avatarPath));
         }
       }
     })();
@@ -150,7 +236,7 @@ export const PartnerProfileEdit: React.FC = () => {
     }
     setLoadingProvince(true);
     const id = setTimeout(async () => {
-      const res = await api.get('http://localhost:3100/api/general/provinces?search=' + encodeURIComponent(q));
+      const res = await api.get('/general/provinces?search=' + encodeURIComponent(q));
       setLoadingProvince(false);
       if (res.status === 'success') {
         const raw = (res.data ?? []) as unknown;
@@ -187,7 +273,7 @@ export const PartnerProfileEdit: React.FC = () => {
     }
     setLoadingCity(true);
     const id = setTimeout(async () => {
-      const url = 'http://localhost:3100/api/general/cities?province=' + encodeURIComponent(prov) + '&search=' + encodeURIComponent(q);
+      const url = '/general/cities?province=' + encodeURIComponent(prov) + '&search=' + encodeURIComponent(q);
       const res = await api.get(url);
       setLoadingCity(false);
       if (res.status === 'success') {
@@ -227,9 +313,46 @@ export const PartnerProfileEdit: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300 mt-1">Perbarui informasi profil anda</p>
         </div>
       </div>
-      <div className="bg-white rounded-lg shadow p-6">
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
+      <form onSubmit={submit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-lg shadow p-6 md:col-span-1 flex">
+            <div className="flex flex-col flex-1">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Foto Profil</h2>
+              </div>
+              <div className="mt-3 h-px bg-gray-200" />
+              <div className="flex flex-col items-center justify-center flex-1 min-h-[300px]">
+                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Foto Profil" className="h-full w-full object-cover" />
+                  ) : (
+                    <img src={defaultAvatar} alt="Foto Profil" className="h-16 w-16 object-contain opacity-80" />
+                  )}
+                </div>
+                <div className="mt-4 flex flex-col gap-2 w-full">
+                  <label className={`inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer ${avatarUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Unggah foto baru
+                    <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                  </label>
+                  <Button type="button" variant="outline" className="h-10" onClick={handleAvatarRemove} disabled={avatarUploading || (!avatarUrl && !avatarFile)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Hapus foto profil
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Informasi Profil</h2>
+              <Button type="button" variant="outline" onClick={() => navigate('/dashboard/partner/profile/password')}>
+                Ubah Password
+              </Button>
+            </div>
+            <div className="mt-3 h-px bg-gray-200" />
+            <div className="mt-4 grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm">Nama</label>
               <Input name="name" value={form.name} onChange={handleChange} className="h-12" placeholder="Nama lengkap" />
@@ -383,11 +506,15 @@ export const PartnerProfileEdit: React.FC = () => {
               <Input name="postal_code" value={form.postal_code} onChange={handleChange} className="h-12" placeholder="Kode pos" />
             </div>
           </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
           <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 h-12 text-white">
             {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
           </Button>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 };
