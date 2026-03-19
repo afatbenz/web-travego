@@ -105,7 +105,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       <div className="flex flex-col min-w-0 md:ml-[var(--sidebar-width,4rem)] transition-all duration-300">
         <Topbar />
         <main className="flex-1 p-4 lg:p-6 xl:p-8 2xl:p-12 overflow-x-auto">
-          <div className="w-full">
+          <div className="w-full dashboard-surface">
             {children}
           </div>
         </main>

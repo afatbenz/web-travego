@@ -184,3 +184,13 @@ select:-moz-autofill {
 .dark select:-moz-autofill {
   box-shadow: 0 0 0px 1000px rgb(15, 23, 42) inset;
 }
+
+.dark .dashboard-surface .bg-white {
+  background-color: rgb(17, 24, 39);
+  border-color: rgb(55, 65, 81);
+  color: rgb(243, 244, 246);
+}
+
+.dark .dashboard-surface .bg-gray-200 {
+  background-color: rgb(55, 65, 81);
+}

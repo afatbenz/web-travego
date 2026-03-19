@@ -52,89 +52,89 @@ export const PartnerProfile: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6 md:col-span-1 flex">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 md:col-span-1 flex">
           <div className="flex flex-col flex-1">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Foto Profil</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Foto Profil</h2>
             </div>
-            <div className="mt-3 h-px bg-gray-200" />
+            <div className="mt-3 h-px bg-gray-200 dark:bg-gray-700" />
             <div className="flex flex-col items-center justify-center flex-1 min-h-[260px]">
-              <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+              <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                 {data.avatar ? (
                   <img src={toFileUrl(data.avatar)} alt="Foto Profil" className="h-full w-full object-cover" />
                 ) : (
                   <img src={defaultAvatar} alt="Foto Profil" className="h-16 w-16 object-contain opacity-80" />
                 )}
               </div>
-              {loading ? <div className="mt-4 text-sm text-gray-600">Memuat...</div> : null}
+              {loading ? <div className="mt-4 text-sm text-gray-600 dark:text-gray-300">Memuat...</div> : null}
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 md:col-span-2">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 md:col-span-2">
           {loading ? (
-            <div className="text-sm text-gray-600">Memuat...</div>
+            <div className="text-sm text-gray-600 dark:text-gray-300">Memuat...</div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Informasi Profil</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Profil</h2>
               </div>
-              <div className="h-px bg-gray-200" />
+              <div className="h-px bg-gray-200 dark:bg-gray-700" />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center space-x-3">
                 <User className="h-4 w-4 text-gray-400" />
                 <div>
-                  <div className="text-sm text-gray-500">Nama</div>
-                  <div className="font-medium">{data.name || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Nama</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{data.name || '-'}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="h-4 w-4 text-gray-400" />
                 <div>
-                  <div className="text-sm text-gray-500">Email</div>
-                  <div className="font-medium">{data.email || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Email</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{data.email || '-'}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="h-4 w-4 text-gray-400" />
                 <div>
-                  <div className="text-sm text-gray-500">Telepon</div>
-                  <div className="font-medium">{data.phone || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Telepon</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{data.phone || '-'}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <IdCard className="h-4 w-4 text-gray-400" />
                 <div>
-                  <div className="text-sm text-gray-500">NPWP</div>
-                  <div className="font-medium">{data.npwp || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">NPWP</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{data.npwp || '-'}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Calendar className="h-4 w-4 text-gray-400" />
                 <div>
-                  <div className="text-sm text-gray-500">Tanggal Lahir</div>
-                  <div className="font-medium">{data.date_of_birth ? new Date(data.date_of_birth).toLocaleDateString() : '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Tanggal Lahir</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{data.date_of_birth ? new Date(data.date_of_birth).toLocaleDateString() : '-'}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="h-4 w-4 text-gray-400" />
                 <div>
-                  <div className="text-sm text-gray-500">Alamat</div>
-                  <div className="font-medium">{data.address || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Alamat</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{data.address || '-'}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="h-4 w-4 text-gray-400" />
                 <div>
-                  <div className="text-sm text-gray-500">Kota / Provinsi</div>
-                  <div className="font-medium">{[data.city_label ?? data.city, data.province_label ?? data.province].filter(Boolean).join(' / ') || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Kota / Provinsi</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{[data.city_label ?? data.city, data.province_label ?? data.province].filter(Boolean).join(' / ') || '-'}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="h-4 w-4 text-gray-400" />
                 <div>
-                  <div className="text-sm text-gray-500">Kode Pos</div>
-                  <div className="font-medium">{data.postal_code || '-'}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Kode Pos</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{data.postal_code || '-'}</div>
                 </div>
               </div>
               </div>
