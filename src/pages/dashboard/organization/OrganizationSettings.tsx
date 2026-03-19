@@ -197,12 +197,12 @@ export const OrganizationSettings: React.FC = () => {
       </div>
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-6 md:col-span-1 flex">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 md:col-span-1 flex">
             <div className="flex flex-col flex-1">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Logo Organisasi</h2>
               </div>
-              <div className="mt-3 h-px bg-gray-200" />
+              <div className="mt-3 h-px bg-gray-200 dark:bg-gray-700" />
               <div className="mt-4 flex flex-col items-start gap-3">
                 <div className="relative w-full">
                   {form.logo ? (
@@ -225,11 +225,11 @@ export const OrganizationSettings: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 md:col-span-2">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 md:col-span-2">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Detail Organisasi</h2>
             </div>
-            <div className="mt-3 h-px bg-gray-200" />
+            <div className="mt-3 h-px bg-gray-200 dark:bg-gray-700" />
             <div className="mt-4 grid md:grid-cols-2 gap-4">
               <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-medium">Nama Organisasi</label>

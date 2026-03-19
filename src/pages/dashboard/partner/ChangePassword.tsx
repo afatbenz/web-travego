@@ -233,36 +233,36 @@ export const PartnerChangePassword: React.FC = () => {
 
       <form onSubmit={onSubmit} className="space-y-6" autoComplete="off">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-6 md:col-span-1 flex">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 md:col-span-1 flex">
             <div className="flex flex-col flex-1">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Foto Profil</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Foto Profil</h2>
               </div>
-              <div className="mt-3 h-px bg-gray-200" />
+              <div className="mt-3 h-px bg-gray-200 dark:bg-gray-700" />
               <div className="flex flex-col items-center justify-center flex-1 min-h-[260px]">
-                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                   {avatarPath ? (
                     <img src={toFileUrl(avatarPath)} alt="Foto Profil" className="h-full w-full object-cover" />
                   ) : (
                     <img src={defaultAvatar} alt="Foto Profil" className="h-16 w-16 object-contain opacity-80" />
                   )}
                 </div>
-                {loadingProfile ? <div className="mt-4 text-sm text-gray-600">Memuat...</div> : null}
+                {loadingProfile ? <div className="mt-4 text-sm text-gray-600 dark:text-gray-300">Memuat...</div> : null}
               </div>
             </div>
           </div>
 
           <div
             className={[
-              'bg-white rounded-lg shadow p-6 md:col-span-2',
+              'bg-white dark:bg-gray-900 rounded-lg shadow p-6 md:col-span-2',
               'transition-all duration-300',
               mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
             ].join(' ')}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Ubah Password</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Ubah Password</h2>
             </div>
-            <div className="mt-3 h-px bg-gray-200" />
+            <div className="mt-3 h-px bg-gray-200 dark:bg-gray-700" />
 
             <div className="mt-4 w-full max-w-md space-y-4">
               <div>
