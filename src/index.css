@@ -125,6 +125,94 @@ button:focus-visible {
   }
 }
 
+.order-preview-popup {
+  max-height: 90vh;
+  overflow: hidden;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.order-preview-popup .swal2-html-container {
+  max-height: calc(90vh - 160px);
+  overflow: auto;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.order-preview-popup .swal2-actions {
+  background: transparent;
+  border-top: 1px dashed rgb(209, 213, 219);
+  margin: 0;
+  padding: 10px 16px;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-end;
+}
+
+.order-preview-popup .swal2-styled {
+  border-radius: 10px;
+  padding: 0.4em 1.05em;
+  font-size: 0.95rem;
+  min-height: 34px;
+}
+
+.order-preview-popup .swal2-styled.swal2-confirm,
+.order-preview-popup .swal2-styled.swal2-deny {
+  margin: 0 6px;
+}
+
+.order-preview-popup .swal2-close {
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+}
+
+.order-preview-popup .order-preview-itinerary-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.order-preview-popup .order-preview-itinerary-summary::-webkit-details-marker {
+  display: none;
+}
+
+.order-preview-popup .order-preview-itinerary-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(107, 114, 128);
+}
+
+.order-preview-popup .order-preview-itinerary-chevron {
+  transition: transform 150ms ease;
+}
+
+.order-preview-popup details[open] .order-preview-itinerary-chevron {
+  transform: rotate(180deg);
+}
+
+.order-preview-popup .order-preview-itinerary-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms ease;
+}
+
+.order-preview-popup .order-preview-itinerary-inner {
+  overflow: hidden;
+}
+
+.order-preview-popup details[open] .order-preview-itinerary-content {
+  grid-template-rows: 1fr;
+}
+
 @layer base {
   * {
     @apply border-border;
