@@ -363,7 +363,19 @@ export const PartnerProfileEdit: React.FC = () => {
             </div>
             <div>
               <label className="text-sm">NPWP</label>
-              <Input name="npwp" value={form.npwp} onChange={handleChange} className="h-12" placeholder="Nomor NPWP" />
+              <Input
+                name="npwp"
+                value={form.npwp}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={16}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 16);
+                  setForm((p) => ({ ...p, npwp: v }));
+                }}
+                className="h-12"
+                placeholder="Nomor NPWP"
+              />
             </div>
             <div>
               <label className="text-sm">Gender</label>

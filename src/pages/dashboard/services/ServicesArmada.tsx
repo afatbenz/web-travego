@@ -21,13 +21,12 @@ export const ServicesArmada: React.FC = () => {
     const load = async () => {
       setLoading(true);
       const token = localStorage.getItem('token') ?? '';
-      const body: Record<string, unknown> = {
-        page: currentPage,
-        limit: itemsPerPage,
-        search: searchTerm || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-      };
-      const res = await api.post<unknown>('/services/fleet/list', body, token ? { Authorization: token } : undefined);
+      const query = new URLSearchParams();
+      query.set('page', String(currentPage));
+      query.set('limit', String(itemsPerPage));
+      if (searchTerm) query.set('search', searchTerm);
+      if (statusFilter !== 'all') query.set('status', statusFilter);
+      const res = await api.get<unknown>(`/services/fleet/list?${query.toString()}`, token ? { Authorization: token } : undefined);
       if (res.status === 'success') {
         const payload = res.data as unknown;
         let items: any[] = [];

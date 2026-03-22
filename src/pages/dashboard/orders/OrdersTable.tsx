@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Filter, ChevronLeft, ChevronRight, Eye, Download } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Search, Filter, ChevronLeft, ChevronRight, Eye, Download, Plus } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,8 @@ interface OrdersTableProps {
 
 export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, description }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -163,6 +165,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             {description}
           </p>
         </div>
+        {type === 'fleet' && status === 'all' && basePrefix === '/dashboard/partner' ? (
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate(`${basePrefix}/orders/fleet/form`)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Tambahkan Pesanan
+          </Button>
+        ) : null}
       </div>
 
       {/* Filters */}
