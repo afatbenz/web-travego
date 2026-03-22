@@ -101,7 +101,7 @@ export const Sidebar: React.FC = () => {
       title: 'Customers',
       icon: Users,
       children: [
-        { title: 'All Customers', icon: Users, href: `${basePrefix}/customers/all` },
+        { title: 'All Customers', icon: Users, href: `${basePrefix}/customers` },
         { title: 'Registered Customers', icon: UserCheck, href: `${basePrefix}/customers/registered` },
         { title: 'Customer Rewards', icon: Gift, href: `${basePrefix}/customers/rewards` }
       ]

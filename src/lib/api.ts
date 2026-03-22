@@ -180,6 +180,16 @@ async function postMultipart<T>(path: string, formData: FormData, headers?: Reco
       };
     }
 
+    if (res.status === 400 && toApiUrl(path).endsWith('/api/common/upload')) {
+      const message = extractMessage(json) ?? 'Bad request';
+      Swal.fire({
+        icon: 'warning',
+        title: 'Upload gagal',
+        text: message,
+      });
+      return { status: 'error', statusCode: 400, message };
+    }
+
     const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';
     showAlert({ title: 'Gagal', description: fallbackMessage, type: 'error' });
     return { status: 'error', statusCode: res.status, message: fallbackMessage };

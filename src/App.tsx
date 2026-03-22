@@ -76,6 +76,7 @@ import { OrganizationChoiceDashboard } from '@/pages/dashboard/organization/Orga
 import { OrganizationRegisterDashboard } from '@/pages/dashboard/organization/OrganizationRegister';
 import { OrganizationJoinDashboard } from '@/pages/dashboard/organization/OrganizationJoin';
 import { OrganizationSettings } from '@/pages/dashboard/organization/OrganizationSettings';
+import { OrganizationDetail } from '@/pages/dashboard/organization/OrganizationDetail';
 import { OrganizationUsers } from '@/pages/dashboard/organization/OrganizationUsers';
 import { OrganizationOpenApi } from '@/pages/dashboard/organization/OrganizationOpenApi';
 import { OrganizationCompany } from '@/pages/dashboard/organization/OrganizationCompany';
@@ -106,6 +107,7 @@ import { OrganizationJoin } from '@/pages/auth/OrganizationJoin';
 // Dashboard Pages
 import { DashboardHome } from '@/pages/dashboard/DashboardHome';
 import { OrdersTable } from '@/pages/dashboard/orders/OrdersTable';
+import { FleetOrderForm } from '@/pages/dashboard/orders/FleetOrderForm';
 import { OrderDetail } from '@/pages/dashboard/orders/OrderDetail';
 import { ServicesPackages } from '@/pages/dashboard/ServicesPackages';
 import { ServicesArmada } from '@/pages/dashboard/services/ServicesArmada';
@@ -122,6 +124,9 @@ import { AddSchedule } from '@/pages/dashboard/team/AddSchedule';
 import { AllCustomers } from '@/pages/dashboard/customers/AllCustomers';
 import { RegisteredCustomers } from '@/pages/dashboard/customers/RegisteredCustomers';
 import { CustomerRewards } from '@/pages/dashboard/customers/CustomerRewards';
+import { CustomerCreate } from '@/pages/dashboard/customers/CustomerCreate';
+import { CustomerDetail } from '@/pages/dashboard/customers/CustomerDetail';
+import { CustomerEdit } from '@/pages/dashboard/customers/CustomerEdit';
 
 // New Schedules Pages
 import { FleetManagement } from '@/pages/dashboard/schedules/FleetManagement';
@@ -343,9 +348,19 @@ function App() {
               <OrganizationSettings />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/organization/detail" element={
+            <DashboardLayout>
+              <OrganizationDetail />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/organization/settings" element={
             <DashboardLayout>
               <OrganizationSettings />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/detail" element={
+            <DashboardLayout>
+              <OrganizationDetail />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/organization/users" element={
@@ -415,9 +430,49 @@ function App() {
           } />
 
           {/* Customers Routes */}
+          <Route path="/dashboard/partner/customers" element={
+            <DashboardLayout>
+              <AllCustomers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/customers/create" element={
+            <DashboardLayout>
+              <CustomerCreate />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/customers/detail/:id" element={
+            <DashboardLayout>
+              <CustomerDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/customers/edit/:id" element={
+            <DashboardLayout>
+              <CustomerEdit />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/partner/customers/all" element={
             <DashboardLayout>
               <AllCustomers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/customers" element={
+            <DashboardLayout>
+              <AllCustomers />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/customers/create" element={
+            <DashboardLayout>
+              <CustomerCreate />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/customers/detail/:id" element={
+            <DashboardLayout>
+              <CustomerDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/customers/edit/:id" element={
+            <DashboardLayout>
+              <CustomerEdit />
             </DashboardLayout>
           } />
           <Route path="/dashboard/customers/all" element={
@@ -567,6 +622,11 @@ function App() {
               />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/orders/fleet/form" element={
+            <DashboardLayout>
+              <FleetOrderForm />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/orders/fleet" element={
             <DashboardLayout>
               <OrdersTable 
@@ -575,6 +635,11 @@ function App() {
                 title="Fleet Orders" 
                 description="Kelola pesanan armada" 
               />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/orders/fleet/form" element={
+            <DashboardLayout>
+              <FleetOrderForm />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/orders/tour" element={

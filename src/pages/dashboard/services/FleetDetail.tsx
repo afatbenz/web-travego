@@ -69,7 +69,7 @@ export const FleetDetail: React.FC = () => {
     const load = async () => {
       if (!id) return;
       const token = localStorage.getItem('token') ?? '';
-      const res = await api.post<unknown>('/services/fleet/detail', { fleet_id: id }, token ? { Authorization: token } : undefined);
+      const res = await api.get<unknown>(`/services/fleet/id?fleet_id=${encodeURIComponent(id)}`, token ? { Authorization: token } : undefined);
       if (res.status === 'success') {
         const payload = res.data as unknown;
         const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};

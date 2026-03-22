@@ -420,7 +420,8 @@ export const ArmadaForm: React.FC = () => {
       if (!isEdit || !id) return;
       const token = localStorage.getItem('token') ?? '';
       const headers = token ? { Authorization: token } : undefined;
-      const res = await api.post<unknown>('/services/fleet/detail', { fleet_id: decodeURIComponent(id) }, headers);
+      const fleetId = decodeURIComponent(id);
+      const res = await api.get<unknown>(`/services/fleet/id?fleet_id=${encodeURIComponent(fleetId)}`, headers);
       if (res.status !== 'success') return;
 
       const payload = res.data as unknown;

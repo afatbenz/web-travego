@@ -129,7 +129,7 @@ export const Topbar: React.FC = () => {
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                onClick={() => navigate(`${basePrefix}/organization/settings`)}
+                onClick={() => navigate(`${basePrefix}/organization/detail`)}
               >
                 <Settings className="mr-2 h-4 w-4" />
                 Settings

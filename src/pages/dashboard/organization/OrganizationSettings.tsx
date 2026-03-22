@@ -375,7 +375,18 @@ export const OrganizationSettings: React.FC = () => {
                 <label className="text-sm font-medium">NPWP</label>
                 <div className="relative">
                   <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input name="npwp_number" value={form.npwp_number} onChange={handleChange} className="pl-10 h-12" />
+                  <Input
+                    name="npwp_number"
+                    value={form.npwp_number}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={16}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 16);
+                      setForm((prev) => ({ ...prev, npwp_number: v }));
+                    }}
+                    className="pl-10 h-12"
+                  />
                 </div>
               </div>
               <div className="space-y-2 md:col-span-2">
