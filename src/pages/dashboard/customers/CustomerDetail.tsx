@@ -143,7 +143,7 @@ export const CustomerDetail: React.FC = () => {
 
   const addressText = useMemo(() => {
     const a = customer?.customer_address ?? '';
-    const c = customer?.city_name ?? '';
+    const c = customer?.customer_city_name ?? '';
     if (a && c) return `${a}, ${c}`;
     return a || c || '-';
   }, [customer?.customer_address, customer?.customer_city_name]);

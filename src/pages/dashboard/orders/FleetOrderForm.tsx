@@ -35,6 +35,15 @@ function daysBetweenInclusive(start: string, end: string): number {
   return Math.max(1, days);
 }
 
+function dayLabelFromPickup(pickupAt: string, day: number): string {
+  if (!pickupAt || !day) return '';
+  const d = new Date(pickupAt);
+  if (isNaN(d.getTime())) return '';
+  const base = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  base.setDate(base.getDate() + Math.max(0, day - 1));
+  return base.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
 async function fetchOptions(url: string, token: string): Promise<Option[]> {
   const res = await api.get<unknown>(url, token ? { Authorization: token } : undefined);
   if (res.status !== 'success') return [];
@@ -190,6 +199,13 @@ function formatRupiahFromDigits(digits: string): string {
   }).format(n);
 }
 
+function digitsToNumber(digits: string): number {
+  const clean = digits.replace(/[^0-9]/g, '');
+  if (!clean) return 0;
+  const n = Number(clean);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export const FleetOrderForm: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -251,10 +267,10 @@ export const FleetOrderForm: React.FC = () => {
     if (!dropoffAt) return 'Tanggal dan jam pengantaran wajib diisi';
     if (!pickupAddress.trim()) return 'Alamat penjemputan wajib diisi';
     if (!pickupCity) return 'Kota penjemputan wajib dipilih';
-    const dp = Number(dpAmount || '0');
-    const total = Number(totalPrice);
-    if (!Number.isFinite(dp) || dp <= 0) return 'Nominal DP wajib diisi';
-    if (!Number.isFinite(total) || total <= 0) return 'Total harga wajib diisi';
+    const dp = digitsToNumber(dpAmount);
+    const total = digitsToNumber(totalPrice);
+    if (dp <= 0) return 'Nominal DP wajib diisi';
+    if (total <= 0) return 'Total harga wajib diisi';
     if (dp > total) return 'Nominal DP tidak boleh lebih besar dari total harga';
     if (daysCount > 0) {
       for (const it of itinerary) {
@@ -278,6 +294,8 @@ export const FleetOrderForm: React.FC = () => {
     }
     setSaving(true);
     try {
+      const total = digitsToNumber(totalPrice);
+      const dp = digitsToNumber(dpAmount);
       const payload = {
         fleet_id: fleet!.id,
         customer_id: customer!.id,
@@ -285,8 +303,8 @@ export const FleetOrderForm: React.FC = () => {
         dropoff_datetime: dropoffAt,
         pickup_address: pickupAddress,
         pickup_city_id: pickupCity!.id,
-        price: Number(totalPrice),
-        dp_amount: Number(dpAmount || '0'),
+        price: total,
+        dp_amount: dp,
         itinerary: itinerary.flatMap((it) =>
           (it.stops ?? []).map((s) => ({
             day: it.day,
@@ -357,7 +375,6 @@ export const FleetOrderForm: React.FC = () => {
                 <Input
                   value={formatRupiahFromDigits(dpAmount)}
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   onChange={(e) => setDpAmount(e.target.value.replace(/[^0-9]/g, ''))}
                   className="h-12"
                   placeholder="Rp 0"
@@ -369,7 +386,6 @@ export const FleetOrderForm: React.FC = () => {
                 <Input
                   value={formatRupiahFromDigits(totalPrice)}
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   onChange={(e) => setTotalPrice(e.target.value.replace(/[^0-9]/g, ''))}
                   className="h-12"
                   placeholder="Rp 0"
@@ -393,6 +409,9 @@ export const FleetOrderForm: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Hari {it.day}</div>
+                        {pickupAt ? (
+                          <div className="text-xs text-muted-foreground">Tanggal: {dayLabelFromPickup(pickupAt, it.day) || '-'}</div>
+                        ) : null}
                         <div className="text-xs text-muted-foreground">Tambahkan lokasi tujuan untuk hari ini</div>
                       </div>
                       <Button
