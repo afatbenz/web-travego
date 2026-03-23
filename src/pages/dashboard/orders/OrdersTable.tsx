@@ -25,6 +25,21 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const formatDdMmmYy = (value: string) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '-';
+    const formatted = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
+    return formatted.replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
+  };
+
+  const formatSewaRange = (start: string, end: string) => {
+    const s = formatDdMmmYy(start);
+    const e = formatDdMmmYy(end);
+    if (s === '-' && e === '-') return '-';
+    return `${s} - ${e}`;
+  };
+
   interface Order {
     orderId: string;
     fleetName: string;
@@ -237,7 +252,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                     <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Tipe</th>
                   )}
                   <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Durasi</th>
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Jumlah</th>
+                  {type === 'fleet' && basePrefix === '/dashboard/partner' && (
+                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Tanggal Sewa</th>
+                  )}
+                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Qty</th>
                   <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Status</th>
                   <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Aksi</th>
                 </tr>
@@ -261,8 +279,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                     <td className="py-3 px-4">
                       <span className="text-gray-900 dark:text-white">{order.duration} {order.uom}</span>
                     </td>
+                    {type === 'fleet' && basePrefix === '/dashboard/partner' && (
+                      <td className="py-3 px-4">
+                        <span className="text-gray-900 dark:text-white">{formatSewaRange(order.startDate, order.endDate)}</span>
+                      </td>
+                    )}
                     <td className="py-3 px-4">
-                      <span className="text-gray-900 dark:text-white">{order.unitQty}</span>
+                      <span className="text-gray-900 dark:text-white">{order.unitQty} unit</span>
                     </td>
                     <td className="py-3 px-4">
                       {getPaymentStatusBadge(order.paymentStatus)}
