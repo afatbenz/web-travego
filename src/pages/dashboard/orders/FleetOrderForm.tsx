@@ -317,10 +317,15 @@ export const FleetOrderForm: React.FC = () => {
         const primaryPath = `/services/fleet/prices/${encodeURIComponent(fleetId)}/${encodeURIComponent(rentType)}`;
         const fallbackPath = `/services/fleet/prices/${encodeURIComponent(fleetId)}`;
 
-        const res = await api.get<unknown>(primaryPath || fallbackPath, token ? { Authorization: token } : undefined);
-        if (res.status !== 'success') return;
+        let payload: unknown = null;
+        const resPrimary = await api.get<unknown>(primaryPath, token ? { Authorization: token } : undefined);
+        if (resPrimary.status === 'success') payload = resPrimary.data;
+        if (!payload) {
+          const resFallback = await api.get<unknown>(fallbackPath, token ? { Authorization: token } : undefined);
+          if (resFallback.status === 'success') payload = resFallback.data;
+        }
+        if (!payload) return;
 
-        const payload = res.data as unknown;
         const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
         const data = (root.data ?? payload) as unknown;
         const items = Array.isArray(data) ? data : [];
@@ -335,11 +340,8 @@ export const FleetOrderForm: React.FC = () => {
             const duration = typeof durationRaw === 'number' ? durationRaw : Number(durationRaw ?? NaN);
             const priceRaw = it.price ?? it.amount ?? it.value ?? 0;
             const price = typeof priceRaw === 'number' ? priceRaw : Number(priceRaw ?? 0);
-            const explicitIdRaw = it.price_id ?? it.id ?? it.uuid ?? it.key;
-            const explicitId =
-              typeof explicitIdRaw === 'string' || typeof explicitIdRaw === 'number' ? String(explicitIdRaw) : '';
-            const derivedId = Number.isFinite(duration) ? `${String(rent_type)}-${String(duration)}` : '';
-            const price_id = explicitId || derivedId;
+            const priceIdRaw = it.price_id;
+            const price_id = typeof priceIdRaw === 'string' || typeof priceIdRaw === 'number' ? String(priceIdRaw) : '';
             return price_id && Number.isFinite(duration)
               ? { price_id, duration, price, rent_type: Number.isFinite(rent_type) ? rent_type : undefined, raw: it }
               : null;
@@ -470,7 +472,8 @@ export const FleetOrderForm: React.FC = () => {
     }
     if (daysCount > 0) {
       for (const it of itinerary) {
-        if (!it.stops || it.stops.length === 0) return `Itinerary hari ke-${it.day} wajib diisi`;
+        const allowEmpty = it.day === 1 || it.day === daysCount;
+        if (!allowEmpty && (!it.stops || it.stops.length === 0)) return `Itinerary hari ke-${it.day} wajib diisi`;
         for (const s of it.stops) {
           if (!s.city) return `Kota tujuan hari ke-${it.day} wajib dipilih`;
           if (!s.location.trim()) return `Lokasi hari ke-${it.day} wajib diisi`;
@@ -1165,7 +1168,7 @@ export const FleetOrderForm: React.FC = () => {
                               type="button"
                               variant="outline"
                               className="h-12 w-12 p-0"
-                              disabled={(it.stops ?? []).length <= 1}
+                              disabled={(it.stops ?? []).length <= 1 && !(it.day === 1 || it.day === daysCount)}
                               onClick={() =>
                                 setItinerary((prev) =>
                                   prev.map((p) =>
