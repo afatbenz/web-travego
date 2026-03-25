@@ -1,23 +1,84 @@
-import React from 'react';
-import { Users, ShoppingBag, MessageSquare, TrendingUp, Car, MapPin, Calendar, DollarSign } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Users, ShoppingBag, MessageSquare, TrendingUp, Car, MapPin, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as UiCalendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
+import { api } from '@/lib/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 export const DashboardHome: React.FC = () => {
+  const location = useLocation();
+  const isPartnerDashboard = location.pathname.startsWith('/dashboard/partner');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [orderPercentage, setOrderPercentage] = useState(0);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [customerPercentage, setCustomerPercentage] = useState(0);
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+  const formatDdMmmYyFromDate = (d: Date) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = months[d.getMonth()] ?? '';
+    const year = String(d.getFullYear() % 100).padStart(2, '0');
+    return `${day} ${month} ${year}`.trim();
+  };
+
+  useEffect(() => {
+    if (!isPartnerDashboard) return;
+    if (dateRange?.from) return;
+    const today = new Date();
+    const lastYear = new Date(today);
+    lastYear.setFullYear(today.getFullYear() - 1);
+    setDateRange({ from: startOfDay(lastYear), to: endOfDay(today) });
+  }, [dateRange?.from, isPartnerDashboard]);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      const token = localStorage.getItem('token');
+      const response = await api.get<unknown>('/dashboard', token ? { Authorization: token } : undefined);
+      if (response.status !== 'success' || !response.data || typeof response.data !== 'object') return;
+      const root = response.data as Record<string, unknown>;
+      const transactionNode = root.transaction;
+      if (transactionNode && typeof transactionNode === 'object') {
+        const t = transactionNode as Record<string, unknown>;
+        const nextTotal = Number(t.total_order ?? 0);
+        const nextPct = Number(t.order_percentage ?? 0);
+        if (Number.isFinite(nextTotal)) setTotalOrders(nextTotal);
+        if (Number.isFinite(nextPct)) setOrderPercentage(nextPct);
+      }
+      const customersNode = root.customers;
+      if (customersNode && typeof customersNode === 'object') {
+        const c = customersNode as Record<string, unknown>;
+        const nextTotal = Number(c.total_customers ?? 0);
+        const nextPct = Number(c.customer_percentage ?? 0);
+        if (Number.isFinite(nextTotal)) setTotalCustomers(nextTotal);
+        if (Number.isFinite(nextPct)) setCustomerPercentage(nextPct);
+      }
+    };
+    fetchDashboard();
+  }, []);
+
   const summaryCards = [
     {
       title: 'Total Pesanan',
-      value: '1,247',
-      change: '+12%',
-      changeType: 'increase',
+      value: totalOrders.toLocaleString('id-ID'),
+      change: `${orderPercentage >= 0 ? '+' : ''}${orderPercentage}%`,
+      changeType: orderPercentage >= 0 ? 'increase' : 'decrease',
       icon: ShoppingBag,
       color: 'text-blue-600 dark:text-blue-400'
     },
     {
       title: 'Jumlah Anggota',
-      value: '342',
-      change: '+3%',
-      changeType: 'increase',
+      value: totalCustomers.toLocaleString('id-ID'),
+      change: `${customerPercentage >= 0 ? '+' : ''}${customerPercentage}%`,
+      changeType: customerPercentage >= 0 ? 'increase' : 'decrease',
       icon: Users,
       color: 'text-green-600 dark:text-green-400'
     },
@@ -121,9 +182,34 @@ export const DashboardHome: React.FC = () => {
         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Dashboard
         </h1>
-        <p className="text-gray-600 dark:text-gray-300 text-sm lg:text-base">
-          Selamat datang kembali! Berikut adalah ringkasan aktivitas bisnis Anda.
-        </p>
+        {isPartnerDashboard ? (
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start font-normal h-10 md:max-w-[320px]">
+                {dateRange?.from && dateRange?.to
+                  ? `${formatDdMmmYyFromDate(dateRange.from)} - ${formatDdMmmYyFromDate(dateRange.to)}`
+                  : 'Pilih rentang'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <UiCalendar
+                mode="range"
+                numberOfMonths={1}
+                selected={dateRange}
+                onSelect={(range) => {
+                  setDateRange(range);
+                  if (range?.from && range?.to) setDatePickerOpen(false);
+                  else setDatePickerOpen(true);
+                }}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <p className="text-gray-600 dark:text-gray-300 text-sm lg:text-base">
+            Selamat datang kembali! Berikut adalah ringkasan aktivitas bisnis Anda.
+          </p>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -187,7 +273,7 @@ export const DashboardHome: React.FC = () => {
                       fontSize={12}
                     />
                     <Tooltip 
-                      formatter={(value: any) => [formatCurrency(value), 'Revenue']}
+                      formatter={(value: number | string) => [formatCurrency(Number(value)), 'Revenue']}
                       contentStyle={{
                         backgroundColor: 'var(--card)',
                         border: '1px solid var(--border)',
@@ -236,7 +322,7 @@ export const DashboardHome: React.FC = () => {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: any) => [`${value}%`, 'Percentage']} />
+                    <Tooltip formatter={(value: number | string) => [`${value}%`, 'Percentage']} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -268,7 +354,7 @@ export const DashboardHome: React.FC = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center text-lg lg:text-xl">
-              <Calendar className="mr-2 h-4 w-4 lg:h-5 lg:w-5" />
+              <UiCalendar className="mr-2 h-4 w-4 lg:h-5 lg:w-5" />
               Monthly Bookings
             </CardTitle>
           </CardHeader>
@@ -284,7 +370,7 @@ export const DashboardHome: React.FC = () => {
                   />
                   <YAxis className="text-gray-600 dark:text-gray-400" fontSize={12} />
                   <Tooltip 
-                    formatter={(value: any) => [value, 'Bookings']}
+                    formatter={(value: number | string) => [value, 'Bookings']}
                     contentStyle={{
                       backgroundColor: 'var(--card)',
                       border: '1px solid var(--border)',
