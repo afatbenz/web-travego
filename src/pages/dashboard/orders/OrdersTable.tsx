@@ -7,6 +7,27 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
+
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+const normalizeRange = (range: DateRange | undefined) => {
+  if (!range?.from) return { start: undefined, end: undefined };
+  const start = startOfDay(range.from);
+  const end = endOfDay(range.to ?? range.from);
+  return { start, end };
+};
+
+const toYmd = (d: Date | undefined) => {
+  if (!d || isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 interface OrdersTableProps {
   status: 'all' | 'ongoing' | 'success' | 'waiting-approval';
@@ -20,10 +41,32 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [statusFilter, setStatusFilter] = useState<'all' | '1' | '2' | '3' | '4'>('all');
+  const [orderPeriod, setOrderPeriod] = useState<DateRange | undefined>();
+  const [orderDate, setOrderDate] = useState<DateRange | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [summaryRevenue, setSummaryRevenue] = useState(0);
+  const [initializedDefaultRange, setInitializedDefaultRange] = useState(false);
+
+  // client-side parsing helpers removed since filtering now handled by backend
+  const formatDdMmmYyFromDate = (d: Date) => {
+    const formatted = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
+    return formatted.replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
+  };
+
+  useEffect(() => {
+    if (!initializedDefaultRange) {
+      const today = new Date();
+      const lastYear = new Date(today);
+      lastYear.setFullYear(today.getFullYear() - 1);
+      const from = startOfDay(lastYear);
+      const to = startOfDay(today);
+      setOrderPeriod({ from, to });
+      setOrderDate({ from, to });
+      setInitializedDefaultRange(true);
+    }
+  }, [initializedDefaultRange]);
 
   const formatDdMmmYy = (value: string) => {
     if (!value) return '-';
@@ -38,6 +81,66 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     const e = formatDdMmmYy(end);
     if (s === '-' && e === '-') return '-';
     return `${s} - ${e}`;
+  };
+
+  const DateRangePicker: React.FC<{
+    label: string;
+    value: DateRange | undefined;
+    onChange: (value: DateRange | undefined) => void;
+    placeholder: string;
+  }> = ({ label, value, onChange, placeholder }) => {
+    const [open, setOpen] = useState(false);
+    const valueRef = React.useRef<DateRange | undefined>(value);
+    React.useEffect(() => {
+      valueRef.current = value;
+    }, [value]);
+    const labelText =
+      value?.from && value?.to
+        ? `${formatDdMmmYyFromDate(value.from)} - ${formatDdMmmYyFromDate(value.to)}`
+        : value?.from
+          ? `${formatDdMmmYyFromDate(value.from)} - ...`
+          : '';
+
+    return (
+      <div>
+        <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">{label}</div>
+        <Popover
+          open={open}
+          onOpenChange={(next) => {
+            if (!next) {
+              const r = valueRef.current;
+              if (r?.from && !r?.to) {
+                setOpen(true);
+                return;
+              }
+            }
+            setOpen(next);
+          }}
+        >
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-full justify-start font-normal h-10">
+              {labelText || placeholder}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              numberOfMonths={1}
+              selected={value}
+              onSelect={(range) => {
+                onChange(range);
+                if (range?.from && range?.to) {
+                  setOpen(false);
+                } else {
+                  setOpen(true);
+                }
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+    );
   };
 
   interface Order {
@@ -64,35 +167,100 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     const fetchOrders = async () => {
       try {
         const token = localStorage.getItem('token');
-        let endpoint = '/services/fleet/orders';
+        let endpointBase = '/services/fleet/orders';
         
         // If type is explicitly tour, use tour endpoint (placeholder for now if not confirmed)
         if (type === 'tour') {
            // Assuming this endpoint exists based on convention, or falling back to fleet if it's the same table
            // For now, let's assume there's a separate endpoint or query
-           endpoint = '/services/packages/orders'; 
+           endpointBase = '/services/packages/orders'; 
         }
 
-        const response = await api.get<any[]>(endpoint, token ? { Authorization: token } : undefined);
+        const op = normalizeRange(orderPeriod);
+        const od = normalizeRange(orderDate);
+        const qs = new URLSearchParams();
+        if (searchTerm.trim()) qs.set('q', searchTerm.trim());
+        if (statusFilter !== 'all') qs.set('status', statusFilter);
+        if (op.start && op.end) {
+          qs.set('period_from', toYmd(op.start));
+          qs.set('period_to', toYmd(op.end));
+        }
+        if (od.start && od.end) {
+          qs.set('created_from', toYmd(od.start));
+          qs.set('created_to', toYmd(od.end));
+        }
+        const endpoint = qs.toString() ? `${endpointBase}?${qs.toString()}` : endpointBase;
+
+        const response = await api.get<unknown>(endpoint, token ? { Authorization: token } : undefined);
         
-        if (response.status === 'success' && Array.isArray(response.data)) {
-          const mappedOrders = response.data.map((item) => ({
-            orderId: item.order_id || item.id,
-            fleetName: item.fleet_name || item.package_name || item.title || 'Unknown Unit',
-            duration: Number(item.duration || 0),
-            uom: item.uom || 'Days',
-            unitQty: Number(item.unit_qty || item.qty || 0),
-            paymentStatus: Number(item.payment_status || 0),
-            customerName: item.customer_name || item.customerName || 'Unknown',
-            totalAmount: Number(item.total_amount || item.totalAmount || 0),
-            title: item.fleet_name || item.package_name || item.title || 'Order',
-            createdAt: item.created_at || item.createdAt || new Date().toISOString(),
-            category: item.category || (type === 'tour' ? 'Paket Wisata' : 'Armada'),
-            startDate: item.start_date || item.startDate || new Date().toISOString(),
-            endDate: item.end_date || item.endDate || new Date().toISOString(),
-            rentType: item.rent_type,
-          }));
+        if (response.status === 'success') {
+          const payload = response.data as unknown;
+          let items: unknown[] = [];
+          let revenue = 0;
+          if (Array.isArray(payload)) {
+            items = payload;
+          } else if (payload && typeof payload === 'object') {
+            const root = payload as Record<string, unknown>;
+            const dataNode = root.data as unknown;
+            const summaryNode =
+              (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).summary : undefined) ??
+              root.summary;
+            if (summaryNode && typeof summaryNode === 'object') {
+              const s = summaryNode as Record<string, unknown>;
+              const r = Number(s.revenue ?? 0);
+              if (Number.isFinite(r)) revenue = r;
+            }
+            const ordersNode =
+              (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).orders : undefined) ??
+              root.orders;
+            if (Array.isArray(ordersNode)) {
+              items = ordersNode;
+            } else if (Array.isArray(dataNode)) {
+              items = dataNode;
+            }
+          }
+          if (Number.isFinite(revenue)) setSummaryRevenue(revenue);
+          const mappedOrders = items.map((raw) => {
+            const item = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+            const startRaw = item.start_date ?? item.startDate;
+            const start = typeof startRaw === 'string' ? startRaw : new Date().toISOString();
+            const endRaw = item.end_date ?? item.endDate;
+            const end = typeof endRaw === 'string' ? endRaw : start;
+            const orderIdRaw = item.order_id ?? item.id;
+            const fleetNameRaw = item.fleet_name ?? item.package_name ?? item.title;
+            const uomRaw = item.uom;
+            const rentTypeRaw = item.rent_type;
+            return {
+              orderId:
+                typeof orderIdRaw === 'string' || typeof orderIdRaw === 'number' ? String(orderIdRaw) : '',
+              fleetName: typeof fleetNameRaw === 'string' ? fleetNameRaw : 'Unknown Unit',
+              duration: Number.isFinite(Number(item.duration)) ? Number(item.duration) : 0,
+              uom: typeof uomRaw === 'string' ? uomRaw : 'hari',
+              unitQty: Number.isFinite(Number(item.unit_qty ?? item.qty)) ? Number(item.unit_qty ?? item.qty) : 0,
+              paymentStatus: Number.isFinite(Number(item.payment_status)) ? Number(item.payment_status) : 0,
+              customerName:
+                typeof item.customer_name === 'string'
+                  ? item.customer_name
+                  : typeof item.customerName === 'string'
+                    ? item.customerName
+                    : '-',
+              totalAmount: Number.isFinite(Number(item.total_amount ?? item.totalAmount)) ? Number(item.total_amount ?? item.totalAmount) : 0,
+              title: typeof fleetNameRaw === 'string' ? fleetNameRaw : 'Order',
+              createdAt:
+                typeof item.created_at === 'string'
+                  ? item.created_at
+                  : typeof item.createdAt === 'string'
+                    ? item.createdAt
+                    : start,
+              category:
+                typeof item.category === 'string' ? item.category : type === 'tour' ? 'Paket Wisata' : 'Armada',
+              startDate: start,
+              endDate: end,
+              rentType: typeof rentTypeRaw === 'string' ? rentTypeRaw : undefined,
+            } as Order;
+          });
           setOrders(mappedOrders);
+          // Default range sekarang berasal dari hari ini s/d +1 tahun
         }
       } catch (error) {
         console.error('Failed to fetch orders:', error);
@@ -100,7 +268,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     };
 
     fetchOrders();
-  }, [type]);
+  }, [type, searchTerm, statusFilter, orderPeriod, orderDate]);
 
   const getPaymentStatusBadge = (status: number) => {
     switch (status) {
@@ -117,49 +285,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     }
   };
 
-  const getOrderStatus = (order: Order) => {
-    const now = new Date();
-    const startDate = new Date(order.startDate);
-    const endDate = new Date(order.endDate);
-    
-    // Logic for 'ongoing' / 'success' filters based on dates and payment status
-    // If payment is cancelled (4) or pending (2, 3), it might not be 'success' or 'ongoing' in the same way.
-    // For now, I'll keep the logic simple or adapt it.
-    // The user didn't ask to change this logic, but the properties changed.
-    
-    if (order.paymentStatus === 1) {
-       if (now > endDate) return 'success';
-       if (now >= startDate && now <= endDate) return 'ongoing';
-       return 'upcoming';
-    }
-    return 'pending';
-  };
+  // order status calculation removed; backend filters data
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.fleetName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || order.category === categoryFilter;
-    
-    let matchesDateRange = true;
-    if (dateRange.start && dateRange.end) {
-      const orderDate = new Date(order.createdAt);
-      const startDate = new Date(dateRange.start);
-      const endDate = new Date(dateRange.end);
-      matchesDateRange = orderDate >= startDate && orderDate <= endDate;
-    }
-    
-    // Filter by status
-    let matchesStatus = true;
-    if (status === 'waiting-approval') {
-      matchesStatus = order.paymentStatus === 3;
-    } else {
-      const orderStatus = getOrderStatus(order);
-      matchesStatus = status === 'all' || orderStatus === status;
-    }
-    
-    return matchesSearch && matchesCategory && matchesDateRange && matchesStatus;
-  });
+  const filteredOrders = orders;
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -167,8 +295,19 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const currentOrders = filteredOrders.slice(startIndex, endIndex);
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    const next = Math.min(Math.max(1, page), Math.max(1, totalPages));
+    setCurrentPage(next);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, orderPeriod, orderDate]);
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="space-y-6">
@@ -198,40 +337,55 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Cari order..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div>
+              <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Search</div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Cari order..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-10"
+                />
+              </div>
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Kategori" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Kategori</SelectItem>
-                <SelectItem value="Paket Wisata">Paket Wisata</SelectItem>
-                <SelectItem value="Armada">Armada</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              type="date"
-              placeholder="Tanggal Mulai"
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+            <DateRangePicker
+              label="Order Period"
+              value={orderPeriod}
+              onChange={setOrderPeriod}
+              placeholder="Pilih rentang"
             />
-            <Input
-              type="date"
-              placeholder="Tanggal Akhir"
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+            <DateRangePicker
+              label="Order Date"
+              value={orderDate}
+              onChange={setOrderDate}
+              placeholder="Pilih rentang"
             />
-            <Button variant="outline" className="w-full">
-              Export Data
-            </Button>
+            <div>
+              <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Status</div>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | '1' | '2' | '3' | '4')}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="1">Sudah dibayar</SelectItem>
+                  <SelectItem value="2">Menunggu Pembayaran</SelectItem>
+                  <SelectItem value="4">Dalam Proses</SelectItem>
+                  <SelectItem value="3">Menunggu Persetujuan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button variant="outline" className="w-full h-10" onClick={() => {
+                setSearchTerm('');
+                setOrderPeriod(undefined);
+                setOrderDate(undefined);
+                setStatusFilter('all');
+              }}>
+                Reset
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -246,12 +400,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             <table className="w-full">
               <thead className="bg-gray-100 dark:bg-gray-900">
                 <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white w-14">No</th>
                   <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">OrderId</th>
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Nama Unit</th>
+                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white min-w-[260px]">Nama Unit</th>
                   {type === 'fleet' && (
                     <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Tipe</th>
                   )}
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Durasi</th>
                   {type === 'fleet' && basePrefix === '/dashboard/partner' && (
                     <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Tanggal Sewa</th>
                   )}
@@ -261,8 +415,11 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800">
-                {currentOrders.map((order) => (
+                {currentOrders.map((order, idx) => (
                   <tr key={order.orderId} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="py-3 px-4">
+                      <span className="text-gray-900 dark:text-white">{startIndex + idx + 1}</span>
+                    </td>
                     <td className="py-3 px-4">
                       <span className="font-medium text-gray-900 dark:text-white">{order.orderId}</span>
                     </td>
@@ -276,9 +433,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                         </Badge>
                       </td>
                     )}
-                    <td className="py-3 px-4">
-                      <span className="text-gray-900 dark:text-white">{order.duration} {order.uom}</span>
-                    </td>
                     {type === 'fleet' && basePrefix === '/dashboard/partner' && (
                       <td className="py-3 px-4">
                         <span className="text-gray-900 dark:text-white">{formatSewaRange(order.startDate, order.endDate)}</span>
@@ -370,8 +524,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
               <p className="text-sm text-gray-600 dark:text-gray-300">Pending</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-600">
-                Rp {filteredOrders.reduce((acc, order) => acc + order.totalAmount, 0).toLocaleString()}
+                  <p className="text-2xl font-bold text-blue-600">
+                    Rp {Number(summaryRevenue || 0).toLocaleString()}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300">Total Revenue</p>
             </div>

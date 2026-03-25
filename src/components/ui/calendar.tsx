@@ -48,16 +48,18 @@ function Calendar({
           buttonVariants({ variant: 'ghost' }),
           'h-8 w-8 p-0 font-normal aria-selected:opacity-100 bg-transparent text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800'
         ),
-        day_range_start: 'day-range-start',
-        day_range_end: 'day-range-end',
+        // Make range start and end share the same highlight as selected
+        day_range_start: 'day-range-start bg-blue-600 text-white hover:bg-blue-700',
+        day_range_end: 'day-range-end bg-blue-600 text-white hover:bg-blue-700',
         day_selected:
           'bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700',
         day_today: 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
         day_outside:
           'day-outside text-muted-foreground opacity-50  aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30',
         day_disabled: 'text-muted-foreground opacity-50',
+        // Slight highlight for middle range to differentiate but keep consistent
         day_range_middle:
-          'aria-selected:bg-accent aria-selected:text-accent-foreground',
+          'aria-selected:bg-blue-600/15 aria-selected:text-foreground',
         day_hidden: 'invisible',
         ...classNames,
       }}
