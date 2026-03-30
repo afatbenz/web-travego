@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Filter, ChevronLeft, ChevronRight, Eye, Download, Plus } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Eye, Download, Plus } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -145,6 +145,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
   interface Order {
     orderId: string;
+    transactionId?: string;
     fleetName: string;
     duration: number;
     uom: string;
@@ -226,6 +227,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             const start = typeof startRaw === 'string' ? startRaw : new Date().toISOString();
             const endRaw = item.end_date ?? item.endDate;
             const end = typeof endRaw === 'string' ? endRaw : start;
+            const transactionIdRaw = item.transaction_id ?? item.transactionId;
             const orderIdRaw = item.order_id ?? item.id;
             const fleetNameRaw = item.fleet_name ?? item.package_name ?? item.title;
             const uomRaw = item.uom;
@@ -233,6 +235,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             return {
               orderId:
                 typeof orderIdRaw === 'string' || typeof orderIdRaw === 'number' ? String(orderIdRaw) : '',
+              transactionId:
+                typeof transactionIdRaw === 'string' || typeof transactionIdRaw === 'number'
+                  ? String(transactionIdRaw)
+                  : undefined,
               fleetName: typeof fleetNameRaw === 'string' ? fleetNameRaw : 'Unknown Unit',
               duration: Number.isFinite(Number(item.duration)) ? Number(item.duration) : 0,
               uom: typeof uomRaw === 'string' ? uomRaw : 'hari',
@@ -328,67 +334,59 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Filter className="h-5 w-5 mr-2" />
-            Filter & Pencarian
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-              <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Search</div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Cari order..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10"
-                />
-              </div>
-            </div>
-            <DateRangePicker
-              label="Order Period"
-              value={orderPeriod}
-              onChange={setOrderPeriod}
-              placeholder="Pilih rentang"
-            />
-            <DateRangePicker
-              label="Order Date"
-              value={orderDate}
-              onChange={setOrderDate}
-              placeholder="Pilih rentang"
-            />
-            <div>
-              <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Status</div>
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | '1' | '2' | '3' | '4')}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Status</SelectItem>
-                  <SelectItem value="1">Sudah dibayar</SelectItem>
-                  <SelectItem value="2">Menunggu Pembayaran</SelectItem>
-                  <SelectItem value="4">Dalam Proses</SelectItem>
-                  <SelectItem value="3">Menunggu Persetujuan</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button variant="outline" className="w-full h-10" onClick={() => {
-                setSearchTerm('');
-                setOrderPeriod(undefined);
-                setOrderDate(undefined);
-                setStatusFilter('all');
-              }}>
-                Reset
-              </Button>
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Search</div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Cari order..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10"
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <DateRangePicker
+            label="Order Period"
+            value={orderPeriod}
+            onChange={setOrderPeriod}
+            placeholder="Pilih rentang"
+          />
+          <DateRangePicker
+            label="Order Date"
+            value={orderDate}
+            onChange={setOrderDate}
+            placeholder="Pilih rentang"
+          />
+          <div>
+            <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Status</div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | '1' | '2' | '3' | '4')}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Status</SelectItem>
+                <SelectItem value="1">Sudah dibayar</SelectItem>
+                <SelectItem value="2">Menunggu Pembayaran</SelectItem>
+                <SelectItem value="4">Dalam Proses</SelectItem>
+                <SelectItem value="3">Menunggu Persetujuan</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button variant="outline" className="w-full h-10" onClick={() => {
+              setSearchTerm('');
+              setOrderPeriod(undefined);
+              setOrderDate(undefined);
+              setStatusFilter('all');
+            }}>
+              Reset
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Table */}
       <Card>
@@ -416,7 +414,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
               </thead>
               <tbody className="bg-white dark:bg-gray-800">
                 {currentOrders.map((order, idx) => (
-                  <tr key={order.orderId} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <tr
+                    key={order.transactionId || order.orderId || `${startIndex}-${idx}`}
+                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
                     <td className="py-3 px-4">
                       <span className="text-gray-900 dark:text-white">{startIndex + idx + 1}</span>
                     </td>
@@ -449,7 +450,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => navigate(`/dashboard/partner/orders/detail/${order.orderId}`)}
+                          onClick={() => {
+                            if (basePrefix === '/dashboard/partner' && type === 'fleet') {
+                              navigate(`${basePrefix}/orders/fleet/detail/${order.orderId}`);
+                              return;
+                            }
+                            navigate(`${basePrefix}/orders/detail/${order.orderId}`);
+                          }}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>

@@ -690,6 +690,16 @@ function App() {
               <OrderDetail />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/orders/fleet/detail/:order_id" element={
+            <DashboardLayout>
+              <OrderDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/orders/fleet/detail/:order_id" element={
+            <DashboardLayout>
+              <OrderDetail />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/partner/services/packages" element={
             <DashboardLayout>
               <ServicesPackages />
