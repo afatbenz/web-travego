@@ -204,7 +204,7 @@ export const OrderDetail: React.FC = () => {
         customerEmail: getString(customer.customer_email ?? customer.customerEmail, '-'),
         customerPhone: getString(customer.customer_phone ?? customer.customerPhone, '-'),
         customerAddress,
-        category: getString(detail.category, 'Armada'),
+        category: getString(detail.rent_type_label, 'Armada'),
         title: getString(detail.fleet_name ?? detail.package_name ?? detail.title, 'Order'),
         description,
         startDate,
@@ -444,13 +444,6 @@ export const OrderDetail: React.FC = () => {
                   <p className="text-gray-900 dark:text-white flex items-center space-x-2">
                     <MapPin className="h-4 w-4" />
                     <span>{orderData.pickupLocation}</span>
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Waktu Pickup</label>
-                  <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                    <Clock className="h-4 w-4" />
-                    <span>{orderData.pickupTime === '-' ? '-' : `${orderData.pickupTime} WIB`}</span>
                   </p>
                 </div>
               </div>
