@@ -407,7 +407,7 @@ export const PackageDetail: React.FC = () => {
                     <div key={day.day} className="border-l-4 border-blue-500 pl-4">
                       <h4 className="font-medium text-gray-900 dark:text-white mb-2">Hari {day.day}</h4>
                       <div className="space-y-2">
-                        {day.activities.map((a, idx) => (
+                        {day.activities?.map((a, idx) => (
                           <div key={idx} className="text-sm text-gray-700 dark:text-gray-300">
                             <span className="font-medium">{a.time ? a.time.slice(0, 5) : '-'}</span>
                             <span className="mx-2">•</span>

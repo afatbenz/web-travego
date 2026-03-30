@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Popover,
@@ -297,6 +298,7 @@ export const FleetOrderForm: React.FC = () => {
   const [addonOptions, setAddonOptions] = useState<AddonOption[]>([]);
   const [addonRows, setAddonRows] = useState<AddonRow[]>([]);
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
+  const [specialRequest, setSpecialRequest] = useState('');
 
   const daysCount = useMemo(() => daysBetweenInclusive(pickupAt, dropoffAt), [pickupAt, dropoffAt]);
 
@@ -511,6 +513,7 @@ export const FleetOrderForm: React.FC = () => {
         price: total,
         discount_amount: discount,
         dp_amount: dp,
+        additional_request: specialRequest,
         addons: addonRows
           .filter((r) => r.addonId)
           .map((r) => {
@@ -741,6 +744,12 @@ export const FleetOrderForm: React.FC = () => {
                 </div>
               </div>
             </details>
+
+            ${specialRequest ? `
+            <div style="height:1px;background:#e5e7eb;margin:14px 0 12px 0"></div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:8px">Permintaan Khusus</div>
+            <div style="font-size:13px;padding:8px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;white-space:pre-wrap">${escapeHtml(specialRequest)}</div>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -1189,6 +1198,20 @@ export const FleetOrderForm: React.FC = () => {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Permintaan Khusus</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={specialRequest}
+              onChange={(e) => setSpecialRequest(e.target.value)}
+              placeholder="Contoh: Unit warna putih, supir tidak merokok, dll"
+              className="min-h-[100px]"
+            />
           </CardContent>
         </Card>
 

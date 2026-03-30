@@ -1012,7 +1012,7 @@ export const PackageForm: React.FC = () => {
                   </div>
                   
                   <div className="space-y-4 pl-4 border-l-2 border-gray-200">
-                    {day.activities.map((activity, actIndex) => (
+                    {day.activities?.map((activity, actIndex) => (
                       <div key={actIndex} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start bg-gray-50 p-3 rounded">
                         {/* Activity */}
                         <div className="md:col-span-3">
