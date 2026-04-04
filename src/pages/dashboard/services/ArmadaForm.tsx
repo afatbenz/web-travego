@@ -145,6 +145,7 @@ export const ArmadaForm: React.FC = () => {
         transmission: formData.transmission,
         description: formData.description,
         active: formData.status === 'active',
+        is_public: formData.status === 'active' ? 1 : 0,
         pickup_point: isEdit
           ? formData.pickupPoints.map((p) => ({
               ...(isUuid(p.uuid) ? { uuid: p.uuid } : {}),
@@ -1451,8 +1452,8 @@ export const ArmadaForm: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Publikasi (Aktif)</SelectItem>
-                    <SelectItem value="inactive">Draft (Tidak Aktif)</SelectItem>
+                    <SelectItem value="active">Publish</SelectItem>
+                    <SelectItem value="inactive">Hanya Internal</SelectItem>
                   </SelectContent>
                 </Select>
               </CardContent>

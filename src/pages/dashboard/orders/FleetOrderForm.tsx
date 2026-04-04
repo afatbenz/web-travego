@@ -292,7 +292,6 @@ export const FleetOrderForm: React.FC = () => {
   const [pickupAddress, setPickupAddress] = useState('');
   const [pickupCity, setPickupCity] = useState<Option | null>(null);
   const [discountAmount, setDiscountAmount] = useState('');
-  const [dpAmount, setDpAmount] = useState('');
   const [totalPrice, setTotalPrice] = useState('');
   const [addonsLoading, setAddonsLoading] = useState(false);
   const [addonOptions, setAddonOptions] = useState<AddonOption[]>([]);
@@ -461,12 +460,9 @@ export const FleetOrderForm: React.FC = () => {
     if (!dropoffAt) return 'Tanggal dan jam pengantaran wajib diisi';
     if (!pickupAddress.trim()) return 'Alamat penjemputan wajib diisi';
     if (!pickupCity) return 'Kota penjemputan wajib dipilih';
-    const dp = digitsToNumber(dpAmount);
-    const total = digitsToNumber(totalPrice);
     const discount = digitsToNumber(discountAmount);
     if (total <= 0) return 'Total harga wajib diisi';
     if (discount > total) return 'Diskon tidak boleh lebih besar dari total harga';
-    if (dp > Math.max(0, total - discount)) return 'Nominal DP tidak boleh lebih besar dari total setelah diskon';
     for (const r of addonRows) {
       if (!r.addonId) continue;
       const q = digitsToNumber(r.qty);
@@ -497,7 +493,6 @@ export const FleetOrderForm: React.FC = () => {
     try {
       const total = digitsToNumber(totalPrice);
       const discount = digitsToNumber(discountAmount);
-      const dp = digitsToNumber(dpAmount);
       const qty = digitsToNumber(fleetQty);
       const selected = selectedPriceId ? fleetPrices.find((p) => p.price_id === selectedPriceId) : undefined;
       const payload = {
@@ -512,7 +507,6 @@ export const FleetOrderForm: React.FC = () => {
         fleet_qty: qty,
         price: total,
         discount_amount: discount,
-        dp_amount: dp,
         additional_request: specialRequest,
         addons: addonRows
           .filter((r) => r.addonId)
@@ -546,7 +540,6 @@ export const FleetOrderForm: React.FC = () => {
     const qty = digitsToNumber(fleetQty);
     const total = digitsToNumber(totalPrice);
     const discount = digitsToNumber(discountAmount);
-    const dp = digitsToNumber(dpAmount);
     const selectedDuration = selectedPriceId ? fleetPrices.find((p) => p.price_id === selectedPriceId) : undefined;
     const addonsSelected = addonRows
       .filter((r) => r.addonId && digitsToNumber(r.qty) > 0)
@@ -563,7 +556,7 @@ export const FleetOrderForm: React.FC = () => {
       });
     const addonsTotal = addonsSelected.reduce((acc, x) => acc + x.subtotal, 0);
     const totalTagihan = total + addonsTotal;
-    const sisaTagihan = Math.max(0, totalTagihan - discount - dp);
+    const sisaTagihan = Math.max(0, totalTagihan - discount);
     const pricePerUnit = selectedDuration?.price ?? 0;
     const itemsTableRows = [
       {
@@ -613,10 +606,6 @@ export const FleetOrderForm: React.FC = () => {
           <tr>
             <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>Potongan Harga</b></td>
             <td style="border:1px solid #e5e7eb;padding:8px;text-align:right">${formatRupiahFromNumber(discount)}</td>
-          </tr>
-          <tr>
-            <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>Uang Muka</b></td>
-            <td style="border:1px solid #e5e7eb;padding:8px;text-align:right">${formatRupiahFromNumber(dp)}</td>
           </tr>
           <tr>
             <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>Sisa Tagihan</b></td>
@@ -822,7 +811,6 @@ export const FleetOrderForm: React.FC = () => {
     pickupAddress,
     pickupCity?.id,
     discountAmount,
-    dpAmount,
     totalPrice,
     itinerary,
     addonRows,
@@ -972,17 +960,6 @@ export const FleetOrderForm: React.FC = () => {
                   value={formatRupiahFromDigits(discountAmount)}
                   inputMode="numeric"
                   onChange={(e) => setDiscountAmount(e.target.value.replace(/[^0-9]/g, ''))}
-                  className="h-12"
-                  placeholder="Rp 0"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nominal DP</label>
-                <Input
-                  value={formatRupiahFromDigits(dpAmount)}
-                  inputMode="numeric"
-                  onChange={(e) => setDpAmount(e.target.value.replace(/[^0-9]/g, ''))}
                   className="h-12"
                   placeholder="Rp 0"
                 />
