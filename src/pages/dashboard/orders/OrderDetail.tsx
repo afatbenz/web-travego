@@ -1,11 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, Clock, CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Upload, X } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 type ItineraryDay = {
   day: number;
@@ -75,6 +94,15 @@ export const OrderDetail: React.FC = () => {
   const routeOrderId = params.transaction_id ?? params.order_id ?? params.id ?? '';
   const orderId = params.order_id;
   const [orderData, setOrderData] = useState<OrderData>(() => createEmptyOrderData(routeOrderId || '-'));
+  const [isUpdatePaymentOpen, setIsUpdatePaymentOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    status: '',
+    method: '',
+    amount: '',
+    proof: null as File | null,
+    proofPreview: '',
+  });
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
   useEffect(() => {
     setOrderData(createEmptyOrderData(routeOrderId || '-'));
@@ -262,6 +290,46 @@ export const OrderDetail: React.FC = () => {
 
   const getCategoryIcon = (category: string) => {
     return category === 'Paket Wisata' ? <Package className="h-5 w-5" /> : <Car className="h-5 w-5" />;
+  };
+
+  const formatRupiahInput = (value: string) => {
+    const number = value.replace(/[^0-9]/g, '');
+    if (!number) return '';
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(Number(number));
+  };
+
+  const handleUpdatePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentForm.status || !paymentForm.method || !paymentForm.amount) {
+      await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Mohon lengkapi semua field yang wajib diisi.' });
+      return;
+    }
+
+    setIsSubmittingPayment(true);
+    try {
+      // Logic upload & API call here
+      // const formData = new FormData();
+      // formData.append('order_id', orderId || '');
+      // formData.append('status', paymentForm.status);
+      // formData.append('method', paymentForm.method);
+      // formData.append('amount', paymentForm.amount.replace(/[^0-9]/g, ''));
+      // if (paymentForm.proof) formData.append('proof', paymentForm.proof);
+      
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulating API
+      
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pembayaran berhasil diperbarui.' });
+      setIsUpdatePaymentOpen(false);
+      setPaymentForm({ status: '', method: '', amount: '', proof: null, proofPreview: '' });
+      // reload data
+    } catch (err) {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memperbarui pembayaran.' });
+    } finally {
+      setIsSubmittingPayment(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -606,7 +674,7 @@ export const OrderDetail: React.FC = () => {
                 <Phone className="h-4 w-4 mr-2" />
                 Hubungi Customer
               </Button>
-              <Button className="w-full" variant="outline">
+              <Button className="w-full" variant="outline" onClick={() => setIsUpdatePaymentOpen(true)}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 Update Pembayaran
               </Button>
@@ -618,6 +686,144 @@ export const OrderDetail: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Modal Update Pembayaran */}
+      <Dialog open={isUpdatePaymentOpen} onOpenChange={setIsUpdatePaymentOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none bg-white dark:bg-gray-900 shadow-2xl rounded-2xl [&>button]:text-white">
+          <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Update Pembayaran
+            </DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleUpdatePayment} className="p-6 space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Status Pembayaran</Label>
+                <Select
+                  value={paymentForm.status}
+                  onValueChange={(v) => setPaymentForm(prev => ({ ...prev, status: v }))}
+                >
+                  <SelectTrigger className="h-11 rounded-xl border-gray-200 focus:ring-blue-500">
+                    <SelectValue placeholder="Pilih Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dp">Uang Muka (DP)</SelectItem>
+                    <SelectItem value="installment">Cicilan</SelectItem>
+                    <SelectItem value="full">Pelunasan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Metode Pembayaran</Label>
+                <Select
+                  value={paymentForm.method}
+                  onValueChange={(v) => setPaymentForm(prev => ({ ...prev, method: v }))}
+                >
+                  <SelectTrigger className="h-11 rounded-xl border-gray-200 focus:ring-blue-500">
+                    <SelectValue placeholder="Pilih Metode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="transfer">Transfer Bank</SelectItem>
+                    <SelectItem value="qris">QRIS</SelectItem>
+                    <SelectItem value="cash">Tunai</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Nominal Pembayaran</Label>
+              <div className="relative">
+                <Input
+                  className="h-11 rounded-xl border-gray-200 focus:ring-blue-500 font-medium"
+                  placeholder="Rp 0"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: formatRupiahInput(e.target.value) }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Bukti Pembayaran</Label>
+              <div 
+                className={cn(
+                  "relative border-2 border-dashed rounded-2xl transition-all duration-200 group overflow-hidden",
+                  paymentForm.proofPreview ? "border-blue-500 bg-blue-50/30" : "border-gray-200 hover:border-blue-400 hover:bg-gray-50"
+                )}
+              >
+                {paymentForm.proofPreview ? (
+                  <div className="relative aspect-video w-full group">
+                    <img src={paymentForm.proofPreview} alt="Proof" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="sm" 
+                        className="rounded-full h-10 w-10 p-0"
+                        onClick={() => setPaymentForm(prev => ({ ...prev, proof: null, proofPreview: '' }))}
+                      >
+                        <X className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center py-8 cursor-pointer w-full">
+                    <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                      <Upload className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Klik untuk upload bukti</span>
+                    <span className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setPaymentForm(prev => ({
+                            ...prev,
+                            proof: file,
+                            proofPreview: URL.createObjectURL(file)
+                          }));
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="flex gap-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 rounded-xl h-11 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200"
+                onClick={() => setIsUpdatePaymentOpen(false)}
+                disabled={isSubmittingPayment}
+              >
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 dark:shadow-none"
+                disabled={isSubmittingPayment}
+              >
+                {isSubmittingPayment ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Memproses...
+                  </>
+                ) : (
+                  'Update Pembayaran'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
