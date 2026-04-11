@@ -83,7 +83,8 @@ export const Sidebar: React.FC = () => {
       icon: Package,
       children: [
         { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
-        { title: 'Armada', icon: Car, href: `${basePrefix}/services/fleet` }
+        { title: 'Rental Kendaraan', icon: Car, href: `${basePrefix}/services/fleet` },
+        { title: 'Armada', icon: Car, href: `${basePrefix}/fleet-units` }
       ]
     },
     {

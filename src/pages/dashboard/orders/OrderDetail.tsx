@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, Clock, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -188,10 +188,11 @@ export const OrderDetail: React.FC = () => {
         })
         .filter(Boolean);
 
-      const rawItinerary = Array.isArray(detail.itinerary) ? (detail.itinerary as any[]) : [];
+      const rawItinerary = Array.isArray(detail.itinerary) ? (detail.itinerary as unknown[]) : [];
       const groupedItinerary: Record<number, ItineraryDay> = {};
 
-      rawItinerary.forEach((item) => {
+      rawItinerary.forEach((raw) => {
+         const item = record(raw);
          const dayNum = getNumber(item.day, 1);
          const activityRaw = item.destination ?? item.activities ?? item.activity;
          if (!activityRaw) return;
@@ -214,12 +215,12 @@ export const OrderDetail: React.FC = () => {
          }
          
          if (Array.isArray(activityRaw)) {
-            groupedItinerary[dayNum].activities.push(...activityRaw.map(a => getString(a, '')));
+            groupedItinerary[dayNum].activities.push(...activityRaw.map((a) => getString(a, '')).filter((s) => s));
           } else {
             const cityName = getString(item.city_label ?? item.city_name ?? '', '');
             const destination = getString(activityRaw, '');
             const activityText = cityName ? `${destination}, ${cityName}` : destination;
-            groupedItinerary[dayNum].activities.push(activityText);
+            if (activityText) groupedItinerary[dayNum].activities.push(activityText);
           }
        });
 
@@ -325,7 +326,7 @@ export const OrderDetail: React.FC = () => {
       setIsUpdatePaymentOpen(false);
       setPaymentForm({ status: '', method: '', amount: '', proof: null, proofPreview: '' });
       // reload data
-    } catch (err) {
+    } catch {
       await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memperbarui pembayaran.' });
     } finally {
       setIsSubmittingPayment(false);
@@ -528,14 +529,16 @@ export const OrderDetail: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {orderData.itinerary?.map((day, index) => (
-                  <div key={index} className="border-l-4 border-blue-500 pl-4">
+                {(orderData.itinerary ?? []).map((day, index) => {
+                  const activities = Array.isArray(day.activities) ? day.activities : [];
+                  return (
+                    <div key={index} className="border-l-4 border-blue-500 pl-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <h4 className="font-medium text-gray-900 dark:text-white">Hari {day.day}</h4>
                       <span className="text-sm text-gray-600 dark:text-gray-300">({formatDate(day.date)})</span>
                     </div>
                     <ul className="space-y-1">
-                      {day.activities?.map((activity, actIndex) => (
+                      {activities.map((activity, actIndex) => (
                         <li key={actIndex} className="text-sm text-gray-600 dark:text-gray-300 flex items-start space-x-2">
                           <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
                           <span>{activity}</span>
@@ -543,7 +546,8 @@ export const OrderDetail: React.FC = () => {
                       ))}
                     </ul>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

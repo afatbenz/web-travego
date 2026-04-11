@@ -93,7 +93,7 @@ export const ServicesArmada: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Armada</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Rental Kendaraan</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             Kelola armada yang tersedia
           </p>

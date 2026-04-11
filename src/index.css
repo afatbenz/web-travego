@@ -282,3 +282,7 @@ select:-moz-autofill {
 .dark .dashboard-surface .bg-gray-200 {
   background-color: rgb(55, 65, 81);
 }
+
+.swal2-container {
+  z-index: 99999 !important;
+}
