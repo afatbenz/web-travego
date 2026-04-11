@@ -461,6 +461,7 @@ export const FleetOrderForm: React.FC = () => {
     if (!pickupAddress.trim()) return 'Alamat penjemputan wajib diisi';
     if (!pickupCity) return 'Kota penjemputan wajib dipilih';
     const discount = digitsToNumber(discountAmount);
+    const total = digitsToNumber(totalPrice);
     if (total <= 0) return 'Total harga wajib diisi';
     if (discount > total) return 'Diskon tidak boleh lebih besar dari total harga';
     for (const r of addonRows) {

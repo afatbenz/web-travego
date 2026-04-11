@@ -111,6 +111,8 @@ import { FleetOrderForm } from '@/pages/dashboard/orders/FleetOrderForm';
 import { OrderDetail } from '@/pages/dashboard/orders/OrderDetail';
 import { ServicesPackages } from '@/pages/dashboard/ServicesPackages';
 import { ServicesArmada } from '@/pages/dashboard/services/ServicesArmada';
+import { FleetUnits } from '@/pages/dashboard/services/FleetUnits';
+import { FleetUnitCreate } from '@/pages/dashboard/services/FleetUnitCreate';
 import { PackageForm } from '@/pages/dashboard/services/PackageForm';
 import { CreateArmada } from '@/pages/dashboard/services/CreateArmada';
 import { EditArmada } from '@/pages/dashboard/services/EditArmada';
@@ -748,6 +750,21 @@ function App() {
           <Route path="/dashboard/services/fleet" element={
             <DashboardLayout>
               <ServicesArmada />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/fleet-units" element={
+            <DashboardLayout>
+              <FleetUnits />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/fleet-units/create" element={
+            <DashboardLayout>
+              <FleetUnitCreate />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/fleet-units" element={
+            <DashboardLayout>
+              <FleetUnits />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/services/fleet/create" element={

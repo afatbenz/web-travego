@@ -54,24 +54,16 @@ export const ArmadaForm: React.FC = () => {
   const [fleetTypes, setFleetTypes] = useState<Array<{ id: string; label: string }>>([]);
   const [loadingFleetTypes, setLoadingFleetTypes] = useState(false);
   const [bodyQuery, setBodyQuery] = useState('');
-  const [engineQuery, setEngineQuery] = useState('');
   const [bodySuggestions, setBodySuggestions] = useState<string[]>([]);
-  const [engineSuggestions, setEngineSuggestions] = useState<string[]>([]);
   const [showBodyDropdown, setShowBodyDropdown] = useState(false);
-  const [showEngineDropdown, setShowEngineDropdown] = useState(false);
   const [loadingBody, setLoadingBody] = useState(false);
-  const [loadingEngine, setLoadingEngine] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = 'Nama armada wajib diisi';
     if (!String(formData.type).trim()) newErrors.type = 'Jenis armada wajib diisi';
-    if (formData.capacity <= 0) newErrors.capacity = 'Kapasitas harus lebih dari 0';
-    if (formData.year <= 0) newErrors.year = 'Tahun produksi harus valid';
-    if (!formData.engine.trim()) newErrors.engine = 'Mesin wajib diisi';
     if (!formData.fuel_type) newErrors.fuel_type = 'Jenis bahan bakar wajib dipilih';
-    if (!formData.transmission) newErrors.transmission = 'Transmisi wajib dipilih';
     if (!formData.description.trim()) newErrors.description = 'Deskripsi wajib diisi';
     if (!formData.thumbnail && formData.images.length === 0 && uploads.length === 0) newErrors.images = 'Minimal 1 gambar wajib diisi';
 
@@ -137,12 +129,8 @@ export const ArmadaForm: React.FC = () => {
       const payload = {
         fleet_name: formData.name,
         fleet_type: formData.type,
-        capacity: formData.capacity,
-        production_year: formData.year,
-        engine: formData.engine,
         body: formData.body,
         fuel_type: formData.fuel_type,
-        transmission: formData.transmission,
         description: formData.description,
         active: formData.status === 'active',
         is_public: formData.status === 'active' ? 1 : 0,
@@ -572,9 +560,7 @@ export const ArmadaForm: React.FC = () => {
         description,
       }));
       setBodyQuery(body);
-      setEngineQuery(engine);
       setShowBodyDropdown(false);
-      setShowEngineDropdown(false);
     };
 
     loadDetail();
@@ -653,39 +639,6 @@ export const ArmadaForm: React.FC = () => {
     setLoadingBody(false);
   }
 
-  async function fetchEngine(q: string) {
-    setLoadingEngine(true);
-    const token = localStorage.getItem('token') ?? '';
-    const res = await api.get<unknown>(`/general/fleet-engine${q ? `?search=${encodeURIComponent(q)}` : ''}`, token ? { Authorization: token } : undefined);
-    if (res.status === 'success') {
-      const payload = res.data as unknown;
-      let list: string[] = [];
-      if (Array.isArray(payload)) {
-        list = (payload as unknown[])
-          .map((x) => {
-            if (typeof x === 'string') return x;
-            const n = (x as { name?: unknown }).name;
-            return typeof n === 'string' ? n : '';
-          })
-          .filter((n) => n);
-      } else if (payload && typeof payload === 'object') {
-        const items = (payload as Record<string, unknown>).items;
-        if (Array.isArray(items)) {
-          list = items
-            .map((x) => {
-              const n = (x as { name?: unknown }).name;
-              return typeof n === 'string' ? n : '';
-            })
-            .filter((n) => n);
-        }
-      }
-      setEngineSuggestions(list);
-    } else {
-      setEngineSuggestions([]);
-    }
-    setLoadingEngine(false);
-  }
-
   useEffect(() => {
     if (!showBodyDropdown) return;
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
@@ -694,15 +647,6 @@ export const ArmadaForm: React.FC = () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
   }, [bodyQuery, showBodyDropdown]);
-
-  useEffect(() => {
-    if (!showEngineDropdown) return;
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => fetchEngine(engineQuery), 300);
-    return () => {
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    };
-  }, [engineQuery, showEngineDropdown]);
 
   async function fetchCities(q: string) {
     setLoadingCities(true);
@@ -788,7 +732,7 @@ export const ArmadaForm: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3">
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
                       Nama Armada *
                     </label>
@@ -816,42 +760,6 @@ export const ArmadaForm: React.FC = () => {
                       </SelectContent>
                     </Select>
                     {errors.type && <p className="text-sm text-red-500 mt-1">{errors.type}</p>}
-                  </div>
-
-                  <div className="relative">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Mesin *
-                    </label>
-                    <Input
-                      value={formData.engine}
-                      onChange={(e) => { handleInputChange('engine', e.target.value); setEngineQuery(e.target.value); }}
-                      placeholder="Contoh: 2.5L Diesel"
-                      className={errors.engine ? 'border-red-500' : ''}
-                      onFocus={() => { setShowEngineDropdown(true); fetchEngine(''); }}
-                      onBlur={() => { window.setTimeout(() => setShowEngineDropdown(false), 150); }}
-                    />
-                    {showEngineDropdown && (
-                      <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
-                        {loadingEngine ? (
-                          <div className="p-2 text-sm text-gray-500">Memuat...</div>
-                        ) : engineSuggestions.length === 0 ? (
-                          <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
-                        ) : (
-                          engineSuggestions.map((name, idx) => (
-                            <button
-                              key={`eng-${name}-${idx}`}
-                              type="button"
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => { handleInputChange('engine', name); setEngineQuery(name); setShowEngineDropdown(false); }}
-                            >
-                              {name}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                    {errors.engine && <p className="text-sm text-red-500 mt-1">{errors.engine}</p>}
                   </div>
 
                   <div className="relative">
@@ -906,55 +814,6 @@ export const ArmadaForm: React.FC = () => {
                     {errors.fuel_type && <p className="text-sm text-red-500 mt-1">{errors.fuel_type}</p>}
                   </div>
 
-                  <div className="relative">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Transmisi *
-                    </label>
-                    <Select value={formData.transmission} onValueChange={(value) => handleInputChange('transmission', value)}>
-                      <SelectTrigger className={errors.transmission ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Pilih Transmisi" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="manual">Manual</SelectItem>
-                        <SelectItem value="automatic">Automatic</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {errors.transmission && <p className="text-sm text-red-500 mt-1">{errors.transmission}</p>}
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Tahun Produksi *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1990"
-                      max={new Date().getFullYear()}
-                      value={formData.year}
-                      onChange={(e) => handleInputChange('year', parseInt(e.target.value) || 0)}
-                      placeholder="2022"
-                      className={errors.year ? 'border-red-500' : ''}
-                      style={{ colorScheme: 'light' }}
-                    />
-                    {errors.year && <p className="text-sm text-red-500 mt-1">{errors.year}</p>}
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Kapasitas (pax) *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={formData.capacity}
-                      onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 0)}
-                      placeholder="Contoh: 15"
-                      className={errors.capacity ? 'border-red-500' : ''}
-                      style={{ colorScheme: 'light' }}
-                    />
-                    {errors.capacity && <p className="text-sm text-red-500 mt-1">{errors.capacity}</p>}
-                  </div>
-
                   <div className="md:col-span-2">
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
                       Titik Jemput
@@ -992,7 +851,12 @@ export const ArmadaForm: React.FC = () => {
                             ) : cities.length === 0 ? (
                               <div className="p-2 text-sm text-gray-500">Tidak ada hasil</div>
                             ) : (
-                              cities.map((city, idx) => (
+                              cities
+                                .filter((city) => {
+                                  const selected = formData.pickupPoints.some((p: any) => (p?.id ?? p) === city.id);
+                                  return !selected;
+                                })
+                                .map((city, idx) => (
                                 <button
                                   key={`${city.name}-${city.id}-${idx}`}
                                   type="button"
