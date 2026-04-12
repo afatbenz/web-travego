@@ -47,6 +47,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [summaryRevenue, setSummaryRevenue] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [initializedDefaultRange, setInitializedDefaultRange] = useState(false);
 
   // client-side parsing helpers removed since filtering now handled by backend
@@ -166,6 +167,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
   useEffect(() => {
     const fetchOrders = async () => {
+      setLoading(true);
       try {
         const token = localStorage.getItem('token');
         let endpointBase = '/services/fleet/orders';
@@ -270,6 +272,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         }
       } catch (error) {
         console.error('Failed to fetch orders:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -299,6 +303,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentOrders = filteredOrders.slice(startIndex, endIndex);
+  const tableColCount =
+    6 +
+    (type === 'fleet' ? 1 : 0) +
+    (type === 'fleet' && basePrefix === '/dashboard/partner' ? 1 : 0);
 
   const handlePageChange = (page: number) => {
     const next = Math.min(Math.max(1, page), Math.max(1, totalPages));
@@ -413,60 +421,81 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800">
-                {currentOrders.map((order, idx) => (
-                  <tr
-                    key={order.transactionId || order.orderId || `${startIndex}-${idx}`}
-                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                  >
-                    <td className="py-3 px-4">
-                      <span className="text-gray-900 dark:text-white">{startIndex + idx + 1}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="font-medium text-gray-900 dark:text-white">{order.orderId}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-gray-900 dark:text-white">{order.fleetName}</span>
-                    </td>
-                    {type === 'fleet' && (
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className="capitalize">
-                          {order.rentType || '-'}
-                        </Badge>
-                      </td>
-                    )}
-                    {type === 'fleet' && basePrefix === '/dashboard/partner' && (
-                      <td className="py-3 px-4">
-                        <span className="text-gray-900 dark:text-white">{formatSewaRange(order.startDate, order.endDate)}</span>
-                      </td>
-                    )}
-                    <td className="py-3 px-4">
-                      <span className="text-gray-900 dark:text-white">{order.unitQty} unit</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      {getPaymentStatusBadge(order.paymentStatus)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            if (basePrefix === '/dashboard/partner' && type === 'fleet') {
-                              navigate(`${basePrefix}/orders/fleet/detail/${order.orderId}`);
-                              return;
-                            }
-                            navigate(`${basePrefix}/orders/detail/${order.orderId}`);
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr
+                      key={`s-${i}`}
+                      className="border-b border-gray-200 dark:border-gray-700 animate-pulse"
+                    >
+                      {Array.from({ length: tableColCount }).map((__, j) => (
+                        <td key={`s-${i}-${j}`} className="py-3 px-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : currentOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={tableColCount} className="py-10 text-center text-gray-500">
+                      Tidak ada data order
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  currentOrders.map((order, idx) => (
+                    <tr
+                      key={order.transactionId || order.orderId || `${startIndex}-${idx}`}
+                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <td className="py-3 px-4">
+                        <span className="text-gray-900 dark:text-white">{startIndex + idx + 1}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-medium text-gray-900 dark:text-white">{order.orderId}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-gray-900 dark:text-white">{order.fleetName}</span>
+                      </td>
+                      {type === 'fleet' && (
+                        <td className="py-3 px-4">
+                          <Badge variant="outline" className="capitalize">
+                            {order.rentType || '-'}
+                          </Badge>
+                        </td>
+                      )}
+                      {type === 'fleet' && basePrefix === '/dashboard/partner' && (
+                        <td className="py-3 px-4">
+                          <span className="text-gray-900 dark:text-white">{formatSewaRange(order.startDate, order.endDate)}</span>
+                        </td>
+                      )}
+                      <td className="py-3 px-4">
+                        <span className="text-gray-900 dark:text-white">{order.unitQty} unit</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {getPaymentStatusBadge(order.paymentStatus)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              if (basePrefix === '/dashboard/partner' && type === 'fleet') {
+                                navigate(`${basePrefix}/orders/fleet/detail/${order.orderId}`);
+                                return;
+                              }
+                              navigate(`${basePrefix}/orders/detail/${order.orderId}`);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -515,25 +544,41 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{filteredOrders.length}</p>
+              {loading ? (
+                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+              ) : (
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{filteredOrders.length}</p>
+              )}
               <p className="text-sm text-gray-600 dark:text-gray-300">Total Orders</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-green-600">
-                {filteredOrders.filter(o => o.paymentStatus === 1).length}
-              </p>
+              {loading ? (
+                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+              ) : (
+                <p className="text-2xl font-bold text-green-600">
+                  {filteredOrders.filter(o => o.paymentStatus === 1).length}
+                </p>
+              )}
               <p className="text-sm text-gray-600 dark:text-gray-300">Lunas</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-yellow-600">
-                {filteredOrders.filter(o => o.paymentStatus === 2 || o.paymentStatus === 3).length}
-              </p>
+              {loading ? (
+                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+              ) : (
+                <p className="text-2xl font-bold text-yellow-600">
+                  {filteredOrders.filter(o => o.paymentStatus === 2 || o.paymentStatus === 3).length}
+                </p>
+              )}
               <p className="text-sm text-gray-600 dark:text-gray-300">Pending</p>
             </div>
             <div>
-                  <p className="text-2xl font-bold text-blue-600">
-                    Rp {Number(summaryRevenue || 0).toLocaleString()}
-              </p>
+              {loading ? (
+                <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
+              ) : (
+                <p className="text-2xl font-bold text-blue-600">
+                  Rp {Number(summaryRevenue || 0).toLocaleString()}
+                </p>
+              )}
               <p className="text-sm text-gray-600 dark:text-gray-300">Total Revenue</p>
             </div>
           </div>

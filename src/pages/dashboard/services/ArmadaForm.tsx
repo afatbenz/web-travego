@@ -155,7 +155,7 @@ export const ArmadaForm: React.FC = () => {
                   ? 2
                   : 3,
           price: p.price,
-          uom: (p as any).unit || 'hari',
+          uom: p.unit || 'hari',
         })),
         ...(addonItems.length > 0 ? { addon: addonItems } : {}),
         thumbnail: formData.thumbnailFile || undefined,
@@ -284,7 +284,7 @@ export const ArmadaForm: React.FC = () => {
     if (val) {
       const found = cities.find((c) => c.name.toLowerCase() === val.toLowerCase());
       if (found) {
-        const exists = formData.pickupPoints.some((p: any) => (p?.id ?? p) === found.id);
+        const exists = formData.pickupPoints.some((p) => p.id === found.id);
         if (!exists) {
           setFormData(prev => ({
             ...prev,
@@ -412,7 +412,7 @@ export const ArmadaForm: React.FC = () => {
       const token = localStorage.getItem('token') ?? '';
       const headers = token ? { Authorization: token } : undefined;
       const fleetId = decodeURIComponent(id);
-      const res = await api.get<unknown>(`/services/fleet/id?fleet_id=${encodeURIComponent(fleetId)}`, headers);
+      const res = await api.post<unknown>('/services/fleet/detail', { fleet_id: fleetId }, headers);
       if (res.status !== 'success') return;
 
       const payload = res.data as unknown;
@@ -1121,7 +1121,7 @@ export const ArmadaForm: React.FC = () => {
                             className="flex-1"
                           />
                           <Select
-                            value={(price as any).unit || 'hari'}
+                            value={price.unit || 'hari'}
                             onValueChange={(value) => updateRentalPrice(index, 'unit', value)}
                           >
                             <SelectTrigger className="w-28">

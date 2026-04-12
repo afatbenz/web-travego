@@ -113,6 +113,8 @@ import { ServicesPackages } from '@/pages/dashboard/ServicesPackages';
 import { ServicesArmada } from '@/pages/dashboard/services/ServicesArmada';
 import { FleetUnits } from '@/pages/dashboard/services/FleetUnits';
 import { FleetUnitCreate } from '@/pages/dashboard/services/FleetUnitCreate';
+import { FleetUnitDetail } from '@/pages/dashboard/services/FleetUnitDetail';
+import { FleetUnitEdit } from '@/pages/dashboard/services/FleetUnitEdit';
 import { PackageForm } from '@/pages/dashboard/services/PackageForm';
 import { CreateArmada } from '@/pages/dashboard/services/CreateArmada';
 import { EditArmada } from '@/pages/dashboard/services/EditArmada';
@@ -762,9 +764,29 @@ function App() {
               <FleetUnitCreate />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/fleet-units/detail/:unit_id" element={
+            <DashboardLayout>
+              <FleetUnitDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/fleet-units/edit/:unit_id" element={
+            <DashboardLayout>
+              <FleetUnitEdit />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/fleet-units" element={
             <DashboardLayout>
               <FleetUnits />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/fleet-units/detail/:unit_id" element={
+            <DashboardLayout>
+              <FleetUnitDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/fleet-units/edit/:unit_id" element={
+            <DashboardLayout>
+              <FleetUnitEdit />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/services/fleet/create" element={
