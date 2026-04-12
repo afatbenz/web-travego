@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,8 +16,8 @@ export const ServicesArmada: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [, setLoading] = useState(false);
-  const [armada, setArmada] = useState<Array<{ id: string | number; name: string; type: string; capacity: string; body?: string; engine?: string; status: string; image?: string; description?: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [armada, setArmada] = useState<Array<{ id: string | number; name: string; type: string; totalUnit: string; body?: string; engine?: string; status: string; image?: string; description?: string }>>([]);
   const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
@@ -52,16 +52,20 @@ export const ServicesArmada: React.FC = () => {
           const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? (idRaw as string | number) : i;
           const name = typeof x.name === 'string' ? x.name : (typeof x.fleet_name === 'string' ? x.fleet_name : '');
           const type = typeof x.type === 'string' ? x.type : (typeof x.fleet_type === 'string' ? x.fleet_type : '');
-          const capacityVal = x.capacity;
-          const capacityNum =
-            typeof capacityVal === 'number' ? capacityVal : typeof capacityVal === 'string' ? parseInt(capacityVal) || 0 : 0;
-          const capacity = capacityNum > 0 ? `${capacityNum} pax` : String(capacityVal ?? '');
+          const totalUnitVal = x.total_unit ?? x.totalUnit ?? x.total_unit ?? x.totalUnit;
+          const totalUnitNum =
+            typeof totalUnitVal === 'number'
+              ? totalUnitVal
+              : typeof totalUnitVal === 'string'
+                ? parseInt(totalUnitVal) || 0
+                : 0;
+          const totalUnit =  `${totalUnitNum} unit`;
           const body = typeof x.body === 'string' ? x.body : (typeof x.fleet_body === 'string' ? x.fleet_body : undefined);
           const engine = typeof x.engine === 'string' ? x.engine : (typeof x.fleet_engine === 'string' ? x.fleet_engine : undefined);
           const status = typeof x.status === 'string' ? x.status : x.active === true ? 'active' : 'inactive';
           const image = typeof x.image === 'string' ? x.image : typeof x.thumbnail === 'string' ? x.thumbnail : undefined;
           const description = typeof x.description === 'string' ? x.description : '';
-          return { id, name, type, capacity, body, engine, status, image, description };
+          return { id, name, type, totalUnit, body, engine, status, image, description };
         });
         setArmada(mapped);
         setTotalCount(total);
@@ -76,7 +80,7 @@ export const ServicesArmada: React.FC = () => {
 
   const getStatusText = (status: string) => {
     const s = status === 'active' ? 'active' : status === 'inactive' ? 'inactive' : status;
-    const label = s === 'active' ? 'Aktif' : s === 'inactive' ? 'Tidak Aktif' : status;
+    const label = s === 'active' ? 'Publish' : s === 'inactive' ? 'Private' : status;
     const cls =
       s === 'active'
         ? 'text-green-600 dark:text-green-400'
@@ -178,61 +182,91 @@ export const ServicesArmada: React.FC = () => {
                 <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Nama</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Tipe</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Kapasitas</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Jumlah unit</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {currentArmada.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-12 h-12 object-cover rounded-lg"
-                        />
-                        <div>
-                          <p className="font-bold text-gray-900 dark:text-white">{item.name}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">
-                            {[item.body, item.engine].filter(Boolean).join(' - ') || item.description}
-                          </p>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`s-${i}`} className="border-b border-gray-200 dark:border-gray-700 animate-pulse">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                          <div className="space-y-2">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-56" />
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-72" />
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-sm text-gray-900 dark:text-white">{item.type}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-sm text-gray-900 dark:text-white">{item.capacity}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusText(item.status)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => navigate(`${basePrefix}/services/fleet/detail/${item.id}`)}
-                        >
-                          Detail
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => navigate(`${basePrefix}/services/fleet/edit/${item.id}`)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(item.id, item.name)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+                      </td>
+                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
+                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
+                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
+                      <td className="py-3 px-4">
+                        <div className="flex space-x-2">
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : currentArmada.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-gray-500">Tidak ada data armada</td>
                   </tr>
-                ))}
+                ) : (
+                  currentArmada.map((item) => (
+                    <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-3">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-12 h-12 object-cover rounded-lg"
+                          />
+                          <div>
+                            <p className="font-bold text-gray-900 dark:text-white">{item.name}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">
+                              {[item.body, item.engine].filter(Boolean).join(' - ') || item.description}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-gray-900 dark:text-white">{item.type}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-gray-900 dark:text-white">{item.totalUnit}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {getStatusText(item.status)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => navigate(`${basePrefix}/services/fleet/detail/${item.id}`)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => navigate(`${basePrefix}/services/fleet/edit/${item.id}`)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDelete(item.id, item.name)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

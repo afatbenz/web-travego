@@ -205,9 +205,35 @@ export const ServicesPackages: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-4">Loading...</td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`s-${i}`} className="border-b border-gray-200 dark:border-gray-700 animate-pulse">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                          <div className="space-y-2">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-52" />
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-72" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 w-[170px]">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+                      </td>
+                      <td className="py-3 px-4 w-[170px]">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+                      </td>
+                      <td className="py-3 px-4 w-[140px]">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex space-x-2">
+                          <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : currentPackages.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center py-4">Tidak ada data</td>
