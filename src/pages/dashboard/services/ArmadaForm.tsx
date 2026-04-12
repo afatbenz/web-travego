@@ -53,6 +53,8 @@ export const ArmadaForm: React.FC = () => {
   const debounceRef = useRef<number | null>(null);
   const [fleetTypes, setFleetTypes] = useState<Array<{ id: string; label: string }>>([]);
   const [loadingFleetTypes, setLoadingFleetTypes] = useState(false);
+  const [fuelTypes, setFuelTypes] = useState<Array<{ value: string; label: string }>>([]);
+  const [loadingFuelTypes, setLoadingFuelTypes] = useState(false);
   const [bodyQuery, setBodyQuery] = useState('');
   const [bodySuggestions, setBodySuggestions] = useState<string[]>([]);
   const [showBodyDropdown, setShowBodyDropdown] = useState(false);
@@ -298,7 +300,7 @@ export const ArmadaForm: React.FC = () => {
   const removePickupPoint = (id: number) => {
     setFormData(prev => ({
       ...prev,
-      pickupPoints: prev.pickupPoints.filter((p: any) => (p?.id ?? p) !== id)
+      pickupPoints: prev.pickupPoints.filter((p) => p.id !== id)
     }));
   };
 
@@ -606,6 +608,57 @@ export const ArmadaForm: React.FC = () => {
     fetchFleetTypes();
   }, []);
 
+  useEffect(() => {
+    async function fetchFuelTypes() {
+      setLoadingFuelTypes(true);
+      const token = localStorage.getItem('token') ?? '';
+      const res = await api.get<unknown>('/general/fuel-type', token ? { Authorization: token } : undefined);
+      if (res.status === 'success') {
+        const payload = res.data as unknown;
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const getString = (v: unknown): string =>
+          typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '';
+
+        const rawItems: unknown[] = Array.isArray(payload)
+          ? payload
+          : Array.isArray(record(payload).items)
+            ? (record(payload).items as unknown[])
+            : [];
+
+        const normalized = rawItems
+          .map((x) => {
+            if (typeof x === 'string' || typeof x === 'number') {
+              const label = String(x);
+              const value = label.toLowerCase().replace(/\s+/g, '_');
+              return value ? { value, label } : null;
+            }
+            const obj = record(x);
+            const value = getString(obj.value ?? obj.id ?? obj.code).trim();
+            const label = getString(obj.label ?? obj.name ?? obj.text).trim();
+            if (!value || !label) return null;
+            return { value, label };
+          })
+          .filter((x): x is { value: string; label: string } => Boolean(x));
+
+        const seen = new Set<string>();
+        const unique = normalized.filter((x) => {
+          const k = x.value;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+
+        setFuelTypes(unique);
+      } else {
+        setFuelTypes([]);
+      }
+      setLoadingFuelTypes(false);
+    }
+
+    fetchFuelTypes();
+  }, []);
+
   async function fetchBody(q: string) {
     setLoadingBody(true);
     const token = localStorage.getItem('token') ?? '';
@@ -802,13 +855,23 @@ export const ArmadaForm: React.FC = () => {
                     </label>
                     <Select value={formData.fuel_type} onValueChange={(value) => handleInputChange('fuel_type', value)}>
                       <SelectTrigger className={errors.fuel_type ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Pilih Bahan Bakar" />
+                        <SelectValue placeholder={loadingFuelTypes ? 'Memuat...' : 'Pilih Bahan Bakar'} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="diesel">Diesel</SelectItem>
-                        <SelectItem value="bbg">BBG</SelectItem>
-                        <SelectItem value="bensin">Bensin</SelectItem>
-                        <SelectItem value="listrik">Listrik</SelectItem>
+                        {fuelTypes.length > 0 ? (
+                          fuelTypes.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <>
+                            <SelectItem value="diesel">Diesel</SelectItem>
+                            <SelectItem value="bbg">BBG</SelectItem>
+                            <SelectItem value="bensin">Bensin</SelectItem>
+                            <SelectItem value="listrik">Listrik</SelectItem>
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                     {errors.fuel_type && <p className="text-sm text-red-500 mt-1">{errors.fuel_type}</p>}
@@ -853,7 +916,7 @@ export const ArmadaForm: React.FC = () => {
                             ) : (
                               cities
                                 .filter((city) => {
-                                  const selected = formData.pickupPoints.some((p: any) => (p?.id ?? p) === city.id);
+                                  const selected = formData.pickupPoints.some((p) => p.id === city.id);
                                   return !selected;
                                 })
                                 .map((city, idx) => (
@@ -863,7 +926,7 @@ export const ArmadaForm: React.FC = () => {
                                   className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => {
-                                    const exists = formData.pickupPoints.some((p: any) => (p?.id ?? p) === city.id);
+                                    const exists = formData.pickupPoints.some((p) => p.id === city.id);
                                     if (!exists) {
                                       setFormData((prev) => ({ ...prev, pickupPoints: [...prev.pickupPoints, { id: city.id, name: city.name }] }));
                                     }
@@ -888,12 +951,12 @@ export const ArmadaForm: React.FC = () => {
                       </div>
                       {formData.pickupPoints.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {formData.pickupPoints.map((point: any, index) => (
+                          {formData.pickupPoints.map((point, index) => (
                             <Badge key={index} variant="secondary" className="flex items-center space-x-1">
-                              <span>{point?.name ?? String(point)}</span>
+                              <span>{point.name}</span>
                               <X
                                 className="h-3 w-3 cursor-pointer"
-                                onClick={() => removePickupPoint(point?.id ?? point)}
+                                onClick={() => removePickupPoint(point.id)}
                               />
                             </Badge>
                           ))}

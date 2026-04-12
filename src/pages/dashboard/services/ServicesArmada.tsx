@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
+import Swal from 'sweetalert2';
 
 export const ServicesArmada: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,29 +32,34 @@ export const ServicesArmada: React.FC = () => {
       const res = await api.get<unknown>(`/services/fleet/list?${query.toString()}`, token ? { Authorization: token } : undefined);
       if (res.status === 'success') {
         const payload = res.data as unknown;
-        let items: any[] = [];
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        let items: unknown[] = [];
         let total = 0;
         if (Array.isArray(payload)) {
           items = payload;
           total = payload.length;
         } else if (payload && typeof payload === 'object') {
-          const p = payload as Record<string, unknown>;
-          const arr = p.items as unknown;
-          const t = p.total as unknown;
-          if (Array.isArray(arr)) items = arr as any[]; else items = [];
+          const p = record(payload);
+          const arr = p.items;
+          const t = p.total;
+          if (Array.isArray(arr)) items = arr; else items = [];
           total = typeof t === 'number' ? t : (Array.isArray(arr) ? arr.length : 0);
         }
-        const mapped = items.map((x, i) => {
-          const idRaw = (x as { id?: unknown; fleet_id?: unknown }).id ?? (x as { fleet_id?: unknown }).fleet_id;
+        const mapped = items.map((raw, i) => {
+          const x = record(raw);
+          const idRaw = x.id ?? x.fleet_id;
           const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? (idRaw as string | number) : i;
           const name = typeof x.name === 'string' ? x.name : (typeof x.fleet_name === 'string' ? x.fleet_name : '');
           const type = typeof x.type === 'string' ? x.type : (typeof x.fleet_type === 'string' ? x.fleet_type : '');
-          const capacityNum = typeof x.capacity === 'number' ? x.capacity : (typeof x.capacity === 'string' ? parseInt(x.capacity) || 0 : 0);
-          const capacity = capacityNum > 0 ? `${capacityNum} pax` : String(x.capacity ?? '');
+          const capacityVal = x.capacity;
+          const capacityNum =
+            typeof capacityVal === 'number' ? capacityVal : typeof capacityVal === 'string' ? parseInt(capacityVal) || 0 : 0;
+          const capacity = capacityNum > 0 ? `${capacityNum} pax` : String(capacityVal ?? '');
           const body = typeof x.body === 'string' ? x.body : (typeof x.fleet_body === 'string' ? x.fleet_body : undefined);
           const engine = typeof x.engine === 'string' ? x.engine : (typeof x.fleet_engine === 'string' ? x.fleet_engine : undefined);
-          const status = typeof x.status === 'string' ? x.status : (x.active === true ? 'active' : 'inactive');
-          const image = typeof x.image === 'string' ? x.image : (typeof x.thumbnail === 'string' ? x.thumbnail : undefined);
+          const status = typeof x.status === 'string' ? x.status : x.active === true ? 'active' : 'inactive';
+          const image = typeof x.image === 'string' ? x.image : typeof x.thumbnail === 'string' ? x.thumbnail : undefined;
           const description = typeof x.description === 'string' ? x.description : '';
           return { id, name, type, capacity, body, engine, status, image, description };
         });
@@ -88,6 +96,29 @@ export const ServicesArmada: React.FC = () => {
     setCurrentPage(page);
   };
 
+  const handleDelete = async (fleetId: string | number, fleetName: string) => {
+    const result = await Swal.fire({
+      title: 'Hapus armada?',
+      text: fleetName ? `Armada "${fleetName}" akan dihapus dan tidak dapat dikembalikan.` : 'Data yang dihapus tidak dapat dikembalikan.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    const res = await api.post<unknown>('/services/fleet/delete', { fleet_id: fleetId }, headers);
+    if (res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Terhapus', text: 'Armada berhasil dihapus.' });
+      setArmada((prev) => prev.filter((x) => String(x.id) !== String(fleetId)));
+      setTotalCount((prev) => Math.max(0, prev - 1));
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -100,7 +131,7 @@ export const ServicesArmada: React.FC = () => {
         </div>
         <Button 
           className="bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={() => navigate('/dashboard/partner/services/fleet/create')}
+          onClick={() => navigate(`${basePrefix}/services/fleet/create`)}
         >
           <Plus className="h-4 w-4 mr-2" />
           Tambah Armada
@@ -184,18 +215,18 @@ export const ServicesArmada: React.FC = () => {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => navigate(`/dashboard/partner/services/fleet/detail/${item.id}`)}
+                          onClick={() => navigate(`${basePrefix}/services/fleet/detail/${item.id}`)}
                         >
                           Detail
                         </Button>
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => navigate(`/dashboard/partner/services/fleet/edit/${item.id}`)}
+                          onClick={() => navigate(`${basePrefix}/services/fleet/edit/${item.id}`)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(item.id, item.name)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
