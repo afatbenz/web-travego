@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type FleetOption = {
   id: string;
@@ -22,6 +23,11 @@ type UnitDraft = {
   capacity: string;
   production_year: string;
   transmission: string;
+};
+
+type TransmissionOption = {
+  id: string;
+  label: string;
 };
 
 const normalizeFleetOptions = (payload: unknown): FleetOption[] => {
@@ -57,6 +63,8 @@ export const FleetUnitCreate: React.FC = () => {
   const [fleetOptions, setFleetOptions] = useState<FleetOption[]>([]);
   const [fleetPickerOpen, setFleetPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingTransmissionOptions, setLoadingTransmissionOptions] = useState(false);
+  const [transmissionOptions, setTransmissionOptions] = useState<TransmissionOption[]>([]);
 
   const [fleetId, setFleetId] = useState('');
   const [units, setUnits] = useState<UnitDraft[]>([
@@ -105,6 +113,40 @@ export const FleetUnitCreate: React.FC = () => {
     };
 
     loadOptions();
+  }, []);
+
+  useEffect(() => {
+    const loadTransmissionOptions = async () => {
+      setLoadingTransmissionOptions(true);
+      const token = localStorage.getItem('token') ?? '';
+      const res = await api.get<unknown>('/general/fleet-transmission', token ? { Authorization: token } : undefined);
+      if (res.status === 'success') {
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const getString = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+        const payload = res.data as unknown;
+        const list: unknown[] = Array.isArray(payload)
+          ? payload
+          : payload && typeof payload === 'object' && Array.isArray((payload as Record<string, unknown>).items)
+            ? ((payload as Record<string, unknown>).items as unknown[])
+            : [];
+
+        const mapped = list
+          .map((raw) => record(raw))
+          .map((o) => {
+            const id = getString(o.id ?? o.value).trim();
+            const label = getString(o.label ?? o.name ?? o.text).trim();
+            return id && label ? { id, label } : null;
+          })
+          .filter((x): x is TransmissionOption => x !== null);
+        setTransmissionOptions(mapped);
+      } else {
+        setTransmissionOptions([]);
+      }
+      setLoadingTransmissionOptions(false);
+    };
+
+    loadTransmissionOptions();
   }, []);
 
   const setField = (key: string, value: string) => {
@@ -171,26 +213,39 @@ export const FleetUnitCreate: React.FC = () => {
     const token = localStorage.getItem('token') ?? '';
 
     try {
-      let createdCount = 0;
-      for (const u of units) {
-        const payload = {
-          fleet_id: fleetId,
+      const payload = {
+        fleet_id: fleetId,
+        units: units.map((u) => ({
           vehicle_id: u.vehicle_id.trim(),
           plate_number: u.plate_number.trim(),
           engine: u.engine.trim(),
           capacity: Number(u.capacity),
           production_year: Number(u.production_year),
-          transmission: u.transmission.trim(),
-        };
-        const res = await api.post<unknown>('/services/fleet-units/create', payload, token ? { Authorization: token } : undefined);
-        if (res.status !== 'success') break;
-        createdCount += 1;
+          transmission: u.transmission,
+        })),
+      };
+      const res = await api.post<unknown>('/services/fleet-units/create', payload, token ? { Authorization: token } : undefined);
+      if (res.message === 'DUPLICATE_VEHICLE_ID') {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Vehicle ID tidak valid',
+          text: 'Pastikan vehicle id unik dan tidak ada duplikasi',
+        });
+        return;
       }
-      if (createdCount === units.length) {
+      if (res.message === 'DUPLICATE_PLATE_NUMBER') {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Plat Nomor Tidak Valid',
+          text: 'Pastikan plat nomor unik tidak ada duplikasi',
+        });
+        return;
+      }
+      if (res.status === 'success') {
         await Swal.fire({
           icon: 'success',
           title: 'Berhasil',
-          text: units.length === 1 ? 'Unit berhasil dibuat.' : `${createdCount} unit berhasil dibuat.`,
+          text: units.length === 1 ? 'Unit berhasil dibuat.' : `${units.length} unit berhasil dibuat.`,
         });
         navigate(`${basePrefix}/fleet-units`);
       }
@@ -325,12 +380,18 @@ export const FleetUnitCreate: React.FC = () => {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Transmission *</label>
-                  <Input
-                    value={unit.transmission}
-                    onChange={(e) => setUnitField(idx, 'transmission', e.target.value)}
-                    placeholder="Contoh: Manual / Automatic"
-                    className={errors[`units.${idx}.transmission`] ? 'border-red-500' : ''}
-                  />
+                  <Select value={unit.transmission} onValueChange={(v) => setUnitField(idx, 'transmission', v)}>
+                    <SelectTrigger className={errors[`units.${idx}.transmission`] ? 'border-red-500' : ''}>
+                      <SelectValue placeholder={loadingTransmissionOptions ? 'Memuat...' : 'Pilih transmisi'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transmissionOptions.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors[`units.${idx}.transmission`] && <p className="text-sm text-red-500">{errors[`units.${idx}.transmission`]}</p>}
                 </div>
 

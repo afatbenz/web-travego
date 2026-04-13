@@ -9,8 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type FleetOption = {
+  id: string;
+  label: string;
+};
+
+type TransmissionOption = {
   id: string;
   label: string;
 };
@@ -55,6 +61,8 @@ export const FleetUnitEdit: React.FC = () => {
   const [loadingFleetOptions, setLoadingFleetOptions] = useState(false);
   const [fleetOptions, setFleetOptions] = useState<FleetOption[]>([]);
   const [fleetPickerOpen, setFleetPickerOpen] = useState(false);
+  const [loadingTransmissionOptions, setLoadingTransmissionOptions] = useState(false);
+  const [transmissionOptions, setTransmissionOptions] = useState<TransmissionOption[]>([]);
 
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,6 +112,47 @@ export const FleetUnitEdit: React.FC = () => {
     };
     loadOptions();
   }, []);
+
+  useEffect(() => {
+    const loadTransmissionOptions = async () => {
+      setLoadingTransmissionOptions(true);
+      const token = localStorage.getItem('token') ?? '';
+      const res = await api.get<unknown>('/general/fleet-transmission', token ? { Authorization: token } : undefined);
+      if (res.status === 'success') {
+        const getStr = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+        const payload = res.data as unknown;
+        const list: unknown[] = Array.isArray(payload)
+          ? payload
+          : payload && typeof payload === 'object' && Array.isArray((payload as Record<string, unknown>).items)
+            ? ((payload as Record<string, unknown>).items as unknown[])
+            : [];
+        const mapped = list
+          .map((raw) => record(raw))
+          .map((o) => {
+            const id = getStr(o.id ?? o.value).trim();
+            const label = getStr(o.label ?? o.name ?? o.text).trim();
+            return id && label ? { id, label } : null;
+          })
+          .filter((x): x is TransmissionOption => x !== null);
+        setTransmissionOptions(mapped);
+      } else {
+        setTransmissionOptions([]);
+      }
+      setLoadingTransmissionOptions(false);
+    };
+
+    loadTransmissionOptions();
+  }, []);
+
+  useEffect(() => {
+    if (!formData.transmission) return;
+    if (!transmissionOptions.length) return;
+    const byId = transmissionOptions.some((o) => o.id === formData.transmission);
+    if (byId) return;
+    const match = transmissionOptions.find((o) => o.label.toLowerCase() === formData.transmission.toLowerCase());
+    if (!match) return;
+    setFormData((prev) => ({ ...prev, transmission: match.id }));
+  }, [formData.transmission, transmissionOptions]);
 
   useEffect(() => {
     const loadDetail = async () => {
@@ -332,12 +381,18 @@ export const FleetUnitEdit: React.FC = () => {
 
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Transmission *</label>
-                  <Input
-                    value={formData.transmission}
-                    onChange={(e) => setField('transmission', e.target.value)}
-                    placeholder="Contoh: Manual / Automatic"
-                    className={errors.transmission ? 'border-red-500' : ''}
-                  />
+                  <Select value={formData.transmission} onValueChange={(v) => setField('transmission', v)}>
+                    <SelectTrigger className={errors.transmission ? 'border-red-500' : ''}>
+                      <SelectValue placeholder={loadingTransmissionOptions ? 'Memuat...' : 'Pilih transmisi'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transmissionOptions.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.transmission && <p className="text-sm text-red-500">{errors.transmission}</p>}
                 </div>
               </div>
@@ -364,4 +419,3 @@ export const FleetUnitEdit: React.FC = () => {
     </div>
   );
 };
-
