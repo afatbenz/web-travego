@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -472,115 +473,136 @@ export const OrderDetail: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Kategori</label>
-                <p className="text-gray-900 dark:text-white">{orderData.category}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Nama Pesanan</label>
-                <p className="text-gray-900 dark:text-white text-lg font-medium">{orderData.title}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Deskripsi</label>
-                <p className="text-gray-900 dark:text-white">{orderData.description}</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Mulai</label>
-                  <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                    <Calendar className="h-4 w-4" />
-                    <span>{formatDateTime(orderData.startDate)}</span>
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Selesai</label>
-                  <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                    <Calendar className="h-4 w-4" />
-                    <span>{formatDateTime(orderData.endDate)}</span>
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jumlah Armada</label>
-                  <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                    <Car className="h-4 w-4" />
-                    <span>{orderData.participants} unit</span>
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Lokasi Pickup</label>
-                  <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>{orderData.pickupLocation}</span>
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <Tabs defaultValue="overview">
+                <TabsList className="w-full justify-start">
+                  <TabsTrigger
+                    value="overview"
+                  >
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="itinerary"
+                  >
+                    Itinerary
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="facilities"
+                  >
+                    Fasilitas
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="requests"
+                  >
+                    Permintaan Khusus
+                  </TabsTrigger>
+                </TabsList>
 
-          {/* Itinerary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5" />
-                <span>Itinerary Perjalanan</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {(orderData.itinerary ?? []).map((day, index) => {
-                  const activities = Array.isArray(day.activities) ? day.activities : [];
-                  return (
-                    <div key={index} className="border-l-4 border-blue-500 pl-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h4 className="font-medium text-gray-900 dark:text-white">Hari {day.day}</h4>
-                      <span className="text-sm text-gray-600 dark:text-gray-300">({formatDate(day.date)})</span>
+                <div className="min-h-[420px] max-h-[620px] overflow-y-auto">
+                  <TabsContent value="overview" className="pt-4 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Kategori</label>
+                      <p className="text-gray-900 dark:text-white">{orderData.category}</p>
                     </div>
-                    <ul className="space-y-1">
-                      {activities.map((activity, actIndex) => (
-                        <li key={actIndex} className="text-sm text-gray-600 dark:text-gray-300 flex items-start space-x-2">
-                          <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                          <span>{activity}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  );
-                })}
-              </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Nama Pesanan</label>
+                      <p className="text-gray-900 dark:text-white text-lg font-medium">{orderData.title}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Deskripsi</label>
+                      <p className="text-gray-900 dark:text-white">{orderData.description}</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Mulai</label>
+                        <p className="text-gray-900 dark:text-white flex items-center space-x-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>{formatDateTime(orderData.startDate)}</span>
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Selesai</label>
+                        <p className="text-gray-900 dark:text-white flex items-center space-x-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>{formatDateTime(orderData.endDate)}</span>
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jumlah Armada</label>
+                        <p className="text-gray-900 dark:text-white flex items-center space-x-2">
+                          <Car className="h-4 w-4" />
+                          <span>{orderData.participants} unit</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Lokasi Pickup</label>
+                        <p className="text-gray-900 dark:text-white flex items-center space-x-2">
+                          <MapPin className="h-4 w-4" />
+                          <span>{orderData.pickupLocation}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="itinerary" className="pt-4">
+                    {(orderData.itinerary ?? []).length === 0 ? (
+                      <div className="py-8 text-center text-gray-500">Itinerary tidak tersedia</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {(orderData.itinerary ?? []).map((day, index) => {
+                          const activities = Array.isArray(day.activities) ? day.activities : [];
+                          return (
+                            <div key={index} className="border-l-4 border-blue-500 pl-4">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h4 className="font-medium text-gray-900 dark:text-white">Hari {day.day}</h4>
+                                <span className="text-sm text-gray-600 dark:text-gray-300">({formatDate(day.date)})</span>
+                              </div>
+                              <ul className="space-y-1">
+                                {activities.map((activity, actIndex) => (
+                                  <li key={actIndex} className="text-sm text-gray-600 dark:text-gray-300 flex items-start space-x-2">
+                                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
+                                    <span>{activity}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="facilities" className="pt-4">
+                    {(orderData.facilities ?? []).length === 0 ? (
+                      <div className="py-8 text-center text-gray-500">Tidak ada fasilitas</div>
+                    ) : (
+                      <ul className="space-y-2">
+                        {orderData.facilities?.map((facility, index) => (
+                          <li key={index} className="flex items-center space-x-2">
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <span className="text-gray-900 dark:text-white">{facility}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="requests" className="pt-4 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Permintaan Khusus</label>
+                      <p className="text-gray-900 dark:text-white">{orderData.additionalRequests}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Catatan</label>
+                      <p className="text-gray-900 dark:text-white">{orderData.notes}</p>
+                    </div>
+                  </TabsContent>
+                </div>
+              </Tabs>
             </CardContent>
           </Card>
 
-          {/* Facilities */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Fasilitas yang Disediakan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {orderData.facilities?.map((facility, index) => (
-                  <li key={index} className="flex items-center space-x-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span className="text-gray-900 dark:text-white">{facility}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* Additional Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Informasi Tambahan</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Permintaan Khusus</label>
-                <p className="text-gray-900 dark:text-white">{orderData.additionalRequests}</p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Sidebar */}

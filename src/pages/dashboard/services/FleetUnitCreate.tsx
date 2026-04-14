@@ -245,7 +245,7 @@ export const FleetUnitCreate: React.FC = () => {
         await Swal.fire({
           icon: 'success',
           title: 'Berhasil',
-          text: units.length === 1 ? 'Unit berhasil dibuat.' : `${units.length} unit berhasil dibuat.`,
+          text: units.length === 1 ? 'Unit berhasil ditambahkan.' : `${units.length} unit berhasil ditambahkan.`,
         });
         navigate(`${basePrefix}/fleet-units`);
       }
