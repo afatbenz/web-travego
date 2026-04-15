@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, ChevronLeft, ChevronRight, Eye, Download, Plus } from 'lucide-react';
+import { Search, Eye, Download, Plus } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Pagination } from '@/components/common/Pagination';
 import type { DateRange } from 'react-day-picker';
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -403,77 +405,70 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 dark:bg-gray-900">
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white w-14">No</th>
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">OrderId</th>
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white min-w-[260px]">Nama Unit</th>
-                  {type === 'fleet' && (
-                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Tipe</th>
-                  )}
-                  {type === 'fleet' && basePrefix === '/dashboard/partner' && (
-                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Tanggal Sewa</th>
-                  )}
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Qty</th>
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Status</th>
-                  <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-100 dark:bg-gray-900">
+                  <TableHead className="w-14">No</TableHead>
+                  <TableHead>OrderId</TableHead>
+                  <TableHead className="min-w-[260px]">Nama Unit</TableHead>
+                  {type === 'fleet' ? <TableHead>Tipe</TableHead> : null}
+                  {type === 'fleet' && basePrefix === '/dashboard/partner' ? <TableHead>Tanggal Sewa</TableHead> : null}
+                  <TableHead>Qty</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-white dark:bg-gray-800">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
-                    <tr
-                      key={`s-${i}`}
-                      className="border-b border-gray-200 dark:border-gray-700 animate-pulse"
-                    >
+                    <TableRow key={`s-${i}`} className="animate-pulse">
                       {Array.from({ length: tableColCount }).map((__, j) => (
-                        <td key={`s-${i}-${j}`} className="py-3 px-4">
+                        <TableCell key={`s-${i}-${j}`}>
                           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                        </td>
+                        </TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))
                 ) : currentOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={tableColCount} className="py-10 text-center text-gray-500">
+                  <TableRow>
+                    <TableCell colSpan={tableColCount} className="py-10 text-center text-gray-500">
                       Tidak ada data order
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   currentOrders.map((order, idx) => (
-                    <tr
+                    <TableRow
                       key={order.transactionId || order.orderId || `${startIndex}-${idx}`}
-                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
-                      <td className="py-3 px-4">
+                      <TableCell>
                         <span className="text-gray-900 dark:text-white">{startIndex + idx + 1}</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <span className="font-medium text-gray-900 dark:text-white">{order.orderId}</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <span className="text-gray-900 dark:text-white">{order.fleetName}</span>
-                      </td>
+                      </TableCell>
                       {type === 'fleet' && (
-                        <td className="py-3 px-4">
+                        <TableCell>
                           <Badge variant="outline" className="capitalize">
                             {order.rentType || '-'}
                           </Badge>
-                        </td>
+                        </TableCell>
                       )}
                       {type === 'fleet' && basePrefix === '/dashboard/partner' && (
-                        <td className="py-3 px-4">
+                        <TableCell>
                           <span className="text-gray-900 dark:text-white">{formatSewaRange(order.startDate, order.endDate)}</span>
-                        </td>
+                        </TableCell>
                       )}
-                      <td className="py-3 px-4">
+                      <TableCell>
                         <span className="text-gray-900 dark:text-white">{order.unitQty} unit</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         {getPaymentStatusBadge(order.paymentStatus)}
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="flex space-x-2">
                           <Button 
                             size="sm" 
@@ -492,50 +487,23 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                             <Download className="h-4 w-4" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
+          {totalPages > 1 ? (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
               <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1} - {Math.min(endIndex, filteredOrders.length)} dari {filteredOrders.length} order
+                Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} dari {filteredOrders.length} order
               </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 

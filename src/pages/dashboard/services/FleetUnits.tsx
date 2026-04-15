@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight, Car } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Search, Car } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Pagination } from '@/components/common/Pagination';
 import { api } from '@/lib/api';
 
 export const FleetUnits: React.FC = () => {
@@ -120,47 +122,49 @@ export const FleetUnits: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
-                  <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white">ID Armada</th>
-                  <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white">Jenis Armada</th>
-                  <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white">Plat Nomor</th>
-                  <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white">Chassis / Mesin</th>
-                  <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white text-center">Kapasitas</th>
-                  <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-100 dark:bg-gray-900">
+                  <TableHead>ID Armada</TableHead>
+                  <TableHead>Jenis Armada</TableHead>
+                  <TableHead>Plat Nomor</TableHead>
+                  <TableHead>Chassis / Mesin</TableHead>
+                  <TableHead className="text-center">Kapasitas</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-white dark:bg-gray-800">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`s-${i}`} className="border-b border-gray-200 dark:border-gray-700 animate-pulse">
-                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" /></td>
-                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" /></td>
-                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></td>
-                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28" /></td>
-                      <td className="py-3 px-4 text-center"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto" /></td>
-                      <td className="py-3 px-4 text-right">
+                    <TableRow key={`s-${i}`} className="animate-pulse">
+                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" /></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" /></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28" /></TableCell>
+                      <TableCell className="text-center"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto" /></TableCell>
+                      <TableCell className="text-right">
                         <div className="flex justify-end space-x-2">
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 ) : units.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-10 text-center text-gray-500">Tidak ada data unit armada</td>
-                  </tr>
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-gray-500">
+                      Tidak ada data unit armada
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   units.map((unit) => (
-                    <tr key={unit.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <td className="py-3 px-4 font-medium text-blue-600 dark:text-blue-400">{unit.vehicle_id}</td>
-                      <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{unit.fleet_name}</td>
-                      <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{unit.plate_number}</td>
-                      <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{unit.engine || '-'}</td>
-                      <td className="py-3 px-4 text-gray-700 dark:text-gray-300 text-center">{unit.capacity} Pax</td>
-                      <td className="py-3 px-4 text-right">
+                    <TableRow key={unit.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <TableCell className="font-medium text-blue-600 dark:text-blue-400">{unit.vehicle_id}</TableCell>
+                      <TableCell className="text-gray-700 dark:text-gray-300">{unit.fleet_name}</TableCell>
+                      <TableCell className="text-gray-700 dark:text-gray-300">{unit.plate_number}</TableCell>
+                      <TableCell className="text-gray-700 dark:text-gray-300">{unit.engine || '-'}</TableCell>
+                      <TableCell className="text-gray-700 dark:text-gray-300 text-center">{unit.capacity} Pax</TableCell>
+                      <TableCell className="text-right">
                         <div className="flex justify-end space-x-2">
                           <Button size="sm" variant="outline" onClick={() => navigate(`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(unit.id))}`)}>
                             <Eye className="h-4 w-4" />
@@ -172,51 +176,23 @@ export const FleetUnits: React.FC = () => {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
+          {totalPages > 1 ? (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
               <p className="text-xs text-gray-500">
                 Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} dari {totalCount} unit
               </p>
-              <div className="flex items-center space-x-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className="w-8 h-8 p-0"
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </div>

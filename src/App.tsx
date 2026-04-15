@@ -123,6 +123,8 @@ import { PackageDetail } from '@/pages/dashboard/services/PackageDetail';
 import { TeamMember } from '@/pages/dashboard/team/TeamMember';
 import { ScheduleArmada } from '@/pages/dashboard/team/ScheduleArmada';
 import { AddSchedule } from '@/pages/dashboard/team/AddSchedule';
+import { TeamMemberCreate } from '@/pages/dashboard/team/TeamMemberCreate';
+import { TeamMemberDetail } from '@/pages/dashboard/team/TeamMemberDetail';
 
 // New Customers Pages
 import { AllCustomers } from '@/pages/dashboard/customers/AllCustomers';
@@ -397,9 +399,29 @@ function App() {
               <TeamMember />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/organization/team-members/create" element={
+            <DashboardLayout>
+              <TeamMemberCreate />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/team-members/detail/:uuid" element={
+            <DashboardLayout>
+              <TeamMemberDetail />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/organization/team-members" element={
             <DashboardLayout>
               <TeamMember />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/team-members/create" element={
+            <DashboardLayout>
+              <TeamMemberCreate />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/team-members/detail/:uuid" element={
+            <DashboardLayout>
+              <TeamMemberDetail />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/organization/customers" element={

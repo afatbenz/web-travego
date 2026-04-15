@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Pagination } from '@/components/common/Pagination';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
@@ -96,10 +98,6 @@ export const ServicesArmada: React.FC = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentArmada = filteredArmada.slice(startIndex, endIndex);
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
   const handleDelete = async (fleetId: string | number, fleetName: string) => {
     const result = await Swal.fire({
       title: 'Hapus armada?',
@@ -177,21 +175,21 @@ export const ServicesArmada: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Nama</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Tipe</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Jumlah unit</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-100 dark:bg-gray-900">
+                  <TableHead>Nama</TableHead>
+                  <TableHead>Tipe</TableHead>
+                  <TableHead>Jumlah unit</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-white dark:bg-gray-800">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`s-${i}`} className="border-b border-gray-200 dark:border-gray-700 animate-pulse">
-                      <td className="py-3 px-4">
+                    <TableRow key={`s-${i}`} className="animate-pulse">
+                      <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
                           <div className="space-y-2">
@@ -199,27 +197,29 @@ export const ServicesArmada: React.FC = () => {
                             <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-72" />
                           </div>
                         </div>
-                      </td>
-                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
-                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
-                      <td className="py-3 px-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></TableCell>
+                      <TableCell>
                         <div className="flex space-x-2">
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 ) : currentArmada.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-10 text-center text-gray-500">Tidak ada data armada</td>
-                  </tr>
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-10 text-center text-gray-500">
+                      Tidak ada data armada
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   currentArmada.map((item) => (
-                    <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="py-3 px-4">
+                    <TableRow key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <TableCell>
                         <div className="flex items-center space-x-3">
                           <img
                             src={item.image}
@@ -233,17 +233,17 @@ export const ServicesArmada: React.FC = () => {
                             </p>
                           </div>
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <span className="text-sm text-gray-900 dark:text-white">{item.type}</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <span className="text-sm text-gray-900 dark:text-white">{item.totalUnit}</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         {getStatusText(item.status)}
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="flex space-x-2">
                           <Button 
                             size="sm" 
@@ -263,50 +263,24 @@ export const ServicesArmada: React.FC = () => {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
+          {totalPages > 1 ? (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
               <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1} - {Math.min(endIndex, filteredArmada.length)} dari {filteredArmada.length} armada
+                Menampilkan {startIndex + 1}-{Math.min(endIndex, Math.max(totalCount, filteredArmada.length))} dari{' '}
+                {Math.max(totalCount, filteredArmada.length)} armada
               </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
