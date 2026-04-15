@@ -286,3 +286,8 @@ select:-moz-autofill {
 .swal2-container {
   z-index: 99999 !important;
 }
+
+html.swal2-shown,
+body.swal2-shown {
+  pointer-events: auto !important;
+}

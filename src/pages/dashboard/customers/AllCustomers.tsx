@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Pagination } from '@/components/common/Pagination';
 
 export const AllCustomers: React.FC = () => {
   const navigate = useNavigate();
@@ -20,8 +22,10 @@ export const AllCustomers: React.FC = () => {
     raw: Record<string, unknown>;
   };
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     (async () => {
@@ -68,6 +72,14 @@ export const AllCustomers: React.FC = () => {
   }, []);
 
   const rows = useMemo(() => customers, [customers]);
+  const totalPages = Math.max(1, Math.ceil(rows.length / itemsPerPage));
+  const pageSafe = Math.min(currentPage, totalPages);
+  const startIndex = (pageSafe - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentRows = rows.slice(startIndex, endIndex);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rows.length]);
 
   return (
     <div className="space-y-6">
@@ -88,44 +100,69 @@ export const AllCustomers: React.FC = () => {
           <CardTitle>Data Customers ({rows.length} total)</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="text-sm text-gray-600 dark:text-gray-300">Memuat...</div>
-          ) : rows.length === 0 ? (
-            <div className="text-sm text-gray-600 dark:text-gray-300">Tidak ada data customer.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-100 dark:bg-gray-900">
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">No</th>
-                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Name Pelanggan</th>
-                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Email</th>
-                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Phone</th>
-                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Alamat</th>
-                    <th className="text-left py-3 px-4 font-bold text-gray-900 dark:text-white">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800">
-                  {rows.map((c, idx) => (
-                    <tr key={c.id || c.name} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="py-3 px-4">
-                        <span className="text-gray-900 dark:text-white">{idx + 1}</span>
-                      </td>
-                      <td className="py-3 px-4">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-100 dark:bg-gray-900">
+                  <TableHead>No</TableHead>
+                  <TableHead>Nama Pelanggan</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Alamat</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-white dark:bg-gray-800">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={`s-${i}`} className="animate-pulse">
+                      <TableCell>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-44" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-56" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-72" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded w-20" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500 py-10">
+                      Tidak ada data customer.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  currentRows.map((c, idx) => (
+                    <TableRow key={c.id || c.name} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <TableCell>
+                        <span className="text-gray-900 dark:text-white">{startIndex + idx + 1}</span>
+                      </TableCell>
+                      <TableCell>
                         <span className="font-medium text-gray-900 dark:text-white">{c.name || '-'}</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <span className="text-gray-900 dark:text-white">{c.email || '-'}</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <span className="text-gray-900 dark:text-white">{c.phone || '-'}</span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <span className="text-gray-900 dark:text-white">
-                          {c.address && c.city ? `${c.address}, ${c.city}` : (c.address || c.city || '-')}
+                          {c.address && c.city ? `${c.address}, ${c.city}` : c.address || c.city || '-'}
                         </span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <Button
                           type="button"
                           variant="outline"
@@ -133,13 +170,22 @@ export const AllCustomers: React.FC = () => {
                         >
                           Detail
                         </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {!loading && rows.length > 0 ? (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Menampilkan {startIndex + 1}-{Math.min(endIndex, rows.length)} dari {rows.length} customer
+              </div>
+              <Pagination currentPage={pageSafe} totalPages={totalPages} onPageChange={setCurrentPage} />
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </div>

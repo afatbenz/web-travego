@@ -199,7 +199,7 @@ async function postMultipart<T>(path: string, formData: FormData, headers?: Reco
   }
 }
 
-export async function uploadCommon(type: 'armada' | 'package' | 'bank' | 'avatar', files: File[], token?: string) {
+export async function uploadCommon(type: 'armada' | 'package' | 'bank' | 'avatar' | 'employee_photo', files: File[], token?: string) {
   const fd = new FormData();
   fd.append('type', type);
   files.forEach((f) => fd.append('files', f));

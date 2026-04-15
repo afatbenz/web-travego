@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Pagination } from '@/components/common/Pagination';
 import { api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
 
@@ -135,10 +137,6 @@ export const ServicesPackages: React.FC = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentPackages = filteredPackages.slice(startIndex, endIndex);
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -193,21 +191,21 @@ export const ServicesPackages: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Nama</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white w-[170px]">Pax</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white w-[170px]">Harga Mulai</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white w-[140px]">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-100 dark:bg-gray-900">
+                  <TableHead>Nama</TableHead>
+                  <TableHead className="w-[170px]">Pax</TableHead>
+                  <TableHead className="w-[170px]">Harga Mulai</TableHead>
+                  <TableHead className="w-[140px]">Status</TableHead>
+                  <TableHead>Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-white dark:bg-gray-800">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`s-${i}`} className="border-b border-gray-200 dark:border-gray-700 animate-pulse">
-                      <td className="py-3 px-4">
+                    <TableRow key={`s-${i}`} className="animate-pulse">
+                      <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
                           <div className="space-y-2">
@@ -215,33 +213,35 @@ export const ServicesPackages: React.FC = () => {
                             <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-72" />
                           </div>
                         </div>
-                      </td>
-                      <td className="py-3 px-4 w-[170px]">
+                      </TableCell>
+                      <TableCell className="w-[170px]">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
-                      </td>
-                      <td className="py-3 px-4 w-[170px]">
+                      </TableCell>
+                      <TableCell className="w-[170px]">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
-                      </td>
-                      <td className="py-3 px-4 w-[140px]">
+                      </TableCell>
+                      <TableCell className="w-[140px]">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" />
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="flex space-x-2">
                           <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
                           <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 ) : currentPackages.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-4">Tidak ada data</td>
-                  </tr>
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                      Tidak ada data
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   currentPackages.map((pkg) => (
-                    <tr key={String(pkg.package_id)} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="py-3 px-4">
+                    <TableRow key={String(pkg.package_id)} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <TableCell>
                         <div className="flex items-center space-x-3">
                           <img
                             src={pkg.thumbnail}
@@ -256,19 +256,19 @@ export const ServicesPackages: React.FC = () => {
                             <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1" dangerouslySetInnerHTML={{ __html: pkg.package_description }} />
                           </div>
                         </div>
-                      </td>
-                      <td className="py-3 px-4 w-[170px]">
+                      </TableCell>
+                      <TableCell className="w-[170px]">
                         <span className="text-sm text-gray-900 dark:text-white">{pkg.min_pax} - {pkg.max_pax} Pax</span>
-                      </td>
-                      <td className="py-3 px-4 w-[170px]">
+                      </TableCell>
+                      <TableCell className="w-[170px]">
                         <p className="font-medium text-gray-900 dark:text-white">
                           Rp {pkg.min_price?.toLocaleString()}
                         </p>
-                      </td>
-                      <td className="py-3 px-4 w-[140px]">
+                      </TableCell>
+                      <TableCell className="w-[140px]">
                         {getStatusText(pkg.status)}
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="flex space-x-2">
                           <Button
                             size="sm"
@@ -292,56 +292,24 @@ export const ServicesPackages: React.FC = () => {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
+
+          {!loading && filteredPackages.length > 0 ? (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredPackages.length)} dari {filteredPackages.length} paket
+              </div>
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1} - {Math.min(endIndex, filteredPackages.length)} dari {filteredPackages.length} paket
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Summary */}
       <Card>
