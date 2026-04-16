@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { Upload, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -96,12 +99,20 @@ export const OrderDetail: React.FC = () => {
   const orderId = params.order_id;
   const [orderData, setOrderData] = useState<OrderData>(() => createEmptyOrderData(routeOrderId || '-'));
   const [isUpdatePaymentOpen, setIsUpdatePaymentOpen] = useState(false);
+  const [paymentStatusOptions, setPaymentStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [paymentMethodOptions, setPaymentMethodOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [bankOptions, setBankOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [loadingPaymentOptions, setLoadingPaymentOptions] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     status: '',
     method: '',
     amount: '',
     proof: null as File | null,
     proofPreview: '',
+    evidence: '',
+    bankId: '',
+    bankAccount: '',
   });
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
@@ -262,6 +273,89 @@ export const OrderDetail: React.FC = () => {
     fetchDetail();
   }, [orderId]);
 
+  useEffect(() => {
+    if (!isUpdatePaymentOpen) return;
+    if (paymentStatusOptions.length > 0 && paymentMethodOptions.length > 0 && bankOptions.length > 0) return;
+    const loadOptions = async () => {
+      setLoadingPaymentOptions(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const [statusRes, methodRes, bankRes] = await Promise.all([
+          api.get<unknown>('/general/payment-status', token ? { Authorization: token } : undefined),
+          api.get<unknown>('/general/payment-method', token ? { Authorization: token } : undefined),
+          api.get<unknown>('/general/bank-list', token ? { Authorization: token } : undefined),
+        ]);
+
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
+        const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
+        const normalizeList = (res: unknown) => {
+          const r = res as { status?: string; data?: unknown };
+          if (r?.status !== 'success') return [];
+          const payload = r.data as unknown;
+          if (Array.isArray(payload)) return payload;
+          if (payload && typeof payload === 'object') {
+            const root = payload as Record<string, unknown>;
+            const dataNode = root.data as unknown;
+            const listNode =
+              (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).items : undefined) ??
+              (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).list : undefined) ??
+              (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).rows : undefined) ??
+              (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).data : undefined) ??
+              root.items ??
+              root.list ??
+              root.rows;
+            if (Array.isArray(listNode)) return listNode;
+            if (Array.isArray(dataNode)) return dataNode;
+          }
+          return [];
+        };
+
+        const statusItems = normalizeList(statusRes);
+        const methodItems = normalizeList(methodRes);
+        const bankItems = normalizeList(bankRes);
+
+        const mapOptions = (items: unknown[]) =>
+          items
+            .map((raw) => record(raw))
+            .map((o) => {
+              const value =
+                toStringSafe(o.code ?? o.value ?? o.key ?? o.id ?? o.payment_status ?? o.paymentStatus).trim();
+              const label =
+                toStringSafe(o.name ?? o.label ?? o.title ?? o.payment_status_name ?? o.paymentStatusName).trim() || value;
+              return value ? { value, label } : null;
+            })
+            .filter((x): x is { value: string; label: string } => Boolean(x));
+
+        const mapBankOptions = (items: unknown[]) =>
+          items
+            .map((raw) => record(raw))
+            .map((o) => {
+              const value = toStringSafe(o.bank_id ?? o.id ?? o.code ?? o.value ?? o.key).trim();
+              const label =
+                toStringSafe(o.bank_name ?? o.name ?? o.label ?? o.title).trim() ||
+                toStringSafe(o.account_name ?? '').trim() ||
+                value;
+              return value ? { value, label } : null;
+            })
+            .filter((x): x is { value: string; label: string } => Boolean(x));
+
+        const statuses = mapOptions(statusItems);
+        const methods = mapOptions(methodItems);
+        const banks = mapBankOptions(bankItems);
+
+        if (statuses.length > 0) setPaymentStatusOptions(statuses);
+        if (methods.length > 0) setPaymentMethodOptions(methods);
+        if (banks.length > 0) setBankOptions(banks);
+      } finally {
+        setLoadingPaymentOptions(false);
+      }
+    };
+    loadOptions();
+  }, [isUpdatePaymentOpen, paymentStatusOptions.length, paymentMethodOptions.length, bankOptions.length]);
+
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
       case 'paid':
@@ -310,23 +404,143 @@ export const OrderDetail: React.FC = () => {
       await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Mohon lengkapi semua field yang wajib diisi.' });
       return;
     }
+    const methodValue = String(paymentForm.method).trim();
+    const paymentMethodLabel = paymentMethodOptions.find((m) => m.value === methodValue)?.label ?? methodValue;
+    const methodLabelLower = paymentMethodLabel.toLowerCase();
+    const paymentMethodInt = Number(methodValue);
+    const paymentTypeInt = Number(String(paymentForm.status).trim());
+    if (!Number.isFinite(paymentMethodInt)) {
+      await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Metode pembayaran tidak valid.' });
+      return;
+    }
+    if (!Number.isFinite(paymentTypeInt)) {
+      await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Status pembayaran tidak valid.' });
+      return;
+    }
+
+    const isTransfer = paymentMethodInt === 1002 || methodLabelLower.includes('transfer');
+    const isQris = methodLabelLower.includes('qris');
+    const needsEvidence = isTransfer || isQris;
+    if (needsEvidence && !paymentForm.proof) {
+      await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Mohon upload bukti pembayaran.' });
+      return;
+    }
 
     setIsSubmittingPayment(true);
     try {
-      // Logic upload & API call here
-      // const formData = new FormData();
-      // formData.append('order_id', orderId || '');
-      // formData.append('status', paymentForm.status);
-      // formData.append('method', paymentForm.method);
-      // formData.append('amount', paymentForm.amount.replace(/[^0-9]/g, ''));
-      // if (paymentForm.proof) formData.append('proof', paymentForm.proof);
-      
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulating API
-      
+      const token = localStorage.getItem('token') ?? '';
+      const record = (v: unknown): Record<string, unknown> =>
+        v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+      let evidence = '';
+      if (paymentForm.proof) {
+        const uploadRes = await uploadCommon('payment', [paymentForm.proof], token);
+        if (uploadRes.status !== 'success') {
+          await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal upload bukti pembayaran.' });
+          return;
+        }
+
+        const data = record(uploadRes.data);
+        const filesRaw = data.files;
+        evidence =
+          Array.isArray(filesRaw) && filesRaw.length > 0
+            ? (typeof filesRaw[0] === 'string' ? filesRaw[0] : typeof filesRaw[0] === 'number' ? String(filesRaw[0]) : '')
+            : (typeof data.file === 'string' ? data.file : typeof data.path === 'string' ? data.path : '');
+
+        if (!evidence) {
+          await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Bukti pembayaran tidak valid.' });
+          return;
+        }
+      }
+
+      const paymentAmountStr = paymentForm.amount.replace(/[^0-9]/g, '');
+      const paymentAmountInt = Number(paymentAmountStr);
+      if (!Number.isFinite(paymentAmountInt) || paymentAmountInt <= 0) {
+        await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Nominal pembayaran tidak valid.' });
+        return;
+      }
+      const resolvedOrderId = orderId || routeOrderId || orderData.id;
+      if (!resolvedOrderId) {
+        await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Order ID tidak ditemukan.' });
+        return;
+      }
+      const paymentPayload = {
+        order_id: resolvedOrderId,
+        order_type: 1,
+        payment_type: paymentTypeInt,
+        payment_method: paymentMethodInt,
+        payment_amount: paymentAmountInt,
+        evidence_file: evidence || undefined,
+        bank_id: isTransfer && paymentForm.bankId && Number.isFinite(Number(paymentForm.bankId)) ? Number(paymentForm.bankId) : undefined,
+        bank_account: isTransfer && paymentForm.bankAccount.trim() ? paymentForm.bankAccount.trim() : undefined,
+      };
+
+      const payRes = await api.post<unknown>(
+        '/services/order/payment',
+        paymentPayload,
+        token ? { Authorization: token } : undefined
+      );
+
+      if (payRes.status !== 'success') {
+        if (payRes.statusCode === 400 && payRes.message === 'DOWN_PAYMENT_NOT_FOUND') {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Pembayaran Gagal Diperbarui',
+            text: 'Order ini belum memiliki pembayaran DP',
+          });
+          return;
+        }
+        if (payRes.statusCode === 400 && payRes.message === 'PAYMENT_AMOUNT_UNREACHABLE') {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Pembayaran Gagal Diperbarui',
+            text: 'Nominal pembayaran tidak sesuai',
+          });
+          return;
+        }
+        if (payRes.statusCode === 400 && payRes.message === 'PAYMENT_AMOUNT_MAX_EXCEEDED') {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Pembayaran Gagal Diperbarui',
+            text: 'Nominal uang muka melebihi total tagihan',
+          });
+          return;
+        }
+        await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memperbarui pembayaran.' });
+        return;
+      }
+
+      const paymentTypeLabel = paymentStatusOptions.find((s) => s.value === String(paymentTypeInt))?.label ?? '';
+      const paymentTypeLabelLower = paymentTypeLabel.toLowerCase();
+      const nextPaymentStatus =
+        paymentTypeLabelLower.includes('pelunasan') || paymentTypeLabelLower.includes('lunas') || paymentTypeLabelLower.includes('full')
+          ? 'paid'
+          : 'pending';
+
+      setOrderData((prev) => ({
+        ...prev,
+        paymentMethod: paymentMethodLabel,
+        paymentStatus: nextPaymentStatus,
+      }));
+
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pembayaran berhasil diperbarui.' });
       setIsUpdatePaymentOpen(false);
-      setPaymentForm({ status: '', method: '', amount: '', proof: null, proofPreview: '' });
-      // reload data
+      if (paymentForm.proofPreview && paymentForm.proofPreview.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(paymentForm.proofPreview);
+        } catch {
+          void 0;
+        }
+      }
+      setPaymentForm({
+        status: '',
+        method: '',
+        amount: '',
+        proof: null,
+        proofPreview: '',
+        evidence: '',
+        bankId: '',
+        bankAccount: '',
+      });
     } catch {
       await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memperbarui pembayaran.' });
     } finally {
@@ -735,9 +949,15 @@ export const OrderDetail: React.FC = () => {
                     <SelectValue placeholder="Pilih Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="dp">Uang Muka (DP)</SelectItem>
-                    <SelectItem value="installment">Cicilan</SelectItem>
-                    <SelectItem value="full">Pelunasan</SelectItem>
+                    {(paymentStatusOptions.length > 0 ? paymentStatusOptions : [
+                      { value: 'dp', label: 'Uang Muka (DP)' },
+                      { value: 'installment', label: 'Cicilan' },
+                      { value: 'full', label: 'Pelunasan' },
+                    ]).map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -746,19 +966,92 @@ export const OrderDetail: React.FC = () => {
                 <Label className="text-sm font-semibold">Metode Pembayaran</Label>
                 <Select
                   value={paymentForm.method}
-                  onValueChange={(v) => setPaymentForm(prev => ({ ...prev, method: v }))}
+                  onValueChange={(v) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      method: v,
+                      ...(String(v).trim() === '1002' ? {} : { bankId: '', bankAccount: '' }),
+                    }))
+                  }
                 >
                   <SelectTrigger className="h-11 rounded-xl border-gray-200 focus:ring-blue-500">
                     <SelectValue placeholder="Pilih Metode" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="transfer">Transfer Bank</SelectItem>
-                    <SelectItem value="qris">QRIS</SelectItem>
-                    <SelectItem value="cash">Tunai</SelectItem>
+                    {(paymentMethodOptions.length > 0 ? paymentMethodOptions : [
+                      { value: 'transfer', label: 'Transfer Bank' },
+                      { value: 'qris', label: 'QRIS' },
+                      { value: 'cash', label: 'Tunai' },
+                    ]).map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {String(paymentForm.method).trim() === '1002' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Pilihan Bank</Label>
+                  <Popover open={bankOpen} onOpenChange={setBankOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={bankOpen}
+                        className="h-11 w-full justify-between rounded-xl border-gray-200"
+                      >
+                        {paymentForm.bankId
+                          ? bankOptions.find((b) => b.value === paymentForm.bankId)?.label ?? paymentForm.bankId
+                          : 'Pilih bank'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Cari bank..." />
+                        <CommandList>
+                          <CommandEmpty>Bank tidak ditemukan.</CommandEmpty>
+                          <CommandGroup>
+                            {bankOptions.map((b) => (
+                              <CommandItem
+                                key={b.value}
+                                value={`${b.value} ${b.label}`}
+                                onSelect={() => {
+                                  setPaymentForm((prev) => ({ ...prev, bankId: b.value }));
+                                  setBankOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    'mr-2 h-4 w-4',
+                                    paymentForm.bankId === b.value ? 'opacity-100' : 'opacity-0'
+                                  )}
+                                />
+                                {b.label}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Bank Account</Label>
+                  <Input
+                    className="h-11 rounded-xl border-gray-200 focus:ring-blue-500"
+                    placeholder="Masukkan nomor rekening / akun bank"
+                    value={paymentForm.bankAccount}
+                    onChange={(e) => setPaymentForm((prev) => ({ ...prev, bankAccount: e.target.value }))}
+                  />
+                </div>
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <Label className="text-sm font-semibold">Nominal Pembayaran</Label>
@@ -789,7 +1082,16 @@ export const OrderDetail: React.FC = () => {
                         variant="destructive" 
                         size="sm" 
                         className="rounded-full h-10 w-10 p-0"
-                        onClick={() => setPaymentForm(prev => ({ ...prev, proof: null, proofPreview: '' }))}
+                        onClick={() => {
+                          if (paymentForm.proofPreview && paymentForm.proofPreview.startsWith('blob:')) {
+                            try {
+                              URL.revokeObjectURL(paymentForm.proofPreview);
+                            } catch {
+                              void 0;
+                            }
+                          }
+                          setPaymentForm((prev) => ({ ...prev, proof: null, proofPreview: '' }));
+                        }}
                       >
                         <X className="h-5 w-5" />
                       </Button>
@@ -809,6 +1111,13 @@ export const OrderDetail: React.FC = () => {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          if (paymentForm.proofPreview && paymentForm.proofPreview.startsWith('blob:')) {
+                            try {
+                              URL.revokeObjectURL(paymentForm.proofPreview);
+                            } catch {
+                              void 0;
+                            }
+                          }
                           setPaymentForm(prev => ({
                             ...prev,
                             proof: file,
@@ -835,12 +1144,17 @@ export const OrderDetail: React.FC = () => {
               <Button
                 type="submit"
                 className="flex-1 rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 dark:shadow-none"
-                disabled={isSubmittingPayment}
+                disabled={isSubmittingPayment || loadingPaymentOptions}
               >
                 {isSubmittingPayment ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Memproses...
+                  </>
+                ) : loadingPaymentOptions ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Memuat opsi...
                   </>
                 ) : (
                   'Update Pembayaran'

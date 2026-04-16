@@ -81,6 +81,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
 
     if (res.status === 400) {
       const message = extractMessage(json) ?? 'Bad request';
+      if (message === 'DOWN_PAYMENT_NOT_FOUND' || message === 'PAYMENT_AMOUNT_UNREACHABLE' || message === 'PAYMENT_AMOUNT_MAX_EXCEEDED') {
+        return { status: 'error', statusCode: 400, message };
+      }
       Swal.fire({
         icon: 'warning',
         title: 'Permintaan tidak valid',
@@ -199,7 +202,7 @@ async function postMultipart<T>(path: string, formData: FormData, headers?: Reco
   }
 }
 
-export async function uploadCommon(type: 'armada' | 'package' | 'bank' | 'avatar' | 'employee_photo', files: File[], token?: string) {
+export async function uploadCommon(type: 'armada' | 'package' | 'bank' | 'avatar' | 'employee_photo' | 'payment', files: File[], token?: string) {
   const fd = new FormData();
   fd.append('type', type);
   files.forEach((f) => fd.append('files', f));
