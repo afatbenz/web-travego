@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2 } from 'lucide-react';
-import { api, uploadCommon } from '@/lib/api';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings } from 'lucide-react';
+import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,7 @@ type ItineraryDay = {
 
 type OrderData = {
   id: string;
+  fleetId: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -50,6 +51,7 @@ type OrderData = {
   participants: number;
   status: string;
   totalAmount: number;
+  remainingAmount: number;
   originalAmount: number;
   discount: number;
   createdAt: string;
@@ -64,8 +66,23 @@ type OrderData = {
   notes: string;
 };
 
+type PaymentHistoryRow = {
+  id: string;
+  payment_type: number;
+  payment_type_label: string;
+  payment_method: number;
+  payment_method_label: string;
+  payment_amount: number;
+  remaining_amount: number;
+  payment_date: string;
+  evidence_file: string;
+  bank_name: string;
+  bank_account: string;
+};
+
 const createEmptyOrderData = (id: string): OrderData => ({
   id,
+  fleetId: '',
   customerName: '-',
   customerEmail: '-',
   customerPhone: '-',
@@ -78,6 +95,7 @@ const createEmptyOrderData = (id: string): OrderData => ({
   participants: 0,
   status: 'pending',
   totalAmount: 0,
+  remainingAmount: 0,
   originalAmount: 0,
   discount: 0,
   createdAt: '',
@@ -94,9 +112,11 @@ const createEmptyOrderData = (id: string): OrderData => ({
 
 export const OrderDetail: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const params = useParams();
   const routeOrderId = params.transaction_id ?? params.order_id ?? params.id ?? '';
   const orderId = params.order_id;
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [orderData, setOrderData] = useState<OrderData>(() => createEmptyOrderData(routeOrderId || '-'));
   const [isUpdatePaymentOpen, setIsUpdatePaymentOpen] = useState(false);
   const [paymentStatusOptions, setPaymentStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -104,6 +124,8 @@ export const OrderDetail: React.FC = () => {
   const [bankOptions, setBankOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [loadingPaymentOptions, setLoadingPaymentOptions] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryRow[]>([]);
+  const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     status: '',
     method: '',
@@ -115,6 +137,110 @@ export const OrderDetail: React.FC = () => {
     bankAccount: '',
   });
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  const showScheduleButton = (() => {
+    const s = String(orderData.paymentStatus ?? '').toLowerCase().trim();
+    return s === 'pending' || s === 'paid' || s === 'lunas' || s === 'success';
+  })();
+
+  const canRefund = (() => {
+    const status = String(orderData.paymentStatus ?? '').toLowerCase().trim();
+    const isPaid = status === 'paid' || status === 'lunas' || status === 'success';
+    if (!isPaid) return false;
+    const startRaw = String(orderData.startDate ?? '').trim();
+    if (!startRaw) return false;
+    const start = new Date(startRaw);
+    if (Number.isNaN(start.getTime())) return false;
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return startDay.getTime() > today.getTime();
+  })();
+
+  const fetchPaymentHistory = useCallback(
+    async (resolvedOrderId: string) => {
+      setLoadingPaymentHistory(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.post<unknown>(
+          '/services/order/payment-history',
+          { order_id: resolvedOrderId },
+          token ? { Authorization: token } : undefined
+        );
+        if (res.status !== 'success') {
+          setPaymentHistory([]);
+          return [];
+        }
+
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+        const toNumberSafe = (v: unknown) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        const payload = res.data as unknown;
+        let items: unknown[] = [];
+        if (Array.isArray(payload)) items = payload;
+        else if (payload && typeof payload === 'object') {
+          const root = payload as Record<string, unknown>;
+          const dataNode = root.data as unknown;
+          const listNode =
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).items : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).rows : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).history : undefined) ??
+            root.items ??
+            root.rows ??
+            root.history;
+          if (Array.isArray(listNode)) items = listNode;
+          else if (Array.isArray(dataNode)) items = dataNode;
+        }
+
+        const mapped = items.map((raw, idx) => {
+          const o = record(raw);
+          const id =
+            toStringSafe(o.id ?? o.payment_id ?? o.paymentId ?? o.transaction_id ?? o.transactionId ?? idx).trim() ||
+            `row-${idx}`;
+          return {
+            id,
+            payment_type: toNumberSafe(o.payment_type ?? o.paymentType ?? o.type),
+            payment_type_label: toStringSafe(o.payment_type_label ?? o.paymentTypeLabel ?? o.type_label ?? o.typeLabel).trim(),
+            payment_method: toNumberSafe(o.payment_method ?? o.paymentMethod ?? o.method),
+            payment_method_label: toStringSafe(
+              o.payment_method_label ?? o.paymentMethodLabel ?? o.method_label ?? o.methodLabel
+            ).trim(),
+            payment_amount: toNumberSafe(o.payment_amount ?? o.paymentAmount ?? o.amount),
+            remaining_amount: toNumberSafe(
+              o.remaining_amount ?? o.remainingAmount ?? o.sisa_tagihan ?? o.remaining_payment ?? o.remainingPayment
+            ),
+            payment_date: toStringSafe(o.payment_date ?? o.paymentDate ?? o.created_at ?? o.createdAt).trim(),
+            evidence_file: toStringSafe(o.evidence_file ?? o.evidenceFile ?? o.evidence ?? o.proof ?? o.file ?? o.path).trim(),
+            bank_name: toStringSafe(o.bank_name ?? o.bankName ?? o.bank).trim(),
+            bank_account: toStringSafe(o.bank_account ?? o.bankAccount).trim(),
+          } satisfies PaymentHistoryRow;
+        });
+
+        const filtered = mapped.filter(
+          (x) =>
+            x.payment_type ||
+            x.payment_method ||
+            x.payment_amount ||
+            x.remaining_amount ||
+            x.payment_date ||
+            x.evidence_file ||
+            x.payment_type_label ||
+            x.payment_method_label
+        );
+
+        setPaymentHistory(filtered);
+        return filtered;
+      } finally {
+        setLoadingPaymentHistory(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     setOrderData(createEmptyOrderData(routeOrderId || '-'));
@@ -143,6 +269,8 @@ export const OrderDetail: React.FC = () => {
       const pickup = record(detail.pickup);
       const customer = record(detail.customer);
       const payment = record(detail.payment);
+      const hasPaymentInfoRaw = detail.payment && typeof detail.payment === 'object' && !Array.isArray(detail.payment);
+      const hasPaymentInfo = hasPaymentInfoRaw && Object.keys(detail.payment as Record<string, unknown>).length > 0;
       const addonsRaw = detail.addon;
       const addons = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
 
@@ -166,6 +294,17 @@ export const OrderDetail: React.FC = () => {
       const totalAmount = getNumber(detail.total_amount ?? detail.totalAmount, 0);
       const originalAmount = price > 0 && quantity > 0 ? price * quantity : getNumber(detail.original_amount ?? detail.originalAmount, totalAmount);
       const discount = Math.max(0, originalAmount - totalAmount);
+      const remainingAmount = hasPaymentInfo
+        ? getNumber(
+            payment.payment_remaining ??
+              payment.paymentRemaining ??
+              payment.remaining_amount ??
+              payment.remainingAmount ??
+              detail.payment_remaining ??
+              detail.paymentRemaining,
+            totalAmount
+          )
+        : totalAmount;
 
       const startDate = getString(pickup.start_date ?? pickup.startDate, '');
       const endDate = getString(pickup.end_date ?? pickup.endDate, '');
@@ -241,6 +380,7 @@ export const OrderDetail: React.FC = () => {
       const next: OrderData = {
         ...createEmptyOrderData(orderId),
         id: getString(detail.order_id ?? detail.id, orderId),
+        fleetId: getString(detail.fleet_id ?? detail.fleetId, ''),
         customerName: getString(customer.customer_name ?? customer.customerName, '-'),
         customerEmail: getString(customer.customer_email ?? customer.customerEmail, '-'),
         customerPhone: getString(customer.customer_phone ?? customer.customerPhone, '-'),
@@ -253,11 +393,22 @@ export const OrderDetail: React.FC = () => {
         participants: quantity,
         status: getString(detail.status, paymentStatus === 'paid' ? 'success' : 'pending'),
         totalAmount,
+        remainingAmount,
         originalAmount,
         discount,
         createdAt,
         paymentStatus,
-        paymentMethod: getString(payment.payment_method ?? payment.paymentMethod ?? detail.payment_method ?? detail.paymentMethod, '-'),
+        paymentMethod: getString(
+          payment.payment_method_label ??
+            payment.paymentMethodLabel ??
+            detail.payment_method_label ??
+            detail.paymentMethodLabel ??
+            payment.payment_method ??
+            payment.paymentMethod ??
+            detail.payment_method ??
+            detail.paymentMethod,
+          '-'
+        ),
         paymentDate,
         pickupLocation,
         pickupTime: getString(pickup.pickup_time ?? pickup.pickupTime, '-'),
@@ -272,6 +423,12 @@ export const OrderDetail: React.FC = () => {
 
     fetchDetail();
   }, [orderId]);
+
+  useEffect(() => {
+    const resolvedOrderId = orderId || routeOrderId || orderData.id;
+    if (!resolvedOrderId) return;
+    fetchPaymentHistory(resolvedOrderId);
+  }, [orderId, routeOrderId, orderData.id, fetchPaymentHistory]);
 
   useEffect(() => {
     if (!isUpdatePaymentOpen) return;
@@ -400,25 +557,145 @@ export const OrderDetail: React.FC = () => {
 
   const handleUpdatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentForm.status || !paymentForm.method || !paymentForm.amount) {
-      await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Mohon lengkapi semua field yang wajib diisi.' });
-      return;
-    }
+
     const methodValue = String(paymentForm.method).trim();
     const paymentMethodLabel = paymentMethodOptions.find((m) => m.value === methodValue)?.label ?? methodValue;
     const methodLabelLower = paymentMethodLabel.toLowerCase();
     const paymentMethodInt = Number(methodValue);
-    const paymentTypeInt = Number(String(paymentForm.status).trim());
     if (!Number.isFinite(paymentMethodInt)) {
       await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Metode pembayaran tidak valid.' });
       return;
     }
+
+    const isTransfer = paymentMethodInt === 1002 || methodLabelLower.includes('transfer');
+
+    if (canRefund) {
+      if (!paymentForm.method || !paymentForm.amount) {
+        await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Mohon lengkapi semua field yang wajib diisi.' });
+        return;
+      }
+      if (isTransfer) {
+        const bankIdNum = Number(paymentForm.bankId);
+        if (!Number.isFinite(bankIdNum)) {
+          await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Mohon pilih bank.' });
+          return;
+        }
+        if (!paymentForm.bankAccount.trim()) {
+          await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Mohon isi account name.' });
+          return;
+        }
+      }
+
+      setIsSubmittingPayment(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const resolvedOrderId = orderId || routeOrderId || orderData.id;
+        if (!resolvedOrderId) {
+          await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Order ID tidak ditemukan.' });
+          return;
+        }
+
+        const bankIdNum = Number(paymentForm.bankId);
+        const refundPayload = {
+          order_id: resolvedOrderId,
+          order_type: 1,
+          payment_method: paymentMethodInt,
+          bank_id: isTransfer && Number.isFinite(bankIdNum) ? bankIdNum : undefined,
+          account_name: isTransfer && paymentForm.bankAccount.trim() ? paymentForm.bankAccount.trim() : undefined,
+        };
+
+        const refundRes = await api.post<unknown>(
+          '/services/order/payment-refund',
+          refundPayload,
+          token ? { Authorization: token } : undefined
+        );
+
+        if (refundRes.status !== 'success') {
+          await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat mengajukan refund.' });
+          return;
+        }
+
+        await fetchPaymentHistory(resolvedOrderId);
+
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const getStringSafe = (v: unknown, fallback: string) =>
+          typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : fallback;
+        const getNumberSafe = (v: unknown, fallback: number) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : fallback;
+        };
+
+        const detailRes = await api.get<unknown>(
+          `/services/fleet/order/detail/${encodeURIComponent(resolvedOrderId)}`,
+          token ? { Authorization: token } : undefined
+        );
+        if (detailRes.status === 'success') {
+          const root = record(detailRes.data);
+          const detail = record(root.order ?? root.transaction ?? root.detail ?? root);
+          const paymentObj = record(detail.payment);
+          const hasPaymentInfoRaw = detail.payment && typeof detail.payment === 'object' && !Array.isArray(detail.payment);
+          const hasPaymentInfo = hasPaymentInfoRaw && Object.keys(detail.payment as Record<string, unknown>).length > 0;
+          const totalFromRes = getNumberSafe(detail.total_amount ?? detail.totalAmount, orderData.totalAmount);
+          const remaining = hasPaymentInfo
+            ? getNumberSafe(
+                paymentObj.payment_remaining ??
+                  paymentObj.paymentRemaining ??
+                  paymentObj.remaining_amount ??
+                  paymentObj.remainingAmount ??
+                  detail.payment_remaining ??
+                  detail.paymentRemaining,
+                totalFromRes
+              )
+            : totalFromRes;
+
+          setOrderData((prev) => ({
+            ...prev,
+            paymentMethod: getStringSafe(
+              paymentObj.payment_method_label ??
+                paymentObj.paymentMethodLabel ??
+                detail.payment_method_label ??
+                detail.paymentMethodLabel,
+              prev.paymentMethod
+            ),
+            paymentDate: getStringSafe(
+              paymentObj.payment_date ?? paymentObj.paymentDate ?? detail.payment_date ?? detail.paymentDate,
+              prev.paymentDate
+            ),
+            remainingAmount: remaining,
+          }));
+        }
+
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Refund berhasil diajukan.' });
+        setIsUpdatePaymentOpen(false);
+        setPaymentForm({
+          status: '',
+          method: '',
+          amount: '',
+          proof: null,
+          proofPreview: '',
+          evidence: '',
+          bankId: '',
+          bankAccount: '',
+        });
+      } catch {
+        await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat mengajukan refund.' });
+      } finally {
+        setIsSubmittingPayment(false);
+      }
+      return;
+    }
+
+    if (!paymentForm.status || !paymentForm.method || !paymentForm.amount) {
+      await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Mohon lengkapi semua field yang wajib diisi.' });
+      return;
+    }
+    const paymentTypeInt = Number(String(paymentForm.status).trim());
     if (!Number.isFinite(paymentTypeInt)) {
       await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Status pembayaran tidak valid.' });
       return;
     }
 
-    const isTransfer = paymentMethodInt === 1002 || methodLabelLower.includes('transfer');
     const isQris = methodLabelLower.includes('qris');
     const needsEvidence = isTransfer || isQris;
     if (needsEvidence && !paymentForm.proof) {
@@ -489,6 +766,14 @@ export const OrderDetail: React.FC = () => {
           });
           return;
         }
+        if (payRes.statusCode === 400 && payRes.message === 'DOWN_PAYMENT_ALREADY_EXIST') {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Pembayaran Gagal Diperbarui',
+            text: 'Pembayaran uang muka sudah dilakukan',
+          });
+          return;
+        }
         if (payRes.statusCode === 400 && payRes.message === 'PAYMENT_AMOUNT_UNREACHABLE') {
           await Swal.fire({
             icon: 'error',
@@ -509,17 +794,89 @@ export const OrderDetail: React.FC = () => {
         return;
       }
 
-      const paymentTypeLabel = paymentStatusOptions.find((s) => s.value === String(paymentTypeInt))?.label ?? '';
-      const paymentTypeLabelLower = paymentTypeLabel.toLowerCase();
+      const getStringSafe = (v: unknown, fallback: string) =>
+        typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : fallback;
+      const getNumberSafe = (v: unknown, fallback: number) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fallback;
+      };
+
+      let refreshedPaymentDate = '';
+      let refreshedRemainingAmount: number | null = null;
+      let refreshedPaymentMethodLabel = paymentMethodLabel;
+      let refreshedPaymentStatus: string | null = null;
+
+      const detailRes = await api.get<unknown>(
+        `/services/fleet/order/detail/${encodeURIComponent(resolvedOrderId)}`,
+        token ? { Authorization: token } : undefined
+      );
+      if (detailRes.status === 'success') {
+        const root = record(detailRes.data);
+        const detail = record(root.order ?? root.transaction ?? root.detail ?? root);
+        const paymentObj = record(detail.payment);
+        const hasPaymentInfoRaw = detail.payment && typeof detail.payment === 'object' && !Array.isArray(detail.payment);
+        const hasPaymentInfo = hasPaymentInfoRaw && Object.keys(detail.payment as Record<string, unknown>).length > 0;
+
+        const totalFromRes = getNumberSafe(detail.total_amount ?? detail.totalAmount, orderData.totalAmount);
+        const remaining = hasPaymentInfo
+          ? getNumberSafe(
+              paymentObj.payment_remaining ??
+                paymentObj.paymentRemaining ??
+                paymentObj.remaining_amount ??
+                paymentObj.remainingAmount ??
+                detail.payment_remaining ??
+                detail.paymentRemaining,
+              totalFromRes
+            )
+          : totalFromRes;
+
+        refreshedRemainingAmount = remaining;
+        refreshedPaymentMethodLabel = getStringSafe(
+          paymentObj.payment_method_label ??
+            paymentObj.paymentMethodLabel ??
+            detail.payment_method_label ??
+            detail.paymentMethodLabel,
+          refreshedPaymentMethodLabel
+        );
+        refreshedPaymentDate = getStringSafe(paymentObj.payment_date ?? paymentObj.paymentDate ?? detail.payment_date ?? detail.paymentDate, '');
+        refreshedPaymentStatus = getStringSafe(detail.payment_status ?? paymentObj.status ?? paymentObj.payment_status, '');
+      }
+
+      const history = await fetchPaymentHistory(resolvedOrderId);
+      let latestHistoryDate = '';
+      let latestHistoryRemaining: number | null = null;
+      if (history.length > 0) {
+        const sorted = [...history].sort((a, b) => {
+          const ta = new Date(a.payment_date).getTime();
+          const tb = new Date(b.payment_date).getTime();
+          return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+        });
+        latestHistoryDate = sorted[0]?.payment_date ?? '';
+        latestHistoryRemaining = Number.isFinite(sorted[0]?.remaining_amount) ? sorted[0]!.remaining_amount : null;
+      }
+
+      const nextRemainingAmount =
+        typeof refreshedRemainingAmount === 'number'
+          ? refreshedRemainingAmount
+          : typeof latestHistoryRemaining === 'number'
+            ? latestHistoryRemaining
+            : orderData.remainingAmount;
+
+      const nextPaymentDate = refreshedPaymentDate || latestHistoryDate || orderData.paymentDate;
+      const nextPaymentMethod = refreshedPaymentMethodLabel || paymentMethodLabel;
       const nextPaymentStatus =
-        paymentTypeLabelLower.includes('pelunasan') || paymentTypeLabelLower.includes('lunas') || paymentTypeLabelLower.includes('full')
-          ? 'paid'
-          : 'pending';
+        typeof refreshedPaymentStatus === 'string' && refreshedPaymentStatus
+          ? refreshedPaymentStatus
+          : nextRemainingAmount <= 0
+            ? 'paid'
+            : 'pending';
 
       setOrderData((prev) => ({
         ...prev,
-        paymentMethod: paymentMethodLabel,
+        paymentMethod: nextPaymentMethod,
         paymentStatus: nextPaymentStatus,
+        paymentDate: nextPaymentDate,
+        remainingAmount: nextRemainingAmount,
       }));
 
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pembayaran berhasil diperbarui.' });
@@ -606,6 +963,16 @@ export const OrderDetail: React.FC = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const getPaymentTypeLabel = (value: number) => {
+    const key = String(value);
+    return paymentStatusOptions.find((s) => s.value === key)?.label ?? key;
+  };
+
+  const getPaymentMethodLabel = (value: number) => {
+    const key = String(value);
+    return paymentMethodOptions.find((m) => m.value === key)?.label ?? key;
   };
 
   return (
@@ -817,6 +1184,35 @@ export const OrderDetail: React.FC = () => {
             </CardContent>
           </Card>
 
+          <div className={cn('grid gap-3', showScheduleButton ? 'grid-cols-3' : 'grid-cols-2')}>
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => setIsUpdatePaymentOpen(true)}
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Update Pembayaran
+            </Button>
+            {showScheduleButton ? (
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => {
+                  const qs = new URLSearchParams();
+                  if (orderData.id) qs.set('order_id', orderData.id);
+                  if (orderData.fleetId) qs.set('fleet_id', orderData.fleetId);
+                  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+                  navigate(`${basePrefix}/team/schedule-armada/add${suffix}`);
+                }}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Buat Jadwal Perjalanan
+              </Button>
+            ) : null}
+            <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+              <Settings className="h-4 w-4 mr-2" />
+              Update Status
+            </Button>
+          </div>
+
         </div>
 
         {/* Sidebar */}
@@ -829,35 +1225,97 @@ export const OrderDetail: React.FC = () => {
                 <span>Informasi Pembayaran</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Status Pembayaran</label>
-                <div className="mt-1">{getPaymentStatusBadge(orderData.paymentStatus)}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Metode Pembayaran</label>
-                <p className="text-gray-900 dark:text-white">{orderData.paymentMethod}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Tanggal Pembayaran</label>
-                <p className="text-gray-900 dark:text-white">{formatDate(orderData.paymentDate)}</p>
-              </div>
-              <Separator />
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Harga Awal</span>
-                  <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(orderData.originalAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Diskon</span>
-                  <span className="text-sm text-red-600">-{formatCurrency(orderData.discount)}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-medium">
-                  <span className="text-gray-900 dark:text-white">Total</span>
-                  <span className="text-gray-900 dark:text-white">{formatCurrency(orderData.totalAmount)}</span>
-                </div>
-              </div>
+            <CardContent>
+              <Tabs defaultValue="summary">
+                <TabsList className="w-full justify-start">
+                  <TabsTrigger value="summary">Ringkasan</TabsTrigger>
+                  <TabsTrigger value="history">Riwayat</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="summary" className="pt-4 space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Status Pembayaran</label>
+                    <div className="mt-1">{getPaymentStatusBadge(orderData.paymentStatus)}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Tanggal Pembayaran</label>
+                    <p className="text-gray-900 dark:text-white">{formatDate(orderData.paymentDate)}</p>
+                  </div>
+                  <Separator />
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Harga Awal</span>
+                      <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(orderData.originalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Diskon</span>
+                      <span className="text-sm text-red-600">-{formatCurrency(orderData.discount)}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between font-medium">
+                      <span className="text-gray-900 dark:text-white">Total</span>
+                      <span className="text-gray-900 dark:text-white">{formatCurrency(orderData.totalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Terbayar</span>
+                      <span className="text-sm text-gray-900 dark:text-white">
+                        {formatCurrency(Math.max(0, orderData.totalAmount - orderData.remainingAmount))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Sisa Tagihan</span>
+                      <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(orderData.remainingAmount)}</span>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="history" className="pt-4 space-y-3">
+                  {loadingPaymentHistory ? (
+                    <div className="text-sm text-gray-600 dark:text-gray-300">Memuat riwayat...</div>
+                  ) : paymentHistory.length === 0 ? (
+                    <div className="text-sm text-gray-600 dark:text-gray-300">Belum ada riwayat pembayaran.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {paymentHistory.map((h) => (
+                        <div key={h.id} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {h.payment_type_label || getPaymentTypeLabel(h.payment_type)}
+                            </div>
+                            <div className="text-sm text-gray-900 dark:text-white">{formatCurrency(h.payment_amount)}</div>
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">
+                            {(h.payment_method_label || getPaymentMethodLabel(h.payment_method))} • {formatDateTime(h.payment_date)}
+                          </div>
+                          {Number.isFinite(h.remaining_amount) && h.remaining_amount > 0 ? (
+                            <div className="text-xs text-gray-600 dark:text-gray-300">
+                              Sisa tagihan: {formatCurrency(h.remaining_amount)}
+                            </div>
+                          ) : null}
+                          {h.bank_name || h.bank_account ? (
+                            <div className="text-xs text-gray-600 dark:text-gray-300">
+                              {h.bank_name ? h.bank_name : '-'}{h.bank_account ? ` • ${h.bank_account}` : ''}
+                            </div>
+                          ) : null}
+                          {h.evidence_file ? (
+                            <div className="pt-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8"
+                                onClick={() => window.open(toFileUrl(h.evidence_file), '_blank', 'noopener,noreferrer')}
+                              >
+                                Lihat Bukti
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
 
@@ -899,31 +1357,6 @@ export const OrderDetail: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-
-          {/* Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Aksi</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button className="w-full" variant="outline">
-                <Mail className="h-4 w-4 mr-2" />
-                Kirim Email
-              </Button>
-              <Button className="w-full" variant="outline">
-                <Phone className="h-4 w-4 mr-2" />
-                Hubungi Customer
-              </Button>
-              <Button className="w-full" variant="outline" onClick={() => setIsUpdatePaymentOpen(true)}>
-                <CreditCard className="h-4 w-4 mr-2" />
-                Update Pembayaran
-              </Button>
-              <Button className="w-full" variant="outline">
-                <Calendar className="h-4 w-4 mr-2" />
-                Update Status
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
@@ -933,37 +1366,71 @@ export const OrderDetail: React.FC = () => {
           <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Update Pembayaran
+              {canRefund ? 'Ajukan Refund' : 'Update Pembayaran'}
             </DialogTitle>
           </DialogHeader>
           
           <form onSubmit={handleUpdatePayment} className="p-6 space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Status Pembayaran</Label>
-                <Select
-                  value={paymentForm.status}
-                  onValueChange={(v) => setPaymentForm(prev => ({ ...prev, status: v }))}
-                >
-                  <SelectTrigger className="h-11 rounded-xl border-gray-200 focus:ring-blue-500">
-                    <SelectValue placeholder="Pilih Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(paymentStatusOptions.length > 0 ? paymentStatusOptions : [
-                      { value: 'dp', label: 'Uang Muka (DP)' },
-                      { value: 'installment', label: 'Cicilan' },
-                      { value: 'full', label: 'Pelunasan' },
-                    ]).map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {!canRefund ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Status Pembayaran</Label>
+                  <Select value={paymentForm.status} onValueChange={(v) => setPaymentForm((prev) => ({ ...prev, status: v }))}>
+                    <SelectTrigger className="h-11 rounded-xl border-gray-200 focus:ring-blue-500">
+                      <SelectValue placeholder="Pilih Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(paymentStatusOptions.length > 0
+                        ? paymentStatusOptions
+                        : [
+                            { value: 'dp', label: 'Uang Muka (DP)' },
+                            { value: 'installment', label: 'Cicilan' },
+                            { value: 'full', label: 'Pelunasan' },
+                          ]
+                      ).map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Metode Pembayaran</Label>
+                  <Select
+                    value={paymentForm.method}
+                    onValueChange={(v) =>
+                      setPaymentForm((prev) => ({
+                        ...prev,
+                        method: v,
+                        ...(String(v).trim() === '1002' ? {} : { bankId: '', bankAccount: '' }),
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-11 rounded-xl border-gray-200 focus:ring-blue-500">
+                      <SelectValue placeholder="Pilih Metode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(paymentMethodOptions.length > 0
+                        ? paymentMethodOptions
+                        : [
+                            { value: 'transfer', label: 'Transfer Bank' },
+                            { value: 'qris', label: 'QRIS' },
+                            { value: 'cash', label: 'Tunai' },
+                          ]
+                      ).map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : (
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Metode Pembayaran</Label>
+                <Label className="text-sm font-semibold">Metode Refund</Label>
                 <Select
                   value={paymentForm.method}
                   onValueChange={(v) =>
@@ -978,11 +1445,14 @@ export const OrderDetail: React.FC = () => {
                     <SelectValue placeholder="Pilih Metode" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(paymentMethodOptions.length > 0 ? paymentMethodOptions : [
-                      { value: 'transfer', label: 'Transfer Bank' },
-                      { value: 'qris', label: 'QRIS' },
-                      { value: 'cash', label: 'Tunai' },
-                    ]).map((opt) => (
+                    {(paymentMethodOptions.length > 0
+                      ? paymentMethodOptions
+                      : [
+                          { value: 'transfer', label: 'Transfer Bank' },
+                          { value: 'qris', label: 'QRIS' },
+                          { value: 'cash', label: 'Tunai' },
+                        ]
+                    ).map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>
@@ -990,7 +1460,7 @@ export const OrderDetail: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            )}
 
             {String(paymentForm.method).trim() === '1002' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1042,10 +1512,10 @@ export const OrderDetail: React.FC = () => {
                   </Popover>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Bank Account</Label>
+                  <Label className="text-sm font-semibold">{canRefund ? 'Account Name' : 'Bank Account'}</Label>
                   <Input
                     className="h-11 rounded-xl border-gray-200 focus:ring-blue-500"
-                    placeholder="Masukkan nomor rekening / akun bank"
+                    placeholder={canRefund ? 'Masukkan nama pemilik rekening' : 'Masukkan nomor rekening / akun bank'}
                     value={paymentForm.bankAccount}
                     onChange={(e) => setPaymentForm((prev) => ({ ...prev, bankAccount: e.target.value }))}
                   />
@@ -1065,71 +1535,75 @@ export const OrderDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Bukti Pembayaran</Label>
-              <div 
-                className={cn(
-                  "relative border-2 border-dashed rounded-2xl transition-all duration-200 group overflow-hidden",
-                  paymentForm.proofPreview ? "border-blue-500 bg-blue-50/30" : "border-gray-200 hover:border-blue-400 hover:bg-gray-50"
-                )}
-              >
-                {paymentForm.proofPreview ? (
-                  <div className="relative aspect-video w-full group">
-                    <img src={paymentForm.proofPreview} alt="Proof" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Button 
-                        type="button" 
-                        variant="destructive" 
-                        size="sm" 
-                        className="rounded-full h-10 w-10 p-0"
-                        onClick={() => {
-                          if (paymentForm.proofPreview && paymentForm.proofPreview.startsWith('blob:')) {
-                            try {
-                              URL.revokeObjectURL(paymentForm.proofPreview);
-                            } catch {
-                              void 0;
+            {!canRefund ? (
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Bukti Pembayaran</Label>
+                <div
+                  className={cn(
+                    "relative border-2 border-dashed rounded-2xl transition-all duration-200 group overflow-hidden",
+                    paymentForm.proofPreview
+                      ? "border-blue-500 bg-blue-50/30"
+                      : "border-gray-200 hover:border-blue-400 hover:bg-gray-50"
+                  )}
+                >
+                  {paymentForm.proofPreview ? (
+                    <div className="relative aspect-video w-full group">
+                      <img src={paymentForm.proofPreview} alt="Proof" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="rounded-full h-10 w-10 p-0"
+                          onClick={() => {
+                            if (paymentForm.proofPreview && paymentForm.proofPreview.startsWith('blob:')) {
+                              try {
+                                URL.revokeObjectURL(paymentForm.proofPreview);
+                              } catch {
+                                void 0;
+                              }
                             }
+                            setPaymentForm((prev) => ({ ...prev, proof: null, proofPreview: '' }));
+                          }}
+                        >
+                          <X className="h-5 w-5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center py-8 cursor-pointer w-full">
+                      <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                        <Upload className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Klik untuk upload bukti</span>
+                      <span className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (paymentForm.proofPreview && paymentForm.proofPreview.startsWith('blob:')) {
+                              try {
+                                URL.revokeObjectURL(paymentForm.proofPreview);
+                              } catch {
+                                void 0;
+                              }
+                            }
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              proof: file,
+                              proofPreview: URL.createObjectURL(file),
+                            }));
                           }
-                          setPaymentForm((prev) => ({ ...prev, proof: null, proofPreview: '' }));
                         }}
-                      >
-                        <X className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center py-8 cursor-pointer w-full">
-                    <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-full mb-3 group-hover:scale-110 transition-transform">
-                      <Upload className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Klik untuk upload bukti</span>
-                    <span className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (paymentForm.proofPreview && paymentForm.proofPreview.startsWith('blob:')) {
-                            try {
-                              URL.revokeObjectURL(paymentForm.proofPreview);
-                            } catch {
-                              void 0;
-                            }
-                          }
-                          setPaymentForm(prev => ({
-                            ...prev,
-                            proof: file,
-                            proofPreview: URL.createObjectURL(file)
-                          }));
-                        }
-                      }}
-                    />
-                  </label>
-                )}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : null}
 
             <DialogFooter className="flex gap-3 pt-4 border-t">
               <Button
@@ -1143,7 +1617,10 @@ export const OrderDetail: React.FC = () => {
               </Button>
               <Button
                 type="submit"
-                className="flex-1 rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 dark:shadow-none"
+                className={cn(
+                  'flex-1 rounded-xl h-11 text-white shadow-lg dark:shadow-none',
+                  canRefund ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
+                )}
                 disabled={isSubmittingPayment || loadingPaymentOptions}
               >
                 {isSubmittingPayment ? (
@@ -1157,7 +1634,7 @@ export const OrderDetail: React.FC = () => {
                     Memuat opsi...
                   </>
                 ) : (
-                  'Update Pembayaran'
+                  canRefund ? 'Ajukan Refund' : 'Update Pembayaran'
                 )}
               </Button>
             </DialogFooter>

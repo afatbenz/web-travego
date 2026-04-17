@@ -81,7 +81,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
 
     if (res.status === 400) {
       const message = extractMessage(json) ?? 'Bad request';
-      if (message === 'DOWN_PAYMENT_NOT_FOUND' || message === 'PAYMENT_AMOUNT_UNREACHABLE' || message === 'PAYMENT_AMOUNT_MAX_EXCEEDED') {
+      if (
+        message === 'DOWN_PAYMENT_NOT_FOUND' ||
+        message === 'DOWN_PAYMENT_ALREADY_EXIST' ||
+        message === 'PAYMENT_AMOUNT_UNREACHABLE' ||
+        message === 'PAYMENT_AMOUNT_MAX_EXCEEDED'
+      ) {
         return { status: 'error', statusCode: 400, message };
       }
       Swal.fire({

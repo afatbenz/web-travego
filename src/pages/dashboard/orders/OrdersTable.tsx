@@ -43,7 +43,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | '1' | '2' | '3' | '4'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | '0' | '1' | '2' | '3' | '4' | '5'>('all');
   const [orderPeriod, setOrderPeriod] = useState<DateRange | undefined>();
   const [orderDate, setOrderDate] = useState<DateRange | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
@@ -154,6 +154,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     uom: string;
     unitQty: number;
     paymentStatus: number;
+    latestPaymentStatus: string;
     customerName: string;
     totalAmount: number;
     // Keep these for potential filtering usage, map them if available
@@ -234,6 +235,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             const transactionIdRaw = item.transaction_id ?? item.transactionId;
             const orderIdRaw = item.order_id ?? item.id;
             const fleetNameRaw = item.fleet_name ?? item.package_name ?? item.title;
+            const latestPaymentStatusRaw = item.latest_payment_status ?? item.latestPaymentStatus ?? item.latest_payment_status_label ?? item.latestPaymentStatusLabel;
             const uomRaw = item.uom;
             const rentTypeRaw = item.rent_type;
             return {
@@ -248,6 +250,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
               uom: typeof uomRaw === 'string' ? uomRaw : 'hari',
               unitQty: Number.isFinite(Number(item.unit_qty ?? item.qty)) ? Number(item.unit_qty ?? item.qty) : 0,
               paymentStatus: Number.isFinite(Number(item.payment_status)) ? Number(item.payment_status) : 0,
+              latestPaymentStatus:
+                typeof latestPaymentStatusRaw === 'string' || typeof latestPaymentStatusRaw === 'number'
+                  ? String(latestPaymentStatusRaw)
+                  : '',
               customerName:
                 typeof item.customer_name === 'string'
                   ? item.customer_name
@@ -285,13 +291,17 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const getPaymentStatusBadge = (status: number) => {
     switch (status) {
       case 1:
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-300 dark:hover:bg-green-900/20">Pembayaran Selesai</Badge>;
+        return <Badge className="bg-transparent text-green-700 hover:bg-transparent dark:text-green-300 dark:hover:bg-transparent border border-green-200 dark:border-green-900/40">Pembayaran Selesai</Badge>;
       case 2:
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-300 dark:hover:bg-yellow-900/20">Menunggu Pembayaran</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/20">Menunggu Pembayaran</Badge>;
       case 3:
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/20">Menunggu Persetujuan</Badge>;
+        return <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/20">Menunggu Persetujuan</Badge>;
       case 4:
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/20">Pembayaran Dibatalkan</Badge>;
+        return <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 dark:bg-rose-900/20 dark:text-rose-300 dark:hover:bg-rose-900/20">Belum Lunas</Badge>;
+      case 5:
+        return <Badge className="bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-900/20 dark:text-violet-300 dark:hover:bg-violet-900/20">Refund</Badge>;
+      case 0:
+        return <Badge className="bg-zinc-100 text-zinc-800 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-800">Pembayaran Dibatalkan</Badge>;
       default:
         return <Badge variant="secondary">Unknown</Badge>;
     }
@@ -372,7 +382,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           />
           <div>
             <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Status</div>
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | '1' | '2' | '3' | '4')}>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | '0' | '1' | '2' | '3' | '4' | '5')}>
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -380,8 +390,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                 <SelectItem value="all">Semua Status</SelectItem>
                 <SelectItem value="1">Sudah dibayar</SelectItem>
                 <SelectItem value="2">Menunggu Pembayaran</SelectItem>
-                <SelectItem value="4">Dalam Proses</SelectItem>
                 <SelectItem value="3">Menunggu Persetujuan</SelectItem>
+                <SelectItem value="4">Belum Lunas</SelectItem>
+                <SelectItem value="5">Refund</SelectItem>
+                <SelectItem value="0">Pembayaran Dibatalkan</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -466,7 +478,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                         <span className="text-gray-900 dark:text-white">{order.unitQty} unit</span>
                       </TableCell>
                       <TableCell>
-                        {getPaymentStatusBadge(order.paymentStatus)}
+                        <div title={order.latestPaymentStatus || undefined} className="inline-flex">
+                          {getPaymentStatusBadge(order.paymentStatus)}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
