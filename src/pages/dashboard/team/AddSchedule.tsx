@@ -1,124 +1,372 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, X, Car, User, Users, FileText } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Save, X, Car, Users, Check, ChevronsUpDown } from 'lucide-react';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 export const AddSchedule: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const [searchParams] = useSearchParams();
+  const initialOrderId = searchParams.get('order_id') ?? '';
+  const isOrderIdLocked = Boolean(initialOrderId);
 
-  const [formData, setFormData] = useState({
-    vehicleType: '',
-    orderId: '',
-    drivers: [] as string[],
-    crew: [] as string[]
-  });
+  const [orderId, setOrderId] = useState(initialOrderId);
+  const [fleetId, setFleetId] = useState(searchParams.get('fleet_id') ?? '');
+  const [orderTypeLabel, setOrderTypeLabel] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [scheduleStartAt, setScheduleStartAt] = useState('');
+  const [scheduleEndAt, setScheduleEndAt] = useState('');
+  const [destinationText, setDestinationText] = useState('');
+  const [quantity, setQuantity] = useState(0);
+  const [garageOutTime, setGarageOutTime] = useState('');
+  const [garageInTime, setGarageInTime] = useState('');
 
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [orderOptions, setOrderOptions] = useState<Array<{ value: string; label: string }>>([]);
+
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [unitOptions, setUnitOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [unitPickerOpen, setUnitPickerOpen] = useState<Record<number, boolean>>({});
+
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [employeeOptions, setEmployeeOptions] = useState<Array<{ value: string; label: string }>>([]);
+
+  const [assignments, setAssignments] = useState<
+    Array<{ unitId: string; driverUuid: string; crewUuid: string; extraPairs: Array<{ driverUuid: string; crewUuid: string }> }>
+  >([]);
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Sample data for dropdowns
-  const vehicleTypes = [
-    'Toyota Hiace Premio',
-    'Innova Reborn',
-    'Fortuner 4x4',
-    'Elf Long',
-    'Avanza Veloz',
-    'Grand Max'
-  ];
-
-  const availableDrivers = [
-    'Ahmad Rizki',
-    'Siti Nurhaliza',
-    'Budi Santoso',
-    'Dewi Kartika',
-    'Rizki Pratama',
-    'Maya Sari',
-    'Joko Widodo',
-    'Sri Mulyani'
-  ];
-
-  const availableCrew = [
-    'Andi Susanto',
-    'Budi Hartono',
-    'Citra Dewi',
-    'Dedi Kurniawan',
-    'Eka Putri',
-    'Fajar Nugroho',
-    'Gita Sari',
-    'Hendra Wijaya'
-  ];
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.vehicleType.trim()) newErrors.vehicleType = 'Jenis kendaraan wajib diisi';
-    if (!formData.orderId.trim()) newErrors.orderId = 'Order ID wajib diisi';
-    if (formData.drivers.length === 0) newErrors.drivers = 'Minimal 1 driver harus dipilih';
-    if (formData.crew.length === 0) newErrors.crew = 'Minimal 1 crew harus dipilih';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const record = (v: unknown): Record<string, unknown> =>
+    v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+  const toNumberSafe = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const isEditMode = Boolean(searchParams.get('mode') === 'edit' || searchParams.get('schedule_id') || searchParams.get('scheduleId'));
+
+  useEffect(() => {
+    const loadEmployees = async () => {
+      setLoadingEmployees(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/services/employee/operations', token ? { Authorization: token } : undefined);
+        if (res.status !== 'success') {
+          setEmployeeOptions([]);
+          return;
+        }
+
+        const payload = res.data as unknown;
+        let items: unknown[] = [];
+        if (Array.isArray(payload)) items = payload;
+        else if (payload && typeof payload === 'object') {
+          const root = payload as Record<string, unknown>;
+          const dataNode = root.data as unknown;
+          const listNode =
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).items : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).rows : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).data : undefined) ??
+            root.items ??
+            root.rows ??
+            root.data;
+          if (Array.isArray(listNode)) items = listNode;
+          else if (Array.isArray(dataNode)) items = dataNode;
+        }
+
+        const mapped = items
+          .map((raw) => record(raw))
+          .map((o) => {
+            const value = toStringSafe(o.uuid ?? o.id ?? o.value).trim();
+            const employeeId = toStringSafe(o.employee_id ?? o.employeeId ?? o.nik).trim();
+            const fullname = toStringSafe(o.fullname ?? o.full_name ?? o.name).trim();
+            const label = `${employeeId || value}${fullname ? ` - ${fullname}` : ''}`.trim();
+            return value ? { value, label: label || value } : null;
+          })
+          .filter((x): x is { value: string; label: string } => Boolean(x));
+
+        setEmployeeOptions(mapped);
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+    loadEmployees();
+  }, []);
+
+  useEffect(() => {
+    if (orderOptions.length > 0) return;
+    const loadOrders = async () => {
+      setLoadingOrders(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const qs = new URLSearchParams();
+        qs.set('order_type', 'fleet');
+        qs.set('process_type', 'upcoming');
+        const res = await api.get<unknown>(`/services/order/list?${qs.toString()}`, token ? { Authorization: token } : undefined);
+        if (res.status !== 'success') {
+          setOrderOptions([]);
+          return;
+        }
+
+        const payload = res.data as unknown;
+        let items: unknown[] = [];
+        if (Array.isArray(payload)) items = payload;
+        else if (payload && typeof payload === 'object') {
+          const root = payload as Record<string, unknown>;
+          const dataNode = root.data as unknown;
+          const listNode =
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).items : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).orders : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).rows : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).data : undefined) ??
+            root.items ??
+            root.orders ??
+            root.rows ??
+            root.data;
+          if (Array.isArray(listNode)) items = listNode;
+          else if (Array.isArray(dataNode)) items = dataNode;
+        }
+
+        const mapped = items
+          .map((raw) => record(raw))
+          .map((o) => {
+            const id = toStringSafe(o.order_id ?? o.orderId ?? o.id ?? o.transaction_id ?? o.transactionId).trim();
+            const title = toStringSafe(o.fleet_name ?? o.fleetName ?? o.title ?? o.name).trim();
+            const label = title ? `${id} - ${title}` : id;
+            return id ? { value: id, label: label || id } : null;
+          })
+          .filter((x): x is { value: string; label: string } => Boolean(x));
+
+        setOrderOptions(mapped);
+      } finally {
+        setLoadingOrders(false);
+      }
+    };
+    loadOrders();
+  }, [orderOptions.length]);
+
+  useEffect(() => {
+    if (!orderId) {
+      setFleetId(searchParams.get('fleet_id') ?? '');
+      setOrderTypeLabel('');
+      setCustomerName('');
+      setCustomerPhone('');
+      setCustomerEmail('');
+      setCustomerAddress('');
+      setScheduleStartAt('');
+      setScheduleEndAt('');
+      setDestinationText('');
+      setQuantity(0);
+      setGarageOutTime('');
+      setGarageInTime('');
+      setAssignments([]);
+      return;
+    }
+    const loadDetail = async () => {
+      const token = localStorage.getItem('token') ?? '';
+      const res = await api.get<unknown>(
+        `/services/fleet/order/detail/${encodeURIComponent(orderId)}`,
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status !== 'success') return;
+
+      const root = record(res.data);
+      const detail = record(root.order ?? root.transaction ?? root.detail ?? root);
+      const pickup = record(detail.pickup);
+      const customer = record(detail.customer);
+      const itineraryRaw = detail.itinerary;
+      const nextFleetId = toStringSafe(detail.fleet_id ?? detail.fleetId).trim();
+      const nextQty = toNumberSafe(detail.quantity ?? detail.qty ?? detail.unit_qty ?? detail.unitQty);
+      const nextOrderTypeLabel = toStringSafe(
+        detail.order_type_label ??
+          detail.orderTypeLabel ??
+          detail.rent_type_label ??
+          detail.rentTypeLabel ??
+          detail.category ??
+          'Armada'
+      ).trim();
+
+      const nextCustomerName = toStringSafe(customer.customer_name ?? customer.customerName ?? detail.customer_name ?? detail.customerName).trim();
+      const nextCustomerPhone = toStringSafe(
+        customer.customer_phone ?? customer.customerPhone ?? customer.customer_telephone ?? customer.customerTelephone ?? customer.telephone,
+      ).trim();
+      const nextCustomerEmail = toStringSafe(customer.customer_email ?? customer.customerEmail ?? customer.email).trim();
+      const pickupLocationRaw = toStringSafe(pickup.pickup_location ?? pickup.pickupLocation).trim();
+      const pickupCityLabel = toStringSafe(pickup.city_label ?? pickup.cityLabel).trim();
+      const nextCustomerAddress = (pickupLocationRaw && pickupCityLabel ? `${pickupLocationRaw}, ${pickupCityLabel}` : pickupLocationRaw).trim();
+
+      const pickupAtRaw = toStringSafe(pickup.pickup_at ?? pickup.pickupAt).trim();
+      const pickupDateRaw = toStringSafe(pickup.start_date ?? pickup.startDate ?? detail.start_date ?? detail.startDate).trim();
+      const pickupTimeRaw = toStringSafe(pickup.pickup_time ?? pickup.pickupTime).trim();
+      const scheduleStartCandidate = pickupAtRaw || (pickupDateRaw && pickupTimeRaw ? `${pickupDateRaw}T${pickupTimeRaw}` : pickupDateRaw);
+
+      const dropoffAtRaw = toStringSafe(pickup.dropoff_at ?? pickup.dropoffAt).trim();
+      const dropoffDateRaw = toStringSafe(pickup.end_date ?? pickup.endDate ?? detail.end_date ?? detail.endDate).trim();
+      const dropoffTimeRaw = toStringSafe(pickup.dropoff_time ?? pickup.dropoffTime).trim();
+      const scheduleEndCandidate = dropoffAtRaw || (dropoffDateRaw && dropoffTimeRaw ? `${dropoffDateRaw}T${dropoffTimeRaw}` : dropoffDateRaw);
+
+      let destinationCity = '';
+      if (Array.isArray(itineraryRaw)) {
+        const labels = itineraryRaw
+          .filter((x) => x && typeof x === 'object' && !Array.isArray(x))
+          .map((x) => {
+            const o = x as Record<string, unknown>;
+            return toStringSafe(o.city_label ?? o.cityLabel).trim();
+          })
+          .filter(Boolean)
+          .filter((v, i, arr) => arr.indexOf(v) === i);
+        destinationCity = labels.join(' - ');
+      }
+      const nextDestinationText = destinationCity;
+
+      setFleetId(nextFleetId);
+      setOrderTypeLabel(nextOrderTypeLabel);
+      setCustomerName(nextCustomerName);
+      setCustomerPhone(nextCustomerPhone);
+      setCustomerEmail(nextCustomerEmail);
+      setCustomerAddress(nextCustomerAddress);
+      setScheduleStartAt(scheduleStartCandidate);
+      setScheduleEndAt(scheduleEndCandidate);
+      setDestinationText(nextDestinationText);
+      setQuantity(nextQty);
+    };
+    loadDetail();
+  }, [orderId, searchParams]);
+
+  useEffect(() => {
+    setAssignments((prev) => {
+      const target = Math.max(0, quantity);
+      const next = [...prev];
+      while (next.length < target) next.push({ unitId: '', driverUuid: '', crewUuid: '', extraPairs: [] });
+      if (next.length > target) next.splice(target);
+      return next;
+    });
+  }, [quantity]);
+
+  useEffect(() => {
+    if (!fleetId) {
+      setUnitOptions([]);
+      return;
+    }
+    const loadUnits = async () => {
+      setLoadingUnits(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const qs = new URLSearchParams();
+        qs.set('fleet_id', fleetId);
+        qs.set('limit', '200');
+        const res = await api.get<unknown>(`/services/fleet-units?${qs.toString()}`, token ? { Authorization: token } : undefined);
+        if (res.status !== 'success') {
+          setUnitOptions([]);
+          return;
+        }
+
+        const payload = res.data as unknown;
+        let items: unknown[] = [];
+        if (Array.isArray(payload)) items = payload;
+        else if (payload && typeof payload === 'object') {
+          const root = payload as Record<string, unknown>;
+          const dataNode = root.data as unknown;
+          const listNode =
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).items : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).units : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).rows : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).data : undefined) ??
+            root.items ??
+            root.units ??
+            root.rows ??
+            root.data;
+          if (Array.isArray(listNode)) items = listNode;
+          else if (Array.isArray(dataNode)) items = dataNode;
+        }
+
+        const mapped = items
+          .map((raw) => record(raw))
+          .map((o) => {
+            const unitId = toStringSafe(o.unit_id ?? o.unitId ?? o.id).trim();
+            const vehicleId = toStringSafe(o.vehicle_id ?? o.vehicleId).trim();
+            const plate = toStringSafe(o.plate_number ?? o.plateNumber).trim();
+            const label = `${vehicleId || '-'} - ${plate || '-'}`;
+            return unitId ? { value: unitId, label } : null;
+          })
+          .filter((x): x is { value: string; label: string } => Boolean(x));
+
+        setUnitOptions(mapped);
+      } finally {
+        setLoadingUnits(false);
+      }
+    };
+    loadUnits();
+  }, [fleetId]);
+
+  const validate = () => {
+    const nextErrors: Record<string, string> = {};
+    if (!orderId.trim()) nextErrors.orderId = 'Order ID wajib dipilih';
+    if (!fleetId.trim()) nextErrors.orderId = nextErrors.orderId || 'Order tidak valid';
+    if (quantity <= 0) nextErrors.orderId = nextErrors.orderId || 'Order tidak valid';
+    if (!garageOutTime) nextErrors.garageOutTime = 'Jam keluar garasi wajib diisi';
+    if (isEditMode && !garageInTime) nextErrors.garageInTime = 'Jam kembali garasi wajib diisi';
+    assignments.forEach((a, idx) => {
+      const base = `assignments.${idx}`;
+      if (!a.unitId) nextErrors[`${base}.unitId`] = 'Wajib';
+      if (!a.driverUuid) nextErrors[`${base}.driverUuid`] = 'Wajib';
+      if (!a.crewUuid) nextErrors[`${base}.crewUuid`] = 'Wajib';
+      (a.extraPairs ?? []).forEach((p, j) => {
+        const extraBase = `${base}.extraPairs.${j}`;
+        if (!p.driverUuid) nextErrors[`${extraBase}.driverUuid`] = 'Wajib';
+        if (!p.crewUuid) nextErrors[`${extraBase}.crewUuid`] = 'Wajib';
+      });
+    });
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const submitReady = useMemo(() => {
+    if (!orderId.trim()) return false;
+    if (!fleetId.trim()) return false;
+    if (quantity <= 0) return false;
+    if (!garageOutTime) return false;
+    if (isEditMode && !garageInTime) return false;
+    if (assignments.length !== quantity) return false;
+    for (const a of assignments) {
+      if (!a.unitId || !a.driverUuid || !a.crewUuid) return false;
+      for (const p of a.extraPairs ?? []) {
+        if (!p.driverUuid || !p.crewUuid) return false;
+      }
+    }
+    return true;
+  }, [assignments, fleetId, garageInTime, garageOutTime, isEditMode, orderId, quantity]);
+
+  const formatDdMmmmYyyyHhMm = (value: string) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '-';
+    const date = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).replace(/[.,]/g, '');
+    const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${date} ${time}`.replace(/\s+/g, ' ').trim();
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      // Handle form submission
-      console.log('Form submitted:', formData);
-      // In real app, this would make API call
-      navigate('/dashboard/partner/team/schedule-armada');
+    if (!validate()) return;
+    setSaving(true);
+    try {
+      navigate(`${basePrefix}/team/schedule-armada`);
+    } finally {
+      setSaving(false);
     }
-  };
-
-  const handleGenerateSuratJalan = () => {
-    if (validateForm()) {
-      // Handle generate surat jalan
-      console.log('Generate Surat Jalan for:', formData);
-      // In real app, this would generate and download the document
-      alert('Surat Jalan berhasil digenerate!');
-    }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const addDriver = (driver: string) => {
-    if (!formData.drivers.includes(driver)) {
-      setFormData(prev => ({
-        ...prev,
-        drivers: [...prev.drivers, driver]
-      }));
-    }
-  };
-
-  const removeDriver = (driver: string) => {
-    setFormData(prev => ({
-      ...prev,
-      drivers: prev.drivers.filter(d => d !== driver)
-    }));
-  };
-
-  const addCrew = (crewMember: string) => {
-    if (!formData.crew.includes(crewMember)) {
-      setFormData(prev => ({
-        ...prev,
-        crew: [...prev.crew, crewMember]
-      }));
-    }
-  };
-
-  const removeCrew = (crewMember: string) => {
-    setFormData(prev => ({
-      ...prev,
-      crew: prev.crew.filter(c => c !== crewMember)
-    }));
   };
 
   return (
@@ -128,14 +376,14 @@ export const AddSchedule: React.FC = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate('/dashboard/partner/team/schedule-armada')}
+          onClick={() => navigate(`${basePrefix}/team/schedule-armada`)}
           className="!w-auto !h-auto p-2"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Tambah Jadwal Armada
+            Penjadwalan Armada
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             Tambahkan jadwal baru untuk armada
@@ -143,165 +391,359 @@ export const AddSchedule: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Car className="h-5 w-5 mr-2" />
-              Informasi Dasar
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Jenis Kendaraan *
-                  </label>
-                  <Select value={formData.vehicleType} onValueChange={(value) => handleInputChange('vehicleType', value)}>
-                    <SelectTrigger className={errors.vehicleType ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Pilih jenis kendaraan" />
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Car className="h-5 w-5 mr-2" />
+                Informasi Pesanan
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Order ID *</label>
+                  <Select
+                    value={orderId}
+                    onValueChange={(value) => {
+                      setOrderId(value);
+                      if (errors.orderId) setErrors((prev) => ({ ...prev, orderId: '' }));
+                    }}
+                    disabled={loadingOrders || isOrderIdLocked}
+                  >
+                    <SelectTrigger className={errors.orderId ? 'border-red-500' : ''}>
+                      <SelectValue placeholder={loadingOrders ? 'Memuat...' : 'Pilih order'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {vehicleTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
+                      {orderOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.vehicleType && <p className="text-sm text-red-500 mt-1">{errors.vehicleType}</p>}
+                  {errors.orderId ? <p className="text-sm text-red-500">{errors.orderId}</p> : null}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Order Type</div>
+                  <div className="h-10 flex items-center text-gray-900 dark:text-white">{orderTypeLabel || 'Armada'}</div>
                 </div>
               </div>
 
-              {/* Right Column */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Order ID *
-                  </label>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Jadwal Keberangkatan</div>
+                  <div className="text-gray-900 dark:text-white">{formatDdMmmmYyyyHhMm(scheduleStartAt)}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Jadwal Kembali</div>
+                  <div className="text-gray-900 dark:text-white">{formatDdMmmmYyyyHhMm(scheduleEndAt)}</div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Tujuan</div>
+                <div className="text-gray-900 dark:text-white">{destinationText || '-'}</div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jam Keluar Garasi *</label>
                   <Input
-                    value={formData.orderId}
-                    onChange={(e) => handleInputChange('orderId', e.target.value)}
-                    placeholder="Masukkan Order ID"
-                    className={errors.orderId ? 'border-red-500' : ''}
+                    type="time"
+                    value={garageOutTime}
+                    onChange={(e) => {
+                      setGarageOutTime(e.target.value);
+                      if (errors.garageOutTime) setErrors((prev) => ({ ...prev, garageOutTime: '' }));
+                    }}
+                    disabled={!orderId}
+                    className={errors.garageOutTime ? 'border-red-500' : ''}
                   />
-                  {errors.orderId && <p className="text-sm text-red-500 mt-1">{errors.orderId}</p>}
+                  {errors.garageOutTime ? <p className="text-sm text-red-500">{errors.garageOutTime}</p> : null}
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Drivers Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <User className="h-5 w-5 mr-2" />
-              Driver
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Pilih Driver *
-                </label>
-                <Select onValueChange={addDriver}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih driver" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDrivers
-                      .filter(driver => !formData.drivers.includes(driver))
-                      .map((driver) => (
-                        <SelectItem key={driver} value={driver}>
-                          {driver}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                {errors.drivers && <p className="text-sm text-red-500 mt-1">{errors.drivers}</p>}
-              </div>
-
-              {formData.drivers.length > 0 && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Driver Terpilih
-                  </label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.drivers.map((driver) => (
-                      <Badge key={driver} variant="secondary" className="flex items-center space-x-1">
-                        <span>{driver}</span>
-                        <X
-                          className="h-3 w-3 cursor-pointer"
-                          onClick={() => removeDriver(driver)}
-                        />
-                      </Badge>
-                    ))}
+                {isEditMode ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jam Kembali Garasi *</label>
+                    <Input
+                      type="time"
+                      value={garageInTime}
+                      onChange={(e) => {
+                        setGarageInTime(e.target.value);
+                        if (errors.garageInTime) setErrors((prev) => ({ ...prev, garageInTime: '' }));
+                      }}
+                      disabled={!orderId}
+                      className={errors.garageInTime ? 'border-red-500' : ''}
+                    />
+                    {errors.garageInTime ? <p className="text-sm text-red-500">{errors.garageInTime}</p> : null}
                   </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                ) : (
+                  <div className="hidden lg:block" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Crew Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Users className="h-5 w-5 mr-2" />
+                Informasi Pelanggan
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Nama Pelanggan</div>
+                <div className="text-gray-900 dark:text-white">{customerName || '-'}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-gray-600 dark:text-gray-300">No. HP</div>
+                <div className="text-gray-900 dark:text-white">{customerPhone || '-'}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Email</div>
+                <div className="text-gray-900 dark:text-white">{customerEmail || '-'}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Alamat Penjemputan</div>
+                <div className="text-gray-900 dark:text-white">{customerAddress || '-'}</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <Users className="h-5 w-5 mr-2" />
-              Crew
+              Informasi Armada dan Petugas
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Pilih Crew *
-                </label>
-                <Select onValueChange={addCrew}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih crew" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableCrew
-                      .filter(crewMember => !formData.crew.includes(crewMember))
-                      .map((crewMember) => (
-                        <SelectItem key={crewMember} value={crewMember}>
-                          {crewMember}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                {errors.crew && <p className="text-sm text-red-500 mt-1">{errors.crew}</p>}
-              </div>
+            {quantity <= 0 ? (
+              <div className="text-sm text-gray-600 dark:text-gray-300">Pilih order untuk memuat petugas.</div>
+            ) : (
+              <div className="space-y-4">
+                {assignments.map((a, idx) => (
+                  <div key={idx} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">Unit {idx + 1}</div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9"
+                        onClick={() =>
+                          setAssignments((prev) =>
+                            prev.map((x, i) =>
+                              i === idx ? { ...x, extraPairs: [...(x.extraPairs ?? []), { driverUuid: '', crewUuid: '' }] } : x
+                            )
+                          )
+                        }
+                      >
+                        Tambah Driver / Crew
+                      </Button>
+                    </div>
 
-              {formData.crew.length > 0 && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Crew Terpilih
-                  </label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.crew.map((crewMember) => (
-                      <Badge key={crewMember} variant="secondary" className="flex items-center space-x-1">
-                        <span>{crewMember}</span>
-                        <X
-                          className="h-3 w-3 cursor-pointer"
-                          onClick={() => removeCrew(crewMember)}
-                        />
-                      </Badge>
-                    ))}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Pilih Armada *</label>
+                        <Popover
+                          open={Boolean(unitPickerOpen[idx])}
+                          onOpenChange={(open) => setUnitPickerOpen((prev) => ({ ...prev, [idx]: open }))}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={Boolean(unitPickerOpen[idx])}
+                              className={cn('w-full justify-between', errors[`assignments.${idx}.unitId`] && 'border-red-500')}
+                              disabled={loadingUnits}
+                            >
+                              {loadingUnits
+                                ? 'Memuat...'
+                                : a.unitId
+                                  ? unitOptions.find((u) => u.value === a.unitId)?.label ?? a.unitId
+                                  : 'Pilih unit'}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Cari unit..." />
+                              <CommandList>
+                                <CommandEmpty>Tidak ada data</CommandEmpty>
+                                <CommandGroup>
+                                  {unitOptions.map((o) => (
+                                    <CommandItem
+                                      key={o.value}
+                                      value={`${o.label} ${o.value}`}
+                                      onSelect={() => {
+                                        setAssignments((prev) => prev.map((x, i) => (i === idx ? { ...x, unitId: o.value } : x)));
+                                        const k = `assignments.${idx}.unitId`;
+                                        if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+                                        setUnitPickerOpen((prev) => ({ ...prev, [idx]: false }));
+                                      }}
+                                    >
+                                      <Check className={cn('mr-2 h-4 w-4', a.unitId === o.value ? 'opacity-100' : 'opacity-0')} />
+                                      {o.label}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        {errors[`assignments.${idx}.unitId`] ? (
+                          <p className="text-sm text-red-500">{errors[`assignments.${idx}.unitId`]}</p>
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Driver 1 *</label>
+                        <Select
+                          value={a.driverUuid}
+                          onValueChange={(v) => {
+                            setAssignments((prev) => prev.map((x, i) => (i === idx ? { ...x, driverUuid: v } : x)));
+                            const k = `assignments.${idx}.driverUuid`;
+                            if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+                          }}
+                          disabled={loadingEmployees}
+                        >
+                          <SelectTrigger className={errors[`assignments.${idx}.driverUuid`] ? 'border-red-500' : ''}>
+                            <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih driver'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {employeeOptions.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors[`assignments.${idx}.driverUuid`] ? (
+                          <p className="text-sm text-red-500">{errors[`assignments.${idx}.driverUuid`]}</p>
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Crew 1 *</label>
+                        <Select
+                          value={a.crewUuid}
+                          onValueChange={(v) => {
+                            setAssignments((prev) => prev.map((x, i) => (i === idx ? { ...x, crewUuid: v } : x)));
+                            const k = `assignments.${idx}.crewUuid`;
+                            if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+                          }}
+                          disabled={loadingEmployees}
+                        >
+                          <SelectTrigger className={errors[`assignments.${idx}.crewUuid`] ? 'border-red-500' : ''}>
+                            <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih crew'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {employeeOptions.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors[`assignments.${idx}.crewUuid`] ? (
+                          <p className="text-sm text-red-500">{errors[`assignments.${idx}.crewUuid`]}</p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {(a.extraPairs ?? []).length > 0 ? (
+                      <div className="space-y-4">
+                        {(a.extraPairs ?? []).map((p, j) => (
+                          <div key={j} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className="hidden lg:block" />
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Driver {j + 2} *</label>
+                              <Select
+                                value={p.driverUuid}
+                                onValueChange={(v) => {
+                                  setAssignments((prev) =>
+                                    prev.map((x, i) =>
+                                      i === idx
+                                        ? {
+                                            ...x,
+                                            extraPairs: (x.extraPairs ?? []).map((z, zi) => (zi === j ? { ...z, driverUuid: v } : z)),
+                                          }
+                                        : x
+                                    )
+                                  );
+                                  const k = `assignments.${idx}.extraPairs.${j}.driverUuid`;
+                                  if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+                                }}
+                                disabled={loadingEmployees}
+                              >
+                                <SelectTrigger className={errors[`assignments.${idx}.extraPairs.${j}.driverUuid`] ? 'border-red-500' : ''}>
+                                  <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih driver'} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {employeeOptions.map((o) => (
+                                    <SelectItem key={o.value} value={o.value}>
+                                      {o.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {errors[`assignments.${idx}.extraPairs.${j}.driverUuid`] ? (
+                                <p className="text-sm text-red-500">{errors[`assignments.${idx}.extraPairs.${j}.driverUuid`]}</p>
+                              ) : null}
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Crew {j + 2} *</label>
+                              <Select
+                                value={p.crewUuid}
+                                onValueChange={(v) => {
+                                  setAssignments((prev) =>
+                                    prev.map((x, i) =>
+                                      i === idx
+                                        ? {
+                                            ...x,
+                                            extraPairs: (x.extraPairs ?? []).map((z, zi) => (zi === j ? { ...z, crewUuid: v } : z)),
+                                          }
+                                        : x
+                                    )
+                                  );
+                                  const k = `assignments.${idx}.extraPairs.${j}.crewUuid`;
+                                  if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+                                }}
+                                disabled={loadingEmployees}
+                              >
+                                <SelectTrigger className={errors[`assignments.${idx}.extraPairs.${j}.crewUuid`] ? 'border-red-500' : ''}>
+                                  <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih crew'} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {employeeOptions.map((o) => (
+                                    <SelectItem key={o.value} value={o.value}>
+                                      {o.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {errors[`assignments.${idx}.extraPairs.${j}.crewUuid`] ? (
+                                <p className="text-sm text-red-500">{errors[`assignments.${idx}.extraPairs.${j}.crewUuid`]}</p>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Bottom Buttons */}
         <div className="flex justify-between items-center pt-6 border-t">
           <div className="text-sm text-gray-600 dark:text-gray-300">
             * Wajib diisi
@@ -310,22 +752,14 @@ export const AddSchedule: React.FC = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate('/dashboard/partner/team/schedule-armada')}
+              onClick={() => navigate(`${basePrefix}/team/schedule-armada`)}
             >
               <X className="h-4 w-4 mr-2" />
               Batal
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleGenerateSuratJalan}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Generate Surat Jalan
-            </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={!submitReady || saving}>
               <Save className="h-4 w-4 mr-2" />
-              Simpan Jadwal
+              {saving ? 'Menyimpan...' : 'Simpan Jadwal'}
             </Button>
           </div>
         </div>

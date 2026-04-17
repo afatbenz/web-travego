@@ -754,6 +754,10 @@ export const FleetOrderForm: React.FC = () => {
     <style>
       @page { margin: 16mm; }
       body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #ffffff; }
+      details.order-preview-itinerary-details:not([open]) > :not(summary) { display: block !important; }
+      @media print {
+        details.order-preview-itinerary-details > summary { display: none !important; }
+      }
     </style>
   </head>
   <body>
