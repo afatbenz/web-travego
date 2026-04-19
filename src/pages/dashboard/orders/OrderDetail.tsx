@@ -52,6 +52,7 @@ type OrderData = {
   status: string;
   totalAmount: number;
   remainingAmount: number;
+  additionalAmount: number;
   originalAmount: number;
   discount: number;
   createdAt: string;
@@ -96,6 +97,7 @@ const createEmptyOrderData = (id: string): OrderData => ({
   status: 'pending',
   totalAmount: 0,
   remainingAmount: 0,
+  additionalAmount: 0,
   originalAmount: 0,
   discount: 0,
   createdAt: '',
@@ -292,6 +294,7 @@ export const OrderDetail: React.FC = () => {
       const quantity = getNumber(detail.quantity ?? detail.qty ?? detail.unit_qty ?? detail.unitQty, 0);
       const price = getNumber(detail.price, 0);
       const totalAmount = getNumber(detail.total_amount ?? detail.totalAmount, 0);
+      const additionalAmount = getNumber(detail.additional_amount ?? detail.additionalAmount, 0);
       const originalAmount = price > 0 && quantity > 0 ? price * quantity : getNumber(detail.original_amount ?? detail.originalAmount, totalAmount);
       const discount = Math.max(0, originalAmount - totalAmount);
       const remainingAmount = hasPaymentInfo
@@ -394,6 +397,7 @@ export const OrderDetail: React.FC = () => {
         status: getString(detail.status, paymentStatus === 'paid' ? 'success' : 'pending'),
         totalAmount,
         remainingAmount,
+        additionalAmount,
         originalAmount,
         discount,
         createdAt,
@@ -1250,6 +1254,10 @@ export const OrderDetail: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-300">Diskon</span>
                       <span className="text-sm text-red-600">-{formatCurrency(orderData.discount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Biaya Lain</span>
+                      <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(orderData.additionalAmount)}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-medium">
