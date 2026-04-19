@@ -285,7 +285,6 @@ export const FleetOrderForm: React.FC = () => {
   const [fleetPricesLoading, setFleetPricesLoading] = useState(false);
   const [fleetPrices, setFleetPrices] = useState<FleetPriceOption[]>([]);
   const [selectedPriceId, setSelectedPriceId] = useState('');
-  const [totalManual, setTotalManual] = useState(false);
   const [customer, setCustomer] = useState<Option | null>(null);
   const [pickupAt, setPickupAt] = useState('');
   const [dropoffAt, setDropoffAt] = useState('');
@@ -293,6 +292,7 @@ export const FleetOrderForm: React.FC = () => {
   const [pickupCity, setPickupCity] = useState<Option | null>(null);
   const [discountAmount, setDiscountAmount] = useState('');
   const [totalPrice, setTotalPrice] = useState('');
+  const [additionalAmount, setAdditionalAmount] = useState('');
   const [addonsLoading, setAddonsLoading] = useState(false);
   const [addonOptions, setAddonOptions] = useState<AddonOption[]>([]);
   const [addonRows, setAddonRows] = useState<AddonRow[]>([]);
@@ -300,19 +300,23 @@ export const FleetOrderForm: React.FC = () => {
   const [specialRequest, setSpecialRequest] = useState('');
 
   const daysCount = useMemo(() => daysBetweenInclusive(pickupAt, dropoffAt), [pickupAt, dropoffAt]);
+  const computedTotalPrice = useMemo(() => {
+    const base = digitsToNumber(totalPrice);
+    const additional = digitsToNumber(additionalAmount);
+    const discount = digitsToNumber(discountAmount);
+    return Math.max(0, base + additional - discount);
+  }, [additionalAmount, discountAmount, totalPrice]);
 
   useEffect(() => {
     (async () => {
       if (!fleet?.id) {
         setFleetPrices([]);
         setSelectedPriceId('');
-        setTotalManual(false);
         return;
       }
       setFleetPricesLoading(true);
       setFleetPrices([]);
       setSelectedPriceId('');
-      setTotalManual(false);
       try {
         const fleetId = String(fleet.id);
         const primaryPath = `/services/fleet/prices/${encodeURIComponent(fleetId)}/${encodeURIComponent(rentType)}`;
@@ -407,13 +411,12 @@ export const FleetOrderForm: React.FC = () => {
   }, [fleet?.id]);
 
   useEffect(() => {
-    if (totalManual) return;
     if (!selectedPriceId) return;
     const found = fleetPrices.find((p) => p.price_id === selectedPriceId);
     if (!found || !Number.isFinite(found.price) || found.price <= 0) return;
     const qty = Math.max(1, digitsToNumber(fleetQty));
     setTotalPrice(String(found.price * qty));
-  }, [fleetQty, selectedPriceId, fleetPrices, totalManual]);
+  }, [fleetQty, selectedPriceId, fleetPrices]);
 
   useEffect(() => {
     if (daysCount <= 0) {
@@ -461,9 +464,12 @@ export const FleetOrderForm: React.FC = () => {
     if (!pickupAddress.trim()) return 'Alamat penjemputan wajib diisi';
     if (!pickupCity) return 'Kota penjemputan wajib dipilih';
     const discount = digitsToNumber(discountAmount);
-    const total = digitsToNumber(totalPrice);
-    if (total <= 0) return 'Total harga wajib diisi';
-    if (discount > total) return 'Diskon tidak boleh lebih besar dari total harga';
+    const base = digitsToNumber(totalPrice);
+    const additional = digitsToNumber(additionalAmount);
+    const gross = base + additional;
+    if (gross <= 0) return 'Total harga wajib diisi';
+    if (discount > gross) return 'Diskon tidak boleh lebih besar dari total harga';
+    if (computedTotalPrice <= 0) return 'Total harga wajib diisi';
     for (const r of addonRows) {
       if (!r.addonId) continue;
       const q = digitsToNumber(r.qty);
@@ -492,8 +498,8 @@ export const FleetOrderForm: React.FC = () => {
     }
     setSaving(true);
     try {
-      const total = digitsToNumber(totalPrice);
       const discount = digitsToNumber(discountAmount);
+      const additional = digitsToNumber(additionalAmount);
       const qty = digitsToNumber(fleetQty);
       const selected = selectedPriceId ? fleetPrices.find((p) => p.price_id === selectedPriceId) : undefined;
       const payload = {
@@ -506,8 +512,9 @@ export const FleetOrderForm: React.FC = () => {
         pickup_address: pickupAddress,
         pickup_city_id: pickupCity!.id,
         fleet_qty: qty,
-        price: total,
+        price: computedTotalPrice,
         discount_amount: discount,
+        additional_amount: additional,
         additional_request: specialRequest,
         addons: addonRows
           .filter((r) => r.addonId)
@@ -541,6 +548,7 @@ export const FleetOrderForm: React.FC = () => {
     const qty = digitsToNumber(fleetQty);
     const total = digitsToNumber(totalPrice);
     const discount = digitsToNumber(discountAmount);
+    const additional = digitsToNumber(additionalAmount);
     const selectedDuration = selectedPriceId ? fleetPrices.find((p) => p.price_id === selectedPriceId) : undefined;
     const addonsSelected = addonRows
       .filter((r) => r.addonId && digitsToNumber(r.qty) > 0)
@@ -556,7 +564,7 @@ export const FleetOrderForm: React.FC = () => {
         };
       });
     const addonsTotal = addonsSelected.reduce((acc, x) => acc + x.subtotal, 0);
-    const totalTagihan = total + addonsTotal;
+    const totalTagihan = total + addonsTotal + additional;
     const sisaTagihan = Math.max(0, totalTagihan - discount);
     const pricePerUnit = selectedDuration?.price ?? 0;
     const itemsTableRows = [
@@ -600,6 +608,16 @@ export const FleetOrderForm: React.FC = () => {
             .join('')}
         </tbody>
         <tfoot>
+          ${
+            additional > 0
+              ? `
+          <tr>
+            <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>Biaya Lain</b></td>
+            <td style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>${formatRupiahFromNumber(additional)}</b></td>
+          </tr>
+          `
+              : ''
+          }
           <tr>
             <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>Total Tagihan</b></td>
             <td style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>${formatRupiahFromNumber(totalTagihan)}</b></td>
@@ -817,6 +835,7 @@ export const FleetOrderForm: React.FC = () => {
     pickupCity?.id,
     discountAmount,
     totalPrice,
+    additionalAmount,
     itinerary,
     addonRows,
     addonOptions,
@@ -912,7 +931,6 @@ export const FleetOrderForm: React.FC = () => {
                       value={selectedPriceId}
                       onValueChange={(v) => {
                         setSelectedPriceId(v);
-                        setTotalManual(false);
                         const found = fleetPrices.find((p) => p.price_id === v);
                         if (found && Number.isFinite(found.price) && found.price > 0) {
                           const qty = Math.max(1, digitsToNumber(fleetQty));
@@ -944,13 +962,12 @@ export const FleetOrderForm: React.FC = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Harga Total</label>
+                    <label className="text-sm font-medium">Biaya Lain (charge)</label>
                     <Input
-                      value={formatRupiahFromDigits(totalPrice)}
+                      value={formatRupiahFromDigits(additionalAmount)}
                       inputMode="numeric"
                       onChange={(e) => {
-                        setTotalManual(true);
-                        setTotalPrice(e.target.value.replace(/[^0-9]/g, ''));
+                        setAdditionalAmount(e.target.value.replace(/[^0-9]/g, ''));
                       }}
                       className="h-12"
                       placeholder="Rp 0"
@@ -965,6 +982,16 @@ export const FleetOrderForm: React.FC = () => {
                   value={formatRupiahFromDigits(discountAmount)}
                   inputMode="numeric"
                   onChange={(e) => setDiscountAmount(e.target.value.replace(/[^0-9]/g, ''))}
+                  className="h-12"
+                  placeholder="Rp 0"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Harga Total</label>
+                <Input
+                  value={formatRupiahFromNumber(computedTotalPrice)}
+                  disabled
                   className="h-12"
                   placeholder="Rp 0"
                 />
