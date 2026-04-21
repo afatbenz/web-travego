@@ -331,7 +331,15 @@ export const FleetOrderForm: React.FC = () => {
     return Math.max(0, base + additional - discount);
   }, [armadaBasePriceTotal, armadaAdditionalTotal, armadaDiscountTotal]);
 
-  const fetchPricesForEntry = async (fleetId: string, currentRentType: string) => {
+  const fetchPricesForEntry = async (fleetId: string, currentRentType: string): Promise<FleetPriceOption[]> => {
+    const defaultNoPrice: FleetPriceOption = {
+      price_id: '0',
+      duration: 0,
+      price: 0,
+      rent_type: undefined,
+      raw: {},
+    };
+
     if (!fleetId) return [];
     try {
       const primaryPath = `/services/fleet/prices/${encodeURIComponent(fleetId)}/${encodeURIComponent(currentRentType)}`;
@@ -344,13 +352,13 @@ export const FleetOrderForm: React.FC = () => {
         const resFallback = await api.get<unknown>(fallbackPath, token ? { Authorization: token } : undefined);
         if (resFallback.status === 'success') payload = resFallback.data;
       }
-      if (!payload) return [];
+      if (!payload) return [defaultNoPrice];
 
       const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
       const data = (root.data ?? payload) as unknown;
       const items = Array.isArray(data) ? data : [];
 
-      return items
+      const prices = items
         .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
         .filter((it): it is Record<string, unknown> => Boolean(it))
         .map((it): FleetPriceOption | null => {
@@ -367,9 +375,11 @@ export const FleetOrderForm: React.FC = () => {
             : null;
         })
         .filter((x): x is FleetPriceOption => x !== null);
+
+      return prices.length > 0 ? prices : [defaultNoPrice];
     } catch (error) {
       console.error('Error fetching prices:', error);
-      return [];
+      return [defaultNoPrice];
     }
   };
 
@@ -810,7 +820,6 @@ export const FleetOrderForm: React.FC = () => {
                 <Select
                   value={rentType}
                   onValueChange={(v) => setRentType(v)}
-                  disabled={!primaryFleetId}
                 >
                   <SelectTrigger className="h-12">
                     <SelectValue placeholder="Pilih jenis sewa" />
@@ -878,8 +887,8 @@ export const FleetOrderForm: React.FC = () => {
             <div className="space-y-4">
               {armadaEntries.map((row, idx) => (
                 <div key={idx} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                    <div className="space-y-2 col-span-1 md:col-span-2">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div className="space-y-2 col-span-1 md:col-span-4">
                       <label className="text-sm font-medium">Pilih Armada</label>
                       <AsyncCombobox
                         value={armadaEntryOptions[idx] ?? null}
@@ -923,7 +932,7 @@ export const FleetOrderForm: React.FC = () => {
                       />
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 col-span-1 md:col-span-3">
                       <label className="text-sm font-medium">Durasi Sewa</label>
                       <Select
                         value={row.price_id}
@@ -932,7 +941,7 @@ export const FleetOrderForm: React.FC = () => {
                             prev.map((r, i) => (i === idx ? { ...r, price_id: v } : r))
                           )
                         }
-                        disabled={!row.armada_id || row.loading_prices || row.fleet_prices.length === 0}
+                        disabled={!row.armada_id || row.loading_prices}
                       >
                         <SelectTrigger className="h-12">
                           <SelectValue
@@ -941,8 +950,6 @@ export const FleetOrderForm: React.FC = () => {
                                 ? 'Pilih armada'
                                 : row.loading_prices
                                 ? 'Memuat...'
-                                : row.fleet_prices.length === 0
-                                ? 'No prices'
                                 : 'Pilih durasi'
                             }
                           />
@@ -950,14 +957,14 @@ export const FleetOrderForm: React.FC = () => {
                         <SelectContent>
                           {row.fleet_prices.map((p) => (
                             <SelectItem key={p.price_id} value={p.price_id}>
-                              {p.duration} hari {formatRupiahFromNumber(p.price)}
+                              {p.price_id === '0' ? 'Belum ada harga' : `${p.duration} hari ${formatRupiahFromNumber(p.price)}`}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 col-span-1 md:col-span-1">
                       <label className="text-sm font-medium">Jumlah</label>
                       <Input
                         value={row.qty}
@@ -972,7 +979,7 @@ export const FleetOrderForm: React.FC = () => {
                       />
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 col-span-1 md:col-span-2">
                       <label className="text-sm font-medium">Biaya Lain</label>
                       <Input
                         value={formatRupiahFromDigits(row.biaya_lain)}
@@ -986,7 +993,7 @@ export const FleetOrderForm: React.FC = () => {
                         placeholder="Rp 0"
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 col-span-1 md:col-span-2">
                       <label className="text-sm font-medium">Diskon</label>
                       <Input
                         value={formatRupiahFromDigits(row.discount)}
