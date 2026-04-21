@@ -196,17 +196,14 @@ type FleetPriceOption = {
   raw: Record<string, unknown>;
 };
 
-type AddonOption = {
-  addon_id: string;
-  addon_name: string;
-  addon_price: number;
-  raw: Record<string, unknown>;
-};
-
-type AddonRow = {
-  id: string;
-  addonId: string;
+type ArmadaEntry = {
+  armada_id: string;
+  price_id: string;
   qty: string;
+  biaya_lain: string;
+  discount: string;
+  fleet_prices: FleetPriceOption[];
+  loading_prices: boolean;
 };
 
 function formatRupiahFromNumber(amount: number): string {
@@ -279,144 +276,122 @@ export const FleetOrderForm: React.FC = () => {
   const token = localStorage.getItem('token') ?? '';
 
   const [saving, setSaving] = useState(false);
-  const [fleet, setFleet] = useState<Option | null>(null);
   const [rentType, setRentType] = useState('1');
-  const [fleetQty, setFleetQty] = useState('1');
-  const [fleetPricesLoading, setFleetPricesLoading] = useState(false);
-  const [fleetPrices, setFleetPrices] = useState<FleetPriceOption[]>([]);
-  const [selectedPriceId, setSelectedPriceId] = useState('');
+  const [armadaEntries, setArmadaEntries] = useState<ArmadaEntry[]>([
+    {
+      armada_id: '',
+      price_id: '',
+      qty: '1',
+      biaya_lain: '',
+      discount: '',
+      fleet_prices: [],
+      loading_prices: false,
+    },
+  ]);
+  const [armadaEntryOptions, setArmadaEntryOptions] = useState<(Option | null)[]>([null]);
   const [customer, setCustomer] = useState<Option | null>(null);
   const [pickupAt, setPickupAt] = useState('');
   const [dropoffAt, setDropoffAt] = useState('');
   const [pickupAddress, setPickupAddress] = useState('');
   const [pickupCity, setPickupCity] = useState<Option | null>(null);
-  const [discountAmount, setDiscountAmount] = useState('');
-  const [totalPrice, setTotalPrice] = useState('');
-  const [additionalAmount, setAdditionalAmount] = useState('');
-  const [addonsLoading, setAddonsLoading] = useState(false);
-  const [addonOptions, setAddonOptions] = useState<AddonOption[]>([]);
-  const [addonRows, setAddonRows] = useState<AddonRow[]>([]);
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   const [specialRequest, setSpecialRequest] = useState('');
 
+  const primaryFleetId = useMemo(() => armadaEntries.find((e) => e.armada_id)?.armada_id ?? '', [armadaEntries]);
+  const primaryFleetLabel = useMemo(() => {
+    const idx = armadaEntries.findIndex((e) => e.armada_id);
+    if (idx < 0) return '';
+    return armadaEntryOptions[idx]?.label ?? '';
+  }, [armadaEntries, armadaEntryOptions]);
+
+  const armadaAdditionalTotal = useMemo(
+    () => armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.biaya_lain), 0),
+    [armadaEntries]
+  );
+  const armadaDiscountTotal = useMemo(
+    () => armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.discount), 0),
+    [armadaEntries]
+  );
+
+  const armadaBasePriceTotal = useMemo(() => {
+    return armadaEntries.reduce((acc, r) => {
+      const priceObj = r.fleet_prices.find((p) => p.price_id === r.price_id);
+      const price = priceObj?.price ?? 0;
+      const qty = digitsToNumber(r.qty) || 0;
+      return acc + price * qty;
+    }, 0);
+  }, [armadaEntries]);
+
   const daysCount = useMemo(() => daysBetweenInclusive(pickupAt, dropoffAt), [pickupAt, dropoffAt]);
+
   const computedTotalPrice = useMemo(() => {
-    const base = digitsToNumber(totalPrice);
-    const additional = digitsToNumber(additionalAmount);
-    const discount = digitsToNumber(discountAmount);
+    const base = armadaBasePriceTotal;
+    const additional = armadaAdditionalTotal;
+    const discount = armadaDiscountTotal;
     return Math.max(0, base + additional - discount);
-  }, [additionalAmount, discountAmount, totalPrice]);
+  }, [armadaBasePriceTotal, armadaAdditionalTotal, armadaDiscountTotal]);
+
+  const fetchPricesForEntry = async (fleetId: string, currentRentType: string) => {
+    if (!fleetId) return [];
+    try {
+      const primaryPath = `/services/fleet/prices/${encodeURIComponent(fleetId)}/${encodeURIComponent(currentRentType)}`;
+      const fallbackPath = `/services/fleet/prices/${encodeURIComponent(fleetId)}`;
+
+      let payload: unknown = null;
+      const resPrimary = await api.get<unknown>(primaryPath, token ? { Authorization: token } : undefined);
+      if (resPrimary.status === 'success') payload = resPrimary.data;
+      if (!payload) {
+        const resFallback = await api.get<unknown>(fallbackPath, token ? { Authorization: token } : undefined);
+        if (resFallback.status === 'success') payload = resFallback.data;
+      }
+      if (!payload) return [];
+
+      const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+      const data = (root.data ?? payload) as unknown;
+      const items = Array.isArray(data) ? data : [];
+
+      return items
+        .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
+        .filter((it): it is Record<string, unknown> => Boolean(it))
+        .map((it): FleetPriceOption | null => {
+          const rentTypeRaw = it.rent_type ?? it.rentType ?? it.type ?? it.rent_category;
+          const rt = typeof rentTypeRaw === 'number' ? rentTypeRaw : Number(rentTypeRaw ?? NaN);
+          const durationRaw = it.duration ?? it.duration_label ?? it.label ?? it.name;
+          const duration = typeof durationRaw === 'number' ? durationRaw : Number(durationRaw ?? NaN);
+          const priceRaw = it.price ?? it.amount ?? it.value ?? 0;
+          const price = typeof priceRaw === 'number' ? priceRaw : Number(priceRaw ?? 0);
+          const priceIdRaw = it.price_id;
+          const price_id = typeof priceIdRaw === 'string' || typeof priceIdRaw === 'number' ? String(priceIdRaw) : '';
+          return price_id && Number.isFinite(duration)
+            ? { price_id, duration, price, rent_type: Number.isFinite(rt) ? rt : undefined, raw: it }
+            : null;
+        })
+        .filter((x): x is FleetPriceOption => x !== null);
+    } catch (error) {
+      console.error('Error fetching prices:', error);
+      return [];
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      if (!fleet?.id) {
-        setFleetPrices([]);
-        setSelectedPriceId('');
-        return;
-      }
-      setFleetPricesLoading(true);
-      setFleetPrices([]);
-      setSelectedPriceId('');
-      try {
-        const fleetId = String(fleet.id);
-        const primaryPath = `/services/fleet/prices/${encodeURIComponent(fleetId)}/${encodeURIComponent(rentType)}`;
-        const fallbackPath = `/services/fleet/prices/${encodeURIComponent(fleetId)}`;
-
-        let payload: unknown = null;
-        const resPrimary = await api.get<unknown>(primaryPath, token ? { Authorization: token } : undefined);
-        if (resPrimary.status === 'success') payload = resPrimary.data;
-        if (!payload) {
-          const resFallback = await api.get<unknown>(fallbackPath, token ? { Authorization: token } : undefined);
-          if (resFallback.status === 'success') payload = resFallback.data;
-        }
-        if (!payload) return;
-
-        const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
-        const data = (root.data ?? payload) as unknown;
-        const items = Array.isArray(data) ? data : [];
-
-        const mapped = items
-          .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
-          .filter((it): it is Record<string, unknown> => Boolean(it))
-          .map((it): FleetPriceOption | null => {
-            const rentTypeRaw = it.rent_type ?? it.rentType ?? it.type ?? it.rent_category;
-            const rent_type = typeof rentTypeRaw === 'number' ? rentTypeRaw : Number(rentTypeRaw ?? NaN);
-            const durationRaw = it.duration ?? it.duration_label ?? it.label ?? it.name;
-            const duration = typeof durationRaw === 'number' ? durationRaw : Number(durationRaw ?? NaN);
-            const priceRaw = it.price ?? it.amount ?? it.value ?? 0;
-            const price = typeof priceRaw === 'number' ? priceRaw : Number(priceRaw ?? 0);
-            const priceIdRaw = it.price_id;
-            const price_id = typeof priceIdRaw === 'string' || typeof priceIdRaw === 'number' ? String(priceIdRaw) : '';
-            return price_id && Number.isFinite(duration)
-              ? { price_id, duration, price, rent_type: Number.isFinite(rent_type) ? rent_type : undefined, raw: it }
-              : null;
-          })
-          .filter((x): x is FleetPriceOption => x !== null);
-
-        setFleetPrices(mapped);
-        if (mapped.length === 1) {
-          const qty = Math.max(1, digitsToNumber(fleetQty));
-          setSelectedPriceId(mapped[0].price_id);
-          if (mapped[0].price > 0) setTotalPrice(String(mapped[0].price * qty));
-        }
-      } finally {
-        setFleetPricesLoading(false);
-      }
-    })();
-  }, [fleet?.id, rentType]);
-
-  useEffect(() => {
-    (async () => {
-      if (!fleet?.id) {
-        setAddonOptions([]);
-        setAddonRows([]);
-        return;
-      }
-      setAddonsLoading(true);
-      try {
-        const fleetId = String(fleet.id);
-        const res = await api.get<unknown>(`/services/fleet/addon/${encodeURIComponent(fleetId)}`, token ? { Authorization: token } : undefined);
-        if (res.status !== 'success') return;
-
-        const payload = res.data as unknown;
-        const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
-        const data = (root.data ?? payload) as unknown;
-        const items = Array.isArray(data) ? data : [];
-
-        const mapped = items
-          .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
-          .filter((it): it is Record<string, unknown> => Boolean(it))
-          .map((it): AddonOption | null => {
-            const idRaw = it.addon_id ?? it.id ?? it.uuid ?? it.key;
-            const addon_id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
-            const nameRaw = it.addon_name ?? it.name ?? it.label ?? it.title;
-            const addon_name = typeof nameRaw === 'string' ? nameRaw : '';
-            const priceRaw = it.addon_price ?? it.price ?? it.amount ?? 0;
-            const addon_price = typeof priceRaw === 'number' ? priceRaw : Number(priceRaw ?? 0);
-            return addon_id && addon_name ? { addon_id, addon_name, addon_price: Number.isFinite(addon_price) ? addon_price : 0, raw: it } : null;
-          })
-          .filter((x): x is AddonOption => x !== null);
-
-        setAddonOptions(mapped);
-        setAddonRows((prev) => {
-          const kept = prev.filter((r) => !r.addonId || mapped.some((a) => a.addon_id === r.addonId));
-          if (kept.length > 0) return kept;
-          if (mapped.length === 0) return [];
-          return [{ id: crypto.randomUUID(), addonId: '', qty: '1' }];
-        });
-      } finally {
-        setAddonsLoading(false);
-      }
-    })();
-  }, [fleet?.id]);
-
-  useEffect(() => {
-    if (!selectedPriceId) return;
-    const found = fleetPrices.find((p) => p.price_id === selectedPriceId);
-    if (!found || !Number.isFinite(found.price) || found.price <= 0) return;
-    const qty = Math.max(1, digitsToNumber(fleetQty));
-    setTotalPrice(String(found.price * qty));
-  }, [fleetQty, selectedPriceId, fleetPrices]);
+    const updateAllPrices = async () => {
+      const newEntries = await Promise.all(
+        armadaEntries.map(async (entry) => {
+          if (!entry.armada_id) return entry;
+          const prices = await fetchPricesForEntry(entry.armada_id, rentType);
+          let newPriceId = entry.price_id;
+          if (prices.length === 1) {
+            newPriceId = prices[0].price_id;
+          } else if (!prices.find((p) => p.price_id === entry.price_id)) {
+            newPriceId = '';
+          }
+          return { ...entry, fleet_prices: prices, price_id: newPriceId };
+        })
+      );
+      setArmadaEntries(newEntries);
+    };
+    updateAllPrices();
+  }, [rentType]);
 
   useEffect(() => {
     if (daysCount <= 0) {
@@ -454,27 +429,20 @@ export const FleetOrderForm: React.FC = () => {
   };
 
   const validate = (): string | null => {
-    if (!fleet) return 'Pilih armada terlebih dahulu';
-    const qty = digitsToNumber(fleetQty);
-    if (qty <= 0) return 'Jumlah armada wajib diisi';
-    if (fleetPrices.length > 0 && !selectedPriceId) return 'Pilih harga terlebih dahulu';
+    if (armadaEntries.length <= 0) return 'Minimal 1 armada wajib diisi';
+    for (let i = 0; i < armadaEntries.length; i++) {
+      const entry = armadaEntries[i];
+      if (!entry.armada_id) return `Pilih armada pada baris ke-${i + 1}`;
+      if (entry.fleet_prices.length > 0 && !entry.price_id) return `Pilih durasi sewa pada baris ke-${i + 1}`;
+      if (digitsToNumber(entry.qty) <= 0) return `Jumlah armada pada baris ke-${i + 1} minimal 1`;
+    }
     if (!customer) return 'Pilih customer terlebih dahulu';
     if (!pickupAt) return 'Tanggal dan jam penjemputan wajib diisi';
     if (!dropoffAt) return 'Tanggal dan jam pengantaran wajib diisi';
     if (!pickupAddress.trim()) return 'Alamat penjemputan wajib diisi';
     if (!pickupCity) return 'Kota penjemputan wajib dipilih';
-    const discount = digitsToNumber(discountAmount);
-    const base = digitsToNumber(totalPrice);
-    const additional = digitsToNumber(additionalAmount);
-    const gross = base + additional;
-    if (gross <= 0) return 'Total harga wajib diisi';
-    if (discount > gross) return 'Diskon tidak boleh lebih besar dari total harga';
+    
     if (computedTotalPrice <= 0) return 'Total harga wajib diisi';
-    for (const r of addonRows) {
-      if (!r.addonId) continue;
-      const q = digitsToNumber(r.qty);
-      if (q <= 0) return 'Quantity addon wajib diisi';
-    }
     if (daysCount > 0) {
       for (const it of itinerary) {
         const allowEmpty = it.day === 1 || it.day === daysCount;
@@ -498,34 +466,33 @@ export const FleetOrderForm: React.FC = () => {
     }
     setSaving(true);
     try {
-      const discount = digitsToNumber(discountAmount);
-      const additional = digitsToNumber(additionalAmount);
-      const qty = digitsToNumber(fleetQty);
-      const selected = selectedPriceId ? fleetPrices.find((p) => p.price_id === selectedPriceId) : undefined;
+      const discount = armadaDiscountTotal;
+      const additional = armadaAdditionalTotal;
+      const totalQty = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.qty), 0);
+      const firstEntry = armadaEntries[0];
+      const selected = firstEntry.price_id ? firstEntry.fleet_prices.find((p) => p.price_id === firstEntry.price_id) : undefined;
+      
       const payload = {
-        fleet_id: fleet!.id,
-        ...(selectedPriceId ? { price_id: selectedPriceId } : {}),
+        fleet_id: firstEntry.armada_id,
+        ...(firstEntry.price_id ? { price_id: firstEntry.price_id } : {}),
         ...(selected ? { duration: selected.duration, rent_type: Number(rentType) } : { rent_type: Number(rentType) }),
         customer_id: customer!.id,
         pickup_datetime: pickupAt,
         dropoff_datetime: dropoffAt,
         pickup_address: pickupAddress,
         pickup_city_id: pickupCity!.id,
-        fleet_qty: qty,
+        fleet_qty: totalQty,
         price: computedTotalPrice,
         discount_amount: discount,
         additional_amount: additional,
         additional_request: specialRequest,
-        addons: addonRows
-          .filter((r) => r.addonId)
-          .map((r) => {
-            const opt = addonOptions.find((a) => a.addon_id === r.addonId);
-            return {
-              addon_id: r.addonId,
-              addon_price: opt?.addon_price ?? 0,
-              quantity: digitsToNumber(r.qty),
-            };
-          }),
+        armadas: armadaEntries.map((r) => ({
+          armada_id: r.armada_id,
+          price_id: r.price_id,
+          qty: digitsToNumber(r.qty),
+          biaya_lain: digitsToNumber(r.biaya_lain),
+          discount: digitsToNumber(r.discount),
+        })),
         itinerary: itinerary.flatMap((it) =>
           (it.stops ?? []).map((s) => ({
             day: it.day,
@@ -545,42 +512,20 @@ export const FleetOrderForm: React.FC = () => {
   };
 
   const onPreview = async () => {
-    const qty = digitsToNumber(fleetQty);
-    const total = digitsToNumber(totalPrice);
-    const discount = digitsToNumber(discountAmount);
-    const additional = digitsToNumber(additionalAmount);
-    const selectedDuration = selectedPriceId ? fleetPrices.find((p) => p.price_id === selectedPriceId) : undefined;
-    const addonsSelected = addonRows
-      .filter((r) => r.addonId && digitsToNumber(r.qty) > 0)
-      .map((r) => {
-        const opt = addonOptions.find((a) => a.addon_id === r.addonId);
-        const price = opt?.addon_price ?? 0;
-        const q = digitsToNumber(r.qty);
-        return {
-          name: opt?.addon_name ?? r.addonId,
-          price,
-          qty: q,
-          subtotal: price * q,
-        };
-      });
-    const addonsTotal = addonsSelected.reduce((acc, x) => acc + x.subtotal, 0);
-    const totalTagihan = total + addonsTotal + additional;
-    const sisaTagihan = Math.max(0, totalTagihan - discount);
-    const pricePerUnit = selectedDuration?.price ?? 0;
-    const itemsTableRows = [
-      {
-        item: fleet?.label ?? 'Armada',
-        qty: qty,
-        price: pricePerUnit,
-        total: total,
-      },
-      ...addonsSelected.map((a) => ({
-        item: a.name,
-        qty: a.qty,
-        price: a.price,
-        total: a.subtotal,
-      })),
-    ];
+    const totalTagihan = armadaBasePriceTotal + armadaAdditionalTotal;
+    const sisaTagihan = Math.max(0, totalTagihan - armadaDiscountTotal);
+    
+    const itemsTableRows = armadaEntries.map((r, i) => {
+      const priceObj = r.fleet_prices.find((p) => p.price_id === r.price_id);
+      const label = armadaEntryOptions[i]?.label ?? 'Armada';
+      return {
+        item: label,
+        qty: digitsToNumber(r.qty),
+        price: priceObj?.price ?? 0,
+        total: (priceObj?.price ?? 0) * digitsToNumber(r.qty),
+      };
+    });
+
     const itemsTableHtml = `
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
@@ -609,11 +554,11 @@ export const FleetOrderForm: React.FC = () => {
         </tbody>
         <tfoot>
           ${
-            additional > 0
+            armadaAdditionalTotal > 0
               ? `
           <tr>
             <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>Biaya Lain</b></td>
-            <td style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>${formatRupiahFromNumber(additional)}</b></td>
+            <td style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>${formatRupiahFromNumber(armadaAdditionalTotal)}</b></td>
           </tr>
           `
               : ''
@@ -624,7 +569,7 @@ export const FleetOrderForm: React.FC = () => {
           </tr>
           <tr>
             <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>Potongan Harga</b></td>
-            <td style="border:1px solid #e5e7eb;padding:8px;text-align:right">${formatRupiahFromNumber(discount)}</td>
+            <td style="border:1px solid #e5e7eb;padding:8px;text-align:right">${formatRupiahFromNumber(armadaDiscountTotal)}</td>
           </tr>
           <tr>
             <td colspan="4" style="border:1px solid #e5e7eb;padding:8px;text-align:right"><b>Sisa Tagihan</b></td>
@@ -824,23 +769,16 @@ export const FleetOrderForm: React.FC = () => {
   };
 
   const formReady = useMemo(() => validate() === null, [
-    fleet?.id,
+    armadaEntries,
     rentType,
-    fleetQty,
-    selectedPriceId,
     customer?.id,
     pickupAt,
     dropoffAt,
     pickupAddress,
     pickupCity?.id,
-    discountAmount,
-    totalPrice,
-    additionalAmount,
     itinerary,
-    addonRows,
-    addonOptions,
-    fleetPrices,
     daysCount,
+    computedTotalPrice
   ]);
 
   return (
@@ -863,10 +801,6 @@ export const FleetOrderForm: React.FC = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Pilih Armada</label>
-                <AsyncCombobox value={fleet} onChange={setFleet} placeholder="Cari armada..." fetcher={fleetFetcher} />
-              </div>
-              <div className="space-y-2">
                 <label className="text-sm font-medium">Customer</label>
                 <AsyncCombobox value={customer} onChange={setCustomer} placeholder="Cari customer..." fetcher={customerFetcher} />
               </div>
@@ -876,7 +810,7 @@ export const FleetOrderForm: React.FC = () => {
                 <Select
                   value={rentType}
                   onValueChange={(v) => setRentType(v)}
-                  disabled={!fleet}
+                  disabled={!primaryFleetId}
                 >
                   <SelectTrigger className="h-12">
                     <SelectValue placeholder="Pilih jenis sewa" />
@@ -887,21 +821,6 @@ export const FleetOrderForm: React.FC = () => {
                     <SelectItem value="3">Citytour Pickup / Drop only</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Jumlah Armada</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={fleetQty}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    onChange={(e) => setFleetQty(e.target.value.replace(/[^0-9]/g, ''))}
-                    className="h-12 w-24"
-                    placeholder="1"
-                  />
-                  <div className="text-sm text-gray-600 dark:text-gray-300">unit</div>
-                </div>
               </div>
 
               <div className="space-y-2">
@@ -922,80 +841,6 @@ export const FleetOrderForm: React.FC = () => {
                 <label className="text-sm font-medium">Kota Penjemputan</label>
                 <AsyncCombobox value={pickupCity} onChange={setPickupCity} placeholder="Cari kota..." fetcher={cityFetcher} />
               </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Pilih Durasi Sewa</label>
-                    <Select
-                      value={selectedPriceId}
-                      onValueChange={(v) => {
-                        setSelectedPriceId(v);
-                        const found = fleetPrices.find((p) => p.price_id === v);
-                        if (found && Number.isFinite(found.price) && found.price > 0) {
-                          const qty = Math.max(1, digitsToNumber(fleetQty));
-                          setTotalPrice(String(found.price * qty));
-                        }
-                      }}
-                      disabled={!fleet || fleetPricesLoading || fleetPrices.length === 0}
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue
-                          placeholder={
-                            !fleet
-                              ? 'Pilih armada terlebih dahulu'
-                              : fleetPricesLoading
-                                ? 'Memuat...'
-                                : fleetPrices.length === 0
-                                  ? 'Tidak ada pilihan harga'
-                                  : 'Pilih durasi'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fleetPrices.map((p) => (
-                          <SelectItem key={p.price_id} value={p.price_id}>
-                            {p.duration} hari {formatRupiahFromNumber(p.price)} / unit
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Biaya Lain (charge)</label>
-                    <Input
-                      value={formatRupiahFromDigits(additionalAmount)}
-                      inputMode="numeric"
-                      onChange={(e) => {
-                        setAdditionalAmount(e.target.value.replace(/[^0-9]/g, ''));
-                      }}
-                      className="h-12"
-                      placeholder="Rp 0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Discount</label>
-                <Input
-                  value={formatRupiahFromDigits(discountAmount)}
-                  inputMode="numeric"
-                  onChange={(e) => setDiscountAmount(e.target.value.replace(/[^0-9]/g, ''))}
-                  className="h-12"
-                  placeholder="Rp 0"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Harga Total</label>
-                <Input
-                  value={formatRupiahFromNumber(computedTotalPrice)}
-                  disabled
-                  className="h-12"
-                  placeholder="Rp 0"
-                />
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -1003,101 +848,190 @@ export const FleetOrderForm: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Addon</span>
+              <span>Informasi Jenis Kendaraan</span>
               <Button
                 type="button"
                 variant="outline"
                 className="gap-2"
-                disabled={!fleet || addonsLoading || addonOptions.length === 0}
-                onClick={() =>
-                  setAddonRows((prev) => [...prev, { id: crypto.randomUUID(), addonId: '', qty: '1' }])
-                }
+                onClick={() => {
+                  setArmadaEntries((prev) => [
+                    ...prev,
+                    {
+                      armada_id: '',
+                      price_id: '',
+                      qty: '1',
+                      biaya_lain: '',
+                      discount: '',
+                      fleet_prices: [],
+                      loading_prices: false,
+                    },
+                  ]);
+                  setArmadaEntryOptions((prev) => [...prev, null]);
+                }}
               >
                 <Plus className="h-4 w-4" />
-                Tambah Addon
+                Tambah Armada
               </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!fleet ? (
-              <div className="text-sm text-muted-foreground">Pilih armada terlebih dahulu untuk melihat addon.</div>
-            ) : addonsLoading ? (
-              <div className="text-sm text-muted-foreground">Memuat...</div>
-            ) : addonOptions.length === 0 ? (
-              <div className="text-sm text-muted-foreground">Tidak ada addon untuk armada ini.</div>
-            ) : (
-              <div className="space-y-4">
-                {addonRows.length === 0 ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => setAddonRows([{ id: crypto.randomUUID(), addonId: '', qty: '1' }])}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Tambah Addon
-                  </Button>
-                ) : null}
-                {addonRows.map((row) => {
-                  const selected = addonOptions.find((a) => a.addon_id === row.addonId);
-                  return (
-                    <div key={row.id} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Jenis Addon</label>
-                        <Select
-                          value={row.addonId}
-                          onValueChange={(v) =>
-                            setAddonRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, addonId: v } : r)))
-                          }
-                        >
-                          <SelectTrigger className="h-12">
-                            <SelectValue placeholder="Pilih addon" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {addonOptions.map((a) => (
-                              <SelectItem key={a.addon_id} value={a.addon_id}>
-                                {a.addon_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Harga</label>
-                        <Input className="h-12" value={formatRupiahFromNumber(selected?.addon_price ?? 0)} disabled />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Quantity</label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={row.qty}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            onChange={(e) =>
-                              setAddonRows((prev) =>
-                                prev.map((r) => (r.id === row.id ? { ...r, qty: e.target.value.replace(/[^0-9]/g, '') } : r))
+            <div className="space-y-4">
+              {armadaEntries.map((row, idx) => (
+                <div key={idx} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div className="space-y-2 col-span-1 md:col-span-2">
+                      <label className="text-sm font-medium">Pilih Armada</label>
+                      <AsyncCombobox
+                        value={armadaEntryOptions[idx] ?? null}
+                        onChange={async (opt) => {
+                          setArmadaEntryOptions((prev) => {
+                            const next = [...prev];
+                            next[idx] = opt;
+                            return next;
+                          });
+                          
+                          if (opt) {
+                            setArmadaEntries((prev) =>
+                              prev.map((r, i) => (i === idx ? { ...r, loading_prices: true } : r))
+                            );
+                            const prices = await fetchPricesForEntry(opt.id, rentType);
+                            setArmadaEntries((prev) =>
+                              prev.map((r, i) =>
+                                i === idx
+                                  ? {
+                                      ...r,
+                                      armada_id: opt.id,
+                                      fleet_prices: prices,
+                                      price_id: prices.length === 1 ? prices[0].price_id : '',
+                                      loading_prices: false,
+                                    }
+                                  : r
                               )
-                            }
-                            className="h-12 w-24"
-                            placeholder="1"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-12 w-12 p-0"
-                            disabled={addonRows.length <= 1}
-                            onClick={() => setAddonRows((prev) => prev.filter((r) => r.id !== row.id))}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                            );
+                          } else {
+                            setArmadaEntries((prev) =>
+                              prev.map((r, i) =>
+                                i === idx
+                                  ? { ...r, armada_id: '', fleet_prices: [], price_id: '', loading_prices: false }
+                                  : r
+                              )
+                            );
+                          }
+                        }}
+                        placeholder="Cari armada..."
+                        fetcher={fleetFetcher}
+                      />
                     </div>
-                  );
-                })}
-              </div>
-            )}
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Durasi Sewa</label>
+                      <Select
+                        value={row.price_id}
+                        onValueChange={(v) =>
+                          setArmadaEntries((prev) =>
+                            prev.map((r, i) => (i === idx ? { ...r, price_id: v } : r))
+                          )
+                        }
+                        disabled={!row.armada_id || row.loading_prices || row.fleet_prices.length === 0}
+                      >
+                        <SelectTrigger className="h-12">
+                          <SelectValue
+                            placeholder={
+                              !row.armada_id
+                                ? 'Pilih armada'
+                                : row.loading_prices
+                                ? 'Memuat...'
+                                : row.fleet_prices.length === 0
+                                ? 'No prices'
+                                : 'Pilih durasi'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {row.fleet_prices.map((p) => (
+                            <SelectItem key={p.price_id} value={p.price_id}>
+                              {p.duration} hari {formatRupiahFromNumber(p.price)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Jumlah</label>
+                      <Input
+                        value={row.qty}
+                        inputMode="numeric"
+                        onChange={(e) =>
+                          setArmadaEntries((prev) =>
+                            prev.map((r, i) => (i === idx ? { ...r, qty: e.target.value.replace(/[^0-9]/g, '') } : r))
+                          )
+                        }
+                        className="h-12"
+                        placeholder="1"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Biaya Lain</label>
+                      <Input
+                        value={formatRupiahFromDigits(row.biaya_lain)}
+                        inputMode="numeric"
+                        onChange={(e) =>
+                          setArmadaEntries((prev) =>
+                            prev.map((r, i) => (i === idx ? { ...r, biaya_lain: e.target.value.replace(/[^0-9]/g, '') } : r))
+                          )
+                        }
+                        className="h-12"
+                        placeholder="Rp 0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Diskon</label>
+                      <Input
+                        value={formatRupiahFromDigits(row.discount)}
+                        inputMode="numeric"
+                        onChange={(e) =>
+                          setArmadaEntries((prev) =>
+                            prev.map((r, i) => (i === idx ? { ...r, discount: e.target.value.replace(/[^0-9]/g, '') } : r))
+                          )
+                        }
+                        className="h-12"
+                        placeholder="Rp 0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="text-sm font-medium text-gray-500">
+                      Subtotal: {formatRupiahFromNumber(
+                        (row.fleet_prices.find(p => p.price_id === row.price_id)?.price ?? 0) * digitsToNumber(row.qty) +
+                        digitsToNumber(row.biaya_lain) -
+                        digitsToNumber(row.discount)
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      disabled={armadaEntries.length <= 1}
+                      onClick={() => {
+                        setArmadaEntries((prev) => prev.filter((_, i) => i !== idx));
+                        setArmadaEntryOptions((prev) => prev.filter((_, i) => i !== idx));
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center rounded-b-lg">
+            <div className="text-lg font-bold">Total Tagihan</div>
+            <div className="text-2xl font-bold text-primary">
+              {formatRupiahFromNumber(computedTotalPrice)}
+            </div>
+          </div>
         </Card>
 
         <Card>

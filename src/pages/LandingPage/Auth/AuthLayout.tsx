@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import travegoLogo from '@/assets/general/travego.svg';
+import authIllustration from '@/assets/general/auth-illustration.svg';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -19,13 +20,12 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
 
       <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-5">
         <div className="order-first lg:order-first lg:col-span-2 text-white" style={{ backgroundColor: 'rgb(17, 24, 39)' }}>
-          <div className="flex w-full h-56 lg:h-full items-center justify-center px-6 lg:px-10 py-10">
-            <div className="text-center space-y-4">
-              <div className="text-3xl lg:text-4xl font-bold">Selamat Datang</div>
-              <div className="flex justify-center">
-                <img src={travegoLogo} alt="TraveGO" className="h-12 lg:h-16 w-auto" />
-              </div>
-            </div>
+          <div className="flex w-full h-48 sm:h-56 lg:h-full items-center justify-center overflow-hidden">
+            <img 
+              src={authIllustration} 
+              alt="Auth Illustration" 
+              className="w-full h-full object-cover lg:object-contain lg:p-[10%]" 
+            />
           </div>
         </div>
 
