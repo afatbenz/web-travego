@@ -304,32 +304,25 @@ export const FleetOrderForm: React.FC = () => {
     return armadaEntryOptions[idx]?.label ?? '';
   }, [armadaEntries, armadaEntryOptions]);
 
-  const armadaAdditionalTotal = useMemo(
-    () => armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.biaya_lain), 0),
-    [armadaEntries]
-  );
-  const armadaDiscountTotal = useMemo(
-    () => armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.discount), 0),
-    [armadaEntries]
-  );
-
-  const armadaBasePriceTotal = useMemo(() => {
-    return armadaEntries.reduce((acc, r) => {
+  const { armadaAdditionalTotal, armadaDiscountTotal, armadaBasePriceTotal, computedTotalPrice } = useMemo(() => {
+    const additional = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.biaya_lain), 0);
+    const discount = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.discount), 0);
+    const base = armadaEntries.reduce((acc, r) => {
       const priceObj = r.fleet_prices.find((p) => p.price_id === r.price_id);
       const price = priceObj?.price ?? 0;
       const qty = digitsToNumber(r.qty) || 0;
       return acc + price * qty;
     }, 0);
+    const total = Math.max(0, base + additional - discount);
+    return {
+      armadaAdditionalTotal: additional,
+      armadaDiscountTotal: discount,
+      armadaBasePriceTotal: base,
+      computedTotalPrice: total,
+    };
   }, [armadaEntries]);
 
   const daysCount = useMemo(() => daysBetweenInclusive(pickupAt, dropoffAt), [pickupAt, dropoffAt]);
-
-  const computedTotalPrice = useMemo(() => {
-    const base = armadaBasePriceTotal;
-    const additional = armadaAdditionalTotal;
-    const discount = armadaDiscountTotal;
-    return Math.max(0, base + additional - discount);
-  }, [armadaBasePriceTotal, armadaAdditionalTotal, armadaDiscountTotal]);
 
   const fetchPricesForEntry = async (fleetId: string, currentRentType: string): Promise<FleetPriceOption[]> => {
     const defaultNoPrice: FleetPriceOption = {
@@ -480,12 +473,11 @@ export const FleetOrderForm: React.FC = () => {
       const additional = armadaAdditionalTotal;
       const totalQty = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.qty), 0);
       const firstEntry = armadaEntries[0];
-      const selected = firstEntry.price_id ? firstEntry.fleet_prices.find((p) => p.price_id === firstEntry.price_id) : undefined;
       
       const payload = {
         fleet_id: firstEntry.armada_id,
         ...(firstEntry.price_id ? { price_id: firstEntry.price_id } : {}),
-        ...(selected ? { duration: selected.duration, rent_type: Number(rentType) } : { rent_type: Number(rentType) }),
+        rent_type: Number(rentType),
         customer_id: customer!.id,
         pickup_datetime: pickupAt,
         dropoff_datetime: dropoffAt,
@@ -496,7 +488,7 @@ export const FleetOrderForm: React.FC = () => {
         discount_amount: discount,
         additional_amount: additional,
         additional_request: specialRequest,
-        armadas: armadaEntries.map((r) => ({
+        fleets: armadaEntries.map((r) => ({
           armada_id: r.armada_id,
           price_id: r.price_id,
           qty: digitsToNumber(r.qty),
