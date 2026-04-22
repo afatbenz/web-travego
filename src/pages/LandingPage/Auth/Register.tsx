@@ -139,46 +139,48 @@ export const Register: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Email
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                placeholder="contoh@email.com"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="contoh@email.com"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="phone" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Nomor Telepon
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  required
+                  placeholder="+62812xxxxxx"
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  onKeyDown={handlePhoneKeyDown}
+                  className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="phone" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Nomor Telepon
-            </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
-                placeholder="+62812xxxxxx"
-                value={formData.phone}
-                onChange={handlePhoneChange}
-                onKeyDown={handlePhoneKeyDown}
-                className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Password
@@ -190,7 +192,7 @@ export const Register: React.FC = () => {
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="Masukkan password"
+                  placeholder="Password"
                   value={formData.password}
                   onChange={handleInputChange}
                   className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
@@ -207,7 +209,7 @@ export const Register: React.FC = () => {
 
             <div className="space-y-2">
               <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Konfirmasi Password
+                Konfirmasi
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -216,7 +218,7 @@ export const Register: React.FC = () => {
                   name="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
                   required
-                  placeholder="Ulangi password"
+                  placeholder="Ulangi"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
@@ -229,11 +231,11 @@ export const Register: React.FC = () => {
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {formData.confirmPassword && formData.confirmPassword !== formData.password && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">Password belum sesuai</p>
-              )}
             </div>
           </div>
+          {formData.confirmPassword && formData.confirmPassword !== formData.password && (
+            <p className="mt-[-8px] text-xs text-red-600 dark:text-red-400">Password belum sesuai</p>
+          )}
         </div>
 
         <div className="flex items-start space-x-2">

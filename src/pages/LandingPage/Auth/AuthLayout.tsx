@@ -19,7 +19,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
       </div>
 
       <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-5">
-        <div className="order-first lg:order-first lg:col-span-2 text-white" style={{ backgroundColor: 'rgb(17, 24, 39)' }}>
+        <div className="order-first lg:order-first lg:col-span-2 text-white [border-radius:0_0_8%_8%] lg:[border-radius:0_8%_8%_0]" style={{ backgroundColor: 'rgb(17, 24, 39)' }}>
           <div className="flex w-full h-48 sm:h-56 lg:h-full items-center justify-center overflow-hidden">
             <img 
               src={authIllustration} 
