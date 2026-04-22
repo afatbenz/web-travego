@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings } from 'lucide-react';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings, Printer } from 'lucide-react';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +36,20 @@ type ItineraryDay = {
   activities: string[];
 };
 
+type FleetItem = {
+  fleet_id: string;
+  fleet_name: string;
+  fleet_type: string;
+  quantity: number;
+  price: number;
+  charge_amount: number;
+  discount: number;
+  sub_total: number;
+  order_id: string;
+  order_item_id: string;
+  price_id: string;
+};
+
 type OrderData = {
   id: string;
   fleetId: string;
@@ -65,6 +79,16 @@ type OrderData = {
   facilities: string[];
   additionalRequests: string;
   notes: string;
+  order_id: string;
+  rent_type_label: string;
+  fleets: FleetItem[];
+  pickup: {
+    city_label: string;
+    start_date: string;
+    end_date: string;
+    pickup_location: string;
+    pickup_city: string;
+  };
 };
 
 type PaymentHistoryRow = {
@@ -380,6 +404,24 @@ export const OrderDetail: React.FC = () => {
 
       const itinerary = Object.values(groupedItinerary).sort((a, b) => a.day - b.day);
 
+      const fleetsRaw = detail.fleets;
+      const fleets: FleetItem[] = Array.isArray(fleetsRaw) ? fleetsRaw.map((fleet: unknown) => {
+        const f = record(fleet);
+        return {
+          fleet_id: getString(f.fleet_id ?? f.fleetId, ''),
+          fleet_name: getString(f.fleet_name ?? f.fleetName, ''),
+          fleet_type: getString(f.fleet_type ?? f.fleetType, ''),
+          quantity: getNumber(f.quantity ?? f.qty, 0),
+          price: getNumber(f.price, 0),
+          charge_amount: getNumber(f.charge_amount ?? f.chargeAmount, 0),
+          discount: getNumber(f.discount, 0),
+          sub_total: getNumber(f.sub_total ?? f.subTotal, 0),
+          order_id: getString(f.order_id ?? f.orderId, ''),
+          order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
+          price_id: getString(f.price_id ?? f.priceId, ''),
+        };
+      }) : [];
+
       const next: OrderData = {
         ...createEmptyOrderData(orderId),
         id: getString(detail.order_id ?? detail.id, orderId),
@@ -420,6 +462,16 @@ export const OrderDetail: React.FC = () => {
         facilities: facilities.length ? facilities : Array.isArray(detail.facilities) ? (detail.facilities as string[]) : [],
         additionalRequests: getString(detail.additional_request ?? detail.additional_requests ?? detail.additionalRequests, '-'),
         notes: getString(detail.notes, '-'),
+        order_id: getString(detail.order_id ?? detail.id, orderId),
+        rent_type_label: getString(detail.rent_type_label ?? detail.rentTypeLabel, ''),
+        fleets,
+        pickup: {
+          city_label: getString(pickup.city_label ?? pickup.cityLabel, ''),
+          start_date: getString(pickup.start_date ?? pickup.startDate, ''),
+          end_date: getString(pickup.end_date ?? pickup.endDate, ''),
+          pickup_location: getString(pickup.pickup_location ?? pickup.pickupLocation, ''),
+          pickup_city: getString(pickup.pickup_city ?? pickup.pickupCity, ''),
+        },
       };
 
       setOrderData(next);
@@ -1075,56 +1127,98 @@ export const OrderDetail: React.FC = () => {
                   >
                     Fasilitas
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="requests"
-                  >
-                    Permintaan Khusus
-                  </TabsTrigger>
                 </TabsList>
 
                 <div className="min-h-[420px] max-h-[620px] overflow-y-auto">
                   <TabsContent value="overview" className="pt-4 space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Kategori</label>
-                      <p className="text-gray-900 dark:text-white">{orderData.category}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Order ID</label>
+                        <p className="text-gray-900 dark:text-white font-medium">{orderData.order_id}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tipe Order</label>
+                        <p className="text-gray-900 dark:text-white">{orderData.rent_type_label}</p>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Nama Pesanan</label>
-                      <p className="text-gray-900 dark:text-white text-lg font-medium">{orderData.title}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Deskripsi</label>
-                      <p className="text-gray-900 dark:text-white">{orderData.description}</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Mulai</label>
                         <p className="text-gray-900 dark:text-white flex items-center space-x-2">
                           <Calendar className="h-4 w-4" />
-                          <span>{formatDateTime(orderData.startDate)}</span>
+                          <span>{orderData.pickup ? formatDateTime(orderData.pickup.start_date) : '-'}</span>
                         </p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Selesai</label>
                         <p className="text-gray-900 dark:text-white flex items-center space-x-2">
                           <Calendar className="h-4 w-4" />
-                          <span>{formatDateTime(orderData.endDate)}</span>
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jumlah Armada</label>
-                        <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                          <Car className="h-4 w-4" />
-                          <span>{orderData.participants} unit</span>
+                          <span>{orderData.pickup ? formatDateTime(orderData.pickup.end_date) : '-'} ({orderData.duration || '-'} hari)</span>
                         </p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Lokasi Penjemputan</label>
+                      <p className="text-gray-900 dark:text-white flex items-center space-x-2">
+                        <MapPin className="h-4 w-4" />
+                        <span>{orderData.pickup ? `${orderData.pickup.pickup_location || ''}, ${orderData.pickup.city_label || ''}` : '-'}</span>
+                      </p>
+                    </div>
+
+                    {/* Fleet Table */}
+                    <div className="mt-6">
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-3 block">Detail Armada</label>
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse border border-gray-300 dark:border-gray-600">
+                          <thead>
+                            <tr className="bg-gray-100 dark:bg-gray-700">
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Armada</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Jumlah</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Harga</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Biaya Lain</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Discount</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Sub Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {orderData.fleets && orderData.fleets.map((fleet, index) => (
+                              <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}>
+                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">{fleet.fleet_name}</td>
+                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">{fleet.quantity} unit</td>
+                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">
+                                  Rp {fleet.price.toLocaleString('id-ID')}
+                                </td>
+                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">
+                                  Rp {fleet.charge_amount.toLocaleString('id-ID')}
+                                </td>
+                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">
+                                  Rp {fleet.discount.toLocaleString('id-ID')}
+                                </td>
+                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right font-medium">
+                                  Rp {fleet.sub_total.toLocaleString('id-ID')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="dark:bg-gray-700">
+                              <td colSpan={4} className="border border-white bg-white"></td>
+                              <td className="px-3 py-2 text-left text-sm font-medium"><b>Total</b></td>
+                              <td className="px-3 py-2 text-right text-sm font-medium"><b>
+                                Rp {orderData.totalAmount.toLocaleString('id-ID')}</b>
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                       <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Lokasi Pickup</label>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Permintaan Khusus</label>
                         <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                          <MapPin className="h-4 w-4" />
-                          <span>{orderData.pickupLocation}</span>
+                          <span>{orderData.additionalRequests || '-'}</span>
                         </p>
                       </div>
                     </div>
@@ -1173,28 +1267,22 @@ export const OrderDetail: React.FC = () => {
                     )}
                   </TabsContent>
 
-                  <TabsContent value="requests" className="pt-4 space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Permintaan Khusus</label>
-                      <p className="text-gray-900 dark:text-white">{orderData.additionalRequests}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Catatan</label>
-                      <p className="text-gray-900 dark:text-white">{orderData.notes}</p>
-                    </div>
-                  </TabsContent>
                 </div>
               </Tabs>
             </CardContent>
           </Card>
 
-          <div className={cn('grid gap-3', showScheduleButton ? 'grid-cols-3' : 'grid-cols-2')}>
+          <div className={cn('grid gap-4', showScheduleButton ? 'grid-cols-4' : 'grid-cols-2')}>
             <Button
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => setIsUpdatePaymentOpen(true)}
             >
               <CreditCard className="h-4 w-4 mr-2" />
               Update Pembayaran
+            </Button>
+            <Button className="w-full bg-gray-600 hover:bg-gray-700 text-white">
+              <Printer className="h-4 w-4 mr-2" />
+              Cetak Invoice
             </Button>
             {showScheduleButton ? (
               <Button
@@ -1208,7 +1296,7 @@ export const OrderDetail: React.FC = () => {
                 }}
               >
                 <Calendar className="h-4 w-4 mr-2" />
-                Buat Jadwal Perjalanan
+                Buat Jadwal
               </Button>
             ) : null}
             <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
