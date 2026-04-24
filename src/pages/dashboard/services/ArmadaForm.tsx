@@ -15,6 +15,11 @@ export const ArmadaForm: React.FC = () => {
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const isEdit = Boolean(id);
+  const normalizeSelectKey = (value: unknown): string =>
+    String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_');
   const isUuid = (value: unknown): value is string =>
     typeof value === 'string' &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -55,6 +60,8 @@ export const ArmadaForm: React.FC = () => {
   const [loadingFleetTypes, setLoadingFleetTypes] = useState(false);
   const [fuelTypes, setFuelTypes] = useState<Array<{ value: string; label: string }>>([]);
   const [loadingFuelTypes, setLoadingFuelTypes] = useState(false);
+  const [metaFleetType, setMetaFleetType] = useState('');
+  const [metaFuelType, setMetaFuelType] = useState('');
   const [bodyQuery, setBodyQuery] = useState('');
   const [bodySuggestions, setBodySuggestions] = useState<string[]>([]);
   const [showBodyDropdown, setShowBodyDropdown] = useState(false);
@@ -440,6 +447,8 @@ export const ArmadaForm: React.FC = () => {
       const fuel_type = typeof metaObj.fuel_type === 'string' ? metaObj.fuel_type : '';
       const transmission = typeof metaObj.transmission === 'string' ? metaObj.transmission : '';
       const description = typeof metaObj.description === 'string' ? metaObj.description : '';
+      setMetaFleetType(type);
+      setMetaFuelType(fuel_type);
 
       const activeRaw = metaObj.active ?? metaObj.status;
       const active =
@@ -658,6 +667,32 @@ export const ArmadaForm: React.FC = () => {
 
     fetchFuelTypes();
   }, []);
+
+  useEffect(() => {
+    if (!isEdit || !metaFleetType || fleetTypes.length === 0) return;
+    const current = String(formData.type ?? '');
+    if (fleetTypes.some((t) => t.id === current)) return;
+    const metaKey = normalizeSelectKey(metaFleetType);
+    const matched = fleetTypes.find(
+      (t) => normalizeSelectKey(t.id) === metaKey || normalizeSelectKey(t.label) === metaKey
+    );
+    if (matched && current !== matched.id) {
+      setFormData((prev) => ({ ...prev, type: matched.id }));
+    }
+  }, [isEdit, metaFleetType, fleetTypes, formData.type]);
+
+  useEffect(() => {
+    if (!isEdit || !metaFuelType || fuelTypes.length === 0) return;
+    const current = String(formData.fuel_type ?? '');
+    if (fuelTypes.some((t) => normalizeSelectKey(t.value) === normalizeSelectKey(current))) return;
+    const metaKey = normalizeSelectKey(metaFuelType);
+    const matched = fuelTypes.find(
+      (t) => normalizeSelectKey(t.value) === metaKey || normalizeSelectKey(t.label) === metaKey
+    );
+    if (matched && current !== matched.value) {
+      setFormData((prev) => ({ ...prev, fuel_type: matched.value }));
+    }
+  }, [isEdit, metaFuelType, fuelTypes, formData.fuel_type]);
 
   async function fetchBody(q: string) {
     setLoadingBody(true);
