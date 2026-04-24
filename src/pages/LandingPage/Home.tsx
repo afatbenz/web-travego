@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Star, Shield, Clock, Headphones, ArrowRight, Phone, Check, ChevronDown, ChevronUp, Globe, ClipboardList, Bell, Users, Bot, LayoutDashboard, ShoppingCart, DollarSign, Calendar, Truck } from 'lucide-react';
+import { Star, Shield, Clock, Headphones, Phone, Check, ChevronDown, ChevronUp, Globe, ClipboardList, Bell, Users, Bot, LayoutDashboard, ShoppingCart, DollarSign, Calendar, Truck, Quote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import heroIllustration from '@/assets/landing-page/hero-illustration.svg';
+import heroIllustration from '@/assets/general/dashboard-devices.png';
 import relationIllustration from '@/assets/landing-page/relation-ilustration.svg';
 
 export const Home: React.FC = () => {
@@ -178,90 +178,116 @@ export const Home: React.FC = () => {
     }
   ];
 
+  const testimonials = [
+    {
+      name: 'Budi Santoso',
+      role: 'Owner, Wisata Pro',
+      content: 'TraveGO sangat membantu kami kelola booking dan jadwal sopir. Tim jadi lebih fokus closing.',
+    },
+    {
+      name: 'Dewi Lestari',
+      role: 'Owner, Explore Nusantara',
+      content: 'Fitur AI assistant-nya cepat respon. Customer lebih puas dan repeat order meningkat signifikan.',
+    },
+    {
+      name: 'Ricky Pratama',
+      role: 'Manager, Mandala Travel',
+      content: 'Sistemnya stabil, laporan keuangan rapi, dan support timnya responsif saat dibutuhkan.',
+    },
+  ];
+
   return (
     <div className="min-h-screen">
-      {/* Hero Section with 60/40 Split */}
-      <section className="relative w-full bg-white overflow-hidden min-h-screen flex flex-col justify-center pt-28 md:pt-0 md:items-center">
-        <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 w-full">
-          <div className="flex flex-col md:flex-row items-center gap-8 lg:gap-16">
-            {/* Left Column (60%) */}
-            <div className="w-full md:w-[60%] flex flex-col justify-center text-left">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-                All-in-One Operating System for Travel Businesses
-              </h1>
-              <p className="text-lg sm:text-xl text-gray-600 mb-8 max-w-2xl leading-relaxed">
-                Otomatiskan pemesanan, penjadwalan, dan interaksi pelanggan dengan AI cerdas dan real-time application. Pekerjaan lebih ringan, sisakan banyak waktu untuk pengembangan bisnis anda.
-              </p>
-
-              {/* Mobile Image (Visible only on mobile) */}
-              <div className="w-full block md:hidden mb-8 flex justify-center">
-                <img 
-                  src={heroIllustration}
-                  alt="Travel Business Flat Design" 
-                  className="w-full h-auto object-contain max-w-md mx-auto"
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8" onClick={() => navigate('/auth/register')}>
-                  Daftar Sekarang
-                </Button>
-                <Button size="lg" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50 px-8">
-                  Hubungi Kami
-                </Button>
-              </div>
-            </div>
-
-            {/* Right Column (40%) - Image (Hidden on mobile) */}
-            <div className="hidden md:flex w-full md:w-[40%] justify-center items-center">
-              <img 
-                src={heroIllustration}
-                alt="Travel Business Flat Design" 
-                className="w-full h-auto object-contain max-w-md mx-auto"
-              />
-            </div>
-          </div>
+      {/* Hero Section */}
+      <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#03102b] via-[#0a2458] to-[#040d22] pt-20 md:pt-26">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-20 left-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
+          <div className="absolute right-0 top-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+          <div className="absolute bottom-10 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-indigo-400/20 blur-3xl" />
         </div>
 
-        {/* Trapezoid Shape Divider */}
-        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none z-10">
-          <svg 
-            className="relative block w-full h-8 sm:h-12 md:h-16 lg:h-20" 
-            data-name="Layer 1" 
-            xmlns="http://www.w3.org/2000/svg" 
-            viewBox="0 0 1200 120" 
-            preserveAspectRatio="none"
-          >
-            <path 
-              d="M0,120 L1200,120 L1200,20 L600,60 L0,20 Z" 
-              className="fill-blue-600 dark:fill-blue-900"
-            />
-          </svg>
+        <div className="relative mx-auto flex min-h-[calc(100vh-7rem)] max-w-7xl items-center px-6 py-20 [font-family:Inter,sans-serif]">
+          <div className="grid w-full items-center gap-10 lg:grid-cols-2 lg:gap-14">
+            <div className="space-y-6 text-white">
+              <Badge className="rounded-xl border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-blue-100 shadow-sm backdrop-blur-md">
+                Trusted by growing travel operators
+              </Badge>
+              <h1 className="max-w-2xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
+                Jalankan bisnis travel lebih cepat dengan <span className="text-orange-200">TraveGO</span>.
+              </h1>
+              <p className="max-w-2xl text-lg leading-relaxed text-blue-100/90">
+                Otomatiskan booking, jadwal, dan follow-up pelanggan dengan AI agar tim lebih fokus menutup lebih banyak penjualan.
+              </p>
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <Button
+                  size="lg"
+                  className="rounded-xl bg-blue-500 px-8 text-white shadow-xl shadow-blue-900/40 transition-all duration-300 hover:-translate-y-1 hover:bg-blue-400"
+                  onClick={() => navigate('/auth/register')}
+                >
+                  Coba Gratis
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="rounded-xl border-white/40 bg-white/5 px-8 text-white backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-white/10"
+                  onClick={() => navigate('/contact')}
+                >
+                  Lihat Demo
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-6 pt-2 text-sm text-blue-100/90">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 fill-yellow-300 text-yellow-300" />
+                  <span>4.9/5 rating dari 500+ pengguna</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-300" />
+                  <span>120+ bisnis travel aktif</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mx-auto w-full max-w-2xl">
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl transition-transform duration-300 hover:-translate-y-1">
+                <img
+                  src={heroIllustration}
+                  alt="Travel Business Dashboard"
+                  className="w-full rounded-xl object-contain"
+                />
+              </div>
+              <div className="absolute -bottom-6 -left-4 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-blue-50 shadow-lg backdrop-blur-xl">
+                <p className="font-semibold">+32% booking conversion</p>
+              </div>
+              <div className="absolute -right-4 -top-5 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-blue-50 shadow-lg backdrop-blur-xl">
+                <p className="font-semibold">Response lebih cepat 3x</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="relative py-16 bg-blue-600 dark:bg-blue-900 text-white overflow-hidden">
-        <div className="relative max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+      <section className="py-16 bg-white dark:bg-gray-950">
+        <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
               Kenapa Pilih TraveGO?
             </h2>
-            <p className="text-blue-100 max-w-2xl mx-auto">
-              Kami berkomitmen memberikan layanan terbaik dengan standar internasional
+            <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Solusi yang dirancang untuk membantu operasional travel jadi lebih cepat dan terukur.
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {whyChooseUs.map((item, index) => (
-              <div key={index} className="text-center group">
-                <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 backdrop-blur-sm">
-                  <item.icon className="h-8 w-8 text-white" />
+              <div key={index} className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
+                  <item.icon className="h-6 w-6" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2 text-white">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
                   {item.title}
                 </h3>
-                <p className="text-blue-100 text-sm leading-relaxed">
+                <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                   {item.description}
                 </p>
               </div>
@@ -271,22 +297,9 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Optimization Section */}
-      <section className="relative py-16 bg-white dark:bg-gray-950">
+      <section className="relative pb-16 bg-white dark:bg-gray-950">
         {/* Trapezoid Shape Top for Optimization Section */}
-        <div className="absolute top-0 left-0 w-full overflow-hidden leading-none z-10 -mt-[1px]">
-          <svg 
-            className="relative block w-full h-12 sm:h-16 md:h-20 lg:h-24" 
-            data-name="Layer 1" 
-            xmlns="http://www.w3.org/2000/svg" 
-            viewBox="0 0 1200 120" 
-            preserveAspectRatio="none"
-          >
-            <path 
-              d="M0,0 L1200,0 L1200,40 L600,80 L0,40 Z" 
-              className="fill-blue-600 dark:fill-blue-900"
-            />
-          </svg>
-        </div>
+  
 
         <div className="relative max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 pt-12 sm:pt-16">
           <div className="text-center mb-12">
@@ -300,7 +313,7 @@ export const Home: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             {/* Left Column - Illustration */}
-            <div className="flex justify-center hidden md:flex">
+            <div className="hidden justify-center md:flex">
               <img 
                 src={relationIllustration}
                 alt="Optimization Illustration" 
@@ -361,33 +374,34 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-12 sm:py-16 bg-white dark:bg-gray-950">
-        <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+      <section className="py-16 bg-white dark:bg-gray-950">
+        <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
-              Pricing
+              Pilih Paket yang Sesuai dengan Kebutuhan Anda
             </h2>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Pilih paket yang sesuai dengan kebutuhan bisnis Anda
-            </p>
+            <div className="mx-auto inline-flex rounded-xl border border-blue-200 bg-blue-50 p-1 text-sm dark:border-blue-900/30 dark:bg-blue-900/20">
+              <button className="rounded-lg bg-blue-600 px-4 py-1.5 font-medium text-white">Bulanan</button>
+              <button className="rounded-lg px-4 py-1.5 font-medium text-blue-600 dark:text-blue-300">Tahunan hemat 20%</button>
+            </div>
           </div>
           
           <div 
             ref={pricingContainerRef}
-            className="flex overflow-x-auto snap-x snap-mandatory pb-6 -mx-4 px-4 sm:mx-auto sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto hide-scrollbar relative"
+            className="relative mx-auto flex max-w-5xl gap-6 overflow-x-auto snap-x snap-mandatory px-4 pb-6 hide-scrollbar sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 md:grid-cols-3"
           >
             {pricingPlans.map((plan) => (
               <Card 
                 key={plan.name}
-                className={`group overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 h-full flex flex-col relative min-w-[85%] sm:min-w-0 shrink-0 sm:shrink snap-center ${
+                className={`group overflow-hidden transition-all duration-300 transform hover:-translate-y-1 h-full flex flex-col relative min-w-[85%] sm:min-w-0 shrink-0 sm:shrink snap-center rounded-2xl ${
                   plan.popular 
-                    ? 'border-2 border-blue-600 dark:border-blue-400' 
-                    : 'hover:border-2 hover:border-orange-500 dark:hover:border-orange-400'
+                    ? 'border-2 border-blue-600 shadow-xl shadow-blue-100 dark:border-blue-400 dark:shadow-none' 
+                    : 'border border-gray-200 hover:border-blue-300 hover:shadow-lg dark:border-gray-800 dark:hover:border-blue-500'
                 }`}
               >
                 <CardContent className="p-6 flex flex-col h-full">
                   {plan.popular && (
-                    <Badge className="absolute top-4 right-4 bg-blue-600 hover:bg-blue-600 text-white z-10">
+                    <Badge className="absolute top-4 right-4 bg-blue-600 hover:bg-blue-600 text-white z-10 rounded-lg">
                       Paling Populer
                     </Badge>
                   )}
@@ -444,7 +458,7 @@ export const Home: React.FC = () => {
                   
                   <div className="mt-auto">
                     <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
-                    <Button className={`w-full ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}>
+                    <Button className={`w-full rounded-xl ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'}`}>
                       Pilih Paket
                     </Button>
                   </div>
@@ -455,50 +469,56 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Contact Inquiry Section */}
-      <section className="relative py-20 bg-slate-100 dark:bg-slate-900 pb-48">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Siap memulai?
-          </h2>
-          <p className="text-xl mb-8 text-gray-600 dark:text-gray-300">
-            Hubungi tim kami untuk konsultasi gratis dan penawaran terbaik
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={() => navigate('/contact')}
-            >
-              <Phone className="mr-2 h-5 w-5" />
-              Hubungi Kami
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"
-              onClick={() => navigate('/auth/register')}
-            >
-              Daftar Sekarang
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+      {/* Testimonials */}
+      <section className="bg-white py-16 dark:bg-gray-950">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Apa Kata Mereka?</h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {testimonials.map((item) => (
+              <Card key={item.name} className="rounded-2xl border border-gray-200 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <CardContent className="p-6">
+                  <Quote className="h-5 w-5 text-blue-500 mb-3" />
+                  <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">{item.content}</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.role}</p>
+                    </div>
+                    <div className="flex items-center text-yellow-500">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star key={index} className="h-3.5 w-3.5 fill-current" />
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
+      </section>
 
-        {/* Trapezoid Shape Bottom */}
-        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none z-0">
-          <svg 
-            className="relative block w-full h-16 sm:h-24 md:h-32 lg:h-40" 
-            data-name="Layer 1" 
-            xmlns="http://www.w3.org/2000/svg" 
-            viewBox="0 0 1200 120" 
-            preserveAspectRatio="none"
-          >
-            <path 
-              d="M0,120 L1200,120 L1200,80 L600,60 L0,80 Z" 
-              className="fill-gray-900 dark:fill-black"
-            />
-          </svg>
+      {/* CTA + Footer */}
+      <section className="">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-10 rounded-2xl bg-blue-600 px-6 py-6 shadow-xl shadow-blue-900/30">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-2xl font-bold text-white">Siap Naik Level Bersama TraveGO?</h3>
+                <p className="text-blue-100">Mulai digitalisasi bisnis travel Anda sekarang juga.</p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button size="lg" variant="outline" className="rounded-xl border-white/40 bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/auth/register')}>
+                  Coba Gratis Sekarang
+                </Button>
+                <Button size="lg" className="rounded-xl bg-transparent border border-white/40 text-white hover:bg-white/10" onClick={() => navigate('/contact')}>
+                  <Phone className="mr-2 h-4 w-4" />
+                  Hubungi Kami
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
