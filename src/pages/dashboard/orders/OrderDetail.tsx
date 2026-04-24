@@ -89,6 +89,7 @@ type OrderData = {
     pickup_location: string;
     pickup_city: string;
   };
+  scheduled: boolean;
 };
 
 type PaymentHistoryRow = {
@@ -134,6 +135,7 @@ const createEmptyOrderData = (id: string): OrderData => ({
   facilities: [],
   additionalRequests: '-',
   notes: '-',
+  scheduled: false,
 });
 
 export const OrderDetail: React.FC = () => {
@@ -166,6 +168,7 @@ export const OrderDetail: React.FC = () => {
 
   const showScheduleButton = (() => {
     const s = String(orderData.paymentStatus ?? '').toLowerCase().trim();
+    const scheduled = orderData.scheduled;
     return s === 'pending' || s === 'paid' || s === 'lunas' || s === 'success';
   })();
 
@@ -472,6 +475,7 @@ export const OrderDetail: React.FC = () => {
           pickup_location: getString(pickup.pickup_location ?? pickup.pickupLocation, ''),
           pickup_city: getString(pickup.pickup_city ?? pickup.pickupCity, ''),
         },
+        scheduled: Boolean(detail.scheduled ?? false),
       };
 
       setOrderData(next);
@@ -1285,6 +1289,18 @@ export const OrderDetail: React.FC = () => {
               Cetak Invoice
             </Button>
             {showScheduleButton ? (
+              console.log(orderData.scheduled),
+              orderData.scheduled ? (
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => {
+                    navigate(`${basePrefix}/team/schedule-armada/add${suffix}`);
+                  }}
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Lihat Jadwal
+                </Button>
+              ) : (
               <Button
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                 onClick={() => {
@@ -1298,7 +1314,7 @@ export const OrderDetail: React.FC = () => {
                 <Calendar className="h-4 w-4 mr-2" />
                 Buat Jadwal
               </Button>
-            ) : null}
+            )) : null}
             <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
               <Settings className="h-4 w-4 mr-2" />
               Update Status

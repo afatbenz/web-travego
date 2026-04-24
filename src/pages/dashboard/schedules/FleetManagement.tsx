@@ -103,17 +103,15 @@ export const FleetManagement: React.FC = () => {
   }, []);
 
   const monthStart = useMemo(() => new Date(selectedYear, selectedMonth, 1), [selectedYear, selectedMonth]);
-  const monthEnd = useMemo(() => new Date(selectedYear, selectedMonth + 1, 0), [selectedYear, selectedMonth]);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
         const qs = new URLSearchParams();
-        qs.set('created_from', toYmd(monthStart));
-        qs.set('created_to', toYmd(monthEnd));
+        qs.set('period', `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`);
         const fleetRes = await api.get<unknown>(
-          `/services/fleet/orders?${qs.toString()}`,
+          `/services/schedule/fleet?${qs.toString()}`,
           token ? { Authorization: token } : undefined
         );
 
@@ -125,14 +123,12 @@ export const FleetManagement: React.FC = () => {
 
         const payload = response.data as unknown;
         let items: unknown[] = [];
-        if (Array.isArray(payload)) items = payload;
-        else if (payload && typeof payload === 'object') {
+        if (payload && typeof payload === 'object') {
           const root = payload as Record<string, unknown>;
-          const dataNode = root.data as unknown;
-          const ordersNode =
-            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).orders : undefined) ?? root.orders;
-          if (Array.isArray(ordersNode)) items = ordersNode;
-          else if (Array.isArray(dataNode)) items = dataNode;
+          const schedulesNode = root.schedules;
+          if (Array.isArray(schedulesNode)) items = schedulesNode;
+        } else if (Array.isArray(payload)) {
+          items = payload;
         }
 
         const map: Record<string, ScheduledFleet[]> = {};
@@ -176,6 +172,8 @@ export const FleetManagement: React.FC = () => {
           const departureTime = typeof departureRaw === 'string' ? departureRaw : '';
 
           const destinationRaw =
+            item.pickup_city_label ??
+            item.pickupCityLabel ??
             item.destination ??
             item.destination_name ??
             item.destinationName ??
@@ -229,7 +227,7 @@ export const FleetManagement: React.FC = () => {
     load();
     setModalOpen(false);
     setSelectedDate(null);
-  }, [token, monthStart, monthEnd, basePrefix]);
+  }, [token, monthStart, selectedYear, selectedMonth, basePrefix]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentDate((prev) => {
@@ -352,7 +350,7 @@ export const FleetManagement: React.FC = () => {
               <div
                 key={index}
                 className={`min-h-[96px] border ${
-                  isToday(day) ? 'border-2 border-orange-500 dark:border-orange-400' : 'border-gray-200 dark:border-gray-700'
+                  isToday(day) ? 'border-2 border-green-500 dark:border-green-400' : 'border-gray-200 dark:border-gray-700'
                 }`}
               >
                 {(() => {
@@ -362,7 +360,7 @@ export const FleetManagement: React.FC = () => {
                       type="button"
                       className={`h-full w-full p-2 text-left transition-colors ${
                         inCurrentMonth
-                          ? `bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 ${isToday(day) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`
+                          ? `bg-transparent hover:bg-green-100 dark:hover:bg-gray-800 ${isToday(day) ? 'bg-green-50 dark:bg-green-900/20' : ''}`
                           : 'bg-gray-100 dark:bg-gray-900/40 cursor-default'
                       }`}
                       onClick={() => (inCurrentMonth ? openDate(day) : undefined)}
@@ -373,7 +371,7 @@ export const FleetManagement: React.FC = () => {
                           className={`text-sm font-medium ${
                             inCurrentMonth
                               ? isToday(day)
-                                ? 'text-blue-600 dark:text-blue-400'
+                                ? 'text-green-600 dark:text-gray-200'
                                 : 'text-gray-900 dark:text-white'
                               : 'text-gray-400 dark:text-gray-500'
                           }`}
@@ -395,7 +393,7 @@ export const FleetManagement: React.FC = () => {
                               {top.map((f) => (
                                 <div
                                   key={`${f.vehicleId}-${f.fleetName}`}
-                                  className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                                  className="text-xs px-2 py-1 rounded bg-orange-400 dark:bg-orange-900 text-white dark:text-white"
                                 >
                                   <div className="font-medium truncate">
                                     {f.vehicleId} - {f.fleetName}
@@ -421,20 +419,20 @@ export const FleetManagement: React.FC = () => {
       </Card>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Armada Terjadwal - {selectedLabel}</DialogTitle>
           </DialogHeader>
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-100 dark:bg-gray-900">
-                <TableHead>Kode Armada</TableHead>
                 <TableHead>Nama Armada</TableHead>
-                <TableHead>Jam berangkat</TableHead>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Kode Armada</TableHead>
                 <TableHead>Tujuan</TableHead>
                 <TableHead>Driver</TableHead>
                 <TableHead>Co-Driver</TableHead>
-                <TableHead className="text-right">Link</TableHead>
+                <TableHead className="text-right">Detail</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -447,9 +445,9 @@ export const FleetManagement: React.FC = () => {
               ) : (
                 selectedList.map((o) => (
                   <TableRow key={`${o.vehicleId}-${o.orderId}`} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <TableCell className="font-medium text-gray-900 dark:text-white">{o.vehicleId}</TableCell>
                     <TableCell className="text-gray-900 dark:text-white">{o.fleetName}</TableCell>
-                    <TableCell className="text-gray-900 dark:text-white">{formatTimeMaybe(o.departureTime)}</TableCell>
+                    <TableCell className="font-medium text-gray-900 dark:text-white"><a href={o.link} target="_blank" rel="noopener noreferrer">{o.orderId}</a></TableCell>
+                    <TableCell className="font-medium text-gray-900 dark:text-white">{o.vehicleId}</TableCell>
                     <TableCell className="text-gray-900 dark:text-white">{o.destination}</TableCell>
                     <TableCell className="text-gray-900 dark:text-white">{o.driver}</TableCell>
                     <TableCell className="text-gray-900 dark:text-white">{o.coDriver}</TableCell>

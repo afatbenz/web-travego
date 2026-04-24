@@ -17,9 +17,8 @@ export const AddSchedule: React.FC = () => {
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [searchParams] = useSearchParams();
   const initialOrderId = searchParams.get('order_id') ?? '';
-  const isOrderIdLocked = Boolean(initialOrderId);
 
-  const [orderId, setOrderId] = useState(initialOrderId);
+  const [orderId] = useState(initialOrderId);
   const [resolvedOrderId, setResolvedOrderId] = useState(initialOrderId);
   const [orderTypeLabel, setOrderTypeLabel] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -32,9 +31,6 @@ export const AddSchedule: React.FC = () => {
   const [quantity, setQuantity] = useState(0);
   const [garageOutTime, setGarageOutTime] = useState('');
   const [garageInTime, setGarageInTime] = useState('');
-
-  const [loadingOrders, setLoadingOrders] = useState(false);
-  const [orderOptions, setOrderOptions] = useState<Array<{ value: string; label: string }>>([]);
 
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [unitOptionsByFleet, setUnitOptionsByFleet] = useState<Record<string, Array<{ value: string; label: string }>>>({});
@@ -126,58 +122,6 @@ export const AddSchedule: React.FC = () => {
     };
     loadEmployees();
   }, []);
-
-  useEffect(() => {
-    if (orderOptions.length > 0) return;
-    const loadOrders = async () => {
-      setLoadingOrders(true);
-      try {
-        const token = localStorage.getItem('token') ?? '';
-        const qs = new URLSearchParams();
-        qs.set('order_type', 'fleet');
-        qs.set('process_type', 'upcoming');
-        const res = await api.get<unknown>(`/services/order/list?${qs.toString()}`, token ? { Authorization: token } : undefined);
-        if (res.status !== 'success') {
-          setOrderOptions([]);
-          return;
-        }
-
-        const payload = res.data as unknown;
-        let items: unknown[] = [];
-        if (Array.isArray(payload)) items = payload;
-        else if (payload && typeof payload === 'object') {
-          const root = payload as Record<string, unknown>;
-          const dataNode = root.data as unknown;
-          const listNode =
-            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).items : undefined) ??
-            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).orders : undefined) ??
-            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).rows : undefined) ??
-            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).data : undefined) ??
-            root.items ??
-            root.orders ??
-            root.rows ??
-            root.data;
-          if (Array.isArray(listNode)) items = listNode;
-          else if (Array.isArray(dataNode)) items = dataNode;
-        }
-
-        const mapped = items
-          .map((raw) => record(raw))
-          .map((o) => {
-            const id = toStringSafe(o.order_id ?? o.orderId ?? o.id ?? o.transaction_id ?? o.transactionId).trim();
-            const title = toStringSafe(o.fleet_name ?? o.fleetName ?? o.title ?? o.name).trim();
-            const label = title ? `${id} - ${title}` : id;
-            return id ? { value: id, label: label || id } : null;
-          })
-          .filter((x): x is { value: string; label: string } => Boolean(x));
-
-        setOrderOptions(mapped);
-      } finally {
-        setLoadingOrders(false);
-      }
-    };
-    loadOrders();
-  }, [orderOptions.length]);
 
   useEffect(() => {
     if (!orderId) {
@@ -502,29 +446,9 @@ export const AddSchedule: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Order ID *</label>
-                  {isOrderIdLocked ? (
-                    <Input value={resolvedOrderId || orderId || '-'} readOnly disabled />
-                  ) : (
-                    <Select
-                      value={orderId}
-                      onValueChange={(value) => {
-                        setOrderId(value);
-                        if (errors.orderId) setErrors((prev) => ({ ...prev, orderId: '' }));
-                      }}
-                      disabled={loadingOrders}
-                    >
-                      <SelectTrigger className={errors.orderId ? 'border-red-500' : ''}>
-                        <SelectValue placeholder={loadingOrders ? 'Memuat...' : 'Pilih order'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {orderOptions.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <div className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-gray-900 dark:text-white flex items-center">
+                    {resolvedOrderId || orderId || '-'}
+                  </div>
                   {errors.orderId ? <p className="text-sm text-red-500">{errors.orderId}</p> : null}
                 </div>
 
@@ -554,7 +478,7 @@ export const AddSchedule: React.FC = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jam Keluar Garasi *</label>
                   <Input
-                    type="time"
+                    type="datetime-local"
                     value={garageOutTime}
                     onChange={(e) => {
                       setGarageOutTime(e.target.value);
@@ -865,7 +789,7 @@ export const AddSchedule: React.FC = () => {
               <X className="h-4 w-4 mr-2" />
               Batal
             </Button>
-            <Button type="submit" disabled={!submitReady || saving}>
+            <Button type="submit" className="bg-blue-700 text-white" disabled={!submitReady || saving}>
               <Save className="h-4 w-4 mr-2" />
               {saving ? 'Menyimpan...' : 'Simpan Jadwal'}
             </Button>
