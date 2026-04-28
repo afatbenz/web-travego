@@ -26,19 +26,32 @@ const AuthGuard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const path = location.pathname;
-    const protectedExact = new Set(['/myprofile', '/myorders', '/edit-profile']);
-    const requiresAuth = protectedExact.has(path) || path === '/dashboard' || path.startsWith('/dashboard/');
-    if (!requiresAuth) return;
+    const checkAuth = () => {
+      const path = location.pathname;
+      const protectedExact = new Set(['/myprofile', '/myorders', '/edit-profile']);
+      const requiresAuth = protectedExact.has(path) || path === '/dashboard' || path.startsWith('/dashboard/');
+      if (!requiresAuth) return;
 
-    const token = localStorage.getItem('token');
-    if (!token || !isTokenValid(token)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      const currentPath = location.pathname + location.search;
-      localStorage.setItem('redirect_path', currentPath);
-      navigate('/auth/login', { replace: true });
-    }
+      const token = localStorage.getItem('token');
+      if (!token || !isTokenValid(token)) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        const currentPath = location.pathname + location.search;
+        localStorage.setItem('redirect_path', currentPath);
+        navigate('/auth/login', { replace: true });
+      }
+    };
+
+    checkAuth();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token') {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [location.pathname, location.search, navigate]);
 
   return null;

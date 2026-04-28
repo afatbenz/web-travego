@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings, Printer } from 'lucide-react';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings, Printer, RotateCcw } from 'lucide-react';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -168,8 +168,16 @@ export const OrderDetail: React.FC = () => {
 
   const showScheduleButton = (() => {
     const s = String(orderData.paymentStatus ?? '').toLowerCase().trim();
-    const scheduled = orderData.scheduled;
+    // Jika sisa pembayaran masih sama dengan total biaya, berarti belum ada pembayaran sama sekali
+    if (orderData.remainingAmount === orderData.totalAmount) return false;
     return s === 'pending' || s === 'paid' || s === 'lunas' || s === 'success';
+  })();
+
+  const scheduleUrlSuffix = (() => {
+    const qs = new URLSearchParams();
+    if (orderData.id) qs.set('order_id', orderData.id);
+    if (orderData.fleetId) qs.set('fleet_id', orderData.fleetId);
+    return qs.toString() ? `?${qs.toString()}` : '';
   })();
 
   const canRefund = (() => {
@@ -1277,44 +1285,57 @@ export const OrderDetail: React.FC = () => {
           </Card>
 
           <div className={cn('grid gap-4', showScheduleButton ? 'grid-cols-4' : 'grid-cols-2')}>
-            <Button
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={() => setIsUpdatePaymentOpen(true)}
-            >
-              <CreditCard className="h-4 w-4 mr-2" />
-              Update Pembayaran
-            </Button>
+            {orderData.paymentStatus === 'paid' && orderData.remainingAmount === 0 ? (
+              <Button
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {
+                  // Logic for refund could be added here later if needed
+                  Swal.fire({
+                    title: 'Refund Pembayaran',
+                    text: 'Fitur refund sedang dalam pengembangan',
+                    icon: 'info'
+                  });
+                }}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Refund Pembayaran
+              </Button>
+            ) : (
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setIsUpdatePaymentOpen(true)}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Update Pembayaran
+              </Button>
+            )}
             <Button className="w-full bg-gray-600 hover:bg-gray-700 text-white">
               <Printer className="h-4 w-4 mr-2" />
               Cetak Invoice
             </Button>
             {showScheduleButton ? (
-              console.log(orderData.scheduled),
               orderData.scheduled ? (
                 <Button
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                   onClick={() => {
-                    navigate(`${basePrefix}/team/schedule-armada/add${suffix}`);
+                    navigate(`${basePrefix}/team/schedule-armada/add${scheduleUrlSuffix}`);
                   }}
                 >
                   <Calendar className="h-4 w-4 mr-2" />
                   Lihat Jadwal
                 </Button>
               ) : (
-              <Button
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => {
-                  const qs = new URLSearchParams();
-                  if (orderData.id) qs.set('order_id', orderData.id);
-                  if (orderData.fleetId) qs.set('fleet_id', orderData.fleetId);
-                  const suffix = qs.toString() ? `?${qs.toString()}` : '';
-                  navigate(`${basePrefix}/team/schedule-armada/add${suffix}`);
-                }}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Buat Jadwal
-              </Button>
-            )) : null}
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => {
+                    navigate(`${basePrefix}/team/schedule-armada/add${scheduleUrlSuffix}`);
+                  }}
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Buat Jadwal
+                </Button>
+              )
+            ) : null}
             <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
               <Settings className="h-4 w-4 mr-2" />
               Update Status

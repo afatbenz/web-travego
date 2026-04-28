@@ -390,7 +390,7 @@ export const AddSchedule: React.FC = () => {
         setSubmitError('Gagal menyimpan jadwal. Silakan coba lagi.');
         return;
       }
-      navigate(`${basePrefix}/team/schedule-armada`);
+      navigate(`${basePrefix}/schedules/fleet-management`);
     } catch (error) {
       const errorCode = getErrorCode(error);
       if (errorCode === 'ORDER_UNPAID') {

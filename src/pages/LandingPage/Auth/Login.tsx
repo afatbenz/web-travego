@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AuthLayout } from './AuthLayout';
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { isTokenValid } from '@/lib/utils';
 
 export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +18,26 @@ export const Login: React.FC = () => {
     rememberMe: false
   });
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && isTokenValid(token)) {
+      const userStr = localStorage.getItem('user');
+      const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
+      navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token' && e.newValue && isTokenValid(e.newValue)) {
+        const userStr = localStorage.getItem('user');
+        const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
+        navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

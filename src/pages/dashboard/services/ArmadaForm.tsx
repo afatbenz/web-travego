@@ -165,8 +165,8 @@ export const ArmadaForm: React.FC = () => {
           uom: p.unit || 'hari',
         })),
         ...(addonItems.length > 0 ? { addon: addonItems } : {}),
-        thumbnail: formData.thumbnailFile || undefined,
-        images: formData.imageFiles,
+        thumbnail: formData.thumbnailFile ? toFileUrl(formData.thumbnailFile) : undefined,
+        images: formData.imageFiles.map((img) => toFileUrl(img)),
       };
       const token = localStorage.getItem('token') ?? '';
       const endpoint = isEdit ? '/services/fleet/update' : '/services/fleet/create';

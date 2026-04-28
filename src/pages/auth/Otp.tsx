@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { showAlert } from '@/hooks/use-alert';
+import { isTokenValid } from '@/lib/utils';
 
 function maskEmail(email: string) {
   const [local, domain] = email.split('@');
@@ -25,6 +26,26 @@ export const Otp: React.FC = () => {
   const [cooldown, setCooldown] = useState(60);
   const token = useMemo(() => localStorage.getItem('register_token') ?? '', []);
   const email = useMemo(() => localStorage.getItem('register_email') ?? '', []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && isTokenValid(token)) {
+      const userStr = localStorage.getItem('user');
+      const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
+      navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token' && e.newValue && isTokenValid(e.newValue)) {
+        const userStr = localStorage.getItem('user');
+        const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
+        navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [navigate]);
 
   useEffect(() => {
     if (!token) {

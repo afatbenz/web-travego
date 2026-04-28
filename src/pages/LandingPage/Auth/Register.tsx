@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AuthLayout } from './AuthLayout';
+import { isTokenValid } from '@/lib/utils';
 
 export const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +23,26 @@ export const Register: React.FC = () => {
   });
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && isTokenValid(token)) {
+      const userStr = localStorage.getItem('user');
+      const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
+      navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token' && e.newValue && isTokenValid(e.newValue)) {
+        const userStr = localStorage.getItem('user');
+        const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
+        navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
