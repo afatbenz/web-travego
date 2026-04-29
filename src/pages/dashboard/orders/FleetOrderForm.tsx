@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,43 @@ import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
 type Option = { id: string; label: string; raw?: Record<string, unknown> };
+
+const record = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
+const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
+const toNumberSafe = (v: unknown) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const toDatetimeLocal = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d}T${hh}:${mm}`;
+};
+
+const parseDateMaybe = (value: string) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const isoCandidate = (() => {
+    const s = raw.replace(' ', 'T');
+    const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s) ? `${s}:00` : s;
+    if (/[+-]\d{2}$/.test(withSeconds)) return `${withSeconds}:00`;
+    if (/[+-]\d{2}:\d{2}$/.test(withSeconds)) return withSeconds;
+    return withSeconds;
+  })();
+  const d = new Date(isoCandidate);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
 
 function daysBetweenInclusive(start: string, end: string): number {
   if (!start || !end) return 0;
@@ -181,6 +218,7 @@ type ItineraryStop = {
   id: string;
   city: Option | null;
   location: string;
+  fleet_itinerary_id?: string;
 };
 
 type ItineraryItem = {
@@ -204,6 +242,7 @@ type ArmadaEntry = {
   discount: string;
   fleet_prices: FleetPriceOption[];
   loading_prices: boolean;
+  order_item_id?: string;
 };
 
 function formatRupiahFromNumber(amount: number): string {
@@ -275,6 +314,13 @@ export const FleetOrderForm: React.FC = () => {
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const token = localStorage.getItem('token') ?? '';
 
+  const editOrderId = useMemo(() => {
+    const sp = new URLSearchParams(location.search);
+    return (sp.get('order_id') ?? sp.get('orderId') ?? sp.get('orderid') ?? sp.get('id') ?? '').trim();
+  }, [location.search]);
+  const isEditMode = Boolean(editOrderId);
+
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rentType, setRentType] = useState('1');
   const [armadaEntries, setArmadaEntries] = useState<ArmadaEntry[]>([
@@ -324,7 +370,7 @@ export const FleetOrderForm: React.FC = () => {
 
   const daysCount = useMemo(() => daysBetweenInclusive(pickupAt, dropoffAt), [pickupAt, dropoffAt]);
 
-  const fetchPricesForEntry = async (fleetId: string, currentRentType: string): Promise<FleetPriceOption[]> => {
+  const fetchPricesForEntry = useCallback(async (fleetId: string, currentRentType: string): Promise<FleetPriceOption[]> => {
     const defaultNoPrice: FleetPriceOption = {
       price_id: '0',
       duration: 0,
@@ -374,7 +420,7 @@ export const FleetOrderForm: React.FC = () => {
       console.error('Error fetching prices:', error);
       return [defaultNoPrice];
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     const updateAllPrices = async () => {
@@ -395,6 +441,171 @@ export const FleetOrderForm: React.FC = () => {
     };
     updateAllPrices();
   }, [rentType]);
+
+  useEffect(() => {
+    if (!editOrderId) return;
+    const loadDetail = async () => {
+      setLoadingDetail(true);
+      try {
+        const res = await api.get<unknown>(
+          `/services/fleet/order/detail/${encodeURIComponent(editOrderId)}`,
+          token ? { Authorization: token } : undefined
+        );
+        if (res.status !== 'success') return;
+
+        const root = record(res.data);
+        const detail = record(root.order ?? root.transaction ?? root.detail ?? root.data ?? root);
+        const pickup = record(detail.pickup);
+        const customerObj = record(detail.customer ?? root.customer);
+
+        const nextRentTypeRaw = detail.rent_type ?? detail.rentType ?? detail.rent_type_id ?? detail.rentTypeId;
+        const nextRentType = toStringSafe(nextRentTypeRaw).trim() || '1';
+
+        const customerId = toStringSafe(customerObj.customer_id ?? customerObj.id ?? customerObj.uuid ?? detail.customer_id ?? detail.customerId).trim();
+        const customerName = toStringSafe(customerObj.customer_name ?? customerObj.customerName ?? customerObj.name ?? '').trim();
+        setCustomer(customerId ? { id: customerId, label: customerName || customerId, raw: customerObj } : null);
+
+        const pickupAddressValue = toStringSafe(
+          detail.pickup_address ?? detail.pickupAddress ?? pickup.pickup_location ?? pickup.pickupLocation ?? pickup.pickup_address ?? pickup.pickupAddress
+        ).trim();
+        setPickupAddress(pickupAddressValue);
+
+        const pickupCityId = toStringSafe(
+          detail.pickup_city_id ??
+            detail.pickupCityId ??
+            pickup.pickup_city ??
+            pickup.pickupCity ??
+            pickup.city_id ??
+            pickup.cityId ??
+            pickup.pickup_city_id ??
+            pickup.pickupCityId
+        ).trim();
+        const pickupCityLabel = toStringSafe(pickup.city_label ?? pickup.pickup_city_label ?? pickup.city_name ?? pickup.cityName).trim();
+        setPickupCity(pickupCityId ? { id: pickupCityId, label: pickupCityLabel || pickupCityId, raw: pickup } : null);
+
+        const pickupRaw =
+          toStringSafe(detail.pickup_datetime ?? detail.pickupDatetime ?? pickup.pickup_at ?? pickup.pickupAt).trim() ||
+          (() => {
+            const startDate = toStringSafe(pickup.start_date ?? pickup.startDate).trim();
+            const pickupTime = toStringSafe(pickup.pickup_time ?? pickup.pickupTime).trim();
+            if (startDate && pickupTime) return `${startDate}T${pickupTime}`;
+            return startDate;
+          })();
+        const dropoffRaw =
+          toStringSafe(detail.dropoff_datetime ?? detail.dropoffDatetime ?? pickup.dropoff_at ?? pickup.dropoffAt).trim() ||
+          (() => {
+            const endDate = toStringSafe(pickup.end_date ?? pickup.endDate).trim();
+            const dropoffTime = toStringSafe(pickup.dropoff_time ?? pickup.dropoffTime).trim();
+            if (endDate && dropoffTime) return `${endDate}T${dropoffTime}`;
+            return endDate;
+          })();
+        const pickupDate = parseDateMaybe(pickupRaw);
+        const dropoffDate = parseDateMaybe(dropoffRaw);
+        setPickupAt(pickupDate ? toDatetimeLocal(pickupDate) : pickupRaw.replace(' ', 'T').slice(0, 16));
+        setDropoffAt(dropoffDate ? toDatetimeLocal(dropoffDate) : dropoffRaw.replace(' ', 'T').slice(0, 16));
+
+        setSpecialRequest(
+          toStringSafe(detail.additional_request ?? detail.additional_requests ?? detail.additionalRequest ?? detail.additionalRequests).trim()
+        );
+
+        const fleetsRaw = Array.isArray(detail.fleets) ? (detail.fleets as unknown[]) : Array.isArray(root.fleets) ? (root.fleets as unknown[]) : [];
+        const baseEntries: ArmadaEntry[] =
+          fleetsRaw.length > 0
+            ? fleetsRaw.map((raw) => {
+                const f = record(raw);
+                const armada_id = toStringSafe(f.fleet_id ?? f.fleetId ?? f.armada_id ?? f.armadaId).trim();
+                const price_id = toStringSafe(f.price_id ?? f.priceId).trim();
+                const qty = String(toNumberSafe(f.quantity ?? f.qty ?? f.fleet_qty ?? f.fleetQty) || 0);
+                const biaya_lain = String(toNumberSafe(f.charge_amount ?? f.chargeAmount ?? f.biaya_lain ?? f.biayaLain) || 0);
+                const discount = String(toNumberSafe(f.discount ?? f.discount_amount ?? f.discountAmount) || 0);
+                const order_item_id = toStringSafe(f.order_item_id ?? f.orderItemId).trim();
+                return {
+                  armada_id,
+                  price_id,
+                  qty: qty === '0' ? '1' : qty,
+                  biaya_lain: biaya_lain === '0' ? '' : biaya_lain,
+                  discount: discount === '0' ? '' : discount,
+                  fleet_prices: [],
+                  loading_prices: Boolean(armada_id),
+                  ...(order_item_id ? { order_item_id } : {}),
+                };
+              })
+            : [
+                {
+                  armada_id: toStringSafe(detail.fleet_id ?? detail.fleetId).trim(),
+                  price_id: toStringSafe(detail.price_id ?? detail.priceId).trim(),
+                  qty: String(toNumberSafe(detail.quantity ?? detail.qty ?? detail.unit_qty ?? detail.unitQty) || 1),
+                  biaya_lain: String(toNumberSafe(detail.additional_amount ?? detail.additionalAmount) || ''),
+                  discount: '',
+                  fleet_prices: [],
+                  loading_prices: Boolean(toStringSafe(detail.fleet_id ?? detail.fleetId).trim()),
+                },
+              ];
+
+        const baseOptions: (Option | null)[] =
+          fleetsRaw.length > 0
+            ? fleetsRaw.map((raw) => {
+                const f = record(raw);
+                const id = toStringSafe(f.fleet_id ?? f.fleetId ?? f.armada_id ?? f.armadaId).trim();
+                const label = toStringSafe(f.fleet_name ?? f.fleetName ?? f.name).trim() || id;
+                return id ? { id, label, raw: f } : null;
+              })
+            : [
+                (() => {
+                  const id = toStringSafe(detail.fleet_id ?? detail.fleetId).trim();
+                  const label = toStringSafe(detail.fleet_name ?? detail.fleetName ?? detail.name).trim() || id;
+                  return id ? { id, label, raw: detail } : null;
+                })(),
+              ];
+
+        const pricesList = await Promise.all(
+          baseEntries.map(async (e) => (e.armada_id ? fetchPricesForEntry(e.armada_id, nextRentType) : []))
+        );
+        const nextEntries = baseEntries.map((e, idx) => {
+          const prices = pricesList[idx] ?? [];
+          let nextPriceId = e.price_id;
+          if (prices.length === 1) nextPriceId = prices[0].price_id;
+          else if (nextPriceId && !prices.find((p) => p.price_id === nextPriceId)) nextPriceId = '';
+          return { ...e, fleet_prices: prices, price_id: nextPriceId, loading_prices: false };
+        });
+
+        setRentType(nextRentType);
+        setArmadaEntries(nextEntries.length > 0 ? nextEntries : baseEntries);
+        setArmadaEntryOptions(baseOptions.length > 0 ? baseOptions : [null]);
+
+        const itineraryRaw = Array.isArray(detail.itinerary) ? (detail.itinerary as unknown[]) : [];
+        if (itineraryRaw.length > 0) {
+          const grouped: Record<number, ItineraryStop[]> = {};
+          itineraryRaw.forEach((raw) => {
+            const it = record(raw);
+            const day = Math.max(1, toNumberSafe(it.day ?? it.day_num ?? it.dayNum) || 1);
+            const fleetItineraryId = toStringSafe(
+              it.fleet_itinerary_id ?? it.fleetItineraryId ?? it.itinerary_id ?? it.itineraryId ?? it.id
+            ).trim();
+            const cityId = toStringSafe(it.city_id ?? it.cityId).trim();
+            const cityLabel = toStringSafe(it.city_label ?? it.cityLabel ?? it.city_name ?? it.cityName).trim();
+            const destination = toStringSafe(it.destination ?? it.location ?? it.activity ?? it.activities).trim();
+            if (!grouped[day]) grouped[day] = [];
+            grouped[day].push({
+              id: crypto.randomUUID(),
+              city: cityId ? { id: cityId, label: cityLabel || cityId, raw: it } : null,
+              location: destination,
+              ...(fleetItineraryId ? { fleet_itinerary_id: fleetItineraryId } : {}),
+            });
+          });
+          const items: ItineraryItem[] = Object.keys(grouped)
+            .map((k) => Number(k))
+            .filter((n) => Number.isFinite(n))
+            .sort((a, b) => a - b)
+            .map((day) => ({ day, stops: grouped[day] }));
+          setItinerary(items);
+        }
+      } finally {
+        setLoadingDetail(false);
+      }
+    };
+    loadDetail();
+  }, [editOrderId, fetchPricesForEntry, token]);
 
   useEffect(() => {
     if (daysCount <= 0) {
@@ -432,6 +643,7 @@ export const FleetOrderForm: React.FC = () => {
   };
 
   const validate = (): string | null => {
+    if (isEditMode && !editOrderId) return 'Order ID tidak ditemukan';
     if (armadaEntries.length <= 0) return 'Minimal 1 armada wajib diisi';
     for (let i = 0; i < armadaEntries.length; i++) {
       const entry = armadaEntries[i];
@@ -461,6 +673,7 @@ export const FleetOrderForm: React.FC = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEditMode) return;
     if (saving) return;
     const err = validate();
     if (err) {
@@ -507,6 +720,64 @@ export const FleetOrderForm: React.FC = () => {
       if (res.status === 'success') {
         await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan berhasil dibuat.' });
         navigate(`${basePrefix}/orders/fleet`);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onUpdate = async () => {
+    if (!isEditMode) return;
+    if (saving) return;
+    const err = validate();
+    if (err) {
+      await Swal.fire({ icon: 'warning', title: 'Validasi', text: err });
+      return;
+    }
+    setSaving(true);
+    try {
+      const discount = armadaDiscountTotal;
+      const additional = armadaAdditionalTotal;
+      const totalQty = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.qty), 0);
+      const firstEntry = armadaEntries[0];
+
+      const payload = {
+        order_id: editOrderId,
+        fleet_id: firstEntry.armada_id,
+        ...(firstEntry.price_id ? { price_id: firstEntry.price_id } : {}),
+        rent_type: Number(rentType),
+        customer_id: customer!.id,
+        pickup_datetime: pickupAt,
+        dropoff_datetime: dropoffAt,
+        pickup_address: pickupAddress,
+        pickup_city_id: pickupCity!.id,
+        fleet_qty: totalQty,
+        price: computedTotalPrice,
+        discount_amount: discount,
+        additional_amount: additional,
+        additional_request: specialRequest,
+        fleets: armadaEntries.map((r) => ({
+          ...(r.order_item_id ? { order_item_id: r.order_item_id } : {}),
+          armada_id: r.armada_id,
+          price_id: r.price_id,
+          qty: digitsToNumber(r.qty),
+          biaya_lain: digitsToNumber(r.biaya_lain),
+          discount: digitsToNumber(r.discount),
+        })),
+        itinerary: itinerary.flatMap((it) =>
+          (it.stops ?? []).map((s) => ({
+            ...(s.fleet_itinerary_id ? { fleet_itinerary_id: s.fleet_itinerary_id } : {}),
+            day: it.day,
+            city_id: s.city?.id ?? '',
+            destination: s.location,
+          }))
+        ),
+      };
+
+      const res = await api.post<unknown>('/services/fleet/order/update', payload, token ? { Authorization: token } : undefined);
+      if (res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan berhasil diperbarui.' });
+        navigate(`${basePrefix}/orders/fleet/detail/${encodeURIComponent(editOrderId)}`);
       }
     } finally {
       setSaving(false);
@@ -791,7 +1062,7 @@ export const FleetOrderForm: React.FC = () => {
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Form Pesanan Armada</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">Tambahkan pesanan baru</p>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">{isEditMode ? `Edit pesanan ${editOrderId}` : 'Tambahkan pesanan baru'}</p>
         </div>
       </div>
 
@@ -804,7 +1075,13 @@ export const FleetOrderForm: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Customer</label>
-                <AsyncCombobox value={customer} onChange={setCustomer} placeholder="Cari customer..." fetcher={customerFetcher} />
+                <AsyncCombobox
+                  value={customer}
+                  onChange={setCustomer}
+                  placeholder="Cari customer..."
+                  fetcher={customerFetcher}
+                  disabled={saving || loadingDetail}
+                />
               </div>
 
               <div className="space-y-2">
@@ -812,6 +1089,7 @@ export const FleetOrderForm: React.FC = () => {
                 <Select
                   value={rentType}
                   onValueChange={(v) => setRentType(v)}
+                  disabled={saving || loadingDetail}
                 >
                   <SelectTrigger className="h-12">
                     <SelectValue placeholder="Pilih jenis sewa" />
@@ -826,21 +1104,45 @@ export const FleetOrderForm: React.FC = () => {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Tanggal & Jam Penjemputan</label>
-                <Input type="datetime-local" value={pickupAt} onChange={(e) => setPickupAt(e.target.value)} className="h-12" />
+                <Input
+                  type="datetime-local"
+                  value={pickupAt}
+                  onChange={(e) => setPickupAt(e.target.value)}
+                  className="h-12"
+                  disabled={saving || loadingDetail}
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Tanggal & Jam Pengantaran</label>
-                <Input type="datetime-local" value={dropoffAt} onChange={(e) => setDropoffAt(e.target.value)} className="h-12" />
+                <Input
+                  type="datetime-local"
+                  value={dropoffAt}
+                  onChange={(e) => setDropoffAt(e.target.value)}
+                  className="h-12"
+                  disabled={saving || loadingDetail}
+                />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Alamat Penjemputan</label>
-                <Input value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} className="h-12" placeholder="Alamat penjemputan" />
+                <Input
+                  value={pickupAddress}
+                  onChange={(e) => setPickupAddress(e.target.value)}
+                  className="h-12"
+                  placeholder="Alamat penjemputan"
+                  disabled={saving || loadingDetail}
+                />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kota Penjemputan</label>
-                <AsyncCombobox value={pickupCity} onChange={setPickupCity} placeholder="Cari kota..." fetcher={cityFetcher} />
+                <AsyncCombobox
+                  value={pickupCity}
+                  onChange={setPickupCity}
+                  placeholder="Cari kota..."
+                  fetcher={cityFetcher}
+                  disabled={saving || loadingDetail}
+                />
               </div>
             </div>
           </CardContent>
@@ -854,6 +1156,7 @@ export const FleetOrderForm: React.FC = () => {
                 type="button"
                 variant="outline"
                 className="gap-2"
+                disabled={saving || loadingDetail}
                 onClick={() => {
                   setArmadaEntries((prev) => [
                     ...prev,
@@ -921,6 +1224,7 @@ export const FleetOrderForm: React.FC = () => {
                         }}
                         placeholder="Cari armada..."
                         fetcher={fleetFetcher}
+                        disabled={saving || loadingDetail}
                       />
                     </div>
 
@@ -933,7 +1237,7 @@ export const FleetOrderForm: React.FC = () => {
                             prev.map((r, i) => (i === idx ? { ...r, price_id: v } : r))
                           )
                         }
-                        disabled={!row.armada_id || row.loading_prices}
+                        disabled={!row.armada_id || row.loading_prices || saving || loadingDetail}
                       >
                         <SelectTrigger className="h-12">
                           <SelectValue
@@ -968,6 +1272,7 @@ export const FleetOrderForm: React.FC = () => {
                         }
                         className="h-12"
                         placeholder="1"
+                        disabled={saving || loadingDetail}
                       />
                     </div>
 
@@ -983,6 +1288,7 @@ export const FleetOrderForm: React.FC = () => {
                         }
                         className="h-12"
                         placeholder="Rp 0"
+                        disabled={saving || loadingDetail}
                       />
                     </div>
                     <div className="space-y-2 col-span-1 md:col-span-2">
@@ -997,6 +1303,7 @@ export const FleetOrderForm: React.FC = () => {
                         }
                         className="h-12"
                         placeholder="Rp 0"
+                        disabled={saving || loadingDetail}
                       />
                     </div>
                   </div>
@@ -1012,7 +1319,7 @@ export const FleetOrderForm: React.FC = () => {
                       type="button"
                       variant="ghost"
                       className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      disabled={armadaEntries.length <= 1}
+                      disabled={armadaEntries.length <= 1 || saving || loadingDetail}
                       onClick={() => {
                         setArmadaEntries((prev) => prev.filter((_, i) => i !== idx));
                         setArmadaEntryOptions((prev) => prev.filter((_, i) => i !== idx));
@@ -1092,6 +1399,7 @@ export const FleetOrderForm: React.FC = () => {
                               }
                               placeholder="Cari kota tujuan..."
                               fetcher={cityFetcher}
+                              disabled={saving || loadingDetail}
                             />
                           </div>
                           <div className="space-y-2">
@@ -1112,6 +1420,7 @@ export const FleetOrderForm: React.FC = () => {
                               }
                               className="h-12"
                               placeholder="Contoh: Malioboro / Pantai / dll"
+                              disabled={saving || loadingDetail}
                             />
                           </div>
                           <div className="flex items-end justify-end">
@@ -1119,7 +1428,7 @@ export const FleetOrderForm: React.FC = () => {
                               type="button"
                               variant="outline"
                               className="h-12 w-12 p-0"
-                              disabled={(it.stops ?? []).length <= 1 && !(it.day === 1 || it.day === daysCount)}
+                              disabled={(it.stops ?? []).length <= 1 && !(it.day === 1 || it.day === daysCount) || saving || loadingDetail}
                               onClick={() =>
                                 setItinerary((prev) =>
                                   prev.map((p) =>
@@ -1153,6 +1462,7 @@ export const FleetOrderForm: React.FC = () => {
               onChange={(e) => setSpecialRequest(e.target.value)}
               placeholder="Contoh: Unit warna putih, supir tidak merokok, dll"
               className="min-h-[100px]"
+              disabled={saving || loadingDetail}
             />
           </CardContent>
         </Card>
@@ -1167,19 +1477,35 @@ export const FleetOrderForm: React.FC = () => {
               Preview Pesanan
             </span>
           </Button>
-          <Button type="submit" disabled={saving || !formReady} className="bg-blue-600 hover:bg-blue-700 text-white">
-            {saving ? (
-              <span className="flex items-center">
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Menyimpan...
-              </span>
-            ) : (
-              <span className="flex items-center">
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Buat Pesanan
-              </span>
-            )}
-          </Button>
+          {isEditMode ? (
+            <Button type="button" disabled={saving || !formReady} className="bg-blue-600 hover:bg-blue-700 text-white" onClick={onUpdate}>
+              {saving ? (
+                <span className="flex items-center">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Menyimpan...
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Update Pesanan
+                </span>
+              )}
+            </Button>
+          ) : (
+            <Button type="submit" disabled={saving || !formReady} className="bg-blue-600 hover:bg-blue-700 text-white">
+              {saving ? (
+                <span className="flex items-center">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Menyimpan...
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Buat Pesanan
+                </span>
+              )}
+            </Button>
+          )}
         </div>
       </form>
     </div>

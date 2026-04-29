@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings, Printer, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings, Pencil, RotateCcw } from 'lucide-react';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -106,6 +106,21 @@ type PaymentHistoryRow = {
   bank_account: string;
 };
 
+type ScheduleDetailFleetRow = {
+  fleetName: string;
+  unitId: string;
+  driverIds: string[];
+  crewIds: string[];
+};
+
+type ScheduleDetailData = {
+  scheduleId: string;
+  departureTime: string;
+  arrivalTime: string;
+  destinationText: string;
+  fleets: ScheduleDetailFleetRow[];
+};
+
 const createEmptyOrderData = (id: string): OrderData => ({
   id,
   fleetId: '',
@@ -154,6 +169,8 @@ export const OrderDetail: React.FC = () => {
   const [bankOpen, setBankOpen] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryRow[]>([]);
   const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
+  const [scheduleDetail, setScheduleDetail] = useState<ScheduleDetailData | null>(null);
+  const [loadingScheduleDetail, setLoadingScheduleDetail] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     status: '',
     method: '',
@@ -497,6 +514,87 @@ export const OrderDetail: React.FC = () => {
     if (!resolvedOrderId) return;
     fetchPaymentHistory(resolvedOrderId);
   }, [orderId, routeOrderId, orderData.id, fetchPaymentHistory]);
+
+  useEffect(() => {
+    const resolvedOrderId = (orderId || routeOrderId || orderData.id || '').trim();
+    if (!resolvedOrderId || !orderData.scheduled) {
+      setScheduleDetail(null);
+      return;
+    }
+
+    const record = (v: unknown): Record<string, unknown> =>
+      v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+    const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
+    const loadScheduleDetail = async () => {
+      setLoadingScheduleDetail(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>(
+          `/services/schedule/detail/${encodeURIComponent(resolvedOrderId)}`,
+          token ? { Authorization: token } : undefined
+        );
+        if (res.status !== 'success') {
+          setScheduleDetail(null);
+          return;
+        }
+
+        const root = record(res.data);
+        const detail = record(root.data ?? root.schedule ?? root.detail ?? root);
+        const scheduleId = toStringSafe(detail.schedule_id ?? detail.scheduleId ?? root.schedule_id ?? root.scheduleId).trim();
+        const departureTime = toStringSafe(detail.departure_time ?? detail.departureTime ?? detail.start_at ?? detail.startAt).trim();
+        const arrivalTime = toStringSafe(detail.arrival_time ?? detail.arrivalTime ?? detail.end_at ?? detail.endAt).trim();
+
+        let destinationText = '';
+        const itineraryRaw = detail.itinerary;
+        if (Array.isArray(itineraryRaw)) {
+          const labels = itineraryRaw
+            .filter((x) => x && typeof x === 'object' && !Array.isArray(x))
+            .map((x) => {
+              const o = x as Record<string, unknown>;
+              return toStringSafe(o.city_label ?? o.cityLabel).trim();
+            })
+            .filter(Boolean)
+            .filter((v, i, arr) => arr.indexOf(v) === i);
+          destinationText = labels.join(' - ');
+        }
+
+        const fleetsRaw = Array.isArray(detail.fleets) ? detail.fleets : Array.isArray(root.fleets) ? root.fleets : [];
+        const fleets = fleetsRaw
+          .filter((x) => x && typeof x === 'object' && !Array.isArray(x))
+          .map((x) => record(x))
+          .map((o) => {
+            const fleetName = toStringSafe(o.fleet_name ?? o.fleetName ?? o.name).trim();
+            const unitId = toStringSafe(o.unit_id ?? o.unitId).trim();
+            const driverRaw = o.driver_id ?? o.driverId ?? o.drivers ?? o.driver;
+            const crewRaw = o.crew_ids ?? o.crewIds ?? o.crews ?? o.crew;
+            const driverIds = Array.isArray(driverRaw)
+              ? driverRaw.map((v) => toStringSafe(v).trim()).filter(Boolean)
+              : toStringSafe(driverRaw).trim()
+                ? [toStringSafe(driverRaw).trim()]
+                : [];
+            const crewIds = Array.isArray(crewRaw)
+              ? crewRaw.map((v) => toStringSafe(v).trim()).filter(Boolean)
+              : toStringSafe(crewRaw).trim()
+                ? [toStringSafe(crewRaw).trim()]
+                : [];
+            return { fleetName, unitId, driverIds, crewIds } satisfies ScheduleDetailFleetRow;
+          });
+
+        setScheduleDetail({
+          scheduleId,
+          departureTime,
+          arrivalTime,
+          destinationText,
+          fleets,
+        });
+      } finally {
+        setLoadingScheduleDetail(false);
+      }
+    };
+
+    loadScheduleDetail();
+  }, [orderId, routeOrderId, orderData.id, orderData.scheduled]);
 
   useEffect(() => {
     if (!isUpdatePaymentOpen) return;
@@ -1043,6 +1141,30 @@ export const OrderDetail: React.FC = () => {
     return paymentMethodOptions.find((m) => m.value === key)?.label ?? key;
   };
 
+  const paymentTimelineItems = (() => {
+    if (paymentHistory.length === 0) return [];
+    const grouped: Record<
+      string,
+      { label: string; totalAmount: number; lastDateRaw: string; lastTs: number }
+    > = {};
+    for (const h of paymentHistory) {
+      const label = (h.payment_type_label || getPaymentTypeLabel(h.payment_type) || 'Pembayaran').trim() || 'Pembayaran';
+      if (!grouped[label]) grouped[label] = { label, totalAmount: 0, lastDateRaw: '', lastTs: 0 };
+      grouped[label].totalAmount += Number.isFinite(h.payment_amount) ? h.payment_amount : 0;
+
+      const raw = (h.payment_date || '').trim();
+      const candidate = raw.includes('T') ? raw : raw ? raw.replace(' ', 'T') : '';
+      const ts = candidate ? new Date(candidate).getTime() : 0;
+      if (Number.isFinite(ts) && ts > grouped[label].lastTs) {
+        grouped[label].lastTs = ts;
+        grouped[label].lastDateRaw = raw;
+      } else if (!grouped[label].lastDateRaw && raw) {
+        grouped[label].lastDateRaw = raw;
+      }
+    }
+    return Object.values(grouped).sort((a, b) => (a.lastTs || 0) - (b.lastTs || 0));
+  })();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1139,6 +1261,9 @@ export const OrderDetail: React.FC = () => {
                   >
                     Fasilitas
                   </TabsTrigger>
+                  {orderData.scheduled ? (
+                    <TabsTrigger value="schedule">Jadwal Perjalanan</TabsTrigger>
+                  ) : null}
                 </TabsList>
 
                 <div className="min-h-[420px] max-h-[620px] overflow-y-auto">
@@ -1279,15 +1404,82 @@ export const OrderDetail: React.FC = () => {
                     )}
                   </TabsContent>
 
+                  {orderData.scheduled ? (
+                    <TabsContent value="schedule" className="pt-4 space-y-4">
+                      {loadingScheduleDetail ? (
+                        <div className="text-sm text-gray-600 dark:text-gray-300">Memuat jadwal...</div>
+                      ) : !scheduleDetail ? (
+                        <div className="text-sm text-gray-600 dark:text-gray-300">Jadwal tidak ditemukan.</div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Schedule ID</label>
+                              <p className="text-gray-900 dark:text-white">{scheduleDetail.scheduleId || '-'}</p>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tujuan</label>
+                              <p className="text-gray-900 dark:text-white">{scheduleDetail.destinationText || '-'}</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jadwal Keberangkatan</label>
+                              <p className="text-gray-900 dark:text-white">{formatDateTime(scheduleDetail.departureTime)}</p>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jadwal Kembali</label>
+                              <p className="text-gray-900 dark:text-white">{formatDateTime(scheduleDetail.arrivalTime)}</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Armada & Petugas</label>
+                            {scheduleDetail.fleets.length === 0 ? (
+                              <div className="text-sm text-gray-600 dark:text-gray-300">Data armada tidak ditemukan.</div>
+                            ) : (
+                              <div className="space-y-2">
+                                {scheduleDetail.fleets.map((row, idx) => (
+                                  <div
+                                    key={`${row.unitId || row.fleetName || 'row'}-${idx}`}
+                                    className="rounded-lg border border-gray-200 dark:border-gray-800 p-3"
+                                  >
+                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                      Unit {idx + 1}{row.fleetName ? ` • ${row.fleetName}` : ''}
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                      Unit ID: {row.unitId || '-'}
+                                    </div>
+                                    {row.driverIds.length > 0 ? (
+                                      <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                        Driver: {row.driverIds.join(', ')}
+                                      </div>
+                                    ) : null}
+                                    {row.crewIds.length > 0 ? (
+                                      <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                        Crew: {row.crewIds.join(', ')}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </TabsContent>
+                  ) : null}
+
                 </div>
               </Tabs>
             </CardContent>
           </Card>
 
-          <div className={cn('grid gap-4', showScheduleButton ? 'grid-cols-4' : 'grid-cols-2')}>
+          <div className="grid grid-cols-12 gap-4">
             {orderData.paymentStatus === 'paid' && orderData.remainingAmount === 0 ? (
               <Button
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                className="w-full bg-red-600 hover:bg-red-700 text-white col-span-12 md:col-span-4"
                 onClick={() => {
                   // Logic for refund could be added here later if needed
                   Swal.fire({
@@ -1302,23 +1494,29 @@ export const OrderDetail: React.FC = () => {
               </Button>
             ) : (
               <Button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white col-span-12 md:col-span-4"
                 onClick={() => setIsUpdatePaymentOpen(true)}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
                 Update Pembayaran
               </Button>
             )}
-            <Button className="w-full bg-gray-600 hover:bg-gray-700 text-white">
-              <Printer className="h-4 w-4 mr-2" />
-              Cetak Invoice
+            <Button
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white col-span-12 md:col-span-4"
+              onClick={() => {
+                const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
+                navigate(`${basePrefix}/orders/fleet/form?order_id=${encodeURIComponent(resolvedId)}`);
+              }}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Pesanan
             </Button>
             {showScheduleButton ? (
               orderData.scheduled ? (
                 <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white col-span-12 md:col-span-4"
                   onClick={() => {
-                    navigate(`${basePrefix}/team/schedule-armada/add${scheduleUrlSuffix}`);
+                    navigate(`${basePrefix}/team/schedule-fleet/detail/${encodeURIComponent(orderData.id || orderId || '')}`);
                   }}
                 >
                   <Calendar className="h-4 w-4 mr-2" />
@@ -1326,7 +1524,7 @@ export const OrderDetail: React.FC = () => {
                 </Button>
               ) : (
                 <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white col-span-12 md:col-span-4"
                   onClick={() => {
                     navigate(`${basePrefix}/team/schedule-armada/add${scheduleUrlSuffix}`);
                   }}
@@ -1336,7 +1534,7 @@ export const OrderDetail: React.FC = () => {
                 </Button>
               )
             ) : null}
-            <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+            <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white col-span-12 md:col-span-4">
               <Settings className="h-4 w-4 mr-2" />
               Update Status
             </Button>
@@ -1466,13 +1664,21 @@ export const OrderDetail: React.FC = () => {
                     <p className="text-xs text-gray-600 dark:text-gray-300">{formatDate(orderData.createdAt)}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Pembayaran Dikonfirmasi</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{formatDate(orderData.paymentDate)}</p>
+                {paymentTimelineItems.length > 0 ? (
+                  <div className="space-y-4">
+                    {paymentTimelineItems.map((p) => (
+                      <div key={p.label} className="flex items-center space-x-3">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {p.label} • {formatCurrency(p.totalAmount)}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-300">{formatDateTime(p.lastDateRaw)}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                ) : null}
                 <div className="flex items-center space-x-3">
                   <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                   <div>
