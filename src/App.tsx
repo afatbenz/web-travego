@@ -136,6 +136,7 @@ import { PackageDetail } from '@/pages/dashboard/services/PackageDetail';
 import { TeamMember } from '@/pages/dashboard/team/TeamMember';
 import { ScheduleArmada } from '@/pages/dashboard/team/ScheduleArmada';
 import { AddSchedule } from '@/pages/dashboard/team/AddSchedule';
+import { ScheduleFleetDetail } from '@/pages/dashboard/team/ScheduleFleetDetail';
 import { TeamMemberCreate } from '@/pages/dashboard/team/TeamMemberCreate';
 import { TeamMemberDetail } from '@/pages/dashboard/team/TeamMemberDetail';
 
@@ -882,6 +883,16 @@ function App() {
           <Route path="/dashboard/team/schedule-armada/add" element={
             <DashboardLayout>
               <AddSchedule />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/team/schedule-fleet/detail/:order_id" element={
+            <DashboardLayout>
+              <ScheduleFleetDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/team/schedule-fleet/detail/:order_id" element={
+            <DashboardLayout>
+              <ScheduleFleetDetail />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/profile" element={
