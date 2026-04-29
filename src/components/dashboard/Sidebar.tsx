@@ -172,7 +172,7 @@ export const Sidebar: React.FC = () => {
     <div
       className={cn(
         'hidden md:flex md:flex-col h-screen fixed left-0 top-0 z-10 transition-[width] duration-300 ease-out',
-        'bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-950',
+        'bg-gradient-to-b from-slate-950 via-cyan-950 to-slate-950',
         'text-slate-100 shadow-[0_18px_60px_rgba(0,0,0,0.45)]'
       )}
       style={{ width: collapsed ? '4rem' : '16rem' }}
@@ -245,8 +245,8 @@ export const Sidebar: React.FC = () => {
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-0',
                         collapsed ? 'h-11 justify-center px-1' : 'h-10 px-3',
                         active
-                          ? 'bg-gradient-to-r from-indigo-500/25 via-indigo-400/10 to-sky-400/10 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_12px_40px_rgba(0,0,0,0.35)]'
-                          : 'text-slate-200/75 hover:text-white hover:bg-white/5 hover:shadow-[0_0_0_1px_rgba(129,140,248,0.25),0_0_20px_rgba(129,140,248,0.10)]'
+                          ? 'bg-gradient-to-r from-indigo-500/25 hover:text-yellow-100 via-indigo-400/10 to-sky-400/10 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_12px_40px_rgba(0,0,0,0.35)]'
+                          : 'text-slate-200/75 hover:bg-white/5 hover:text-yellow-50 hover:shadow-[0_0_0_1px_rgba(129,140,248,0.25),0_0_20px_rgba(129,140,248,0.10)]'
                       )}
                       aria-current={active ? 'page' : undefined}
                     >
