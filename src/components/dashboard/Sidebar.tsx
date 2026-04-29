@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   ChevronLeft,
@@ -24,133 +24,53 @@ import {
   PlusCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import dashboardLogo from '@/assets/general/logo.svg';
 
 export const Sidebar: React.FC = () => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('dashboard_sidebar_collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
   const location = useLocation();
   const [orgName, setOrgName] = useState('');
+
+  const decodeJwtPayload = React.useCallback((jwt: string) => {
+    try {
+      const payloadStr = jwt.split('.')[1];
+      if (!payloadStr) return null;
+      const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      return JSON.parse(atob(padded));
+    } catch {
+      return null;
+    }
+  }, []);
+
   React.useEffect(() => {
     const token = localStorage.getItem('token') ?? '';
     let nameFromJwt = '';
-    try {
-      const payloadStr = token.split('.')[1];
-      if (payloadStr) {
-        const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
-        const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-        const json = JSON.parse(atob(padded));
-        nameFromJwt = String(
-          json.organization_name ?? json.org_name ?? json.organizationName ?? json.orgName ?? ''
-        );
-      }
-    } catch {}
+    const json = decodeJwtPayload(token);
+    if (json) {
+      nameFromJwt = String(
+        json.organization_name ?? json.org_name ?? json.organizationName ?? json.orgName ?? ''
+      );
+    }
     const name = nameFromJwt || (localStorage.getItem('organization_name') ?? '');
     setOrgName(name);
-  }, []);
+  }, [decodeJwtPayload]);
 
   const token = localStorage.getItem('token') ?? '';
-  let isAdmin = false;
-  try {
-    const payloadStr = token.split('.')[1];
-    if (payloadStr) {
-      const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-      const json = JSON.parse(atob(padded));
-      isAdmin = Boolean(json.is_admin ?? json.isAdmin ?? false);
-    }
-  } catch {}
+  const claims = decodeJwtPayload(token) ?? {};
+  const isAdmin = Boolean(claims.is_admin ?? claims.isAdmin ?? false);
   const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
 
-  const menuItems = [
-    {
-      title: 'Dashboard',
-      icon: Home,
-      href: basePrefix,
-      active: location.pathname === basePrefix
-    },
-    {
-      title: 'Orders',
-      icon: ShoppingBag,
-      children: [
-        { title: 'Fleet Orders', icon: Car, href: `${basePrefix}/orders/fleet` },
-        { title: 'Tour Orders', icon: Package, href: `${basePrefix}/orders/tour` },
-        { title: 'Waiting Approval', icon: Clock, href: `${basePrefix}/orders/waiting-approval` }
-      ]
-    },
-    {
-      title: 'Services',
-      icon: Package,
-      children: [
-        { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
-        { title: 'Daftar Armada', icon: Car, href: `${basePrefix}/services/fleet` },
-        { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units` }
-      ]
-    },
-    {
-      title: 'Finance',
-      icon: DollarSign,
-      children: [
-        { title: 'Revenue', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
-        { title: 'General Ledger', icon: FileText, href: `${basePrefix}/finance/general-ledger` },
-        { title: 'General Expenses', icon: ShoppingBag, href: `${basePrefix}/finance/general-expenses` },
-        { title: 'Fleet Expenses', icon: Car, href: `${basePrefix}/finance/fleet-expenses` },
-        { title: 'Operational Expenses', icon: Settings, href: `${basePrefix}/finance/operational-expenses` }
-      ]
-    },
-    {
-      title: 'Customers',
-      icon: Users,
-      children: [
-        { title: 'All Customers', icon: Users, href: `${basePrefix}/customers` },
-        { title: 'Registered Customers', icon: UserCheck, href: `${basePrefix}/customers/registered` },
-        { title: 'Customer Rewards', icon: Gift, href: `${basePrefix}/customers/rewards` }
-      ]
-    },
-    {
-      title: 'Schedules',
-      icon: Calendar,
-      children: [
-        { title: 'Fleet Management', icon: Car, href: `${basePrefix}/schedules/fleet-management` },
-        { title: 'Team Schedules', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
-        { title: 'Leave Management', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
-      ]
-    },
-    {
-      title: 'Organization',
-      icon: User,
-      children: [
-        { title: 'My Company', icon: FileText, href: `${basePrefix}/organization/company` },
-        { title: 'Team Members', icon: Users, href: `${basePrefix}/organization/team-members` },
-        { title: 'Roles', icon: Shield, href: `${basePrefix}/organization/roles` },
-        { title: 'Division', icon: Package, href: `${basePrefix}/organization/division` }
-      ]
-    },
-    {
-      title: 'Coupons',
-      icon: Ticket,
-      children: [
-        { title: 'All Coupons', icon: Ticket, href: `${basePrefix}/coupons/all` },
-        { title: 'Add Coupon', icon: PlusCircle, href: `${basePrefix}/coupons/add` }
-      ]
-    },
-    {
-      title: 'Setting',
-      icon: Settings,
-      children: [
-        { title: 'Organization', icon: FileText, href: `${basePrefix}/organization/settings` },
-        { title: 'Users', icon: User, href: `${basePrefix}/organization/users` },
-        { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
-        { title: 'Content Management', icon: FileText, href: `${basePrefix}/content` }
-      ]
-    }
-  ];
-
-  const bottomMenuItems = [
-    { title: 'Logout', icon: LogOut, href: '/auth/login' }
-  ];
-
-  const isActive = (href: string) => location.pathname === href;
+  const isActive = (href: string) =>
+    location.pathname === href || location.pathname.startsWith(`${href}/`);
 
   const orgTitle = orgName || 'Organization';
   const orgTitleDisplay = orgTitle.length > 15 ? orgTitle.slice(0, 12) + '...' : orgTitle;
@@ -158,117 +78,247 @@ export const Sidebar: React.FC = () => {
   React.useEffect(() => {
     const w = collapsed ? '4rem' : '16rem';
     document.documentElement.style.setProperty('--sidebar-width', w);
+    try {
+      localStorage.setItem('dashboard_sidebar_collapsed', collapsed ? '1' : '0');
+    } catch {
+      void 0;
+    }
   }, [collapsed]);
+
+  type IconType = React.ComponentType<{ className?: string }>;
+  type NavItem = { title: string; href: string; icon: IconType };
+  type NavSection = { label: string; items: NavItem[] };
+
+  const bottomMenuItems: NavItem[] = [{ title: 'Logout', icon: LogOut, href: '/auth/login' }];
+
+  const navSections: NavSection[] = useMemo(
+    () => [
+      {
+        label: 'Overview',
+        items: [{ title: 'Dashboard', icon: Home, href: basePrefix }]
+      },
+      {
+        label: 'Orders',
+        items: [
+          { title: 'Fleet Orders', icon: Car, href: `${basePrefix}/orders/fleet` },
+          { title: 'Tour Orders', icon: Package, href: `${basePrefix}/orders/tour` },
+          { title: 'Waiting Approval', icon: Clock, href: `${basePrefix}/orders/waiting-approval` }
+        ]
+      },
+      {
+        label: 'Services',
+        items: [
+          { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
+          { title: 'Daftar Armada', icon: Car, href: `${basePrefix}/services/fleet` },
+          { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units` }
+        ]
+      },
+      {
+        label: 'Finance',
+        items: [
+          { title: 'Revenue', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
+          { title: 'General Ledger', icon: FileText, href: `${basePrefix}/finance/general-ledger` },
+          { title: 'General Expenses', icon: ShoppingBag, href: `${basePrefix}/finance/general-expenses` },
+          { title: 'Fleet Expenses', icon: Car, href: `${basePrefix}/finance/fleet-expenses` },
+          { title: 'Operational Expenses', icon: Settings, href: `${basePrefix}/finance/operational-expenses` }
+        ]
+      },
+      {
+        label: 'Customers',
+        items: [
+          { title: 'All Customers', icon: Users, href: `${basePrefix}/customers` },
+          { title: 'Registered Customers', icon: UserCheck, href: `${basePrefix}/customers/registered` },
+          { title: 'Customer Rewards', icon: Gift, href: `${basePrefix}/customers/rewards` }
+        ]
+      },
+      {
+        label: 'Schedules',
+        items: [
+          { title: 'Fleet Management', icon: Car, href: `${basePrefix}/schedules/fleet-management` },
+          { title: 'Team Schedules', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
+          { title: 'Leave Management', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
+        ]
+      },
+      {
+        label: 'Organization',
+        items: [
+          { title: 'My Company', icon: FileText, href: `${basePrefix}/organization/company` },
+          { title: 'Team Members', icon: Users, href: `${basePrefix}/organization/team-members` },
+          { title: 'Roles', icon: Shield, href: `${basePrefix}/organization/roles` },
+          { title: 'Division', icon: Package, href: `${basePrefix}/organization/division` }
+        ]
+      },
+      {
+        label: 'Coupons',
+        items: [
+          { title: 'All Coupons', icon: Ticket, href: `${basePrefix}/coupons/all` },
+          { title: 'Add Coupon', icon: PlusCircle, href: `${basePrefix}/coupons/add` }
+        ]
+      },
+      {
+        label: 'Settings',
+        items: [
+          { title: 'Organization', icon: FileText, href: `${basePrefix}/organization/settings` },
+          { title: 'Users', icon: User, href: `${basePrefix}/organization/users` },
+          { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
+          { title: 'Content Management', icon: FileText, href: `${basePrefix}/content` }
+        ]
+      }
+    ],
+    [basePrefix]
+  );
 
   return (
     <div
       className={cn(
-        "hidden md:flex md:flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 h-screen fixed left-0 top-0 z-10"
+        'hidden md:flex md:flex-col h-screen fixed left-0 top-0 z-10 transition-[width] duration-300 ease-out',
+        'bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-950',
+        'text-slate-100 shadow-[0_18px_60px_rgba(0,0,0,0.45)]'
       )}
       style={{ width: collapsed ? '4rem' : '16rem' }}
     >
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center space-x-2">
-            <img src={dashboardLogo} alt="TraveGO" className="h-8 w-8 object-contain" />
-            {!collapsed && (
-              <div className="flex flex-col">
-                <span className="text-xl font-bold text-gray-900 dark:text-white">{orgTitleDisplay}</span>
+      <div
+        className={cn(
+          'flex gap-3',
+          collapsed ? 'flex-col items-center px-2 pt-3 pb-3' : 'items-center px-3 pt-4 pb-3'
+        )}
+      >
+        <Link
+          to="/"
+          className={cn(
+            'group flex items-center gap-3 min-w-0',
+            collapsed ? 'rounded-xl p-1' : 'rounded-full px-2 py-1.5',
+            'transition-colors hover:bg-white/5'
+          )}
+        >
+          <img src={dashboardLogo} alt="TraveGO" className="h-8 w-8 object-contain" />
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="truncate text-[15px] font-semibold tracking-tight text-white/95">
+                {orgTitleDisplay}
               </div>
-            )}
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCollapsed(!collapsed)}
-            className="h-8 w-8 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            {collapsed ? (
-              <ChevronRight className="h-6 w-6" />
-            ) : (
-              <ChevronLeft className="h-6 w-6" />
-            )}
-          </Button>
-        </div>
+              <div className="truncate text-[11px] font-medium tracking-wide text-white/50">
+                TraveGO Dashboard
+              </div>
+            </div>
+          )}
+        </Link>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setCollapsed((v) => !v)}
+          className={cn(
+            'h-9 w-9 rounded-full bg-white/5 text-white/80 transition-all',
+            'hover:bg-white/10 hover:text-white hover:shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_18px_rgba(129,140,248,0.18)]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-0',
+            collapsed ? '' : 'ml-auto'
+          )}
+        >
+          {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+        </Button>
       </div>
 
-      {/* Menu Items - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-1 pb-20 sidebar-scroll">
-        {menuItems.map((item, index) => (
-          <div key={index}>
-            {item.href ? (
-              // Single menu item
-              <Link
-                to={item.href}
-                className={cn(
-                  "flex items-center space-x-3 px-2 rounded-lg transition-all duration-200",
-                  collapsed ? "py-3" : "py-1.5",
-                  isActive(item.href)
-                    ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                )}
-              >
-                <item.icon className={cn(collapsed ? 'h-9 w-9' : 'h-5 w-5')} />
-                {!collapsed && <span className="font-medium">{item.title}</span>}
-              </Link>
-            ) : (
-              // Menu with children
-              <div className="space-y-0.5">
-                <div className={cn(
-                  "flex items-center space-x-3 px-2 rounded-lg cursor-pointer",
-                  collapsed ? "py-3" : "py-1.5",
-                  "text-gray-700 dark:text-gray-300"
-                )}>
-                  <item.icon className={cn(collapsed ? 'h-9 w-9' : 'h-5 w-5')} />
-                  {!collapsed && <span className="font-medium">{item.title}</span>}
+      <TooltipProvider delayDuration={150}>
+        <nav className={cn('flex-1 overflow-y-auto sidebar-scroll', collapsed ? 'px-2 pb-3' : 'px-3 pb-3')}>
+          {navSections.map((section, sectionIdx) => (
+            <div key={section.label} className={cn(sectionIdx === 0 ? '' : collapsed ? 'mt-3' : 'mt-5')}>
+              {collapsed ? (
+                <div className="mx-1 h-px bg-white/10" />
+              ) : (
+                <div className="px-3 pb-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-white/45">
+                  {section.label}
                 </div>
-                {!collapsed && item.children && (
-                  <div className="ml-8 space-y-0.5">
-                    {item.children.map((child, childIndex) => (
-                      <Link
-                        key={childIndex}
-                        to={child.href}
+              )}
+
+              <div className={cn('space-y-1', collapsed ? 'mt-2' : '')}>
+                {section.items.map((item) => {
+                  const active = isActive(item.href);
+                  const Icon = item.icon;
+
+                  const content = (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      className={cn(
+                        'group flex items-center gap-3 rounded-full transition-all duration-200',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-0',
+                        collapsed ? 'h-11 justify-center px-1' : 'h-10 px-3',
+                        active
+                          ? 'bg-gradient-to-r from-indigo-500/25 via-indigo-400/10 to-sky-400/10 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_12px_40px_rgba(0,0,0,0.35)]'
+                          : 'text-slate-200/75 hover:text-white hover:bg-white/5 hover:shadow-[0_0_0_1px_rgba(129,140,248,0.25),0_0_20px_rgba(129,140,248,0.10)]'
+                      )}
+                      aria-current={active ? 'page' : undefined}
+                    >
+                      <span
                         className={cn(
-                          "flex items-center space-x-3 px-2 py-1.5 rounded-lg transition-all duration-200 text-sm",
-                          isActive(child.href)
-                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                          'grid place-items-center rounded-full',
+                          collapsed ? 'h-10 w-10' : 'h-9 w-9',
+                          active ? 'bg-white/5' : 'bg-transparent group-hover:bg-white/5'
                         )}
                       >
-                        <child.icon className="h-4 w-4" />
-                        <span>{child.title}</span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      {!collapsed && (
+                        <span className="min-w-0 truncate text-[13px] font-medium tracking-tight">
+                          {item.title}
+                        </span>
+                      )}
+                    </Link>
+                  );
 
-      {/* Logout Button - Absolute positioned at bottom */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        {bottomMenuItems.map((item, index) => (
-          <Link
-            key={index}
-            to={item.href}
-            onClick={() => {
-              if (item.title === 'Logout') {
-                localStorage.removeItem('user');
-                localStorage.removeItem('token');
-              }
-            }}
-            className={cn(
-              "flex items-center space-x-3 px-2 py-1.5 rounded-lg transition-all duration-200",
-              "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-            )}
-          >
-            <item.icon className={cn(collapsed ? 'h-9 w-9' : 'h-5 w-5')} />
-            {!collapsed && <span className="font-medium">{item.title}</span>}
-          </Link>
-        ))}
+                  if (!collapsed) return content;
+
+                  return (
+                    <Tooltip key={item.href}>
+                      <TooltipTrigger asChild>{content}</TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        sideOffset={10}
+                        className="border border-white/10 bg-slate-950 text-slate-100 shadow-[0_14px_40px_rgba(0,0,0,0.55)]"
+                      >
+                        {item.title}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </TooltipProvider>
+
+      <div className={cn('mt-auto px-3 pb-4 pt-3', collapsed ? 'px-2' : 'px-3')}>
+        <div className={cn('h-px bg-white/10', collapsed ? 'mx-1' : 'mx-2')} />
+        <div className={cn('mt-3', collapsed ? '' : 'px-0')}>
+          {bottomMenuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                onClick={() => {
+                  if (item.title === 'Logout') {
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('token');
+                  }
+                }}
+                className={cn(
+                  'group flex items-center gap-3 rounded-full transition-all duration-200',
+                  collapsed ? 'h-11 justify-center px-1' : 'h-10 px-3',
+                  'text-rose-200/85 hover:text-white hover:bg-rose-500/10 hover:shadow-[0_0_0_1px_rgba(244,63,94,0.25),0_0_20px_rgba(244,63,94,0.14)]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60 focus-visible:ring-offset-0'
+                )}
+                title={collapsed ? item.title : undefined}
+              >
+                <span className={cn('grid place-items-center rounded-full', collapsed ? 'h-10 w-10' : 'h-9 w-9')}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                {!collapsed && <span className="text-[13px] font-medium tracking-tight">{item.title}</span>}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

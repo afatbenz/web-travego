@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings, Pencil, RotateCcw } from 'lucide-react';
@@ -109,6 +109,7 @@ type PaymentHistoryRow = {
 type ScheduleDetailFleetRow = {
   fleetName: string;
   unitId: string;
+  plateNumber: string;
   driverIds: string[];
   crewIds: string[];
 };
@@ -171,6 +172,10 @@ export const OrderDetail: React.FC = () => {
   const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
   const [scheduleDetail, setScheduleDetail] = useState<ScheduleDetailData | null>(null);
   const [loadingScheduleDetail, setLoadingScheduleDetail] = useState(false);
+  const [orderInfoTab, setOrderInfoTab] = useState<'overview' | 'itinerary' | 'facilities' | 'schedule'>('overview');
+  const [paymentTab, setPaymentTab] = useState<'summary' | 'history'>('summary');
+  const fetchedPaymentHistoryFor = useRef<string>('');
+  const fetchedScheduleFor = useRef<string>('');
   const [paymentForm, setPaymentForm] = useState({
     status: '',
     method: '',
@@ -510,91 +515,117 @@ export const OrderDetail: React.FC = () => {
   }, [orderId]);
 
   useEffect(() => {
-    const resolvedOrderId = orderId || routeOrderId || orderData.id;
-    if (!resolvedOrderId) return;
-    fetchPaymentHistory(resolvedOrderId);
-  }, [orderId, routeOrderId, orderData.id, fetchPaymentHistory]);
-
-  useEffect(() => {
     const resolvedOrderId = (orderId || routeOrderId || orderData.id || '').trim();
-    if (!resolvedOrderId || !orderData.scheduled) {
-      setScheduleDetail(null);
-      return;
-    }
+    if (!resolvedOrderId) return;
+    if (paymentTab !== 'history') return;
+    if (fetchedPaymentHistoryFor.current === resolvedOrderId) return;
+    fetchedPaymentHistoryFor.current = resolvedOrderId;
+    fetchPaymentHistory(resolvedOrderId);
+  }, [orderId, orderData.id, fetchPaymentHistory, paymentTab, routeOrderId]);
 
+  const loadScheduleDetail = useCallback(async (resolvedOrderId: string) => {
     const record = (v: unknown): Record<string, unknown> =>
       v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
     const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
 
-    const loadScheduleDetail = async () => {
-      setLoadingScheduleDetail(true);
-      try {
-        const token = localStorage.getItem('token') ?? '';
-        const res = await api.get<unknown>(
-          `/services/schedule/detail/${encodeURIComponent(resolvedOrderId)}`,
-          token ? { Authorization: token } : undefined
-        );
-        if (res.status !== 'success') {
-          setScheduleDetail(null);
-          return;
-        }
-
-        const root = record(res.data);
-        const detail = record(root.data ?? root.schedule ?? root.detail ?? root);
-        const scheduleId = toStringSafe(detail.schedule_id ?? detail.scheduleId ?? root.schedule_id ?? root.scheduleId).trim();
-        const departureTime = toStringSafe(detail.departure_time ?? detail.departureTime ?? detail.start_at ?? detail.startAt).trim();
-        const arrivalTime = toStringSafe(detail.arrival_time ?? detail.arrivalTime ?? detail.end_at ?? detail.endAt).trim();
-
-        let destinationText = '';
-        const itineraryRaw = detail.itinerary;
-        if (Array.isArray(itineraryRaw)) {
-          const labels = itineraryRaw
-            .filter((x) => x && typeof x === 'object' && !Array.isArray(x))
-            .map((x) => {
-              const o = x as Record<string, unknown>;
-              return toStringSafe(o.city_label ?? o.cityLabel).trim();
-            })
-            .filter(Boolean)
-            .filter((v, i, arr) => arr.indexOf(v) === i);
-          destinationText = labels.join(' - ');
-        }
-
-        const fleetsRaw = Array.isArray(detail.fleets) ? detail.fleets : Array.isArray(root.fleets) ? root.fleets : [];
-        const fleets = fleetsRaw
-          .filter((x) => x && typeof x === 'object' && !Array.isArray(x))
-          .map((x) => record(x))
-          .map((o) => {
-            const fleetName = toStringSafe(o.fleet_name ?? o.fleetName ?? o.name).trim();
-            const unitId = toStringSafe(o.unit_id ?? o.unitId).trim();
-            const driverRaw = o.driver_id ?? o.driverId ?? o.drivers ?? o.driver;
-            const crewRaw = o.crew_ids ?? o.crewIds ?? o.crews ?? o.crew;
-            const driverIds = Array.isArray(driverRaw)
-              ? driverRaw.map((v) => toStringSafe(v).trim()).filter(Boolean)
-              : toStringSafe(driverRaw).trim()
-                ? [toStringSafe(driverRaw).trim()]
-                : [];
-            const crewIds = Array.isArray(crewRaw)
-              ? crewRaw.map((v) => toStringSafe(v).trim()).filter(Boolean)
-              : toStringSafe(crewRaw).trim()
-                ? [toStringSafe(crewRaw).trim()]
-                : [];
-            return { fleetName, unitId, driverIds, crewIds } satisfies ScheduleDetailFleetRow;
-          });
-
-        setScheduleDetail({
-          scheduleId,
-          departureTime,
-          arrivalTime,
-          destinationText,
-          fleets,
-        });
-      } finally {
-        setLoadingScheduleDetail(false);
+    setLoadingScheduleDetail(true);
+    try {
+      const token = localStorage.getItem('token') ?? '';
+      const res = await api.get<unknown>(
+        `/services/schedule/detail/${encodeURIComponent(resolvedOrderId)}`,
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status !== 'success') {
+        setScheduleDetail(null);
+        return;
       }
-    };
 
-    loadScheduleDetail();
-  }, [orderId, routeOrderId, orderData.id, orderData.scheduled]);
+      const root = record(res.data);
+      const detail = record(root.data ?? root.schedule ?? root.detail ?? root);
+      const scheduleId = toStringSafe(detail.schedule_id ?? detail.scheduleId ?? root.schedule_id ?? root.scheduleId).trim();
+      const departureTime = toStringSafe(detail.departure_time ?? detail.departureTime ?? detail.start_at ?? detail.startAt).trim();
+      const arrivalTime = toStringSafe(detail.arrival_time ?? detail.arrivalTime ?? detail.end_at ?? detail.endAt).trim();
+
+      let destinationText = '';
+      const itineraryRaw = detail.itinerary;
+      if (Array.isArray(itineraryRaw)) {
+        const labels = itineraryRaw
+          .filter((x) => x && typeof x === 'object' && !Array.isArray(x))
+          .map((x) => {
+            const o = x as Record<string, unknown>;
+            return toStringSafe(o.city_label ?? o.cityLabel).trim();
+          })
+          .filter(Boolean)
+          .filter((v, i, arr) => arr.indexOf(v) === i);
+        destinationText = labels.join(' - ');
+      }
+
+      const fleetsRaw = Array.isArray(detail.fleets) ? detail.fleets : Array.isArray(root.fleets) ? root.fleets : [];
+      const fleets = fleetsRaw
+        .filter((x) => x && typeof x === 'object' && !Array.isArray(x))
+        .map((x) => record(x))
+        .map((o) => {
+          const fleetName = toStringSafe(o.fleet_name ?? o.fleetName ?? o.name).trim();
+          const unitId = toStringSafe(o.vehicle_id ?? o.vehicleId).trim();
+          const plateNumber = toStringSafe(o.plate_number ?? o.vehicleId).trim();
+          const driverRaw = o.driver_id ?? o.driverId ?? o.drivers ?? o.driver;
+          const crewRaw = o.crew_ids ?? o.crewIds ?? o.crews ?? o.crew;
+          const driverIds = Array.isArray(driverRaw)
+            ? driverRaw.map((v) => toStringSafe(v).trim()).filter(Boolean)
+            : toStringSafe(driverRaw).trim()
+              ? [toStringSafe(driverRaw).trim()]
+              : [];
+          const crewIds = Array.isArray(crewRaw)
+            ? crewRaw.map((v) => toStringSafe(v).trim()).filter(Boolean)
+            : toStringSafe(crewRaw).trim()
+              ? [toStringSafe(crewRaw).trim()]
+              : [];
+          return { fleetName, unitId, plateNumber, driverIds, crewIds } satisfies ScheduleDetailFleetRow;
+        });
+
+      setScheduleDetail({
+        scheduleId,
+        departureTime,
+        arrivalTime,
+        destinationText,
+        fleets,
+      });
+    } finally {
+      setLoadingScheduleDetail(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const resolvedOrderId = (orderId || routeOrderId || orderData.id || '').trim();
+    if (!resolvedOrderId) return;
+    if (!orderData.scheduled) {
+      setScheduleDetail(null);
+      return;
+    }
+    if (orderInfoTab !== 'schedule') return;
+    if (fetchedScheduleFor.current === resolvedOrderId) return;
+    fetchedScheduleFor.current = resolvedOrderId;
+    loadScheduleDetail(resolvedOrderId);
+  }, [loadScheduleDetail, orderData.id, orderData.scheduled, orderId, orderInfoTab, routeOrderId]);
+
+  useEffect(() => {
+    const resolvedOrderId = (orderId || routeOrderId || orderData.id || '').trim();
+    if (!resolvedOrderId) return;
+    if (fetchedPaymentHistoryFor.current && fetchedPaymentHistoryFor.current !== resolvedOrderId) {
+      fetchedPaymentHistoryFor.current = '';
+      setPaymentHistory([]);
+    }
+    if (fetchedScheduleFor.current && fetchedScheduleFor.current !== resolvedOrderId) {
+      fetchedScheduleFor.current = '';
+      setScheduleDetail(null);
+    }
+  }, [orderId, orderData.id, routeOrderId]);
+
+  useEffect(() => {
+    if (orderInfoTab === 'schedule' && !orderData.scheduled) {
+      setOrderInfoTab('overview');
+    }
+  }, [orderData.scheduled, orderInfoTab]);
 
   useEffect(() => {
     if (!isUpdatePaymentOpen) return;
@@ -1244,7 +1275,7 @@ export const OrderDetail: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Tabs defaultValue="overview">
+              <Tabs value={orderInfoTab} onValueChange={(v) => setOrderInfoTab(v as typeof orderInfoTab)}>
                 <TabsList className="w-full justify-start">
                   <TabsTrigger
                     value="overview"
@@ -1413,14 +1444,6 @@ export const OrderDetail: React.FC = () => {
                       ) : (
                         <div className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Schedule ID</label>
-                              <p className="text-gray-900 dark:text-white">{scheduleDetail.scheduleId || '-'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tujuan</label>
-                              <p className="text-gray-900 dark:text-white">{scheduleDetail.destinationText || '-'}</p>
-                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1449,7 +1472,7 @@ export const OrderDetail: React.FC = () => {
                                       Unit {idx + 1}{row.fleetName ? ` • ${row.fleetName}` : ''}
                                     </div>
                                     <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                      Unit ID: {row.unitId || '-'}
+                                      Unit ID: {row.unitId || '-'} • {row.plateNumber || '-'}
                                     </div>
                                     {row.driverIds.length > 0 ? (
                                       <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
@@ -1476,10 +1499,10 @@ export const OrderDetail: React.FC = () => {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-12 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {orderData.paymentStatus === 'paid' && orderData.remainingAmount === 0 ? (
               <Button
-                className="w-full bg-red-600 hover:bg-red-700 text-white col-span-12 md:col-span-4"
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => {
                   // Logic for refund could be added here later if needed
                   Swal.fire({
@@ -1494,7 +1517,7 @@ export const OrderDetail: React.FC = () => {
               </Button>
             ) : (
               <Button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white col-span-12 md:col-span-4"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={() => setIsUpdatePaymentOpen(true)}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
@@ -1502,7 +1525,7 @@ export const OrderDetail: React.FC = () => {
               </Button>
             )}
             <Button
-              className="w-full bg-gray-600 hover:bg-gray-700 text-white col-span-12 md:col-span-4"
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white"
               onClick={() => {
                 const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
                 navigate(`${basePrefix}/orders/fleet/form?order_id=${encodeURIComponent(resolvedId)}`);
@@ -1514,7 +1537,7 @@ export const OrderDetail: React.FC = () => {
             {showScheduleButton ? (
               orderData.scheduled ? (
                 <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white col-span-12 md:col-span-4"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                   onClick={() => {
                     navigate(`${basePrefix}/team/schedule-fleet/detail/${encodeURIComponent(orderData.id || orderId || '')}`);
                   }}
@@ -1524,7 +1547,7 @@ export const OrderDetail: React.FC = () => {
                 </Button>
               ) : (
                 <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white col-span-12 md:col-span-4"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                   onClick={() => {
                     navigate(`${basePrefix}/team/schedule-armada/add${scheduleUrlSuffix}`);
                   }}
@@ -1534,7 +1557,7 @@ export const OrderDetail: React.FC = () => {
                 </Button>
               )
             ) : null}
-            <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white col-span-12 md:col-span-4">
+            <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
               <Settings className="h-4 w-4 mr-2" />
               Update Status
             </Button>
@@ -1553,7 +1576,7 @@ export const OrderDetail: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="summary">
+              <Tabs value={paymentTab} onValueChange={(v) => setPaymentTab(v as typeof paymentTab)}>
                 <TabsList className="w-full justify-start">
                   <TabsTrigger value="summary">Ringkasan</TabsTrigger>
                   <TabsTrigger value="history">Riwayat</TabsTrigger>
@@ -1887,7 +1910,13 @@ export const OrderDetail: React.FC = () => {
                 >
                   {paymentForm.proofPreview ? (
                     <div className="relative aspect-video w-full group">
-                      <img src={paymentForm.proofPreview} alt="Proof" className="w-full h-full object-cover" />
+                      <img
+                        src={paymentForm.proofPreview}
+                        alt="Proof"
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover"
+                      />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <Button
                           type="button"

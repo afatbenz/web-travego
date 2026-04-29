@@ -259,6 +259,7 @@ export const OrganizationRoles: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16 text-center">No</TableHead>
                 <TableHead>Nama Role</TableHead>
                 <TableHead>Divisi</TableHead>
                 <TableHead>Deskripsi</TableHead>
@@ -269,6 +270,9 @@ export const OrganizationRoles: React.FC = () => {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={`s-${i}`}>
+                    <TableCell className="text-center">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto animate-pulse" />
+                    </TableCell>
                     <TableCell>
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-44 animate-pulse" />
                     </TableCell>
@@ -285,13 +289,16 @@ export const OrganizationRoles: React.FC = () => {
                 ))
               ) : roles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500 py-10">
+                  <TableCell colSpan={5} className="text-center text-gray-500 py-10">
                     Belum ada data role.
                   </TableCell>
                 </TableRow>
               ) : (
-                currentRoles.map((r) => (
+                currentRoles.map((r, idx) => (
                   <TableRow key={r.role_id}>
+                    <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
+                      {startIndex + idx + 1}
+                    </TableCell>
                     <TableCell className="font-medium">{r.role_name || '-'}</TableCell>
                     <TableCell>{r.division_name || divisionNameById.get(r.division_id) || '-'}</TableCell>
                     <TableCell>{r.description || '-'}</TableCell>

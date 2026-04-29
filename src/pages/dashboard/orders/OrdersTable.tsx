@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Eye, Download, Plus } from 'lucide-react';
-import { api } from '@/lib/api';
+import { CheckCircle2, Clock, DollarSign, Download, Eye, MoreHorizontal, Plus, ShoppingBag } from 'lucide-react';
+import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { Pagination } from '@/components/common/Pagination';
 import type { DateRange } from 'react-day-picker';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { FilterBar, type FilterField, type QuickFilterChip } from '@/components/common/FilterBar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
@@ -47,17 +45,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const [orderPeriod, setOrderPeriod] = useState<DateRange | undefined>();
   const [orderDate, setOrderDate] = useState<DateRange | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [summaryRevenue, setSummaryRevenue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initializedDefaultRange, setInitializedDefaultRange] = useState(false);
 
   // client-side parsing helpers removed since filtering now handled by backend
-  const formatDdMmmYyFromDate = (d: Date) => {
-    const formatted = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
-    return formatted.replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
-  };
-
   useEffect(() => {
     if (!initializedDefaultRange) {
       const today = new Date();
@@ -86,70 +79,11 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     return `${s} - ${e}`;
   };
 
-  const DateRangePicker: React.FC<{
-    label: string;
-    value: DateRange | undefined;
-    onChange: (value: DateRange | undefined) => void;
-    placeholder: string;
-  }> = ({ label, value, onChange, placeholder }) => {
-    const [open, setOpen] = useState(false);
-    const valueRef = React.useRef<DateRange | undefined>(value);
-    React.useEffect(() => {
-      valueRef.current = value;
-    }, [value]);
-    const labelText =
-      value?.from && value?.to
-        ? `${formatDdMmmYyFromDate(value.from)} - ${formatDdMmmYyFromDate(value.to)}`
-        : value?.from
-          ? `${formatDdMmmYyFromDate(value.from)} - ...`
-          : '';
-
-    return (
-      <div>
-        <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">{label}</div>
-        <Popover
-          open={open}
-          onOpenChange={(next) => {
-            if (!next) {
-              const r = valueRef.current;
-              if (r?.from && !r?.to) {
-                setOpen(true);
-                return;
-              }
-            }
-            setOpen(next);
-          }}
-        >
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-full justify-start font-normal h-10">
-              {labelText || placeholder}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              numberOfMonths={1}
-              selected={value}
-              onSelect={(range) => {
-                onChange(range);
-                if (range?.from && range?.to) {
-                  setOpen(false);
-                } else {
-                  setOpen(true);
-                }
-              }}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-    );
-  };
-
   interface Order {
     orderId: string;
     transactionId?: string;
     fleetName: string;
+    fleetThumbnail?: string;
     duration: number;
     uom: string;
     unitQty: number;
@@ -238,6 +172,19 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             const latestPaymentStatusRaw = item.latest_payment_status ?? item.latestPaymentStatus ?? item.latest_payment_status_label ?? item.latestPaymentStatusLabel;
             const uomRaw = item.uom;
             const rentTypeRaw = item.rent_type;
+            const thumbnailRaw =
+              item.thumbnail ??
+              item.image ??
+              item.image_url ??
+              item.imageUrl ??
+              item.fleet_image ??
+              item.fleetImage ??
+              item.package_thumbnail ??
+              item.packageThumbnail ??
+              item.package_image ??
+              item.packageImage;
+            const fleetThumbnail =
+              typeof thumbnailRaw === 'string' && thumbnailRaw.trim() ? toFileUrl(thumbnailRaw.trim()) : undefined;
             return {
               orderId:
                 typeof orderIdRaw === 'string' || typeof orderIdRaw === 'number' ? String(orderIdRaw) : '',
@@ -246,6 +193,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                   ? String(transactionIdRaw)
                   : undefined,
               fleetName: typeof fleetNameRaw === 'string' ? fleetNameRaw : 'Unknown Unit',
+              fleetThumbnail,
               duration: Number.isFinite(Number(item.duration)) ? Number(item.duration) : 0,
               uom: typeof uomRaw === 'string' ? uomRaw : 'hari',
               unitQty: Number.isFinite(Number(item.unit_qty ?? item.qty)) ? Number(item.unit_qty ?? item.qty) : 0,
@@ -291,17 +239,41 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const getPaymentStatusBadge = (status: number) => {
     switch (status) {
       case 1:
-        return <Badge className="bg-transparent text-green-700 hover:bg-transparent dark:text-green-300 dark:hover:bg-transparent border border-green-200 dark:border-green-900/40">Pembayaran Selesai</Badge>;
+        return (
+          <Badge className="rounded-full border-transparent bg-transparent px-3 py-1 font-medium text-emerald-700 hover:bg-gray-200/10 dark:bg-emerald-400/15 dark:text-emerald-300 dark:hover:bg-emerald-400/15">
+            Pembayaran Selesai
+          </Badge>
+        );
       case 2:
-        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/20">Menunggu Pembayaran</Badge>;
+        return (
+          <Badge className="rounded-full border-transparent bg-red-500/10 px-3 py-1 font-medium text-amber-800 hover:bg-red-500/10 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/15">
+            Menunggu Pembayaran
+          </Badge>
+        );
       case 3:
-        return <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/20">Menunggu Persetujuan</Badge>;
+        return (
+          <Badge className="rounded-full border-transparent bg-sky-500/10 px-3 py-1 font-medium text-sky-800 hover:bg-sky-500/10 dark:bg-sky-400/15 dark:text-sky-300 dark:hover:bg-sky-400/15">
+            Menunggu Persetujuan
+          </Badge>
+        );
       case 4:
-        return <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 dark:bg-rose-900/20 dark:text-rose-300 dark:hover:bg-rose-900/20">Belum Lunas</Badge>;
+        return (
+          <Badge className="rounded-full border-transparent bg-rose-500/10 px-3 py-1 font-medium text-rose-800 hover:bg-rose-500/10 dark:bg-rose-400/15 dark:text-rose-300 dark:hover:bg-rose-400/15">
+            Belum Lunas
+          </Badge>
+        );
       case 5:
-        return <Badge className="bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-900/20 dark:text-violet-300 dark:hover:bg-violet-900/20">Refund</Badge>;
+        return (
+          <Badge className="rounded-full border-transparent bg-violet-500/10 px-3 py-1 font-medium text-violet-800 hover:bg-violet-500/10 dark:bg-violet-400/15 dark:text-violet-300 dark:hover:bg-violet-400/15">
+            Refund
+          </Badge>
+        );
       case 0:
-        return <Badge className="bg-zinc-100 text-zinc-800 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-800">Pembayaran Dibatalkan</Badge>;
+        return (
+          <Badge className="rounded-full border-transparent bg-zinc-500/10 px-3 py-1 font-medium text-zinc-800 hover:bg-zinc-500/10 dark:bg-zinc-400/15 dark:text-zinc-200 dark:hover:bg-zinc-400/15">
+            Pembayaran Dibatalkan
+          </Badge>
+        );
       default:
         return <Badge variant="secondary">Unknown</Badge>;
     }
@@ -311,29 +283,257 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
   const filteredOrders = orders;
 
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentOrders = filteredOrders.slice(startIndex, endIndex);
-  const tableColCount =
-    6 +
-    (type === 'fleet' ? 1 : 0) +
-    (type === 'fleet' && basePrefix === '/dashboard/partner' ? 1 : 0);
-
-  const handlePageChange = (page: number) => {
-    const next = Math.min(Math.max(1, page), Math.max(1, totalPages));
-    setCurrentPage(next);
-  };
-
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, orderPeriod, orderDate]);
 
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
+  const totalOrders = filteredOrders.length;
+  const completedCount = filteredOrders.filter((o) => o.paymentStatus === 1).length;
+  const pendingCount = filteredOrders.filter((o) => o.paymentStatus === 2 || o.paymentStatus === 3).length;
+  const formatRupiah = (n: number) => `Rp ${Math.round(n || 0).toLocaleString('id-ID')}`;
+
+  const canAddOrder = type === 'fleet' && status === 'all' && basePrefix === '/dashboard/partner';
+  const goToOrder = (orderId: string) => {
+    if (basePrefix === '/dashboard/partner' && type === 'fleet') {
+      navigate(`${basePrefix}/orders/fleet/detail/${orderId}`);
+      return;
     }
-  }, [currentPage, totalPages]);
+    navigate(`${basePrefix}/orders/detail/${orderId}`);
+  };
+
+  const downloadCsv = (filename: string, rows: Array<Record<string, unknown>>) => {
+    const escape = (v: unknown) => {
+      const s = v == null ? '' : String(v);
+      const needs = /[",\n\r]/.test(s);
+      const escaped = s.replace(/"/g, '""');
+      return needs ? `"${escaped}"` : escaped;
+    };
+    const headers = Object.keys(rows[0] ?? {});
+    const lines = [headers.join(','), ...rows.map((r) => headers.map((h) => escape(r[h])).join(','))].join('\r\n');
+    const blob = new Blob([`\uFEFF${lines}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  type OrdersFilters = {
+    q: string;
+    orderPeriod: DateRange | undefined;
+    orderDate: DateRange | undefined;
+    status: 'all' | '0' | '1' | '2' | '3' | '4' | '5';
+  };
+
+  const filterValues: OrdersFilters = {
+    q: searchTerm,
+    orderPeriod,
+    orderDate,
+    status: statusFilter
+  };
+
+  const filterFields: Array<FilterField<OrdersFilters>> = [
+    { name: 'q', type: 'text', label: 'Search', placeholder: 'Cari order...', className: 'min-w-[220px] flex-[2]' },
+    { name: 'orderPeriod', type: 'daterange', label: 'Order Period', placeholder: 'Pilih rentang', className: 'min-w-[260px]' },
+    { name: 'orderDate', type: 'daterange', label: 'Order Date', placeholder: 'Pilih rentang', className: 'min-w-[260px]' },
+    {
+      name: 'status',
+      type: 'select',
+      label: 'Status',
+      placeholder: 'Semua Status',
+      className: 'min-w-[220px]',
+      options: [
+        { value: 'all', label: 'Semua Status' },
+        { value: '1', label: 'Sudah dibayar' },
+        { value: '2', label: 'Menunggu Pembayaran' },
+        { value: '3', label: 'Menunggu Persetujuan' },
+        { value: '4', label: 'Belum Lunas' },
+        { value: '5', label: 'Refund' },
+        { value: '0', label: 'Pembayaran Dibatalkan' }
+      ]
+    }
+  ];
+
+  const filterChips: QuickFilterChip[] = [
+    { label: 'All', active: statusFilter === 'all', onClick: () => setStatusFilter('all') },
+    { label: 'Paid', active: statusFilter === '1', onClick: () => setStatusFilter('1') },
+    { label: 'Pending', active: statusFilter === '2', onClick: () => setStatusFilter('2') },
+    { label: 'Approval', active: statusFilter === '3', onClick: () => setStatusFilter('3') },
+  ];
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setOrderPeriod(undefined);
+    setOrderDate(undefined);
+    setStatusFilter('all');
+  };
+
+  const getRentTypeBadge = (rentType: string | undefined) => {
+    const raw = (rentType ?? '').trim();
+    if (!raw) {
+      return (
+        <Badge variant="outline" className="rounded-full px-2.5 py-0.5">
+          -
+        </Badge>
+      );
+    }
+    const k = raw.toLowerCase();
+    const cls =
+      k.includes('hour') || k.includes('jam')
+        ? 'bg-amber-500/10 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300'
+        : k.includes('day') || k.includes('hari')
+          ? 'bg-sky-500/10 text-sky-800 dark:bg-sky-400/15 dark:text-sky-300'
+          : k.includes('week') || k.includes('minggu')
+            ? 'bg-violet-500/10 text-violet-800 dark:bg-violet-400/15 dark:text-violet-300'
+            : k.includes('month') || k.includes('bulan')
+              ? 'bg-emerald-500/10 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300'
+              : 'bg-zinc-500/10 text-zinc-800 dark:bg-zinc-400/15 dark:text-zinc-200';
+    return (
+      <Badge className={cn('rounded-full border-transparent px-3 py-1 font-medium hover:bg-transparent', cls)}>
+        {raw}
+      </Badge>
+    );
+  };
+
+  const columns: Array<DataTableColumn<Order>> = [
+    {
+      label: 'No',
+      key: '__no__',
+      width: 68,
+      align: 'center',
+      sortable: false,
+      render: (_, rowIndex) => (
+        <span className="text-sm text-muted-foreground">{(currentPage - 1) * itemsPerPage + rowIndex + 1}</span>
+      )
+    },
+    {
+      label: 'Order ID',
+      key: 'orderId',
+      sortable: true,
+      width: 180,
+      render: (row) => (
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+          onClick={() => goToOrder(row.orderId)}
+        >
+          {row.orderId}
+        </Button>
+      )
+    },
+    {
+      label: 'Nama Unit',
+      key: 'fleetName',
+      sortable: true,
+      width: 320,
+      render: (row) => {
+        const fallback = (row.fleetName || 'U').trim().slice(0, 1).toUpperCase();
+        return (
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 overflow-hidden rounded-lg bg-muted">
+              {row.fleetThumbnail ? (
+                <img src={row.fleetThumbnail} alt={row.fleetName} className="h-full w-full object-cover" />
+              ) : (
+                <div className="grid h-full w-full place-items-center bg-gradient-to-br from-indigo-500/15 to-sky-500/15 text-xs font-semibold text-foreground/70">
+                  {fallback}
+                </div>
+              )}
+            </div>
+            <span className="min-w-0 truncate font-medium text-foreground">{row.fleetName}</span>
+          </div>
+        );
+      }
+    },
+    ...(type === 'fleet'
+      ? ([
+          {
+            label: 'Tipe',
+            key: 'rentType',
+            width: 160,
+            render: (row) => getRentTypeBadge(row.rentType)
+          }
+        ] as Array<DataTableColumn<Order>>)
+      : []),
+    ...(type === 'fleet' && basePrefix === '/dashboard/partner'
+      ? ([
+          {
+            label: 'Tanggal Sewa',
+            key: 'startDate',
+            width: 220,
+            render: (row) => <span className="text-foreground">{formatSewaRange(row.startDate, row.endDate)}</span>
+          }
+        ] as Array<DataTableColumn<Order>>)
+      : []),
+    {
+      label: 'Qty',
+      key: 'unitQty',
+      sortable: true,
+      width: 120,
+      align: 'right',
+      render: (row) => <span className="tabular-nums text-foreground">{row.unitQty} unit</span>
+    },
+    {
+      label: 'Status',
+      key: 'paymentStatus',
+      sortable: true,
+      width: 220,
+      render: (row) => (
+        <div title={row.latestPaymentStatus || undefined} className="inline-flex">
+          {getPaymentStatusBadge(row.paymentStatus)}
+        </div>
+      )
+    },
+    {
+      label: 'Actions',
+      key: '__actions__',
+      width: 72,
+      align: 'right',
+      sortable: false,
+      render: (row) => (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              <DropdownMenuItem className="cursor-pointer" onSelect={() => goToOrder(row.orderId)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onSelect={() => {
+                  downloadCsv(`order-${row.orderId}.csv`, [
+                    {
+                      orderId: row.orderId,
+                      transactionId: row.transactionId ?? '',
+                      fleetName: row.fleetName,
+                      rentType: row.rentType ?? '',
+                      startDate: row.startDate,
+                      endDate: row.endDate,
+                      unitQty: row.unitQty,
+                      paymentStatus: row.paymentStatus,
+                      latestPaymentStatus: row.latestPaymentStatus,
+                      customerName: row.customerName,
+                      totalAmount: row.totalAmount,
+                      createdAt: row.createdAt
+                    }
+                  ]);
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -345,227 +545,138 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             {description}
           </p>
         </div>
-        {type === 'fleet' && status === 'all' && basePrefix === '/dashboard/partner' ? (
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate(`${basePrefix}/orders/fleet/form`)}>
+        {canAddOrder ? (
+          <Button className="rounded-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate(`${basePrefix}/orders/fleet/form`)}>
             <Plus className="h-4 w-4 mr-2" />
             Tambahkan Pesanan
           </Button>
         ) : null}
       </div>
 
-      {/* Filters */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div>
-            <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Search</div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Cari order..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10"
-              />
+      {/* Summary */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="rounded-2xl shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-4">
+              <div className="rounded-2xl bg-blue-600/10 p-3 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <ShoppingBag className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-muted-foreground">Orders</div>
+                {loading ? (
+                  <div className="mt-2 h-7 w-16 rounded bg-muted animate-pulse" />
+                ) : (
+                  <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{totalOrders}</div>
+                )}
+              </div>
             </div>
-          </div>
-          <DateRangePicker
-            label="Order Period"
-            value={orderPeriod}
-            onChange={setOrderPeriod}
-            placeholder="Pilih rentang"
-          />
-          <DateRangePicker
-            label="Order Date"
-            value={orderDate}
-            onChange={setOrderDate}
-            placeholder="Pilih rentang"
-          />
-          <div>
-            <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Status</div>
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | '0' | '1' | '2' | '3' | '4' | '5')}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Status</SelectItem>
-                <SelectItem value="1">Sudah dibayar</SelectItem>
-                <SelectItem value="2">Menunggu Pembayaran</SelectItem>
-                <SelectItem value="3">Menunggu Persetujuan</SelectItem>
-                <SelectItem value="4">Belum Lunas</SelectItem>
-                <SelectItem value="5">Refund</SelectItem>
-                <SelectItem value="0">Pembayaran Dibatalkan</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end">
-            <Button variant="outline" className="w-full h-10" onClick={() => {
-              setSearchTerm('');
-              setOrderPeriod(undefined);
-              setOrderDate(undefined);
-              setStatusFilter('all');
-            }}>
-              Reset
-            </Button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-4">
+              <div className="rounded-2xl bg-amber-500/10 p-3 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-muted-foreground">Pending</div>
+                {loading ? (
+                  <div className="mt-2 h-7 w-16 rounded bg-muted animate-pulse" />
+                ) : (
+                  <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{pendingCount}</div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-4">
+              <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-muted-foreground">Completed</div>
+                {loading ? (
+                  <div className="mt-2 h-7 w-16 rounded bg-muted animate-pulse" />
+                ) : (
+                  <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{completedCount}</div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-4">
+              <div className="rounded-2xl bg-indigo-500/10 p-3 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-muted-foreground">Revenue</div>
+                {loading ? (
+                  <div className="mt-2 h-7 w-32 rounded bg-muted animate-pulse" />
+                ) : (
+                  <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+                    {formatRupiah(summaryRevenue || 0)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Filters */}
+      <FilterBar
+        fields={filterFields}
+        values={filterValues}
+        onChange={(name, value) => {
+          if (name === 'q') setSearchTerm(String(value ?? ''));
+          if (name === 'orderPeriod') setOrderPeriod(value as DateRange | undefined);
+          if (name === 'orderDate') setOrderDate(value as DateRange | undefined);
+          if (name === 'status') setStatusFilter(value as OrdersFilters['status']);
+        }}
+        onReset={handleResetFilters}
+        chips={filterChips}
+      />
+
       {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Orders ({filteredOrders.length} total)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-100 dark:bg-gray-900">
-                  <TableHead className="w-14">No</TableHead>
-                  <TableHead>OrderId</TableHead>
-                  <TableHead className="min-w-[260px]">Nama Unit</TableHead>
-                  {type === 'fleet' ? <TableHead>Tipe</TableHead> : null}
-                  {type === 'fleet' && basePrefix === '/dashboard/partner' ? <TableHead>Tanggal Sewa</TableHead> : null}
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="bg-white dark:bg-gray-800">
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={`s-${i}`} className="animate-pulse">
-                      {Array.from({ length: tableColCount }).map((__, j) => (
-                        <TableCell key={`s-${i}-${j}`}>
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : currentOrders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={tableColCount} className="py-10 text-center text-gray-500">
-                      Tidak ada data order
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  currentOrders.map((order, idx) => (
-                    <TableRow
-                      key={order.transactionId || order.orderId || `${startIndex}-${idx}`}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                      <TableCell>
-                        <span className="text-gray-900 dark:text-white">{startIndex + idx + 1}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium text-gray-900 dark:text-white">{order.orderId}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-gray-900 dark:text-white">{order.fleetName}</span>
-                      </TableCell>
-                      {type === 'fleet' && (
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {order.rentType || '-'}
-                          </Badge>
-                        </TableCell>
-                      )}
-                      {type === 'fleet' && basePrefix === '/dashboard/partner' && (
-                        <TableCell>
-                          <span className="text-gray-900 dark:text-white">{formatSewaRange(order.startDate, order.endDate)}</span>
-                        </TableCell>
-                      )}
-                      <TableCell>
-                        <span className="text-gray-900 dark:text-white">{order.unitQty} unit</span>
-                      </TableCell>
-                      <TableCell>
-                        <div title={order.latestPaymentStatus || undefined} className="inline-flex">
-                          {getPaymentStatusBadge(order.paymentStatus)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => {
-                              if (basePrefix === '/dashboard/partner' && type === 'fleet') {
-                                navigate(`${basePrefix}/orders/fleet/detail/${order.orderId}`);
-                                return;
-                              }
-                              navigate(`${basePrefix}/orders/detail/${order.orderId}`);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+      <DataTable
+        data={filteredOrders}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        emptyTitle="Tidak ada data order"
+        emptyDescription="Coba ubah filter atau rentang tanggal."
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        sorting={{ initialSort: { key: 'createdAt', direction: 'desc' } }}
+        rowKey={(row) => row.transactionId || row.orderId}
+      />
 
-          {/* Pagination */}
-          {totalPages > 1 ? (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} dari {filteredOrders.length} order
-              </div>
-              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {/* Summary */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-            <div>
-              {loading ? (
-                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-              ) : (
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{filteredOrders.length}</p>
-              )}
-              <p className="text-sm text-gray-600 dark:text-gray-300">Total Orders</p>
-            </div>
-            <div>
-              {loading ? (
-                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-              ) : (
-                <p className="text-2xl font-bold text-green-600">
-                  {filteredOrders.filter(o => o.paymentStatus === 1).length}
-                </p>
-              )}
-              <p className="text-sm text-gray-600 dark:text-gray-300">Lunas</p>
-            </div>
-            <div>
-              {loading ? (
-                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-              ) : (
-                <p className="text-2xl font-bold text-yellow-600">
-                  {filteredOrders.filter(o => o.paymentStatus === 2 || o.paymentStatus === 3).length}
-                </p>
-              )}
-              <p className="text-sm text-gray-600 dark:text-gray-300">Pending</p>
-            </div>
-            <div>
-              {loading ? (
-                <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mx-auto animate-pulse" />
-              ) : (
-                <p className="text-2xl font-bold text-blue-600">
-                  Rp {Number(summaryRevenue || 0).toLocaleString()}
-                </p>
-              )}
-              <p className="text-sm text-gray-600 dark:text-gray-300">Total Revenue</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {canAddOrder ? (
+        <Button
+          onClick={() => navigate(`${basePrefix}/orders/fleet/form`)}
+          className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
+          size="icon"
+          title="Tambah Order"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      ) : null}
     </div>
   );
 };

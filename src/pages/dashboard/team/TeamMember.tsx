@@ -219,6 +219,7 @@ export const TeamMember: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-100 dark:bg-gray-900">
+                  <TableHead className="w-16 text-center">No</TableHead>
                   <TableHead>Nama</TableHead>
                   <TableHead>Employee ID</TableHead>
                   <TableHead>Divisi</TableHead>
@@ -231,6 +232,9 @@ export const TeamMember: React.FC = () => {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={`s-${i}`} className="animate-pulse">
+                      <TableCell className="text-center">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto" />
+                      </TableCell>
                       <TableCell>
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-44" />
                       </TableCell>
@@ -253,13 +257,16 @@ export const TeamMember: React.FC = () => {
                   ))
                 ) : currentMembers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-gray-500">
+                    <TableCell colSpan={7} className="py-10 text-center text-gray-500">
                       Tidak ada data karyawan
                     </TableCell>
                   </TableRow>
                 ) : (
-                  currentMembers.map((member) => (
+                  currentMembers.map((member, idx) => (
                     <TableRow key={member.employee_id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
+                        {startIndex + idx + 1}
+                      </TableCell>
                       <TableCell className="font-medium text-gray-900 dark:text-white">
                         <div className="flex items-center gap-2">
                           <img
