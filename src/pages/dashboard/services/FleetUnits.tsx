@@ -125,6 +125,7 @@ export const FleetUnits: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-100 dark:bg-gray-900">
+                  <TableHead className="w-16 text-center">No</TableHead>
                   <TableHead>ID Armada</TableHead>
                   <TableHead>Jenis Armada</TableHead>
                   <TableHead>Plat Nomor</TableHead>
@@ -137,6 +138,9 @@ export const FleetUnits: React.FC = () => {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={`s-${i}`} className="animate-pulse">
+                      <TableCell className="text-center">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto" />
+                      </TableCell>
                       <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" /></TableCell>
                       <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" /></TableCell>
                       <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></TableCell>
@@ -152,13 +156,16 @@ export const FleetUnits: React.FC = () => {
                   ))
                 ) : units.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-gray-500">
+                    <TableCell colSpan={7} className="py-10 text-center text-gray-500">
                       Tidak ada data unit armada
                     </TableCell>
                   </TableRow>
                 ) : (
-                  units.map((unit) => (
+                  units.map((unit, idx) => (
                     <TableRow key={unit.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
+                        {(currentPage - 1) * itemsPerPage + idx + 1}
+                      </TableCell>
                       <TableCell className="font-medium text-blue-600 dark:text-blue-400">{unit.vehicle_id}</TableCell>
                       <TableCell className="text-gray-700 dark:text-gray-300">{unit.fleet_name}</TableCell>
                       <TableCell className="text-gray-700 dark:text-gray-300">{unit.plate_number}</TableCell>

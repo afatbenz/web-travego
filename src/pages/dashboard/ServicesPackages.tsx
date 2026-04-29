@@ -194,6 +194,7 @@ export const ServicesPackages: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-100 dark:bg-gray-900">
+                  <TableHead className="w-16 text-center">No</TableHead>
                   <TableHead>Nama</TableHead>
                   <TableHead className="w-[170px]">Pax</TableHead>
                   <TableHead className="w-[170px]">Harga Mulai</TableHead>
@@ -205,6 +206,9 @@ export const ServicesPackages: React.FC = () => {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={`s-${i}`} className="animate-pulse">
+                      <TableCell className="text-center">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto" />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
@@ -234,13 +238,16 @@ export const ServicesPackages: React.FC = () => {
                   ))
                 ) : currentPackages.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-10 text-gray-500">
                       Tidak ada data
                     </TableCell>
                   </TableRow>
                 ) : (
-                  currentPackages.map((pkg) => (
+                  currentPackages.map((pkg, idx) => (
                     <TableRow key={String(pkg.package_id)} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
+                        {startIndex + idx + 1}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <img

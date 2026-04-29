@@ -195,6 +195,7 @@ export const OrganizationDivision: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16 text-center">No</TableHead>
                 <TableHead>Nama Divisi</TableHead>
                 <TableHead>Deskripsi</TableHead>
                 <TableHead className="text-right">Action</TableHead>
@@ -204,6 +205,9 @@ export const OrganizationDivision: React.FC = () => {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={`s-${i}`}>
+                    <TableCell className="text-center">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto animate-pulse" />
+                    </TableCell>
                     <TableCell>
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-44 animate-pulse" />
                     </TableCell>
@@ -217,13 +221,16 @@ export const OrganizationDivision: React.FC = () => {
                 ))
               ) : divisions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-gray-500 py-10">
+                  <TableCell colSpan={4} className="text-center text-gray-500 py-10">
                     Belum ada data divisi.
                   </TableCell>
                 </TableRow>
               ) : (
-                currentDivisions.map((d) => (
+                currentDivisions.map((d, idx) => (
                   <TableRow key={d.division_id}>
+                    <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
+                      {startIndex + idx + 1}
+                    </TableCell>
                     <TableCell className="font-medium">{d.division_name || '-'}</TableCell>
                     <TableCell>{d.description || '-'}</TableCell>
                     <TableCell className="text-right">
