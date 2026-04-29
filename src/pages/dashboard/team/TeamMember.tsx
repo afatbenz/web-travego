@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Eye, Plus, Search, Trash2 } from 'lucide-react';
+import Swal from 'sweetalert2';
 import { api, toFileUrl } from '@/lib/api';
 import avatarFallback from '@/assets/general/avatar.svg';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,29 @@ export const TeamMember: React.FC = () => {
       return url;
     }
     return '';
+  };
+
+  const handleDelete = async (member: EmployeeRow) => {
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Hapus karyawan?',
+      text: member.fullname && member.fullname !== '-' ? `Karyawan "${member.fullname}" akan dihapus.` : 'Data yang dihapus tidak dapat dikembalikan.',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!confirm.isConfirmed) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    const res = await api.delete<unknown>(`/services/employee/delete/${encodeURIComponent(String(member.uuid))}`, headers);
+    if (res.status === 'success') {
+      setEmployees((prev) => prev.filter((x) => x.uuid !== member.uuid));
+      await Swal.fire({ icon: 'success', title: 'Terhapus', text: 'Karyawan berhasil dihapus.' });
+    } else {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal menghapus karyawan. Silakan coba lagi.' });
+    }
   };
 
   useEffect(() => {
@@ -295,7 +319,7 @@ export const TeamMember: React.FC = () => {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="outline" type="button">
+                          <Button size="sm" variant="outline" type="button" onClick={() => handleDelete(member)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

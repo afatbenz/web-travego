@@ -167,6 +167,17 @@ export const TeamMemberCreate: React.FC = () => {
   const [joinDate, setJoinDate] = useState('');
   const [contractTypeId, setContractTypeId] = useState('');
 
+  const normalizePhone = (raw: string) => {
+    const digits = String(raw ?? '').replace(/[^0-9]/g, '');
+    const trimmedLeadingZeros = digits.replace(/^0+/, '');
+    const base = trimmedLeadingZeros.startsWith('62') ? trimmedLeadingZeros : `62${trimmedLeadingZeros}`;
+    return base.length < 2 ? '62' : base;
+  };
+
+  useEffect(() => {
+    setPhone((prev) => normalizePhone(prev || '62'));
+  }, []);
+
   useEffect(() => {
     const load = async () => {
       setLoadingRoles(true);
@@ -304,8 +315,7 @@ export const TeamMemberCreate: React.FC = () => {
     if (!roleId) return 'Role wajib dipilih';
     if (!nik.trim()) return 'NIK wajib diisi';
     if (!dob) return 'Tanggal lahir wajib diisi';
-    if (!phone.trim()) return 'Nomor telepon wajib diisi';
-    if (!email.trim()) return 'Email wajib diisi';
+    if (!phone.trim() || phone.trim() === '62') return 'Nomor telepon wajib diisi';
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Format email tidak valid';
     if (!address.trim()) return 'Alamat wajib diisi';
     if (!city) return 'Kota asal wajib dipilih';
@@ -405,12 +415,16 @@ export const TeamMemberCreate: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="name">Nama Karyawan</Label>
+                  <Label htmlFor="name">
+                    Nama Karyawan <span className="text-red-500">*</span>
+                  </Label>
                   <Input id="name" className="h-12" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama karyawan" />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="nip">NIP (ID Karyawan)</Label>
+                  <Label htmlFor="nip">
+                    NIP (ID Karyawan) <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="nip"
                     className="h-12"
@@ -421,7 +435,9 @@ export const TeamMemberCreate: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="nik">NIK</Label>
+                  <Label htmlFor="nik">
+                    NIK <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="nik"
                     className="h-12"
@@ -434,20 +450,24 @@ export const TeamMemberCreate: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dob">Tanggal Lahir</Label>
+                  <Label htmlFor="dob">
+                    Tanggal Lahir <span className="text-red-500">*</span>
+                  </Label>
                   <Input id="dob" type="date" className="h-12" value={dob} onChange={(e) => setDob(e.target.value)} />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Nomor Telepon</Label>
+                  <Label htmlFor="phone">
+                    Nomor Telepon <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="phone"
                     className="h-12"
                     value={phone}
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                    placeholder="08xxxxxxxxxx"
+                    onChange={(e) => setPhone(normalizePhone(e.target.value))}
+                    placeholder="62xxxxxxxxxxx"
                   />
                 </div>
 
@@ -457,17 +477,23 @@ export const TeamMemberCreate: React.FC = () => {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">Alamat</Label>
+                  <Label htmlFor="address">
+                    Alamat <span className="text-red-500">*</span>
+                  </Label>
                   <Textarea id="address" rows={4} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Alamat lengkap" />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Kota Asal</Label>
+                  <Label>
+                    Kota Asal <span className="text-red-500">*</span>
+                  </Label>
                   <AsyncCombobox value={city} onChange={setCity} placeholder="Cari kota..." fetcher={cityFetcher} />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Role</Label>
+                  <Label>
+                    Role <span className="text-red-500">*</span>
+                  </Label>
                   <Select value={roleId} onValueChange={setRoleId} disabled={loadingRoles}>
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder={loadingRoles ? 'Memuat role...' : 'Pilih role'} />
@@ -483,12 +509,16 @@ export const TeamMemberCreate: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="joinDate">Tanggal Bergabung</Label>
+                  <Label htmlFor="joinDate">
+                    Tanggal Bergabung <span className="text-red-500">*</span>
+                  </Label>
                   <Input id="joinDate" type="date" className="h-12" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Status Kontrak</Label>
+                  <Label>
+                    Status Kontrak <span className="text-red-500">*</span>
+                  </Label>
                   <Select value={contractTypeId} onValueChange={setContractTypeId} disabled={loadingContractTypes}>
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder={loadingContractTypes ? 'Memuat status...' : 'Pilih status kontrak'} />

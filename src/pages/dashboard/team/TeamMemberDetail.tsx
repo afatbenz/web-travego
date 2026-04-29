@@ -21,6 +21,7 @@ type EmployeeDetailData = {
   address_city_name: string;
   join_date: string;
   contract_type: string;
+  contract_status_label: string;
   avatar_url: string;
 };
 
@@ -108,6 +109,7 @@ export const TeamMemberDetail: React.FC = () => {
               ? toStringSafe(toRecord(data.contract).name ?? toRecord(data.contract).contract_type_name)
               : data.contract)
         ).trim();
+        const contract_status_label = toStringSafe(data.contract_status_label ?? data.contractStatusName).trim();
 
         const avatarRaw =
           data.avatar ??
@@ -134,6 +136,7 @@ export const TeamMemberDetail: React.FC = () => {
           address_city_name: address_city_name || '-',
           join_date,
           contract_type: contract_type || '-',
+          contract_status_label: contract_status_label || '-',
           avatar_url,
         });
       } finally {
@@ -254,7 +257,7 @@ export const TeamMemberDetail: React.FC = () => {
               </div>
               <div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Status Kontrak</div>
-                <div className="font-medium text-gray-900 dark:text-gray-100">{detail.contract_type || '-'}</div>
+                <div className="font-medium text-gray-900 dark:text-gray-100">{detail.contract_status_label || '-'}</div>
               </div>
               <div className="md:col-span-2">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Alamat</div>
