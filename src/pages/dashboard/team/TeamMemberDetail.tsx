@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import Swal from 'sweetalert2';
 import { api, toFileUrl } from '@/lib/api';
 import avatarFallback from '@/assets/general/avatar.svg';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,33 @@ export const TeamMemberDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<EmployeeDetailData | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
+
+  const handleDelete = async () => {
+    if (!detail) return;
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Hapus karyawan?',
+      text: detail.fullname && detail.fullname !== '-' ? `Karyawan "${detail.fullname}" akan dihapus.` : 'Data yang dihapus tidak dapat dikembalikan.',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!confirm.isConfirmed) return;
+
+    const employeeId = String(detail.employee_id ?? '').trim();
+    const targetId = employeeId && employeeId !== '-' ? employeeId : String(uuid ?? '').trim();
+    const res = await api.delete<unknown>(
+      `/services/employee/delete/${encodeURIComponent(targetId)}`,
+      token ? { Authorization: token } : undefined
+    );
+    if (res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Terhapus', text: 'Karyawan berhasil dihapus.' });
+      navigate(`${basePrefix}/organization/team-members`);
+    } else {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal menghapus karyawan. Silakan coba lagi.' });
+    }
+  };
 
   useEffect(() => {
     if (!uuid) return;
@@ -156,13 +184,15 @@ export const TeamMemberDetail: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={() => navigate(`${basePrefix}/organization/team-members`)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Detail Employee</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">Informasi detail karyawan</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => navigate(`${basePrefix}/organization/team-members`)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Detail Employee</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">Informasi detail karyawan</p>
+          </div>
         </div>
       </div>
 
@@ -267,6 +297,22 @@ export const TeamMemberDetail: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={loading || !detail}
+          onClick={() => navigate(`${basePrefix}/organization/team-members/edit/${encodeURIComponent(String(uuid ?? ''))}`)}
+        >
+          <Pencil className="h-4 w-4 mr-2" />
+          Ubah Data Karyawan
+        </Button>
+        <Button type="button" variant="destructive" disabled={loading || !detail} onClick={handleDelete}>
+          <Trash2 className="h-4 w-4 mr-2" />
+          Hapus Karyawan
+        </Button>
+      </div>
 
       <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
         <DialogContent className="max-w-2xl w-[95vw] p-0 overflow-hidden">
