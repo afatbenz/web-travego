@@ -218,6 +218,7 @@ type ItineraryStop = {
   id: string;
   city: Option | null;
   location: string;
+  fleet_itinerary_id?: string;
 };
 
 type ItineraryItem = {
@@ -578,6 +579,9 @@ export const FleetOrderForm: React.FC = () => {
           itineraryRaw.forEach((raw) => {
             const it = record(raw);
             const day = Math.max(1, toNumberSafe(it.day ?? it.day_num ?? it.dayNum) || 1);
+            const fleetItineraryId = toStringSafe(
+              it.fleet_itinerary_id ?? it.fleetItineraryId ?? it.itinerary_id ?? it.itineraryId ?? it.id
+            ).trim();
             const cityId = toStringSafe(it.city_id ?? it.cityId).trim();
             const cityLabel = toStringSafe(it.city_label ?? it.cityLabel ?? it.city_name ?? it.cityName).trim();
             const destination = toStringSafe(it.destination ?? it.location ?? it.activity ?? it.activities).trim();
@@ -586,6 +590,7 @@ export const FleetOrderForm: React.FC = () => {
               id: crypto.randomUUID(),
               city: cityId ? { id: cityId, label: cityLabel || cityId, raw: it } : null,
               location: destination,
+              ...(fleetItineraryId ? { fleet_itinerary_id: fleetItineraryId } : {}),
             });
           });
           const items: ItineraryItem[] = Object.keys(grouped)
@@ -761,6 +766,7 @@ export const FleetOrderForm: React.FC = () => {
         })),
         itinerary: itinerary.flatMap((it) =>
           (it.stops ?? []).map((s) => ({
+            ...(s.fleet_itinerary_id ? { fleet_itinerary_id: s.fleet_itinerary_id } : {}),
             day: it.day,
             city_id: s.city?.id ?? '',
             destination: s.location,
