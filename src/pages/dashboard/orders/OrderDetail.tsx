@@ -110,8 +110,8 @@ type ScheduleDetailFleetRow = {
   fleetName: string;
   unitId: string;
   plateNumber: string;
-  driverIds: string[];
-  crewIds: string[];
+  driverNames: string[];
+  crewNames: string[];
 };
 
 type ScheduleDetailData = {
@@ -565,22 +565,50 @@ export const OrderDetail: React.FC = () => {
         .filter((x) => x && typeof x === 'object' && !Array.isArray(x))
         .map((x) => record(x))
         .map((o) => {
+          const normalizeStringList = (raw: unknown) => {
+            if (Array.isArray(raw)) return raw.map((v) => toStringSafe(v).trim()).filter(Boolean);
+            const s = toStringSafe(raw).trim();
+            return s ? [s] : [];
+          };
+          const normalizeNameList = (raw: unknown) => {
+            if (Array.isArray(raw)) {
+              if (raw.length > 0 && raw.every((x) => x && typeof x === 'object' && !Array.isArray(x))) {
+                return (raw as Array<Record<string, unknown>>)
+                  .map((x) => record(x))
+                  .map((p) => toStringSafe(p.driver_name ?? p.driverName ?? p.crew_name ?? p.crewName ?? p.name ?? p.fullname).trim())
+                  .filter(Boolean);
+              }
+              return raw.map((v) => toStringSafe(v).trim()).filter(Boolean);
+            }
+            const s = toStringSafe(raw).trim();
+            return s ? [s] : [];
+          };
+
           const fleetName = toStringSafe(o.fleet_name ?? o.fleetName ?? o.name).trim();
           const unitId = toStringSafe(o.vehicle_id ?? o.vehicleId).trim();
           const plateNumber = toStringSafe(o.plate_number ?? o.vehicleId).trim();
           const driverRaw = o.driver_id ?? o.driverId ?? o.drivers ?? o.driver;
           const crewRaw = o.crew_ids ?? o.crewIds ?? o.crews ?? o.crew;
-          const driverIds = Array.isArray(driverRaw)
-            ? driverRaw.map((v) => toStringSafe(v).trim()).filter(Boolean)
-            : toStringSafe(driverRaw).trim()
-              ? [toStringSafe(driverRaw).trim()]
-              : [];
-          const crewIds = Array.isArray(crewRaw)
-            ? crewRaw.map((v) => toStringSafe(v).trim()).filter(Boolean)
-            : toStringSafe(crewRaw).trim()
-              ? [toStringSafe(crewRaw).trim()]
-              : [];
-          return { fleetName, unitId, plateNumber, driverIds, crewIds } satisfies ScheduleDetailFleetRow;
+          const driverNameRaw = o.driver_name ?? o.driverName ?? o.driver_names ?? o.driverNames;
+          const crewNameRaw = o.crew_name ?? o.crewName ?? o.crew_names ?? o.crewNames;
+
+          const driverNames = (() => {
+            const names = normalizeNameList(driverNameRaw);
+            if (names.length > 0) return names;
+            const fromDriverObjOrList = normalizeNameList(driverRaw);
+            if (fromDriverObjOrList.length > 0) return fromDriverObjOrList;
+            return normalizeStringList(driverRaw);
+          })();
+
+          const crewNames = (() => {
+            const names = normalizeNameList(crewNameRaw);
+            if (names.length > 0) return names;
+            const fromCrewObjOrList = normalizeNameList(crewRaw);
+            if (fromCrewObjOrList.length > 0) return fromCrewObjOrList;
+            return normalizeStringList(crewRaw);
+          })();
+
+          return { fleetName, unitId, plateNumber, driverNames, crewNames } satisfies ScheduleDetailFleetRow;
         });
 
       setScheduleDetail({
@@ -1474,14 +1502,14 @@ export const OrderDetail: React.FC = () => {
                                     <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
                                       Unit ID: {row.unitId || '-'} • {row.plateNumber || '-'}
                                     </div>
-                                    {row.driverIds.length > 0 ? (
+                                    {row.driverNames.length > 0 ? (
                                       <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                        Driver: {row.driverIds.join(', ')}
+                                        Driver: {row.driverNames.join(', ')}
                                       </div>
                                     ) : null}
-                                    {row.crewIds.length > 0 ? (
+                                    {row.crewNames.length > 0 ? (
                                       <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                        Crew: {row.crewIds.join(', ')}
+                                        Crew: {row.crewNames.join(', ')}
                                       </div>
                                     ) : null}
                                   </div>
