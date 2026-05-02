@@ -19,6 +19,16 @@ type ScheduledFleet = {
   link: string;
 };
 
+type ScheduledFleetDetail = {
+  orderId: string;
+  fleetName: string;
+  vehicleId: string;
+  plateNumber: string;
+  destination: string;
+  driverName: string;
+  link: string;
+};
+
 const toYmd = (d: Date) => {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -84,6 +94,8 @@ export const FleetManagement: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalRows, setModalRows] = useState<ScheduledFleetDetail[]>([]);
 
   const token = localStorage.getItem('token') ?? '';
 
@@ -265,16 +277,78 @@ export const FleetManagement: React.FC = () => {
     setModalOpen(true);
   };
 
-  const selectedList = useMemo(() => {
-    if (!selectedDate) return [];
-    const key = toYmd(selectedDate);
-    return schedulesByDate[key] ?? [];
-  }, [selectedDate, schedulesByDate]);
-
   const selectedLabel = useMemo(() => {
     if (!selectedDate) return '';
     return selectedDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (!modalOpen || !selectedDate) return;
+    let active = true;
+    const load = async () => {
+      setModalLoading(true);
+      setModalRows([]);
+      try {
+        const ymd = toYmd(selectedDate);
+        const qs = new URLSearchParams();
+        qs.set('date', ymd);
+        const res = await api.get<unknown>(`/services/schedule/detail?${qs.toString()}`, token ? { Authorization: token } : undefined);
+        if (!active) return;
+        if (res.status !== 'success') {
+          setModalRows([]);
+          return;
+        }
+
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+        const root = record(res.data);
+        const dataNode = root.data ?? res.data;
+        const listCandidate =
+          (dataNode && typeof dataNode === 'object' && !Array.isArray(dataNode)
+            ? (dataNode as Record<string, unknown>).items ??
+              (dataNode as Record<string, unknown>).rows ??
+              (dataNode as Record<string, unknown>).schedules ??
+              (dataNode as Record<string, unknown>).data
+            : undefined) ?? dataNode;
+        const items = Array.isArray(listCandidate)
+          ? listCandidate
+          : listCandidate && typeof listCandidate === 'object'
+            ? [listCandidate]
+            : [];
+
+        const mapped: ScheduledFleetDetail[] = items
+          .map((raw) => record(raw))
+          .map((it) => {
+            const orderId = toStringSafe(it.order_id ?? it.orderId ?? it.order ?? it.id).trim();
+            const fleetName = toStringSafe(it.fleet_name ?? it.fleetName ?? it.name).trim();
+            const vehicleId = toStringSafe(it.vehicle_id ?? it.vehicleId ?? it.unit_id ?? it.unitId).trim();
+            const plateNumber = toStringSafe(it.plate_number ?? it.plateNumber).trim();
+            const destination = toStringSafe(it.city_destinations ?? it.cityDestinations ?? it.destination).trim();
+            const driverName = toStringSafe(it.driver_name ?? it.driverName ?? it.driver).trim();
+            if (!orderId) return null;
+            return {
+              orderId,
+              fleetName: fleetName || '-',
+              vehicleId: vehicleId || '-',
+              plateNumber: plateNumber || '-',
+              destination: destination || '-',
+              driverName: driverName || '-',
+              link: `${basePrefix}/orders/fleet/detail/${encodeURIComponent(orderId)}`,
+            };
+          })
+          .filter((x): x is ScheduledFleetDetail => Boolean(x));
+
+        setModalRows(mapped);
+      } finally {
+        if (active) setModalLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [basePrefix, modalOpen, selectedDate, token]);
 
   return (
     <div className="space-y-6">
@@ -423,47 +497,59 @@ export const FleetManagement: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Armada Terjadwal - {selectedLabel}</DialogTitle>
           </DialogHeader>
+          <div className="text-sm text-gray-600 dark:text-gray-300">
+            {modalLoading ? 'Memuat data...' : `${modalRows.length} armada terjadwal`}
+          </div>
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-100 dark:bg-gray-900">
+                <TableHead className="w-[64px]">No.</TableHead>
                 <TableHead>Nama Armada</TableHead>
-                <TableHead>Order ID</TableHead>
                 <TableHead>Kode Armada</TableHead>
+                <TableHead>Plat Nomor</TableHead>
                 <TableHead>Tujuan</TableHead>
                 <TableHead>Driver</TableHead>
-                <TableHead>Co-Driver</TableHead>
-                <TableHead className="text-right">Detail</TableHead>
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {selectedList.length === 0 ? (
+              {modalLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-gray-500">
-                    Tidak ada armada terjadwal pada tanggal ini.
+                  <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                    Memuat...
                   </TableCell>
                 </TableRow>
               ) : (
-                selectedList.map((o) => (
-                  <TableRow key={`${o.vehicleId}-${o.orderId}`} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <TableCell className="text-gray-900 dark:text-white">{o.fleetName}</TableCell>
-                    <TableCell className="font-medium text-gray-900 dark:text-white"><a href={o.link} target="_blank" rel="noopener noreferrer">{o.orderId}</a></TableCell>
-                    <TableCell className="font-medium text-gray-900 dark:text-white">{o.vehicleId}</TableCell>
-                    <TableCell className="text-gray-900 dark:text-white">{o.destination}</TableCell>
-                    <TableCell className="text-gray-900 dark:text-white">{o.driver}</TableCell>
-                    <TableCell className="text-gray-900 dark:text-white">{o.coDriver}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setModalOpen(false);
-                          navigate(o.link);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                (modalRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-10 text-center text-gray-500">
+                      Tidak ada armada terjadwal pada tanggal ini.
                     </TableCell>
                   </TableRow>
+                ) : (
+                  modalRows.map((o, idx) => (
+                    <TableRow key={`${o.vehicleId}-${o.orderId}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <TableCell className="text-gray-900 dark:text-white">{idx + 1}</TableCell>
+                      
+                      <TableCell className="text-gray-900 dark:text-white">{o.fleetName}</TableCell>
+                      <TableCell className="font-medium text-gray-900 dark:text-white">{o.vehicleId}</TableCell>
+                      <TableCell className="text-gray-900 dark:text-white">{o.plateNumber}</TableCell>
+                      <TableCell className="text-gray-900 dark:text-white">{o.destination}</TableCell>
+                      <TableCell className="text-gray-900 dark:text-white">{o.driverName}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setModalOpen(false);
+                            navigate(o.link);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 ))
               )}
             </TableBody>

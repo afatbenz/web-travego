@@ -114,6 +114,14 @@ export const Sidebar: React.FC = () => {
         ]
       },
       {
+        label: 'Schedules',
+        items: [
+          { title: 'Fleet Management', icon: Car, href: `${basePrefix}/schedules/fleet-management` },
+          { title: 'Team Schedules', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
+          { title: 'Leave Management', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
+        ]
+      },
+      {
         label: 'Finance',
         items: [
           { title: 'Revenue', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
@@ -129,14 +137,6 @@ export const Sidebar: React.FC = () => {
           { title: 'All Customers', icon: Users, href: `${basePrefix}/customers` },
           { title: 'Registered Customers', icon: UserCheck, href: `${basePrefix}/customers/registered` },
           { title: 'Customer Rewards', icon: Gift, href: `${basePrefix}/customers/rewards` }
-        ]
-      },
-      {
-        label: 'Schedules',
-        items: [
-          { title: 'Fleet Management', icon: Car, href: `${basePrefix}/schedules/fleet-management` },
-          { title: 'Team Schedules', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
-          { title: 'Leave Management', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
         ]
       },
       {
