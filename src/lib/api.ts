@@ -6,7 +6,7 @@ export type ApiResponse<T> = {
 };
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api';
-import { showAlert } from '@/hooks/use-alert';
+import { showAlert, showApi404Alert } from '@/hooks/use-alert';
 import Swal from 'sweetalert2';
 
 const FILE_BASE_URL = (() => {
@@ -127,6 +127,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
       return { status: 'error', statusCode: 500, message: 'terjadi kesalahan' };
     }
 
+    if (res.status === 404) {
+      const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';
+      showApi404Alert();
+      return { status: 'error', statusCode: 404, message: fallbackMessage };
+    }
+
     const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';
     showAlert({ title: 'Gagal', description: fallbackMessage, type: 'error' });
     return { status: 'error', statusCode: res.status, message: fallbackMessage };
@@ -196,6 +202,12 @@ async function postMultipart<T>(path: string, formData: FormData, headers?: Reco
         text: message,
       });
       return { status: 'error', statusCode: 400, message };
+    }
+
+    if (res.status === 404) {
+      const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';
+      showApi404Alert();
+      return { status: 'error', statusCode: 404, message: fallbackMessage };
     }
 
     const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';

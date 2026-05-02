@@ -440,8 +440,17 @@ export const ScheduleFleetDetail: React.FC = () => {
   }, [orderId, reloadKey]);
 
   useEffect(() => {
+    const toYmdFromAny = (value: string) => {
+      const v = String(value ?? '').trim();
+      if (!v) return '';
+      const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : '';
+    };
+
     const fleetIds = Array.from(new Set(fleetUnitSlots.map((slot) => slot.fleetId).filter(Boolean)));
-    if (fleetIds.length === 0) {
+    const start = toYmdFromAny(periodStartDate);
+    const end = toYmdFromAny(periodEndDate);
+    if (fleetIds.length === 0 || !start || !end) {
       setUnitOptionsByFleet({});
       return;
     }
@@ -452,9 +461,13 @@ export const ScheduleFleetDetail: React.FC = () => {
         const entries = await Promise.all(
           fleetIds.map(async (currentFleetId) => {
             const qs = new URLSearchParams();
+            qs.set('start_date', start);
+            qs.set('end_date', end);
             qs.set('fleet_id', currentFleetId);
-            qs.set('limit', '200');
-            const res = await api.get<unknown>(`/services/fleet-units?${qs.toString()}`, token ? { Authorization: token } : undefined);
+            const res = await api.get<unknown>(
+              `/services/schedule/fleet-units/availibility?${qs.toString()}`,
+              token ? { Authorization: token } : undefined
+            );
             if (res.status !== 'success') return [currentFleetId, []] as const;
 
             const payload = res.data as unknown;
@@ -496,7 +509,7 @@ export const ScheduleFleetDetail: React.FC = () => {
       }
     };
     loadUnits();
-  }, [fleetUnitSlots]);
+  }, [fleetUnitSlots, periodEndDate, periodStartDate]);
 
   useEffect(() => {
     setAssignments((prev) => {

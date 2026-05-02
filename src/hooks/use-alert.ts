@@ -24,6 +24,14 @@ export function showAlert(options: AlertOptions) {
   notify();
 }
 
+export function showApi404Alert() {
+  showAlert({
+    title: 'Maaf, ada kesalahan',
+    description: 'Sepertinya ada kesalahan di sistem, kami akan perbaiki segera',
+    type: 'error',
+  });
+}
+
 export function hideAlert() {
   const cb = memoryState.onConfirm;
   memoryState = { ...memoryState, open: false };
