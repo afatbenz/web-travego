@@ -342,6 +342,35 @@ export const FleetOrderForm: React.FC = () => {
   const [pickupCity, setPickupCity] = useState<Option | null>(null);
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   const [specialRequest, setSpecialRequest] = useState('');
+  const [customerOptions, setCustomerOptions] = useState<Option[]>([]);
+  const [fleetOptions, setFleetOptions] = useState<Option[]>([]);
+
+  const selectedFleetIds = useMemo(() => {
+    return new Set(armadaEntryOptions.map((o) => o?.id).filter((id): id is string => Boolean(id)));
+  }, [armadaEntryOptions]);
+
+  const todayMin = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    return toDatetimeLocal(startOfToday);
+  }, []);
+
+  const dropoffMin = useMemo(() => {
+    const pickup = parseDateMaybe(pickupAt);
+    if (!pickup) return todayMin;
+    return toDatetimeLocal(pickup);
+  }, [pickupAt, todayMin]);
+
+  const toApiDateTime = useCallback((value: string) => {
+    const d = parseDateMaybe(value);
+    if (!d) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${day} ${hh}:${mm}`;
+  }, []);
 
   const primaryFleetId = useMemo(() => armadaEntries.find((e) => e.armada_id)?.armada_id ?? '', [armadaEntries]);
   const primaryFleetLabel = useMemo(() => {
@@ -369,6 +398,56 @@ export const FleetOrderForm: React.FC = () => {
   }, [armadaEntries]);
 
   const daysCount = useMemo(() => daysBetweenInclusive(pickupAt, dropoffAt), [pickupAt, dropoffAt]);
+
+  useEffect(() => {
+    let active = true;
+    const loadOptions = async () => {
+      const startDate = toApiDateTime(pickupAt);
+      const endDate = toApiDateTime(dropoffAt);
+      const availabilityUrl = `/services/fleet/availibility?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+
+      const fetchAvailability = async (): Promise<Option[]> => {
+        if (!startDate || !endDate) return [];
+        const res = await api.get<unknown>(availabilityUrl, token ? { Authorization: token } : undefined);
+        if (res.status !== 'success') return [];
+        const root = record(res.data);
+        const available = Boolean(root.available);
+        const fleetsRaw = root.fleets;
+        const fleets = Array.isArray(fleetsRaw)
+          ? fleetsRaw
+              .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
+              .filter((it): it is Record<string, unknown> => Boolean(it))
+          : [];
+
+        if (!available && fleets.length === 0) {
+          await Swal.fire({
+            icon: 'warning',
+            title: 'Tidak tersedia',
+            text: 'Semua armada tidak tersedia untuk periode tersebut',
+          });
+        }
+
+        return fleets
+          .map((it) => {
+            const idRaw = it.fleet_id ?? it.id;
+            const labelRaw = it.fleet_name ?? it.name;
+            const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+            const label = typeof labelRaw === 'string' ? labelRaw : id;
+            return id && label ? { id, label, raw: it } : null;
+          })
+          .filter((o): o is Option => Boolean(o));
+      };
+
+      const [customers, fleets] = await Promise.all([fetchOptions('/services/customers', token), fetchAvailability()]);
+      if (!active) return;
+      setCustomerOptions(customers);
+      setFleetOptions(fleets);
+    };
+    loadOptions();
+    return () => {
+      active = false;
+    };
+  }, [dropoffAt, pickupAt, toApiDateTime, token]);
 
   const fetchPricesForEntry = useCallback(async (fleetId: string, currentRentType: string): Promise<FleetPriceOption[]> => {
     const defaultNoPrice: FleetPriceOption = {
@@ -627,15 +706,29 @@ export const FleetOrderForm: React.FC = () => {
     });
   }, [daysCount]);
 
-  const fleetFetcher = async (q: string) => {
-    const qp = `?fleet_name=${encodeURIComponent(q)}&search=${encodeURIComponent(q)}`;
-    return fetchOptions(`/services/fleet/list${qp}`, token);
-  };
+  const filterLocalOptions = useCallback((q: string, list: Option[]) => {
+    const query = String(q ?? '').trim().toLowerCase();
+    if (!query) return list;
+    return list.filter((o) => o.label.toLowerCase().includes(query) || o.id.toLowerCase().includes(query));
+  }, []);
 
-  const customerFetcher = async (q: string) => {
-    const qp = `?customer_name=${encodeURIComponent(q)}&search=${encodeURIComponent(q)}`;
-    return fetchOptions(`/services/customers${qp}`, token);
-  };
+  const customerFetcher = useCallback(
+    async (q: string) => {
+      return filterLocalOptions(q, customerOptions);
+    },
+    [customerOptions, filterLocalOptions]
+  );
+
+  const fleetFetcherFor = useCallback(
+    (rowIndex: number) => {
+      return async (q: string) => {
+        const filtered = filterLocalOptions(q, fleetOptions);
+        const currentId = armadaEntryOptions[rowIndex]?.id ?? '';
+        return filtered.filter((o) => !selectedFleetIds.has(o.id) || o.id === currentId);
+      };
+    },
+    [armadaEntryOptions, fleetOptions, filterLocalOptions, selectedFleetIds]
+  );
 
   const cityFetcher = async (q: string) => {
     const qp = `?search=${encodeURIComponent(q)}`;
@@ -656,6 +749,15 @@ export const FleetOrderForm: React.FC = () => {
     if (!dropoffAt) return 'Tanggal dan jam pengantaran wajib diisi';
     if (!pickupAddress.trim()) return 'Alamat penjemputan wajib diisi';
     if (!pickupCity) return 'Kota penjemputan wajib dipilih';
+    const pickupDate = parseDateMaybe(pickupAt);
+    const dropoffDate = parseDateMaybe(dropoffAt);
+    if (pickupDate) {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      if (pickupDate.getTime() < startOfToday.getTime()) return 'Tanggal penjemputan tidak boleh tanggal yang sudah lewat';
+    }
+    if (pickupDate && dropoffDate && dropoffDate.getTime() < pickupDate.getTime())
+      return 'Tanggal pengantaran tidak boleh sebelum tanggal penjemputan';
     
     if (computedTotalPrice <= 0) return 'Total harga wajib diisi';
     if (daysCount > 0) {
@@ -1080,6 +1182,7 @@ export const FleetOrderForm: React.FC = () => {
                   onChange={setCustomer}
                   placeholder="Cari customer..."
                   fetcher={customerFetcher}
+                  minChars={0}
                   disabled={saving || loadingDetail}
                 />
               </div>
@@ -1107,7 +1210,16 @@ export const FleetOrderForm: React.FC = () => {
                 <Input
                   type="datetime-local"
                   value={pickupAt}
-                  onChange={(e) => setPickupAt(e.target.value)}
+                  min={todayMin}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setPickupAt(next);
+                    if (dropoffAt && next) {
+                      const d1 = parseDateMaybe(dropoffAt);
+                      const d2 = parseDateMaybe(next);
+                      if (d1 && d2 && d1.getTime() < d2.getTime()) setDropoffAt(next);
+                    }
+                  }}
                   className="h-12"
                   disabled={saving || loadingDetail}
                 />
@@ -1117,6 +1229,7 @@ export const FleetOrderForm: React.FC = () => {
                 <Input
                   type="datetime-local"
                   value={dropoffAt}
+                  min={dropoffMin}
                   onChange={(e) => setDropoffAt(e.target.value)}
                   className="h-12"
                   disabled={saving || loadingDetail}
@@ -1188,6 +1301,13 @@ export const FleetOrderForm: React.FC = () => {
                       <AsyncCombobox
                         value={armadaEntryOptions[idx] ?? null}
                         onChange={async (opt) => {
+                          if (opt) {
+                            const duplicate = armadaEntryOptions.some((x, i) => i !== idx && x?.id === opt.id);
+                            if (duplicate) {
+                              await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Armada sudah dipilih.' });
+                              return;
+                            }
+                          }
                           setArmadaEntryOptions((prev) => {
                             const next = [...prev];
                             next[idx] = opt;
@@ -1223,7 +1343,8 @@ export const FleetOrderForm: React.FC = () => {
                           }
                         }}
                         placeholder="Cari armada..."
-                        fetcher={fleetFetcher}
+                        fetcher={fleetFetcherFor(idx)}
+                        minChars={0}
                         disabled={saving || loadingDetail}
                       />
                     </div>

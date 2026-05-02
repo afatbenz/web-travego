@@ -30,6 +30,9 @@ export const ScheduleFleetDetail: React.FC = () => {
   const [customerAddress, setCustomerAddress] = useState('');
   const [scheduleStartAt, setScheduleStartAt] = useState('');
   const [scheduleEndAt, setScheduleEndAt] = useState('');
+  const [orderStartDate, setOrderStartDate] = useState('');
+  const [periodStartDate, setPeriodStartDate] = useState('');
+  const [periodEndDate, setPeriodEndDate] = useState('');
   const [destinationText, setDestinationText] = useState('');
   const [quantity, setQuantity] = useState(0);
 
@@ -47,6 +50,7 @@ export const ScheduleFleetDetail: React.FC = () => {
 
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [employeeOptions, setEmployeeOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [crewNameById, setCrewNameById] = useState<Record<string, string>>({});
 
   const [assignments, setAssignments] = useState<
     Array<{ unitId: string; driverUuid: string; crewUuid: string; extraPairs: Array<{ driverUuid: string; crewUuid: string }> }>
@@ -110,6 +114,25 @@ export const ScheduleFleetDetail: React.FC = () => {
     return Number.isNaN(d.getTime()) ? null : d;
   };
 
+  const isOrderStartDateInFuture = useMemo(() => {
+    const raw = String(orderStartDate ?? '').trim();
+    if (!raw) return false;
+
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const startDateOnly = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : parseDateMaybe(raw);
+    if (!startDateOnly) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(startDateOnly);
+    start.setHours(0, 0, 0, 0);
+    return start.getTime() > today.getTime();
+  }, [orderStartDate]);
+
+  useEffect(() => {
+    if (isEditing && isOrderStartDateInFuture) setIsEditing(false);
+  }, [isEditing, isOrderStartDateInFuture]);
+
   const resolveEmployeeValue = useCallback(
     (id: string) => {
       const needle = String(id ?? '').trim();
@@ -134,6 +157,17 @@ export const ScheduleFleetDetail: React.FC = () => {
     [employeeOptions]
   );
 
+  const getCrewLabel = useCallback(
+    (value: string) => {
+      const v = String(value ?? '').trim();
+      if (!v) return '-';
+      const crewName = crewNameById[v];
+      if (crewName) return crewName;
+      return getEmployeeLabel(v);
+    },
+    [crewNameById, getEmployeeLabel]
+  );
+
   const getUnitLabel = useCallback(
     (slotIdx: number, unitId: string) => {
       const v = String(unitId ?? '').trim();
@@ -146,11 +180,31 @@ export const ScheduleFleetDetail: React.FC = () => {
   );
 
   useEffect(() => {
+    const toYmdFromAny = (value: string) => {
+      const v = String(value ?? '').trim();
+      if (!v) return '';
+      const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : '';
+    };
+
+    const start = toYmdFromAny(periodStartDate);
+    const end = toYmdFromAny(periodEndDate);
+    if (!start || !end) {
+      setEmployeeOptions([]);
+      return;
+    }
+
     const loadEmployees = async () => {
       setLoadingEmployees(true);
       try {
         const token = localStorage.getItem('token') ?? '';
-        const res = await api.get<unknown>('/services/employee/operations', token ? { Authorization: token } : undefined);
+        const qs = new URLSearchParams();
+        qs.set('start_date', start);
+        qs.set('end_date', end);
+        const res = await api.get<unknown>(
+          `/services/schedule/operations/availibility?${qs.toString()}`,
+          token ? { Authorization: token } : undefined
+        );
         if (res.status !== 'success') {
           setEmployeeOptions([]);
           return;
@@ -190,7 +244,7 @@ export const ScheduleFleetDetail: React.FC = () => {
       }
     };
     loadEmployees();
-  }, []);
+  }, [periodEndDate, periodStartDate]);
 
   useEffect(() => {
     if (!orderId) {
@@ -202,6 +256,9 @@ export const ScheduleFleetDetail: React.FC = () => {
       setCustomerAddress('');
       setScheduleStartAt('');
       setScheduleEndAt('');
+      setOrderStartDate('');
+      setPeriodStartDate('');
+      setPeriodEndDate('');
       setDestinationText('');
       setQuantity(0);
       setFleetUnitSlots([]);
@@ -292,6 +349,9 @@ export const ScheduleFleetDetail: React.FC = () => {
       setCustomerAddress(nextCustomerAddress);
       setScheduleStartAt(scheduleStartCandidate);
       setScheduleEndAt(scheduleEndCandidate);
+      setOrderStartDate(pickupDateRaw || scheduleStartCandidate);
+      setPeriodStartDate(pickupDateRaw || scheduleStartCandidate);
+      setPeriodEndDate(dropoffDateRaw || scheduleEndCandidate);
       setDestinationText(nextDestinationText);
       setQuantity(nextFleetSlots.length || nextQty);
       setFleetUnitSlots(nextFleetSlots);
@@ -317,25 +377,59 @@ export const ScheduleFleetDetail: React.FC = () => {
       const arrivalDate = parseDateMaybe(arrivalRaw);
 
       const fleetsRaw = Array.isArray(detail.fleets) ? detail.fleets : Array.isArray(root.fleets) ? root.fleets : [];
+      const nextCrewMap: Record<string, string> = {};
       const rows = fleetsRaw
         .map((raw) => record(raw))
         .map((o) => {
           const unitId = toStringSafe(o.unit_id ?? o.unitId).trim();
           const driverRaw = o.driver_id ?? o.driverId ?? o.drivers ?? o.driver;
           const crewRaw = o.crew_ids ?? o.crewIds ?? o.crews ?? o.crew;
+          const crewIdSingle = toStringSafe(o.crew_id ?? o.crewId).trim();
+          const crewNameSingle = toStringSafe(o.crew_name ?? o.crewName).trim();
+          if (crewIdSingle && crewNameSingle) nextCrewMap[crewIdSingle] = crewNameSingle;
+
+          const crewNamesRaw = o.crew_names ?? o.crewNames;
+          const crewNames = Array.isArray(crewNamesRaw)
+            ? crewNamesRaw.map((x) => toStringSafe(x).trim()).filter(Boolean)
+            : [];
+
           const driverIds = Array.isArray(driverRaw)
             ? driverRaw.map((x) => toStringSafe(x).trim()).filter(Boolean)
             : toStringSafe(driverRaw).trim()
               ? [toStringSafe(driverRaw).trim()]
               : [];
-          const crewIds = Array.isArray(crewRaw)
-            ? crewRaw.map((x) => toStringSafe(x).trim()).filter(Boolean)
-            : toStringSafe(crewRaw).trim()
-              ? [toStringSafe(crewRaw).trim()]
-              : [];
+
+          let crewIds = (() => {
+            if (Array.isArray(crewRaw)) {
+              if (crewRaw.length > 0 && crewRaw.every((x) => x && typeof x === 'object' && !Array.isArray(x))) {
+                const ids = (crewRaw as Array<Record<string, unknown>>)
+                  .map((x) => record(x))
+                  .map((c) => {
+                    const id = toStringSafe(c.crew_id ?? c.crewId ?? c.id ?? c.uuid).trim();
+                    const name = toStringSafe(c.crew_name ?? c.crewName ?? c.name ?? c.fullname).trim();
+                    if (id && name) nextCrewMap[id] = name;
+                    return id;
+                  })
+                  .filter(Boolean);
+                return ids;
+              }
+              return crewRaw.map((x) => toStringSafe(x).trim()).filter(Boolean);
+            }
+            const rawStr = toStringSafe(crewRaw).trim();
+            return rawStr ? [rawStr] : [];
+          })();
+
+          if (crewIds.length === 0 && crewIdSingle) crewIds = [crewIdSingle];
+
+          crewIds.forEach((id, idx) => {
+            const name = crewNames[idx] ?? '';
+            if (id && name) nextCrewMap[id] = name;
+          });
+
           return { unitId, driverIds, crewIds };
         });
 
+      setCrewNameById((prev) => ({ ...prev, ...nextCrewMap }));
       setScheduleId(nextScheduleId);
       setGarageOutTime(departureDate ? toDatetimeLocal(departureDate) : departureRaw);
       setGarageInTime(arrivalDate ? toDatetimeLocal(arrivalDate) : arrivalRaw);
@@ -417,6 +511,18 @@ export const ScheduleFleetDetail: React.FC = () => {
   useEffect(() => {
     if (quantity <= 0) return;
     if (scheduleFleetRows.length <= 0) return;
+    const mapByResolved: Record<string, string> = {};
+    for (const row of scheduleFleetRows) {
+      for (const crewId of row.crewIds ?? []) {
+        const name = crewNameById[crewId];
+        if (!name) continue;
+        const resolved = resolveEmployeeValue(crewId);
+        if (resolved && resolved !== crewId && !crewNameById[resolved]) mapByResolved[resolved] = name;
+      }
+    }
+    if (Object.keys(mapByResolved).length > 0) {
+      setCrewNameById((prev) => ({ ...prev, ...mapByResolved }));
+    }
     setAssignments((prev) => {
       const next = Array.from({ length: quantity }, (_, idx) => prev[idx] ?? { unitId: '', driverUuid: '', crewUuid: '', extraPairs: [] });
       for (let i = 0; i < next.length; i++) {
@@ -442,7 +548,7 @@ export const ScheduleFleetDetail: React.FC = () => {
       }
       return next;
     });
-  }, [employeeOptions, quantity, resolveEmployeeValue, scheduleFleetRows]);
+  }, [crewNameById, employeeOptions, quantity, resolveEmployeeValue, scheduleFleetRows]);
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
@@ -455,11 +561,9 @@ export const ScheduleFleetDetail: React.FC = () => {
       const base = `assignments.${idx}`;
       if (!a.unitId) nextErrors[`${base}.unitId`] = 'Wajib';
       if (!a.driverUuid) nextErrors[`${base}.driverUuid`] = 'Wajib';
-      if (!a.crewUuid) nextErrors[`${base}.crewUuid`] = 'Wajib';
       (a.extraPairs ?? []).forEach((p, j) => {
         const extraBase = `${base}.extraPairs.${j}`;
         if (!p.driverUuid) nextErrors[`${extraBase}.driverUuid`] = 'Wajib';
-        if (!p.crewUuid) nextErrors[`${extraBase}.crewUuid`] = 'Wajib';
       });
     });
     setErrors(nextErrors);
@@ -475,9 +579,9 @@ export const ScheduleFleetDetail: React.FC = () => {
     if (!garageOutTime) return false;
     if (assignments.length !== quantity) return false;
     for (const a of assignments) {
-      if (!a.unitId || !a.driverUuid || !a.crewUuid) return false;
+      if (!a.unitId || !a.driverUuid) return false;
       for (const p of a.extraPairs ?? []) {
-        if (!p.driverUuid || !p.crewUuid) return false;
+        if (!p.driverUuid) return false;
       }
     }
     return true;
@@ -500,24 +604,35 @@ export const ScheduleFleetDetail: React.FC = () => {
     setSubmitError('');
     setSaving(true);
     try {
-      const assignmentUnits = assignments.map((assignment, index) => {
+      const units = assignments.flatMap((assignment, index) => {
         const slot = fleetUnitSlots[index];
-        const extraPairs = assignment.extraPairs ?? [];
-        const driverId = [assignment.driverUuid, ...extraPairs.map((pair) => pair.driverUuid)].filter((id) => Boolean(id.trim()));
-        const crewIds = [assignment.crewUuid, ...extraPairs.map((pair) => pair.crewUuid)].filter((id) => Boolean(id.trim()));
-        return {
-          fleet_id: slot?.fleetId ?? '',
-          unit_id: assignment.unitId,
-          driver_id: driverId,
-          crew_ids: crewIds,
-        };
+        const fleetId = slot?.fleetId ?? '';
+        const baseUnit = assignment.driverUuid.trim()
+          ? [
+              {
+                fleet_id: fleetId,
+                unit_id: assignment.unitId,
+                driver_id: assignment.driverUuid.trim(),
+                ...(assignment.crewUuid.trim() ? { crew_id: assignment.crewUuid.trim() } : {}),
+              },
+            ]
+          : [];
+        const extraUnits = (assignment.extraPairs ?? [])
+          .filter((p) => Boolean(p.driverUuid.trim()))
+          .map((p) => ({
+            fleet_id: fleetId,
+            unit_id: assignment.unitId,
+            driver_id: p.driverUuid.trim(),
+            ...(p.crewUuid.trim() ? { crew_id: p.crewUuid.trim() } : {}),
+          }));
+        return [...baseUnit, ...extraUnits];
       });
 
       const payload: Record<string, unknown> = {
         schedule_id: scheduleId.trim(),
         order_id: (resolvedOrderId || orderId).trim(),
         departure_time: garageOutTime,
-        assignment_units: assignmentUnits,
+        schedule_units: units,
       };
       if (garageInTime) payload.arrival_time = garageInTime;
 
@@ -544,6 +659,7 @@ export const ScheduleFleetDetail: React.FC = () => {
         setSubmitError('Gagal memperbarui jadwal. Silakan coba lagi.');
         return;
       }
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Jadwal berhasil diperbarui.' });
       setIsEditing(false);
       setReloadKey((x) => x + 1);
     } catch (error) {
@@ -630,32 +746,40 @@ export const ScheduleFleetDetail: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jam Keluar Garasi *</label>
-                  <Input
-                    type="datetime-local"
-                    value={garageOutTime}
-                    onChange={(e) => {
-                      setGarageOutTime(e.target.value);
-                      if (errors.garageOutTime) setErrors((prev) => ({ ...prev, garageOutTime: '' }));
-                    }}
-                    disabled={!isEditing}
-                    className={errors.garageOutTime ? 'border-red-500' : ''}
-                  />
+                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    {isEditing ? 'Jam Keluar Garasi *' : 'Jam Keluar Garasi'}
+                  </label>
+                  {isEditing ? (
+                    <Input
+                      type="datetime-local"
+                      value={garageOutTime}
+                      onChange={(e) => {
+                        setGarageOutTime(e.target.value);
+                        if (errors.garageOutTime) setErrors((prev) => ({ ...prev, garageOutTime: '' }));
+                      }}
+                      className={errors.garageOutTime ? 'border-red-500' : ''}
+                    />
+                  ) : (
+                    <div className="text-gray-900 dark:text-white">{formatDdMmmmYyyyHhMm(garageOutTime)}</div>
+                  )}
                   {errors.garageOutTime ? <p className="text-sm text-red-500">{errors.garageOutTime}</p> : null}
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jam Kembali Garasi</label>
-                  <Input
-                    type="datetime-local"
-                    value={garageInTime}
-                    onChange={(e) => {
-                      setGarageInTime(e.target.value);
-                      if (errors.garageInTime) setErrors((prev) => ({ ...prev, garageInTime: '' }));
-                    }}
-                    disabled={!isEditing}
-                    className={errors.garageInTime ? 'border-red-500' : ''}
-                  />
+                  {isEditing ? (
+                    <Input
+                      type="datetime-local"
+                      value={garageInTime}
+                      onChange={(e) => {
+                        setGarageInTime(e.target.value);
+                        if (errors.garageInTime) setErrors((prev) => ({ ...prev, garageInTime: '' }));
+                      }}
+                      className={errors.garageInTime ? 'border-red-500' : ''}
+                    />
+                  ) : (
+                    <div className="text-gray-900 dark:text-white">{formatDdMmmmYyyyHhMm(garageInTime)}</div>
+                  )}
                   {errors.garageInTime ? <p className="text-sm text-red-500">{errors.garageInTime}</p> : null}
                 </div>
               </div>
@@ -739,7 +863,9 @@ export const ScheduleFleetDetail: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Pilih Armada *</label>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          {isEditing ? 'Pilih Armada *' : 'Armada'}
+                        </label>
                         {isEditing ? (
                           <Popover
                             open={Boolean(unitPickerOpen[idx])}
@@ -795,7 +921,9 @@ export const ScheduleFleetDetail: React.FC = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Driver 1 *</label>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          {isEditing ? 'Driver 1 *' : 'Driver 1'}
+                        </label>
                         {isEditing ? (
                           <Select
                             value={a.driverUuid}
@@ -828,7 +956,7 @@ export const ScheduleFleetDetail: React.FC = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Crew 1 *</label>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Crew 1</label>
                         {isEditing ? (
                           <Select
                             value={a.crewUuid}
@@ -852,7 +980,7 @@ export const ScheduleFleetDetail: React.FC = () => {
                           </Select>
                         ) : (
                           <div className="min-h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-gray-900 dark:text-white flex items-start break-words">
-                            {getEmployeeLabel(a.crewUuid)}
+                            {getCrewLabel(a.crewUuid)}
                           </div>
                         )}
                         {isEditing && errors[`assignments.${idx}.crewUuid`] ? (
@@ -868,7 +996,9 @@ export const ScheduleFleetDetail: React.FC = () => {
                             <div className="hidden lg:block" />
 
                             <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Driver {j + 2} *</label>
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                                {isEditing ? `Driver ${j + 2} *` : `Driver ${j + 2}`}
+                              </label>
                               {isEditing ? (
                                 <Select
                                   value={p.driverUuid}
@@ -907,7 +1037,7 @@ export const ScheduleFleetDetail: React.FC = () => {
                             </div>
 
                             <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Crew {j + 2} *</label>
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Crew {j + 2}</label>
                               {isEditing ? (
                                 <Select
                                   value={p.crewUuid}
@@ -937,7 +1067,7 @@ export const ScheduleFleetDetail: React.FC = () => {
                                 </Select>
                               ) : (
                                 <div className="min-h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-gray-900 dark:text-white flex items-start break-words">
-                                  {getEmployeeLabel(p.crewUuid)}
+                                  {getCrewLabel(p.crewUuid)}
                                 </div>
                               )}
                               {isEditing && errors[`assignments.${idx}.extraPairs.${j}.crewUuid`] ? (
@@ -954,7 +1084,7 @@ export const ScheduleFleetDetail: React.FC = () => {
             )}
           </CardContent>
         </Card>
-        {!isEditing ? (
+        {!isEditing && !isOrderStartDateInFuture ? (
               <div className="flex justify-end">
                 <Button
                   type="button"

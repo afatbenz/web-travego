@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Car, Users, Check, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Save, X, Car, Users, Check, ChevronsUpDown, Plus } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,8 @@ export const AddSchedule: React.FC = () => {
   const [quantity, setQuantity] = useState(0);
   const [garageOutTime, setGarageOutTime] = useState('');
   const [garageInTime, setGarageInTime] = useState('');
+  const [periodStartDate, setPeriodStartDate] = useState('');
+  const [periodEndDate, setPeriodEndDate] = useState('');
 
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [unitOptionsByFleet, setUnitOptionsByFleet] = useState<Record<string, Array<{ value: string; label: string }>>>({});
@@ -77,11 +79,31 @@ export const AddSchedule: React.FC = () => {
   const isEditMode = Boolean(searchParams.get('mode') === 'edit' || searchParams.get('schedule_id') || searchParams.get('scheduleId'));
 
   useEffect(() => {
+    const toYmdFromAny = (value: string) => {
+      const v = String(value ?? '').trim();
+      if (!v) return '';
+      const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : '';
+    };
+
+    const start = toYmdFromAny(periodStartDate);
+    const end = toYmdFromAny(periodEndDate);
+    if (!start || !end) {
+      setEmployeeOptions([]);
+      return;
+    }
+
     const loadEmployees = async () => {
       setLoadingEmployees(true);
       try {
         const token = localStorage.getItem('token') ?? '';
-        const res = await api.get<unknown>('/services/employee/operations', token ? { Authorization: token } : undefined);
+        const qs = new URLSearchParams();
+        qs.set('start_date', start);
+        qs.set('end_date', end);
+        const res = await api.get<unknown>(
+          `/services/schedule/operations/availibility?${qs.toString()}`,
+          token ? { Authorization: token } : undefined
+        );
         if (res.status !== 'success') {
           setEmployeeOptions([]);
           return;
@@ -120,8 +142,9 @@ export const AddSchedule: React.FC = () => {
         setLoadingEmployees(false);
       }
     };
+
     loadEmployees();
-  }, []);
+  }, [periodEndDate, periodStartDate]);
 
   useEffect(() => {
     if (!orderId) {
@@ -223,6 +246,8 @@ export const AddSchedule: React.FC = () => {
       setCustomerAddress(nextCustomerAddress);
       setScheduleStartAt(scheduleStartCandidate);
       setScheduleEndAt(scheduleEndCandidate);
+      setPeriodStartDate(pickupDateRaw || scheduleStartCandidate);
+      setPeriodEndDate(dropoffDateRaw || scheduleEndCandidate);
       setDestinationText(nextDestinationText);
       setQuantity(nextFleetSlots.length || nextQty);
       setFleetUnitSlots(nextFleetSlots);
@@ -310,11 +335,9 @@ export const AddSchedule: React.FC = () => {
       const base = `assignments.${idx}`;
       if (!a.unitId) nextErrors[`${base}.unitId`] = 'Wajib';
       if (!a.driverUuid) nextErrors[`${base}.driverUuid`] = 'Wajib';
-      if (!a.crewUuid) nextErrors[`${base}.crewUuid`] = 'Wajib';
       (a.extraPairs ?? []).forEach((p, j) => {
         const extraBase = `${base}.extraPairs.${j}`;
         if (!p.driverUuid) nextErrors[`${extraBase}.driverUuid`] = 'Wajib';
-        if (!p.crewUuid) nextErrors[`${extraBase}.crewUuid`] = 'Wajib';
       });
     });
     setErrors(nextErrors);
@@ -329,13 +352,38 @@ export const AddSchedule: React.FC = () => {
     if (isEditMode && !garageInTime) return false;
     if (assignments.length !== quantity) return false;
     for (const a of assignments) {
-      if (!a.unitId || !a.driverUuid || !a.crewUuid) return false;
+      if (!a.unitId || !a.driverUuid) return false;
       for (const p of a.extraPairs ?? []) {
-        if (!p.driverUuid || !p.crewUuid) return false;
+        if (!p.driverUuid) return false;
       }
     }
     return true;
   }, [assignments, fleetUnitSlots, garageInTime, garageOutTime, isEditMode, orderId, quantity]);
+
+  const selectedUnitIds = useMemo(() => {
+    return new Set(assignments.map((a) => a.unitId).filter((v): v is string => Boolean(v)));
+  }, [assignments]);
+
+  const selectedEmployeeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const a of assignments) {
+      if (a.driverUuid) ids.add(a.driverUuid);
+      if (a.crewUuid) ids.add(a.crewUuid);
+      for (const p of a.extraPairs ?? []) {
+        if (p.driverUuid) ids.add(p.driverUuid);
+        if (p.crewUuid) ids.add(p.crewUuid);
+      }
+    }
+    return ids;
+  }, [assignments]);
+
+  const getEmployeeOptions = (currentValue: string) => {
+    return employeeOptions.filter((o) => !selectedEmployeeIds.has(o.value) || o.value === currentValue);
+  };
+
+  const getUnitOptions = (fleetId: string, currentValue: string) => {
+    return (unitOptionsByFleet[fleetId] ?? []).filter((o) => !selectedUnitIds.has(o.value) || o.value === currentValue);
+  };
 
   const formatDdMmmmYyyyHhMm = (value: string) => {
     if (!value) return '-';
@@ -353,23 +401,34 @@ export const AddSchedule: React.FC = () => {
     setSubmitError('');
     setSaving(true);
     try {
-      const assignmentUnits = assignments.map((assignment, index) => {
+      const units = assignments.flatMap((assignment, index) => {
         const slot = fleetUnitSlots[index];
-        const extraPairs = assignment.extraPairs ?? [];
-        const driverId = [assignment.driverUuid, ...extraPairs.map((pair) => pair.driverUuid)].filter((id) => Boolean(id.trim()));
-        const crewIds = [assignment.crewUuid, ...extraPairs.map((pair) => pair.crewUuid)].filter((id) => Boolean(id.trim()));
-        return {
-          fleet_id: slot?.fleetId ?? '',
-          unit_id: assignment.unitId,
-          driver_id: driverId,
-          crew_ids: crewIds,
-        };
+        const fleetId = slot?.fleetId ?? '';
+        const baseUnit = assignment.driverUuid.trim()
+          ? [
+              {
+                fleet_id: fleetId,
+                unit_id: assignment.unitId,
+                driver_id: assignment.driverUuid.trim(),
+                ...(assignment.crewUuid.trim() ? { crew_id: assignment.crewUuid.trim() } : {}),
+              },
+            ]
+          : [];
+        const extraUnits = (assignment.extraPairs ?? [])
+          .filter((p) => Boolean(p.driverUuid.trim()))
+          .map((p) => ({
+            fleet_id: fleetId,
+            unit_id: assignment.unitId,
+            driver_id: p.driverUuid.trim(),
+            ...(p.crewUuid.trim() ? { crew_id: p.crewUuid.trim() } : {}),
+          }));
+        return [...baseUnit, ...extraUnits];
       });
 
       const payload = {
         order_id: (resolvedOrderId || orderId).trim(),
         departure_time: garageOutTime,
-        assignment_units: assignmentUnits,
+        schedule_units: units,
       };
       const token = localStorage.getItem('token') ?? '';
       const res = await api.post<unknown>('/services/schedule/create', payload, token ? { Authorization: token } : undefined);
@@ -390,6 +449,7 @@ export const AddSchedule: React.FC = () => {
         setSubmitError('Gagal menyimpan jadwal. Silakan coba lagi.');
         return;
       }
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Jadwal berhasil ditambahkan.' });
       navigate(`${basePrefix}/schedules/fleet-management`);
     } catch (error) {
       const errorCode = getErrorCode(error);
@@ -562,21 +622,6 @@ export const AddSchedule: React.FC = () => {
                         <div className="text-sm font-semibold text-gray-900 dark:text-white">Unit {idx + 1}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{fleetUnitSlots[idx]?.fleetName || 'Armada'}</div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9"
-                        onClick={() =>
-                          setAssignments((prev) =>
-                            prev.map((x, i) =>
-                              i === idx ? { ...x, extraPairs: [...(x.extraPairs ?? []), { driverUuid: '', crewUuid: '' }] } : x
-                            )
-                          )
-                        }
-                      >
-                        Tambah Driver / Crew
-                      </Button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -609,7 +654,7 @@ export const AddSchedule: React.FC = () => {
                               <CommandList>
                                 <CommandEmpty>Tidak ada data</CommandEmpty>
                                 <CommandGroup>
-                                  {(unitOptionsByFleet[fleetUnitSlots[idx]?.fleetId || ''] ?? []).map((o) => (
+                                  {getUnitOptions(fleetUnitSlots[idx]?.fleetId || '', a.unitId).map((o) => (
                                     <CommandItem
                                       key={o.value}
                                       value={`${o.label} ${o.value}`}
@@ -649,7 +694,7 @@ export const AddSchedule: React.FC = () => {
                             <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih driver'} />
                           </SelectTrigger>
                           <SelectContent>
-                            {employeeOptions.map((o) => (
+                            {getEmployeeOptions(a.driverUuid).map((o) => (
                               <SelectItem key={o.value} value={o.value}>
                                 {o.label}
                               </SelectItem>
@@ -663,26 +708,45 @@ export const AddSchedule: React.FC = () => {
 
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Crew 1 *</label>
-                        <Select
-                          value={a.crewUuid}
-                          onValueChange={(v) => {
-                            setAssignments((prev) => prev.map((x, i) => (i === idx ? { ...x, crewUuid: v } : x)));
-                            const k = `assignments.${idx}.crewUuid`;
-                            if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
-                          }}
-                          disabled={loadingEmployees}
-                        >
-                          <SelectTrigger className={errors[`assignments.${idx}.crewUuid`] ? 'border-red-500' : ''}>
-                            <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih crew'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {employeeOptions.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Select
+                              value={a.crewUuid}
+                              onValueChange={(v) => {
+                                setAssignments((prev) => prev.map((x, i) => (i === idx ? { ...x, crewUuid: v } : x)));
+                                const k = `assignments.${idx}.crewUuid`;
+                                if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+                              }}
+                              disabled={loadingEmployees}
+                            >
+                              <SelectTrigger className={cn('w-full', errors[`assignments.${idx}.crewUuid`] && 'border-red-500')}>
+                                <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih crew'} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {getEmployeeOptions(a.crewUuid).map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>
+                                    {o.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button
+                            type="button"
+                            className="h-10 w-10 p-0 bg-blue-700 hover:bg-blue-800 text-white"
+                            aria-label="Tambah Driver / Crew"
+                            title="Tambah Driver / Crew"
+                            onClick={() =>
+                              setAssignments((prev) =>
+                                prev.map((x, i) =>
+                                  i === idx ? { ...x, extraPairs: [...(x.extraPairs ?? []), { driverUuid: '', crewUuid: '' }] } : x
+                                )
+                              )
+                            }
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
                         {errors[`assignments.${idx}.crewUuid`] ? (
                           <p className="text-sm text-red-500">{errors[`assignments.${idx}.crewUuid`]}</p>
                         ) : null}
@@ -692,8 +756,9 @@ export const AddSchedule: React.FC = () => {
                     {(a.extraPairs ?? []).length > 0 ? (
                       <div className="space-y-4">
                         {(a.extraPairs ?? []).map((p, j) => (
-                          <div key={j} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                            <div className="hidden lg:block" />
+                          <div key={j} className="rounded-lg border border-gray-200/70 p-4 dark:border-gray-800/70 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                              <div className="hidden lg:block" />
                             <div className="space-y-2">
                               <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Driver {j + 2} *</label>
                               <Select
@@ -718,7 +783,7 @@ export const AddSchedule: React.FC = () => {
                                   <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih driver'} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {employeeOptions.map((o) => (
+                                  {getEmployeeOptions(p.driverUuid).map((o) => (
                                     <SelectItem key={o.value} value={o.value}>
                                       {o.label}
                                     </SelectItem>
@@ -732,38 +797,67 @@ export const AddSchedule: React.FC = () => {
 
                             <div className="space-y-2">
                               <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Crew {j + 2} *</label>
-                              <Select
-                                value={p.crewUuid}
-                                onValueChange={(v) => {
-                                  setAssignments((prev) =>
-                                    prev.map((x, i) =>
-                                      i === idx
-                                        ? {
-                                            ...x,
-                                            extraPairs: (x.extraPairs ?? []).map((z, zi) => (zi === j ? { ...z, crewUuid: v } : z)),
-                                          }
-                                        : x
-                                    )
-                                  );
-                                  const k = `assignments.${idx}.extraPairs.${j}.crewUuid`;
-                                  if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
-                                }}
-                                disabled={loadingEmployees}
-                              >
-                                <SelectTrigger className={errors[`assignments.${idx}.extraPairs.${j}.crewUuid`] ? 'border-red-500' : ''}>
-                                  <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih crew'} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {employeeOptions.map((o) => (
-                                    <SelectItem key={o.value} value={o.value}>
-                                      {o.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div className="flex items-end gap-2">
+                                <div className="flex-1">
+                                  <Select
+                                    value={p.crewUuid}
+                                    onValueChange={(v) => {
+                                      setAssignments((prev) =>
+                                        prev.map((x, i) =>
+                                          i === idx
+                                            ? {
+                                                ...x,
+                                                extraPairs: (x.extraPairs ?? []).map((z, zi) => (zi === j ? { ...z, crewUuid: v } : z)),
+                                              }
+                                            : x
+                                        )
+                                      );
+                                      const k = `assignments.${idx}.extraPairs.${j}.crewUuid`;
+                                      if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+                                    }}
+                                    disabled={loadingEmployees}
+                                  >
+                                    <SelectTrigger
+                                      className={cn('w-full', errors[`assignments.${idx}.extraPairs.${j}.crewUuid`] && 'border-red-500')}
+                                    >
+                                      <SelectValue placeholder={loadingEmployees ? 'Memuat...' : 'Pilih crew'} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {getEmployeeOptions(p.crewUuid).map((o) => (
+                                        <SelectItem key={o.value} value={o.value}>
+                                          {o.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <Button
+                                  type="button"
+                                  className="h-10 w-10 p-0 bg-red-600 hover:bg-red-700 text-white"
+                                  aria-label="Hapus"
+                                  title="Hapus"
+                                  onClick={() => {
+                                    setAssignments((prev) =>
+                                      prev.map((x, i) =>
+                                        i === idx ? { ...x, extraPairs: (x.extraPairs ?? []).filter((_, zi) => zi !== j) } : x
+                                      )
+                                    );
+                                    setErrors((prev) => {
+                                      const next = { ...prev };
+                                      Object.keys(next).forEach((k) => {
+                                        if (k.startsWith(`assignments.${idx}.extraPairs.`)) delete next[k];
+                                      });
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
                               {errors[`assignments.${idx}.extraPairs.${j}.crewUuid`] ? (
                                 <p className="text-sm text-red-500">{errors[`assignments.${idx}.extraPairs.${j}.crewUuid`]}</p>
                               ) : null}
+                            </div>
                             </div>
                           </div>
                         ))}
