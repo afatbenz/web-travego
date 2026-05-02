@@ -139,6 +139,7 @@ import { AddSchedule } from '@/pages/dashboard/team/AddSchedule';
 import { ScheduleFleetDetail } from '@/pages/dashboard/team/ScheduleFleetDetail';
 import { TeamMemberCreate } from '@/pages/dashboard/team/TeamMemberCreate';
 import { TeamMemberDetail } from '@/pages/dashboard/team/TeamMemberDetail';
+import { TeamMemberEdit } from '@/pages/dashboard/team/TeamMemberEdit';
 
 // New Customers Pages
 import { AllCustomers } from '@/pages/dashboard/customers/AllCustomers';
@@ -418,6 +419,11 @@ function App() {
               <TeamMemberCreate />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/organization/team-members/edit/:uuid" element={
+            <DashboardLayout>
+              <TeamMemberEdit />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/partner/organization/team-members/detail/:uuid" element={
             <DashboardLayout>
               <TeamMemberDetail />
@@ -431,6 +437,11 @@ function App() {
           <Route path="/dashboard/organization/team-members/create" element={
             <DashboardLayout>
               <TeamMemberCreate />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/team-members/edit/:uuid" element={
+            <DashboardLayout>
+              <TeamMemberEdit />
             </DashboardLayout>
           } />
           <Route path="/dashboard/organization/team-members/detail/:uuid" element={
