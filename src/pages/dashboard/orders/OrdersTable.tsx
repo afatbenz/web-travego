@@ -423,6 +423,17 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </Button>
       )
     },
+    ...(type === 'fleet' && basePrefix === '/dashboard/partner'
+      ? ([
+          {
+            label: 'Nama Pelanggan',
+            key: 'customerName',
+            sortable: true,
+            width: 240,
+            render: (row) => <span className="min-w-0 truncate text-foreground">{row.customerName || '-'}</span>
+          }
+        ] as Array<DataTableColumn<Order>>)
+      : []),
     {
       label: 'Nama Unit',
       key: 'fleetName',
@@ -446,16 +457,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         );
       }
     },
-    ...(type === 'fleet'
-      ? ([
-          {
-            label: 'Tipe',
-            key: 'rentType',
-            width: 160,
-            render: (row) => getRentTypeBadge(row.rentType)
-          }
-        ] as Array<DataTableColumn<Order>>)
-      : []),
     ...(type === 'fleet' && basePrefix === '/dashboard/partner'
       ? ([
           {
@@ -466,14 +467,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           }
         ] as Array<DataTableColumn<Order>>)
       : []),
-    {
-      label: 'Qty',
-      key: 'unitQty',
-      sortable: true,
-      width: 120,
-      align: 'right',
-      render: (row) => <span className="tabular-nums text-foreground">{row.unitQty} unit</span>
-    },
     {
       label: 'Status',
       key: 'paymentStatus',
@@ -512,10 +505,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                       orderId: row.orderId,
                       transactionId: row.transactionId ?? '',
                       fleetName: row.fleetName,
-                      rentType: row.rentType ?? '',
                       startDate: row.startDate,
                       endDate: row.endDate,
-                      unitQty: row.unitQty,
                       paymentStatus: row.paymentStatus,
                       latestPaymentStatus: row.latestPaymentStatus,
                       customerName: row.customerName,
