@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -463,7 +463,44 @@ type ItineraryRow = {
   city: Option | null;
 };
 
-export const TourPackageOrderForm: React.FC = () => {
+type TourPackageOrderFormMode = 'create' | 'edit';
+
+type TourPackageOrderInitialValues = {
+  order_id?: string;
+  customer_id?: string;
+  customer_name?: string;
+  package_id?: string;
+  package_name?: string;
+  start_date?: string;
+  end_date?: string;
+  member_pax?: number;
+  official_pax?: number;
+  pickup_address?: string;
+  pickup_city_id?: string;
+  pickup_city_name?: string;
+  price_id?: string;
+  addon_ids?: string[];
+  special_request?: string;
+  discount_amount?: number;
+  additional_amount?: number;
+};
+
+type TourPackageOrderFormProps = {
+  mode?: TourPackageOrderFormMode;
+  orderId?: string;
+  readOnly?: boolean;
+  initialValues?: TourPackageOrderInitialValues;
+};
+
+export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
+  mode: modeProp = 'create',
+  orderId: orderIdProp,
+  readOnly: readOnlyProp,
+  initialValues,
+}) => {
+  const mode: TourPackageOrderFormMode = modeProp;
+  const readOnly = Boolean(readOnlyProp);
+
   const navigate = useNavigate();
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
@@ -475,6 +512,8 @@ export const TourPackageOrderForm: React.FC = () => {
 
   const [pax, setPax] = useState('1');
   const [committeeCount, setCommitteeCount] = useState('0');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [pickupAddress, setPickupAddress] = useState('');
   const [pickupCity, setPickupCity] = useState<Option | null>(null);
 
@@ -495,8 +534,46 @@ export const TourPackageOrderForm: React.FC = () => {
   const [specialRequest, setSpecialRequest] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
   const [additionalAmount, setAdditionalAmount] = useState('');
+  const [initialAddonIds, setInitialAddonIds] = useState<string[]>([]);
 
   const isCustomPackage = useMemo(() => !selectedPackage && Boolean(customPackageName.trim()), [selectedPackage, customPackageName]);
+
+  const initKeyRef = useRef('');
+  useEffect(() => {
+    const key = `${mode}:${orderIdProp ?? initialValues?.order_id ?? ''}`;
+    if (!initialValues || initKeyRef.current === key) return;
+    initKeyRef.current = key;
+    if (initialValues.customer_id || initialValues.customer_name) {
+      setCustomer({
+        id: String(initialValues.customer_id ?? ''),
+        label: String(initialValues.customer_name ?? initialValues.customer_id ?? ''),
+      });
+    }
+    if (initialValues.package_id || initialValues.package_name) {
+      setSelectedPackage(
+        initialValues.package_id
+          ? { id: String(initialValues.package_id), label: String(initialValues.package_name ?? initialValues.package_id) }
+          : null
+      );
+      setCustomPackageName(initialValues.package_id ? '' : String(initialValues.package_name ?? ''));
+    }
+    setStartDate(String(initialValues.start_date ?? ''));
+    setEndDate(String(initialValues.end_date ?? ''));
+    if (typeof initialValues.member_pax === 'number') setPax(String(initialValues.member_pax));
+    if (typeof initialValues.official_pax === 'number') setCommitteeCount(String(initialValues.official_pax));
+    setPickupAddress(String(initialValues.pickup_address ?? ''));
+    if (initialValues.pickup_city_id || initialValues.pickup_city_name) {
+      setPickupCity({
+        id: String(initialValues.pickup_city_id ?? ''),
+        label: String(initialValues.pickup_city_name ?? initialValues.pickup_city_id ?? ''),
+      });
+    }
+    setPricingKey(String(initialValues.price_id ?? ''));
+    setSpecialRequest(String(initialValues.special_request ?? ''));
+    if (typeof initialValues.discount_amount === 'number') setDiscountAmount(String(initialValues.discount_amount));
+    if (typeof initialValues.additional_amount === 'number') setAdditionalAmount(String(initialValues.additional_amount));
+    setInitialAddonIds(Array.isArray(initialValues.addon_ids) ? initialValues.addon_ids.map((x) => String(x)) : []);
+  }, [initialValues, mode, orderIdProp]);
 
   useEffect(() => {
     let active = true;
@@ -539,7 +616,7 @@ export const TourPackageOrderForm: React.FC = () => {
       const raw = record(opt.raw);
       const rawId = String(raw.tour_package_id ?? raw.uuid ?? '').trim();
       const valueId = String(opt.id ?? '').trim();
-      const resolvedId = rawId || (uuidLike(valueId) ? valueId : '');
+      const resolvedId = rawId || valueId;
       if (!resolvedId) return;
 
       setLoadingPackageDetail(true);
@@ -557,6 +634,12 @@ export const TourPackageOrderForm: React.FC = () => {
           .sort((a, b) => a - b)[0];
         const resolvedMin = directMin > 0 ? directMin : pricingMin ?? 0;
         if (resolvedMin > 0) setPax(String(resolvedMin));
+        if (initialAddonIds.length > 0) {
+          const byId = new Map(detail.addons.map((a) => [a.addon_id, a]));
+          const next = initialAddonIds.map((id) => byId.get(id)).filter((x): x is PackageAddon => Boolean(x));
+          setSelectedAddons(next);
+          setInitialAddonIds([]);
+        }
       } finally {
         if (active) setLoadingPackageDetail(false);
       }
@@ -586,6 +669,13 @@ export const TourPackageOrderForm: React.FC = () => {
   const validate = (): string | null => {
     if (!customer) return 'Pilih customer terlebih dahulu';
     if (!selectedPackage && !customPackageName.trim()) return 'Pilih paket wisata atau isi nama paket';
+    if (!startDate) return 'Tanggal mulai wajib diisi';
+    if (!endDate) return 'Tanggal selesai wajib diisi';
+    if (startDate && endDate) {
+      const s = new Date(startDate);
+      const e = new Date(endDate);
+      if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e.getTime() < s.getTime()) return 'Tanggal selesai tidak boleh sebelum tanggal mulai';
+    }
     const paxNum = Number(pax);
     if (!Number.isFinite(paxNum) || paxNum <= 0) return 'Jumlah peserta minimal 1';
     const committeeNum = Number(committeeCount);
@@ -625,11 +715,22 @@ export const TourPackageOrderForm: React.FC = () => {
         customer_id: customer!.id,
         member_pax: Number(pax),
         official_pax: Number(committeeCount),
+        start_date: startDate,
+        end_date: endDate,
         pickup_address: pickupAddress.trim(),
         pickup_city_id: pickupCity!.id,
         discount_amount: discount,
         additional_amount: additional,
       };
+
+      const editOrderId = String(orderIdProp ?? initialValues?.order_id ?? '').trim();
+      if (mode === 'edit') {
+        if (!editOrderId) {
+          await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Order ID tidak ditemukan' });
+          return;
+        }
+        payload.order_id = editOrderId;
+      }
 
       if (selectedPackage) {
         payload.package_id = selectedPackage.id;
@@ -649,17 +750,27 @@ export const TourPackageOrderForm: React.FC = () => {
         payload.special_request = specialRequest.trim();
       }
 
-      const res = await api.post<unknown>('/services/tour-packages/order/create', payload, token ? { Authorization: token } : undefined);
+      const endpoint = mode === 'edit' ? '/tour-package/order/update' : '/tour-package/order/create';
+      const res = await api.post<unknown>(endpoint, payload, token ? { Authorization: token } : undefined);
       if (res.status === 'success') {
-        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan berhasil dibuat.' });
-        navigate(`${basePrefix}/orders/tour`);
+        await Swal.fire({
+          icon: 'success',
+          title: 'Berhasil',
+          text: mode === 'edit' ? 'Pesanan berhasil diperbarui.' : 'Pesanan berhasil dibuat.',
+        });
+        if (mode === 'edit') {
+          navigate(`${basePrefix}/orders/tour/detail/${encodeURIComponent(String(orderIdProp ?? initialValues?.order_id ?? ''))}`);
+        } else {
+          navigate(`${basePrefix}/orders/tour`);
+        }
       }
     } finally {
       setSaving(false);
     }
   };
 
-  const disabled = saving || loadingInit || loadingPackageDetail;
+  const busy = saving || loadingInit || loadingPackageDetail;
+  const disabled = readOnly || busy;
   const showPackageDetailItinerary = Boolean(selectedPackage && packageItineraries.length > 0);
   const showPricingSelect = Boolean(selectedPackage && packagePricing.length > 0);
   const showPackageSpecialRequest = Boolean(selectedPackage);
@@ -971,6 +1082,24 @@ export const TourPackageOrderForm: React.FC = () => {
                   minChars={0}
                   disabled={disabled}
                 />
+                <div className="space-y-2 pt-2">
+                  <label className="text-sm font-medium">Tanggal Mulai</label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setStartDate(v);
+                      if (endDate && v) {
+                        const s = new Date(v);
+                        const eD = new Date(endDate);
+                        if (!isNaN(s.getTime()) && !isNaN(eD.getTime()) && eD.getTime() < s.getTime()) setEndDate(v);
+                      }
+                    }}
+                    className="h-12"
+                    disabled={disabled}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -990,6 +1119,17 @@ export const TourPackageOrderForm: React.FC = () => {
                   options={packageOptions}
                   disabled={disabled}
                 />
+                <div className="space-y-2 pt-2">
+                  <label className="text-sm font-medium">Tanggal Selesai</label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="h-12"
+                    disabled={disabled}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1315,16 +1455,16 @@ export const TourPackageOrderForm: React.FC = () => {
         ) : null}
 
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => navigate(`${basePrefix}/orders/tour`)} disabled={disabled}>
+          <Button type="button" variant="outline" onClick={() => navigate(`${basePrefix}/orders/tour`)} disabled={busy}>
             Batal
           </Button>
-          <Button type="button" variant="outline" onClick={onPreview} disabled={disabled || !formReady}>
+          <Button type="button" variant="outline" onClick={onPreview} disabled={readOnly || busy || !formReady}>
             <span className="flex items-center">
               <Eye className="h-4 w-4 mr-2" />
               Preview Pesanan
             </span>
           </Button>
-          <Button type="submit" disabled={disabled} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button type="submit" disabled={readOnly || busy || !formReady} className="bg-blue-600 hover:bg-blue-700 text-white">
             {saving ? (
               <span className="flex items-center">
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1333,7 +1473,7 @@ export const TourPackageOrderForm: React.FC = () => {
             ) : (
               <span className="flex items-center">
                 <ShoppingCart className="h-4 w-4 mr-2" />
-                Buat Pesanan
+                {mode === 'edit' ? 'Update Pesanan' : 'Buat Pesanan'}
               </span>
             )}
           </Button>

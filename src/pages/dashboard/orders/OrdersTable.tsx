@@ -168,9 +168,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           if (Number.isFinite(revenue)) setSummaryRevenue(revenue);
           const mappedOrders = items.map((raw) => {
             const item = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-            const startRaw = item.tour_date ?? item.tourDate ?? item.start_date ?? item.startDate;
+            const startRaw = item.start_date ?? item.startDate;
             const start = typeof startRaw === 'string' ? startRaw : new Date().toISOString();
-            const endRaw = item.end_date ?? item.endDate ?? item.tour_end_date ?? item.tourEndDate;
+            const endRaw = item.end_date ?? item.endDate;
             const end = typeof endRaw === 'string' ? endRaw : start;
             const transactionIdRaw = item.transaction_id ?? item.transactionId;
             const orderIdRaw = item.order_id ?? item.id;
@@ -315,6 +315,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       navigate(`${basePrefix}/orders/fleet/detail/${orderId}`);
       return;
     }
+    if (type === 'tour') {
+      navigate(`${basePrefix}/orders/tour/detail/${orderId}`);
+      return;
+    }
     navigate(`${basePrefix}/orders/detail/${orderId}`);
   };
 
@@ -421,6 +425,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     sortable: true,
     width: 320,
     render: (row) => {
+      if (type === 'tour') {
+        return <span className="min-w-0 truncate font-medium text-foreground">{row.fleetName}</span>;
+      }
       const fallback = (row.fleetName || 'U').trim().slice(0, 1).toUpperCase();
       return (
         <div className="flex items-center gap-3">
@@ -535,7 +542,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           width: 160,
           sortable: true,
           align: 'right',
-          render: (row) => <span className="text-foreground tabular-nums">{Number.isFinite(Number(row.pax)) ? row.pax : '-'}</span>
+          render: (row) => (
+            <span className="text-foreground tabular-nums">{Number.isFinite(Number(row.pax)) ? `${row.pax} pax` : '-'}</span>
+          )
         },
         actionsColumn,
       ] satisfies Array<DataTableColumn<Order>>)

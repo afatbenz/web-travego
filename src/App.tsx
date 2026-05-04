@@ -122,6 +122,7 @@ import { DashboardHome } from '@/pages/dashboard/DashboardHome';
 import { OrdersTable } from '@/pages/dashboard/orders/OrdersTable';
 import { FleetOrderForm } from '@/pages/dashboard/orders/FleetOrderForm';
 import { TourPackageOrderForm } from '@/pages/dashboard/orders/TourPackageOrderForm';
+import { TourOrderDetail } from '@/pages/dashboard/orders/TourOrderDetail';
 import { OrderDetail } from '@/pages/dashboard/orders/OrderDetail';
 import { ServicesPackages } from '@/pages/dashboard/ServicesPackages';
 import { ServicesArmada } from '@/pages/dashboard/services/ServicesArmada';
@@ -709,6 +710,11 @@ function App() {
               <TourPackageOrderForm />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/orders/tour/detail/:order_id" element={
+            <DashboardLayout>
+              <TourOrderDetail />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/orders/tour" element={
             <DashboardLayout>
               <OrdersTable 
@@ -722,6 +728,11 @@ function App() {
           <Route path="/dashboard/orders/tour/form" element={
             <DashboardLayout>
               <TourPackageOrderForm />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/orders/tour/detail/:order_id" element={
+            <DashboardLayout>
+              <TourOrderDetail />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/orders/waiting-approval" element={
