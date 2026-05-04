@@ -79,6 +79,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     return `${s} - ${e}`;
   };
 
+  const formatSingleOrRange = (start: string, end: string) => {
+    const s = formatDdMmmYy(start);
+    const e = formatDdMmmYy(end);
+    if (s === '-' && e === '-') return '-';
+    if (s !== '-' && (e === '-' || s === e)) return s;
+    return `${s} - ${e}`;
+  };
+
   interface Order {
     orderId: string;
     transactionId?: string;
@@ -98,6 +106,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     startDate: string;
     endDate: string;
     rentType?: string;
+    pax?: number;
   }
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -109,11 +118,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         const token = localStorage.getItem('token');
         let endpointBase = '/services/fleet/orders';
         
-        // If type is explicitly tour, use tour endpoint (placeholder for now if not confirmed)
         if (type === 'tour') {
-           // Assuming this endpoint exists based on convention, or falling back to fleet if it's the same table
-           // For now, let's assume there's a separate endpoint or query
-           endpointBase = '/services/packages/orders'; 
+          endpointBase = '/services/tour-packages/order/list';
         }
 
         const op = normalizeRange(orderPeriod);
@@ -162,9 +168,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           if (Number.isFinite(revenue)) setSummaryRevenue(revenue);
           const mappedOrders = items.map((raw) => {
             const item = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-            const startRaw = item.start_date ?? item.startDate;
+            const startRaw = item.tour_date ?? item.tourDate ?? item.start_date ?? item.startDate;
             const start = typeof startRaw === 'string' ? startRaw : new Date().toISOString();
-            const endRaw = item.end_date ?? item.endDate;
+            const endRaw = item.end_date ?? item.endDate ?? item.tour_end_date ?? item.tourEndDate;
             const end = typeof endRaw === 'string' ? endRaw : start;
             const transactionIdRaw = item.transaction_id ?? item.transactionId;
             const orderIdRaw = item.order_id ?? item.id;
@@ -172,6 +178,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             const latestPaymentStatusRaw = item.latest_payment_status ?? item.latestPaymentStatus ?? item.latest_payment_status_label ?? item.latestPaymentStatusLabel;
             const uomRaw = item.uom;
             const rentTypeRaw = item.rent_type;
+            const paxRaw =
+              item.pax ??
+              item.total_pax ??
+              item.pax_count ??
+              item.participants ??
+              item.total_participants ??
+              item.participant ??
+              item.total_participant;
             const thumbnailRaw =
               item.thumbnail ??
               item.image ??
@@ -221,6 +235,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
               startDate: start,
               endDate: end,
               rentType: typeof rentTypeRaw === 'string' ? rentTypeRaw : undefined,
+              pax: Number.isFinite(Number(paxRaw)) ? Number(paxRaw) : undefined,
             } as Order;
           });
           setOrders(mappedOrders);
@@ -292,7 +307,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const pendingCount = filteredOrders.filter((o) => o.paymentStatus === 2 || o.paymentStatus === 3).length;
   const formatRupiah = (n: number) => `Rp ${Math.round(n || 0).toLocaleString('id-ID')}`;
 
-  const canAddOrder = type === 'fleet' && status === 'all' && basePrefix === '/dashboard/partner';
+  const canAddOrder = (type === 'fleet' || type === 'tour') && status === 'all' && basePrefix === '/dashboard/partner';
+  const createOrderPath =
+    type === 'tour' ? `${basePrefix}/orders/tour/form` : `${basePrefix}/orders/fleet/form`;
   const goToOrder = (orderId: string) => {
     if (basePrefix === '/dashboard/partner' && type === 'fleet') {
       navigate(`${basePrefix}/orders/fleet/detail/${orderId}`);
@@ -396,7 +413,133 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     );
   };
 
-  const columns: Array<DataTableColumn<Order>> = [
+  const isPartnerTour = type === 'tour' && basePrefix === '/dashboard/partner';
+
+  const packageColumn: DataTableColumn<Order> = {
+    label: type === 'tour' ? 'Paket Wisata' : 'Nama Unit',
+    key: 'fleetName',
+    sortable: true,
+    width: 320,
+    render: (row) => {
+      const fallback = (row.fleetName || 'U').trim().slice(0, 1).toUpperCase();
+      return (
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 overflow-hidden rounded-lg bg-muted">
+            {row.fleetThumbnail ? (
+              <img src={row.fleetThumbnail} alt={row.fleetName} className="h-full w-full object-cover" />
+            ) : (
+              <div className="grid h-full w-full place-items-center bg-gradient-to-br from-indigo-500/15 to-sky-500/15 text-xs font-semibold text-foreground/70">
+                {fallback}
+              </div>
+            )}
+          </div>
+          <span className="min-w-0 truncate font-medium text-foreground">{row.fleetName}</span>
+        </div>
+      );
+    },
+  };
+
+  const actionsColumn: DataTableColumn<Order> = {
+    label: 'Action',
+    key: '__actions__',
+    width: 72,
+    align: 'right',
+    sortable: false,
+    render: (row) => (
+      <div className="flex justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[180px]">
+            <DropdownMenuItem className="cursor-pointer" onSelect={() => goToOrder(row.orderId)}>
+              <Eye className="mr-2 h-4 w-4" />
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onSelect={() => {
+                downloadCsv(`order-${row.orderId}.csv`, [
+                  {
+                    orderId: row.orderId,
+                    transactionId: row.transactionId ?? '',
+                    fleetName: row.fleetName,
+                    startDate: row.startDate,
+                    endDate: row.endDate,
+                    paymentStatus: row.paymentStatus,
+                    latestPaymentStatus: row.latestPaymentStatus,
+                    customerName: row.customerName,
+                    totalAmount: row.totalAmount,
+                    createdAt: row.createdAt,
+                    pax: row.pax ?? '',
+                  }
+                ]);
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download CSV
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ),
+  };
+
+  const columns: Array<DataTableColumn<Order>> = isPartnerTour
+    ? ([
+        {
+          label: 'No',
+          key: '__no__',
+          width: 68,
+          align: 'center',
+          sortable: false,
+          render: (_, rowIndex) => (
+            <span className="text-sm text-muted-foreground">{(currentPage - 1) * itemsPerPage + rowIndex + 1}</span>
+          )
+        },
+        {
+          label: 'Order ID',
+          key: 'orderId',
+          sortable: true,
+          width: 180,
+          render: (row) => (
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+              onClick={() => goToOrder(row.orderId)}
+            >
+              {row.orderId}
+            </Button>
+          )
+        },
+        {
+          label: 'Nama Customer',
+          key: 'customerName',
+          sortable: true,
+          width: 240,
+          render: (row) => <span className="min-w-0 truncate text-foreground">{row.customerName || '-'}</span>
+        },
+        packageColumn,
+        {
+          label: 'Tanggal Wisata',
+          key: 'startDate',
+          width: 220,
+          render: (row) => <span className="text-foreground">{formatSingleOrRange(row.startDate, row.endDate)}</span>
+        },
+        {
+          label: 'Jumlah Peserta',
+          key: 'pax',
+          width: 160,
+          sortable: true,
+          align: 'right',
+          render: (row) => <span className="text-foreground tabular-nums">{Number.isFinite(Number(row.pax)) ? row.pax : '-'}</span>
+        },
+        actionsColumn,
+      ] satisfies Array<DataTableColumn<Order>>)
+    : ([
     {
       label: 'No',
       key: '__no__',
@@ -434,29 +577,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           }
         ] as Array<DataTableColumn<Order>>)
       : []),
-    {
-      label: 'Nama Unit',
-      key: 'fleetName',
-      sortable: true,
-      width: 320,
-      render: (row) => {
-        const fallback = (row.fleetName || 'U').trim().slice(0, 1).toUpperCase();
-        return (
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 overflow-hidden rounded-lg bg-muted">
-              {row.fleetThumbnail ? (
-                <img src={row.fleetThumbnail} alt={row.fleetName} className="h-full w-full object-cover" />
-              ) : (
-                <div className="grid h-full w-full place-items-center bg-gradient-to-br from-indigo-500/15 to-sky-500/15 text-xs font-semibold text-foreground/70">
-                  {fallback}
-                </div>
-              )}
-            </div>
-            <span className="min-w-0 truncate font-medium text-foreground">{row.fleetName}</span>
-          </div>
-        );
-      }
-    },
+    packageColumn,
     ...(type === 'fleet' && basePrefix === '/dashboard/partner'
       ? ([
           {
@@ -478,53 +599,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </div>
       )
     },
-    {
-      label: 'Actions',
-      key: '__actions__',
-      width: 72,
-      align: 'right',
-      sortable: false,
-      render: (row) => (
-        <div className="flex justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[180px]">
-              <DropdownMenuItem className="cursor-pointer" onSelect={() => goToOrder(row.orderId)}>
-                <Eye className="mr-2 h-4 w-4" />
-                View
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={() => {
-                  downloadCsv(`order-${row.orderId}.csv`, [
-                    {
-                      orderId: row.orderId,
-                      transactionId: row.transactionId ?? '',
-                      fleetName: row.fleetName,
-                      startDate: row.startDate,
-                      endDate: row.endDate,
-                      paymentStatus: row.paymentStatus,
-                      latestPaymentStatus: row.latestPaymentStatus,
-                      customerName: row.customerName,
-                      totalAmount: row.totalAmount,
-                      createdAt: row.createdAt
-                    }
-                  ]);
-                }}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download CSV
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )
-    }
-  ];
+    actionsColumn,
+  ] satisfies Array<DataTableColumn<Order>>);
 
   return (
     <div className="space-y-6">
@@ -537,7 +613,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           </p>
         </div>
         {canAddOrder ? (
-          <Button className="rounded-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate(`${basePrefix}/orders/fleet/form`)}>
+          <Button className="rounded-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate(createOrderPath)}>
             <Plus className="h-4 w-4 mr-2" />
             Tambahkan Pesanan
           </Button>
@@ -660,7 +736,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
       {canAddOrder ? (
         <Button
-          onClick={() => navigate(`${basePrefix}/orders/fleet/form`)}
+          onClick={() => navigate(createOrderPath)}
           className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
           size="icon"
           title="Tambah Order"

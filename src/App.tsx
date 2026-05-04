@@ -121,6 +121,7 @@ import { OrganizationJoin } from '@/pages/auth/OrganizationJoin';
 import { DashboardHome } from '@/pages/dashboard/DashboardHome';
 import { OrdersTable } from '@/pages/dashboard/orders/OrdersTable';
 import { FleetOrderForm } from '@/pages/dashboard/orders/FleetOrderForm';
+import { TourPackageOrderForm } from '@/pages/dashboard/orders/TourPackageOrderForm';
 import { OrderDetail } from '@/pages/dashboard/orders/OrderDetail';
 import { ServicesPackages } from '@/pages/dashboard/ServicesPackages';
 import { ServicesArmada } from '@/pages/dashboard/services/ServicesArmada';
@@ -703,6 +704,11 @@ function App() {
               />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/orders/tour/form" element={
+            <DashboardLayout>
+              <TourPackageOrderForm />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/orders/tour" element={
             <DashboardLayout>
               <OrdersTable 
@@ -711,6 +717,11 @@ function App() {
                 title="Tour Orders" 
                 description="Kelola pesanan paket wisata" 
               />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/orders/tour/form" element={
+            <DashboardLayout>
+              <TourPackageOrderForm />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/orders/waiting-approval" element={

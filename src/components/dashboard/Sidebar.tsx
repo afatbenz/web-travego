@@ -94,19 +94,18 @@ export const Sidebar: React.FC = () => {
   const navSections: NavSection[] = useMemo(
     () => [
       {
-        label: 'Overview',
+        label: 'Ringkasan',
         items: [{ title: 'Dashboard', icon: Home, href: basePrefix }]
       },
       {
-        label: 'Orders',
+        label: 'Pesanan',
         items: [
-          { title: 'Fleet Orders', icon: Car, href: `${basePrefix}/orders/fleet` },
-          { title: 'Tour Orders', icon: Package, href: `${basePrefix}/orders/tour` },
-          { title: 'Waiting Approval', icon: Clock, href: `${basePrefix}/orders/waiting-approval` }
+          { title: 'Pesanan Armada', icon: Car, href: `${basePrefix}/orders/fleet` },
+          { title: 'Pesanan Wisata', icon: Package, href: `${basePrefix}/orders/tour` },
         ]
       },
       {
-        label: 'Services',
+        label: 'Layanan',
         items: [
           { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
           { title: 'Daftar Armada', icon: Car, href: `${basePrefix}/services/fleet` },
@@ -114,54 +113,54 @@ export const Sidebar: React.FC = () => {
         ]
       },
       {
-        label: 'Schedules',
+        label: 'Jadwal',
         items: [
-          { title: 'Fleet Management', icon: Car, href: `${basePrefix}/schedules/fleet-management` },
-          { title: 'Team Schedules', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
-          { title: 'Leave Management', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
+          { title: 'Jadwal Armada', icon: Car, href: `${basePrefix}/schedules/fleet-management` },
+          { title: 'Jadwal Tim', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
+          { title: 'Manajemen Cuti', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
         ]
       },
       {
-        label: 'Finance',
+        label: 'Keuangan',
         items: [
-          { title: 'Revenue', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
-          { title: 'General Ledger', icon: FileText, href: `${basePrefix}/finance/general-ledger` },
-          { title: 'General Expenses', icon: ShoppingBag, href: `${basePrefix}/finance/general-expenses` },
-          { title: 'Fleet Expenses', icon: Car, href: `${basePrefix}/finance/fleet-expenses` },
-          { title: 'Operational Expenses', icon: Settings, href: `${basePrefix}/finance/operational-expenses` }
+          { title: 'Pendapatan', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
+          { title: 'Buku Besar', icon: FileText, href: `${basePrefix}/finance/general-ledger` },
+          { title: 'Pengeluaran Umum', icon: ShoppingBag, href: `${basePrefix}/finance/general-expenses` },
+          { title: 'Pengeluaran Armada', icon: Car, href: `${basePrefix}/finance/fleet-expenses` },
+          { title: 'Pengeluaran Operasional', icon: Settings, href: `${basePrefix}/finance/operational-expenses` }
         ]
       },
       {
-        label: 'Customers',
+        label: 'Pelanggan',
         items: [
-          { title: 'All Customers', icon: Users, href: `${basePrefix}/customers` },
-          { title: 'Registered Customers', icon: UserCheck, href: `${basePrefix}/customers/registered` },
-          { title: 'Customer Rewards', icon: Gift, href: `${basePrefix}/customers/rewards` }
+          { title: 'Semua Pelanggan', icon: Users, href: `${basePrefix}/customers` },
+          { title: 'Pelanggan Terdaftar', icon: UserCheck, href: `${basePrefix}/customers/registered` },
+          { title: 'Hadiah Pelanggan', icon: Gift, href: `${basePrefix}/customers/rewards` }
         ]
       },
       {
-        label: 'Organization',
+        label: 'Organisasi',
         items: [
-          { title: 'My Company', icon: FileText, href: `${basePrefix}/organization/company` },
-          { title: 'Team Members', icon: Users, href: `${basePrefix}/organization/team-members` },
-          { title: 'Roles', icon: Shield, href: `${basePrefix}/organization/roles` },
-          { title: 'Division', icon: Package, href: `${basePrefix}/organization/division` }
+          { title: 'Perusahaan Saya', icon: FileText, href: `${basePrefix}/organization/company` },
+          { title: 'Anggota Tim', icon: Users, href: `${basePrefix}/organization/team-members` },
+          { title: 'Peran', icon: Shield, href: `${basePrefix}/organization/roles` },
+          { title: 'Divisi', icon: Package, href: `${basePrefix}/organization/division` }
         ]
       },
       {
-        label: 'Coupons',
+        label: 'Kupon',
         items: [
-          { title: 'All Coupons', icon: Ticket, href: `${basePrefix}/coupons/all` },
-          { title: 'Add Coupon', icon: PlusCircle, href: `${basePrefix}/coupons/add` }
+          { title: 'Semua Kupon', icon: Ticket, href: `${basePrefix}/coupons/all` },
+          { title: 'Tambah Kupon', icon: PlusCircle, href: `${basePrefix}/coupons/add` }
         ]
       },
       {
-        label: 'Settings',
+        label: 'Pengaturan',
         items: [
-          { title: 'Organization', icon: FileText, href: `${basePrefix}/organization/settings` },
-          { title: 'Users', icon: User, href: `${basePrefix}/organization/users` },
+          { title: 'Organisasi', icon: FileText, href: `${basePrefix}/organization/settings` },
+          { title: 'Pengguna', icon: User, href: `${basePrefix}/organization/users` },
           { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
-          { title: 'Content Management', icon: FileText, href: `${basePrefix}/content` }
+          { title: 'Manajemen Konten', icon: FileText, href: `${basePrefix}/content` }
         ]
       }
     ],
