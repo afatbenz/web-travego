@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Clock, DollarSign, Download, Eye, MoreHorizontal, Plus, ShoppingBag } from 'lucide-react';
+import { CheckCircle2, Clock, DollarSign, Download, Eye, Filter, MoreHorizontal, Plus, ShoppingBag } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { DateRange } from 'react-day-picker';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
-import { FilterBar, type FilterField, type QuickFilterChip } from '@/components/common/FilterBar';
+import { FilterBar, type FilterField } from '@/components/common/FilterBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { id as idLocale } from 'date-fns/locale';
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
@@ -41,7 +42,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | '0' | '1' | '2' | '3' | '4' | '5'>('all');
   const [orderPeriod, setOrderPeriod] = useState<DateRange | undefined>();
   const [orderDate, setOrderDate] = useState<DateRange | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,6 +49,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const [summaryRevenue, setSummaryRevenue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initializedDefaultRange, setInitializedDefaultRange] = useState(false);
+  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
 
   // client-side parsing helpers removed since filtering now handled by backend
   useEffect(() => {
@@ -126,7 +127,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         const od = normalizeRange(orderDate);
         const qs = new URLSearchParams();
         if (searchTerm.trim()) qs.set('q', searchTerm.trim());
-        if (statusFilter !== 'all') qs.set('status', statusFilter);
         if (op.start && op.end) {
           qs.set('period_from', toYmd(op.start));
           qs.set('period_to', toYmd(op.end));
@@ -249,7 +249,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     };
 
     fetchOrders();
-  }, [type, searchTerm, statusFilter, orderPeriod, orderDate]);
+  }, [type, searchTerm, orderPeriod, orderDate]);
 
   const getPaymentStatusBadge = (status: number) => {
     switch (status) {
@@ -300,16 +300,21 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, orderPeriod, orderDate]);
+  }, [searchTerm, orderPeriod, orderDate]);
 
   const totalOrders = filteredOrders.length;
   const completedCount = filteredOrders.filter((o) => o.paymentStatus === 1).length;
   const pendingCount = filteredOrders.filter((o) => o.paymentStatus === 2 || o.paymentStatus === 3).length;
   const formatRupiah = (n: number) => `Rp ${Math.round(n || 0).toLocaleString('id-ID')}`;
+  const formatIdrJt = (n: number) => {
+    const jt = (Number.isFinite(n) ? n : 0) / 1_000_000;
+    return `IDR ${jt.toFixed(2)} JT`;
+  };
 
   const canAddOrder = (type === 'fleet' || type === 'tour') && status === 'all' && basePrefix === '/dashboard/partner';
   const createOrderPath =
     type === 'tour' ? `${basePrefix}/orders/tour/form` : `${basePrefix}/orders/fleet/form`;
+  const enableMobileFilterToggle = basePrefix === '/dashboard/partner' && (type === 'fleet' || type === 'tour');
   const goToOrder = (orderId: string) => {
     if (basePrefix === '/dashboard/partner' && type === 'fleet') {
       navigate(`${basePrefix}/orders/fleet/detail/${orderId}`);
@@ -344,50 +349,42 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     q: string;
     orderPeriod: DateRange | undefined;
     orderDate: DateRange | undefined;
-    status: 'all' | '0' | '1' | '2' | '3' | '4' | '5';
   };
 
   const filterValues: OrdersFilters = {
     q: searchTerm,
     orderPeriod,
     orderDate,
-    status: statusFilter
   };
 
   const filterFields: Array<FilterField<OrdersFilters>> = [
-    { name: 'q', type: 'text', label: 'Search', placeholder: 'Cari order...', className: 'min-w-[220px] flex-[2]' },
-    { name: 'orderPeriod', type: 'daterange', label: 'Order Period', placeholder: 'Pilih rentang', className: 'min-w-[260px]' },
-    { name: 'orderDate', type: 'daterange', label: 'Order Date', placeholder: 'Pilih rentang', className: 'min-w-[260px]' },
     {
-      name: 'status',
-      type: 'select',
-      label: 'Status',
-      placeholder: 'Semua Status',
-      className: 'min-w-[220px]',
-      options: [
-        { value: 'all', label: 'Semua Status' },
-        { value: '1', label: 'Sudah dibayar' },
-        { value: '2', label: 'Menunggu Pembayaran' },
-        { value: '3', label: 'Menunggu Persetujuan' },
-        { value: '4', label: 'Belum Lunas' },
-        { value: '5', label: 'Refund' },
-        { value: '0', label: 'Pembayaran Dibatalkan' }
-      ]
-    }
-  ];
-
-  const filterChips: QuickFilterChip[] = [
-    { label: 'All', active: statusFilter === 'all', onClick: () => setStatusFilter('all') },
-    { label: 'Paid', active: statusFilter === '1', onClick: () => setStatusFilter('1') },
-    { label: 'Pending', active: statusFilter === '2', onClick: () => setStatusFilter('2') },
-    { label: 'Approval', active: statusFilter === '3', onClick: () => setStatusFilter('3') },
+      name: 'q',
+      type: 'text',
+      label: 'Search',
+      placeholder: 'Cari order...',
+      className: 'col-span-2 md:min-w-[220px] md:flex-[2]'
+    },
+    {
+      name: 'orderPeriod',
+      type: 'daterange',
+      label: 'Order Period',
+      placeholder: 'Pilih rentang',
+      className: 'col-span-1 md:min-w-[260px]'
+    },
+    {
+      name: 'orderDate',
+      type: 'daterange',
+      label: 'Order Date',
+      placeholder: 'Pilih rentang',
+      className: 'col-span-1 md:min-w-[260px]'
+    },
   ];
 
   const handleResetFilters = () => {
     setSearchTerm('');
     setOrderPeriod(undefined);
     setOrderDate(undefined);
-    setStatusFilter('all');
   };
 
   const getRentTypeBadge = (rentType: string | undefined) => {
@@ -612,17 +609,33 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   ] satisfies Array<DataTableColumn<Order>>);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 md:pb-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{title}</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{title}</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             {description}
           </p>
         </div>
+        {enableMobileFilterToggle ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className={cn('md:hidden h-10 w-10 rounded-full', showFiltersMobile ? 'bg-muted' : '')}
+            onClick={() => setShowFiltersMobile((v) => !v)}
+            aria-pressed={showFiltersMobile}
+            title="Filter"
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
+        ) : null}
         {canAddOrder ? (
-          <Button className="rounded-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate(createOrderPath)}>
+          <Button
+            className="hidden md:inline-flex rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => navigate(createOrderPath)}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Tambahkan Pesanan
           </Button>
@@ -630,95 +643,106 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="rounded-2xl bg-blue-600/10 p-3 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-                <ShoppingBag className="h-5 w-5" />
+          <CardContent className="px-4 py-3 md:p-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                <ShoppingBag className="h-4 w-4" />
+                <div className="text-[11px] font-medium text-muted-foreground">Order</div>
               </div>
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-muted-foreground">Orders</div>
-                {loading ? (
-                  <div className="mt-2 h-7 w-16 rounded bg-muted animate-pulse" />
-                ) : (
-                  <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{totalOrders}</div>
-                )}
-              </div>
+              {loading ? (
+                <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
+              ) : (
+                <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+                  {totalOrders}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="rounded-2xl bg-amber-500/10 p-3 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
-                <Clock className="h-5 w-5" />
+          <CardContent className="px-4 py-3 md:p-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                <Clock className="h-4 w-4" />
+                <div className="text-[11px] font-medium text-muted-foreground">Pending</div>
               </div>
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-muted-foreground">Pending</div>
-                {loading ? (
-                  <div className="mt-2 h-7 w-16 rounded bg-muted animate-pulse" />
-                ) : (
-                  <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{pendingCount}</div>
-                )}
-              </div>
+              {loading ? (
+                <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
+              ) : (
+                <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+                  {pendingCount}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300">
-                <CheckCircle2 className="h-5 w-5" />
+          <CardContent className="px-4 py-3 md:p-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4" />
+                <div className="text-[11px] font-medium text-muted-foreground">Selesai</div>
               </div>
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-muted-foreground">Completed</div>
-                {loading ? (
-                  <div className="mt-2 h-7 w-16 rounded bg-muted animate-pulse" />
-                ) : (
-                  <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{completedCount}</div>
-                )}
-              </div>
+              {loading ? (
+                <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
+              ) : (
+                <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+                  {completedCount}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="rounded-2xl bg-indigo-500/10 p-3 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300">
-                <DollarSign className="h-5 w-5" />
+          <CardContent className="px-4 py-3 md:p-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
+                <DollarSign className="h-4 w-4" />
+                <div className="text-[11px] font-medium text-muted-foreground">Revenue</div>
               </div>
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-muted-foreground">Revenue</div>
-                {loading ? (
-                  <div className="mt-2 h-7 w-32 rounded bg-muted animate-pulse" />
-                ) : (
-                  <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                    {formatRupiah(summaryRevenue || 0)}
-                  </div>
-                )}
-              </div>
+              {loading ? (
+                <div className="mt-1 h-6 w-28 rounded bg-muted animate-pulse" />
+              ) : (
+                <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+                  <span className="md:hidden">{formatIdrJt(summaryRevenue || 0)}</span>
+                  <span className="hidden md:inline">{formatRupiah(summaryRevenue || 0)}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <FilterBar
-        fields={filterFields}
-        values={filterValues}
-        onChange={(name, value) => {
-          if (name === 'q') setSearchTerm(String(value ?? ''));
-          if (name === 'orderPeriod') setOrderPeriod(value as DateRange | undefined);
-          if (name === 'orderDate') setOrderDate(value as DateRange | undefined);
-          if (name === 'status') setStatusFilter(value as OrdersFilters['status']);
-        }}
-        onReset={handleResetFilters}
-        chips={filterChips}
-      />
+      <div
+        className={cn(
+          enableMobileFilterToggle ? 'transition-all duration-300 ease-out' : '',
+          enableMobileFilterToggle ? (showFiltersMobile ? 'max-h-[720px] opacity-100' : 'max-h-0 opacity-0') : '',
+          enableMobileFilterToggle ? 'md:max-h-none md:opacity-100' : '',
+          enableMobileFilterToggle ? 'overflow-hidden' : ''
+        )}
+      >
+        <FilterBar
+          fields={filterFields}
+          values={filterValues}
+          onChange={(name, value) => {
+            if (name === 'q') setSearchTerm(String(value ?? ''));
+            if (name === 'orderPeriod') setOrderPeriod(value as DateRange | undefined);
+            if (name === 'orderDate') setOrderDate(value as DateRange | undefined);
+          }}
+          onReset={handleResetFilters}
+          layout="responsive-grid"
+          mobileDateFormat="dd MMMM"
+          desktopDateFormat="dd MMM yyyy"
+          dateLocale={idLocale}
+          resetButtonClassName="hidden md:inline-flex md:w-auto"
+        />
+      </div>
 
       {/* Table */}
       <DataTable
@@ -746,7 +770,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       {canAddOrder ? (
         <Button
           onClick={() => navigate(createOrderPath)}
-          className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
+          className="md:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
           size="icon"
           title="Tambah Order"
         >

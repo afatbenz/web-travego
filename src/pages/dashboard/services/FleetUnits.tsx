@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Eye, Edit, Trash2, Search, Car } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination } from '@/components/common/Pagination';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { api } from '@/lib/api';
 
 export const FleetUnits: React.FC = () => {
+  const location = useLocation();
   const navigate = useNavigate();
+  const canCreate = location.pathname.startsWith('/dashboard/partner');
+  const createUnitPath = '/dashboard/partner/fleet-units/create';
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
   const [units, setUnits] = useState<Array<{ id: string | number; vehicle_id: string; fleet_name: string; plate_number: string; engine: string; capacity: number }>>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -78,7 +79,45 @@ export const FleetUnits: React.FC = () => {
     load();
   }, [currentPage, itemsPerPage, searchTerm]);
 
-  const totalPages = Math.ceil(totalCount / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const totalItems = totalCount;
+
+  type UnitRow = (typeof units)[number];
+  const columns: Array<DataTableColumn<UnitRow>> = [
+    {
+      label: 'No',
+      key: '__no__',
+      width: 68,
+      align: 'center',
+      sortable: false,
+      render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
+    },
+    { label: 'Jenis Armada', key: 'fleet_name', sortable: true, width: 380, render: (unit) => <span className="text-foreground">{unit.fleet_name}</span> },
+    {
+      label: 'ID Armada',
+      key: 'vehicle_id',
+      sortable: true,
+      width: 160,
+      render: (unit) => (
+        <Link
+          to={`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(unit.id))}`}
+          className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+        >
+          {unit.vehicle_id}
+        </Link>
+      )
+    },
+    { label: 'Plat Nomor', key: 'plate_number', sortable: true, width: 160, render: (unit) => <span className="text-foreground">{unit.plate_number}</span> },
+    { label: 'Chassis / Mesin', key: 'engine', sortable: true, width: 250, render: (unit) => <span className="text-foreground">{unit.engine || '-'}</span> },
+    {
+      label: 'Kapasitas',
+      key: 'capacity',
+      sortable: true,
+      width: 140,
+      align: 'center',
+      render: (unit) => <span className="text-foreground">{unit.capacity} Pax</span>
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -90,13 +129,15 @@ export const FleetUnits: React.FC = () => {
             Kelola unit armada spesifik (berdasarkan plat nomor/ID)
           </p>
         </div>
-        <Button 
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={() => navigate('/dashboard/partner/fleet-units/create')}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Tambah unit baru
-        </Button>
+        {canCreate ? (
+          <Button
+            className="hidden md:inline-flex bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => navigate(createUnitPath)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Tambah unit baru
+          </Button>
+        ) : null}
       </div>
 
       {/* Filters */}
@@ -113,95 +154,67 @@ export const FleetUnits: React.FC = () => {
       </div>
 
       {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Car className="h-5 w-5" />
-            Daftar Unit Armada
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-100 dark:bg-gray-900">
-                  <TableHead className="w-16 text-center">No</TableHead>
-                  <TableHead>ID Armada</TableHead>
-                  <TableHead>Jenis Armada</TableHead>
-                  <TableHead>Plat Nomor</TableHead>
-                  <TableHead>Chassis / Mesin</TableHead>
-                  <TableHead className="text-center">Kapasitas</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="bg-white dark:bg-gray-800">
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={`s-${i}`} className="animate-pulse">
-                      <TableCell className="text-center">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto" />
-                      </TableCell>
-                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" /></TableCell>
-                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" /></TableCell>
-                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></TableCell>
-                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28" /></TableCell>
-                      <TableCell className="text-center"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto" /></TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : units.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-gray-500">
-                      Tidak ada data unit armada
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  units.map((unit, idx) => (
-                    <TableRow key={unit.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
-                        {(currentPage - 1) * itemsPerPage + idx + 1}
-                      </TableCell>
-                      <TableCell className="font-medium text-blue-600 dark:text-blue-400">{unit.vehicle_id}</TableCell>
-                      <TableCell className="text-gray-700 dark:text-gray-300">{unit.fleet_name}</TableCell>
-                      <TableCell className="text-gray-700 dark:text-gray-300">{unit.plate_number}</TableCell>
-                      <TableCell className="text-gray-700 dark:text-gray-300">{unit.engine || '-'}</TableCell>
-                      <TableCell className="text-gray-700 dark:text-gray-300 text-center">{unit.capacity} Pax</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button size="sm" variant="outline" onClick={() => navigate(`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(unit.id))}`)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => navigate(`/dashboard/partner/fleet-units/edit/${unit.id}`)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <Car className="h-5 w-5" />
+        Daftar Unit Armada
+      </div>
+      <DataTable
+        data={units}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        emptyTitle="Tidak ada data unit armada"
+        emptyDescription="Coba ubah pencarian."
+        actions={{
+          actions: [
+            {
+              key: 'detail',
+              label: 'Detail',
+              icon: Eye,
+              onSelect: (row) => navigate(`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(row.id))}`)
+            },
+            {
+              key: 'edit',
+              label: 'Edit',
+              icon: Edit,
+              onSelect: (row) => navigate(`/dashboard/partner/fleet-units/edit/${encodeURIComponent(String(row.id))}`)
+            },
+            {
+              key: 'delete',
+              label: 'Hapus',
+              icon: Trash2,
+              variant: 'destructive',
+              disabled: true,
+              onSelect: () => void 0
+            }
+          ]
+        }}
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          totalItems,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        sorting={{ initialSort: { key: 'vehicle_id', direction: 'asc' } }}
+        rowKey={(row) => row.id}
+      />
 
-          {/* Pagination */}
-          {totalPages > 1 ? (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
-              <p className="text-xs text-gray-500">
-                Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} dari {totalCount} unit
-              </p>
-              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+      {canCreate ? (
+        <Button
+          onClick={() => navigate(createUnitPath)}
+          className="md:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
+          size="icon"
+          title="Tambah Unit Armada"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      ) : null}
     </div>
   );
 };

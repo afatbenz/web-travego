@@ -7,13 +7,15 @@ interface PaginationProps {
   totalPages: number;
   onPageChange: (page: number) => void;
   className?: string;
+  compact?: boolean;
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
   currentPage,
   totalPages,
   onPageChange,
-  className = ''
+  className = '',
+  compact = false
 }) => {
   if (totalPages <= 1) return null;
 
@@ -46,6 +48,40 @@ export const Pagination: React.FC<PaginationProps> = ({
 
     return rangeWithDots;
   };
+
+  if (compact) {
+    return (
+      <div className={`flex items-center justify-center gap-2 ${className}`}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-8 w-8"
+          aria-label="Previous"
+          title="Previous"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+
+        <div className="min-w-[68px] text-center text-xs text-muted-foreground tabular-nums">
+          {currentPage}/{totalPages}
+        </div>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-8 w-8"
+          aria-label="Next"
+          title="Next"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex items-center justify-center space-x-2 ${className}`}>

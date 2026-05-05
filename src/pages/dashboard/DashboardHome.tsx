@@ -182,10 +182,10 @@ export const DashboardHome: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-4 lg:space-y-6 pb-24 md:pb-0">
       {/* Header */}
       <div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Dashboard
         </h1>
         {isPartnerDashboard ? (
@@ -219,7 +219,7 @@ export const DashboardHome: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {loadingDashboard
           ? Array.from({ length: 4 }).map((_, i) => (
               <Card key={`s-${i}`} className="animate-pulse">
@@ -237,29 +237,36 @@ export const DashboardHome: React.FC = () => {
             ))
           : summaryCards.map((card, index) => (
               <Card key={index} className="hover:shadow-lg transition-shadow duration-200">
-                <CardContent className="p-4 lg:p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
-                        {card.title}
-                      </p>
-                      <p className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-white mt-1 lg:mt-2">
+                <CardContent className="px-4 py-3 md:p-4 lg:p-6">
+                  <div className="space-y-1 md:flex md:items-center md:justify-between md:space-y-0">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <card.icon className={`h-4 w-4 ${card.color}`} />
+                        <p className="text-[11px] md:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
+                          {card.title}
+                        </p>
+                      </div>
+                      <p className="mt-1 text-base md:text-lg lg:text-2xl font-bold text-gray-900 dark:text-white">
                         {card.value}
                       </p>
-                      <div className="flex items-center mt-1 lg:mt-2">
-                        <span className={`text-xs lg:text-sm font-medium ${
-                          card.changeType === 'increase' 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
+                      <div className="hidden md:flex items-center mt-1 lg:mt-2">
+                        <span
+                          className={`text-xs lg:text-sm font-medium ${
+                            card.changeType === 'increase'
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}
+                        >
                           {card.change}
                         </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 hidden sm:inline">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 hidden lg:inline">
                           from last month
                         </span>
                       </div>
                     </div>
-                    <div className={`w-10 h-10 lg:w-12 lg:h-12 ${card.color} bg-opacity-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                    <div
+                      className={`hidden md:flex w-10 h-10 lg:w-12 lg:h-12 ${card.color} bg-opacity-10 rounded-lg items-center justify-center flex-shrink-0`}
+                    >
                       <card.icon className={`h-5 w-5 lg:h-6 lg:w-6 ${card.color}`} />
                     </div>
                   </div>
