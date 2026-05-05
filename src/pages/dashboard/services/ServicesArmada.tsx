@@ -100,7 +100,7 @@ export const ServicesArmada: React.FC = () => {
     {
       label: 'No',
       key: '__no__',
-      width: 50,
+      width: 30,
       align: 'center',
       sortable: false,
       render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
@@ -131,7 +131,7 @@ export const ServicesArmada: React.FC = () => {
       label: 'Tipe',
       key: 'type',
       sortable: true,
-      width: 100,
+      width: 80,
       render: (item) => <span className="text-sm text-foreground">{item.type}</span>
     },
     {
