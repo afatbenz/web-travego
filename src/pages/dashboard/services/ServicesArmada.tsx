@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Eye, Edit, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination } from '@/components/common/Pagination';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
@@ -17,7 +16,7 @@ export const ServicesArmada: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
   const [armada, setArmada] = useState<Array<{ id: string | number; name: string; type: string; totalUnit: string; body?: string; engine?: string; status: string; image?: string; description?: string }>>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -93,10 +92,63 @@ export const ServicesArmada: React.FC = () => {
   };
 
   const filteredArmada = armada; // server-side filtering/pagination
-  const totalPages = Math.ceil(Math.max(totalCount, filteredArmada.length) / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentArmada = filteredArmada.slice(startIndex, endIndex);
+  const totalItems = Math.max(totalCount, filteredArmada.length);
+
+  type ArmadaRow = (typeof armada)[number];
+  const columns: Array<DataTableColumn<ArmadaRow>> = [
+    {
+      label: 'No',
+      key: '__no__',
+      width: 50,
+      align: 'center',
+      sortable: false,
+      render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
+    },
+    {
+      label: 'Nama',
+      key: 'name',
+      sortable: true,
+      width: 150,
+      render: (item) => (
+        <div className="flex items-center gap-3">
+          <img src={item.image} alt={item.name} className="h-12 w-12 rounded-lg object-cover" />
+          <div className="min-w-0">
+            <Link
+              to={`${basePrefix}/services/fleet/detail/${encodeURIComponent(String(item.id))}`}
+              className="font-semibold text-foreground hover:underline"
+            >
+              {item.name}
+            </Link>
+            <div className="line-clamp-1 text-sm text-muted-foreground">
+              {[item.body, item.engine].filter(Boolean).join(' - ') || item.description}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      label: 'Tipe',
+      key: 'type',
+      sortable: true,
+      width: 100,
+      render: (item) => <span className="text-sm text-foreground">{item.type}</span>
+    },
+    {
+      label: 'Unit',
+      key: 'totalUnit',
+      sortable: true,
+      width: 50,
+      render: (item) => <span className="text-sm text-foreground">{item.totalUnit}</span>
+    },
+    {
+      label: 'Status',
+      key: 'status',
+      sortable: true,
+      width: 50,
+      render: (item) => getStatusText(item.status)
+    },
+  ];
 
   const handleDelete = async (fleetId: string | number, fleetName: string) => {
     const result = await Swal.fire({
@@ -132,7 +184,7 @@ export const ServicesArmada: React.FC = () => {
           </p>
         </div>
         <Button 
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className="hidden md:inline-flex bg-blue-600 hover:bg-blue-700 text-white"
           onClick={() => navigate(`${basePrefix}/services/fleet/create`)}
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -169,155 +221,61 @@ export const ServicesArmada: React.FC = () => {
       </div>
 
       {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Armada ({Math.max(totalCount, filteredArmada.length)} total)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-100 dark:bg-gray-900">
-                  <TableHead className="w-16 text-center">No</TableHead>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Tipe</TableHead>
-                  <TableHead>Jumlah unit</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="bg-white dark:bg-gray-800">
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={`s-${i}`} className="animate-pulse">
-                      <TableCell className="text-center">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
-                          <div className="space-y-2">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-56" />
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-72" />
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></TableCell>
-                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></TableCell>
-                      <TableCell><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : currentArmada.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-gray-500">
-                      Tidak ada data armada
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  currentArmada.map((item, idx) => (
-                    <TableRow key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
-                        {startIndex + idx + 1}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-12 h-12 object-cover rounded-lg"
-                          />
-                          <div>
-                            <p className="font-bold text-gray-900 dark:text-white">{item.name}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">
-                              {[item.body, item.engine].filter(Boolean).join(' - ') || item.description}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-900 dark:text-white">{item.type}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-900 dark:text-white">{item.totalUnit}</span>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusText(item.status)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => navigate(`${basePrefix}/services/fleet/detail/${item.id}`)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => navigate(`${basePrefix}/services/fleet/edit/${item.id}`)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDelete(item.id, item.name)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+      <DataTable
+        data={filteredArmada}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        tableClassName="table-fixed w-[1280px] min-w-[1280px]"
+        emptyTitle="Tidak ada data armada"
+        emptyDescription="Coba ubah pencarian atau filter."
+        actions={{
+          actions: [
+            {
+              key: 'detail',
+              label: 'Detail',
+              icon: Eye,
+              onSelect: (row) => navigate(`${basePrefix}/services/fleet/detail/${encodeURIComponent(String(row.id))}`)
+            },
+            {
+              key: 'edit',
+              label: 'Edit',
+              icon: Edit,
+              onSelect: (row) => navigate(`${basePrefix}/services/fleet/edit/${encodeURIComponent(String(row.id))}`)
+            },
+            {
+              key: 'delete',
+              label: 'Hapus',
+              icon: Trash2,
+              variant: 'destructive',
+              onSelect: (row) => void handleDelete(row.id, row.name)
+            }
+          ]
+        }}
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          totalItems,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        sorting={{ initialSort: { key: 'name', direction: 'asc' } }}
+        rowKey={(row) => row.id}
+      />
 
-          {/* Pagination */}
-          {totalPages > 1 ? (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, Math.max(totalCount, filteredArmada.length))} dari{' '}
-                {Math.max(totalCount, filteredArmada.length)} armada
-              </div>
-              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {/* Summary */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{armada.length}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Total Armada</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-green-600">
-                {armada.filter(a => a.status === 'active').length}
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Aktif</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-600">
-                {armada.filter(a => a.status === 'inactive').length}
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Tidak Aktif</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-blue-600">-</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Rata-rata Rating</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Button
+        onClick={() => navigate(`${basePrefix}/services/fleet/create`)}
+        className="md:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
+        size="icon"
+        title="Tambah Armada"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };

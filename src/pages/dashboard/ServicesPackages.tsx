@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Plus, Edit, Trash2, Search, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination } from '@/components/common/Pagination';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { cn } from '@/lib/utils';
 import { api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
 
@@ -15,6 +15,7 @@ interface TourPackage {
   package_name: string;
   thumbnail: string;
   package_description: string;
+  destination: string;
   min_pax: number;
   max_pax: number;
   min_price: number;
@@ -28,9 +29,9 @@ export const ServicesPackages: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [packages, setPackages] = useState<TourPackage[]>([]);
   const [loading, setLoading] = useState(true);
-  const itemsPerPage = 10;
 
   useEffect(() => {
     fetchPackages();
@@ -60,11 +61,24 @@ export const ServicesPackages: React.FC = () => {
           const rawId = item.package_id ?? item.id ?? item.packageId;
           const package_id =
             typeof rawId === 'string' || typeof rawId === 'number' ? rawId : String(rawId ?? '');
+          const destinationRaw =
+            item.destination ??
+            item.tujuan ??
+            item.city_name ??
+            item.cityName ??
+            item.destination_name ??
+            item.destinationName ??
+            item.location ??
+            item.location_name ??
+            item.locationName ??
+            item.area ??
+            item.region;
           return {
             package_id,
             package_name: String(item.package_name ?? item.name ?? ''),
             thumbnail: toFileUrl(String(item.thumbnail ?? '')),
             package_description: String(item.package_description ?? item.description ?? ''),
+            destination: typeof destinationRaw === 'string' ? destinationRaw : '',
             min_pax: Number(item.min_pax ?? 0),
             max_pax: Number(item.max_pax ?? 0),
             min_price: Number(item.min_price ?? 0),
@@ -132,10 +146,106 @@ export const ServicesPackages: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const totalPages = Math.ceil(filteredPackages.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentPackages = filteredPackages.slice(startIndex, endIndex);
+  const formatRupiah = (n: number) => `Rp ${Math.round(n || 0).toLocaleString('id-ID')}`;
+  const truncateWithDots = (value: string, maxChars: number) => {
+    const s = (value ?? '').trim();
+    if (!s) return '';
+    if (s.length <= maxChars) return s;
+    return `${s.slice(0, Math.max(0, maxChars))}....`;
+  };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, itemsPerPage]);
+
+  const columns: Array<DataTableColumn<TourPackage>> = [
+    {
+      label: 'No',
+      key: '__no__',
+      width: 68,
+      align: 'center',
+      sortable: false,
+      render: (_, rowIndex) => (
+        <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
+      )
+    },
+    {
+      label: 'Nama',
+      key: 'package_name',
+      sortable: true,
+      width: 620,
+      render: (pkg) => (
+        <div className="flex items-center gap-3">
+          <img
+            src={pkg.thumbnail}
+            alt={pkg.package_name}
+            className="h-12 w-12 rounded-lg object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
+            }}
+          />
+          <div className="min-w-0">
+            <div
+              className={cn(
+                'truncate',
+                pkg.status === 'inactive' ? 'font-semibold text-muted-foreground' : 'font-semibold text-foreground'
+              )}
+            >
+              <Link
+                to={`${basePrefix}/services/packages/detail/${encodeURIComponent(String(pkg.package_id))}`}
+                className="hover:underline"
+              >
+                <span className="md:hidden">{truncateWithDots(pkg.package_name, 35)}</span>
+                <span className="hidden md:inline">{truncateWithDots(pkg.package_name, 50)}</span>
+              </Link>
+            </div>
+            <div
+              className="line-clamp-1 text-sm text-muted-foreground"
+              dangerouslySetInnerHTML={{ __html: pkg.package_description }}
+            />
+          </div>
+        </div>
+      )
+    },
+    {
+      label: 'Pax',
+      key: '__pax__',
+      width: 220,
+      sortable: false,
+      render: (pkg) => (
+        <span className="text-sm text-foreground">
+          {pkg.min_pax} - {pkg.max_pax} Pax
+        </span>
+      )
+    },
+    {
+      label: 'Tujuan',
+      key: 'destination',
+      width: 240,
+      sortable: true,
+      render: (pkg) => (
+        <span className="text-sm text-foreground">
+          <span className="md:hidden">{truncateWithDots(pkg.destination || '-', 35) || '-'}</span>
+          <span className="hidden md:inline">{truncateWithDots(pkg.destination || '-', 50) || '-'}</span>
+        </span>
+      )
+    },
+    {
+      label: 'Harga Mulai',
+      key: 'min_price',
+      width: 170,
+      sortable: true,
+      render: (pkg) => <span className="font-medium text-foreground">{formatRupiah(pkg.min_price)}</span>
+    },
+    {
+      label: 'Status',
+      key: 'status',
+      width: 140,
+      sortable: true,
+      render: (pkg) => getStatusText(pkg.status)
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -148,7 +258,7 @@ export const ServicesPackages: React.FC = () => {
           </p>
         </div>
         <Button 
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className="hidden md:inline-flex bg-blue-600 hover:bg-blue-700 text-white"
           onClick={() => navigate(`${basePrefix}/services/packages/create`)}
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -185,162 +295,62 @@ export const ServicesPackages: React.FC = () => {
       </div>
 
       {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-bold">Data Paket Wisata ({filteredPackages.length} total)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-100 dark:bg-gray-900">
-                  <TableHead className="w-16 text-center">No</TableHead>
-                  <TableHead>Nama</TableHead>
-                  <TableHead className="w-[170px]">Pax</TableHead>
-                  <TableHead className="w-[170px]">Harga Mulai</TableHead>
-                  <TableHead className="w-[140px]">Status</TableHead>
-                  <TableHead>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="bg-white dark:bg-gray-800">
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={`s-${i}`} className="animate-pulse">
-                      <TableCell className="text-center">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
-                          <div className="space-y-2">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-52" />
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-72" />
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="w-[170px]">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
-                      </TableCell>
-                      <TableCell className="w-[170px]">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
-                      </TableCell>
-                      <TableCell className="w-[140px]">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
-                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : currentPackages.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10 text-gray-500">
-                      Tidak ada data
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  currentPackages.map((pkg, idx) => (
-                    <TableRow key={String(pkg.package_id)} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
-                        {startIndex + idx + 1}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <img
-                            src={pkg.thumbnail}
-                            alt={pkg.package_name}
-                            className="w-12 h-12 object-cover rounded-lg"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
-                            }}
-                          />
-                          <div>
-                            <p className={`font-bold ${pkg.status === 'inactive' ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'}`}>{pkg.package_name}</p>
-                            <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1" dangerouslySetInnerHTML={{ __html: pkg.package_description }} />
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="w-[170px]">
-                        <span className="text-sm text-gray-900 dark:text-white">{pkg.min_pax} - {pkg.max_pax} Pax</span>
-                      </TableCell>
-                      <TableCell className="w-[170px]">
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          Rp {pkg.min_price?.toLocaleString()}
-                        </p>
-                      </TableCell>
-                      <TableCell className="w-[140px]">
-                        {getStatusText(pkg.status)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => navigate(`${basePrefix}/services/packages/detail/${encodeURIComponent(String(pkg.package_id))}`)}
-                          >
-                            Detail
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => navigate(`${basePrefix}/services/packages/edit/${encodeURIComponent(String(pkg.package_id))}`)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleDelete(pkg.package_id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+      <DataTable
+        data={filteredPackages}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        emptyTitle="Tidak ada data"
+        emptyDescription="Coba ubah filter pencarian atau status."
+        actions={{
+          actions: [
+            {
+              key: 'detail',
+              label: 'Detail',
+              icon: Eye,
+              onSelect: (row) =>
+                navigate(`${basePrefix}/services/packages/detail/${encodeURIComponent(String(row.package_id))}`)
+            },
+            {
+              key: 'edit',
+              label: 'Edit',
+              icon: Edit,
+              onSelect: (row) => navigate(`${basePrefix}/services/packages/edit/${encodeURIComponent(String(row.package_id))}`)
+            },
+            {
+              key: 'delete',
+              label: 'Hapus',
+              icon: Trash2,
+              variant: 'destructive',
+              onSelect: (row) => void handleDelete(row.package_id)
+            }
+          ]
+        }}
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        sorting={{ initialSort: { key: 'package_name', direction: 'asc' } }}
+        rowKey={(row) => row.package_id}
+      />
 
-          {!loading && filteredPackages.length > 0 ? (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredPackages.length)} dari {filteredPackages.length} paket
-              </div>
-              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+      
 
-      {/* Summary */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{packages.length}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Total Paket</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-green-600">
-                {packages.filter(p => p.status === 'active').length}
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Aktif</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-600">
-                {packages.filter(p => p.status === 'inactive').length}
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Tidak Aktif</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Button
+        onClick={() => navigate(`${basePrefix}/services/packages/create`)}
+        className="md:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
+        size="icon"
+        title="Tambah Paket"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };

@@ -447,11 +447,11 @@ export function DataTable<T>({
         </div>
 
         {paginationEnabled ? (
-          <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2 text-xs sm:text-sm text-muted-foreground">
               <span>Rows</span>
               <Select value={String(effectivePageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-                <SelectTrigger className="h-9 w-[92px]">
+                <SelectTrigger className="h-8 sm:h-9 w-[72px] sm:w-[92px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -467,7 +467,19 @@ export function DataTable<T>({
               </span>
             </div>
 
-            <Pagination currentPage={Math.min(Math.max(1, effectivePage), totalPages)} totalPages={totalPages} onPageChange={setPage} />
+            <Pagination
+              currentPage={Math.min(Math.max(1, effectivePage), totalPages)}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              compact
+              className="sm:hidden"
+            />
+            <Pagination
+              currentPage={Math.min(Math.max(1, effectivePage), totalPages)}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              className="hidden sm:flex"
+            />
           </div>
         ) : null}
       </CardContent>

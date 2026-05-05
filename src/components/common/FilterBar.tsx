@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, Check, ChevronDown, X } from 'lucide-react';
 import { format } from 'date-fns';
+import type { Locale } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -82,9 +83,17 @@ export type FilterBarProps<V extends Record<string, unknown>> = {
   chips?: QuickFilterChip[];
   className?: string;
   containerClassName?: string;
+  layout?: 'flex' | 'responsive-grid';
+  dateFormat?: string;
+  mobileDateFormat?: string;
+  desktopDateFormat?: string;
+  dateLocale?: Locale;
+  resetButtonClassName?: string;
+  submitButtonClassName?: string;
 };
 
-const formatDate = (d: Date) => format(d, 'dd MMM yyyy');
+const formatDate = (d: Date, fmt: string, locale?: Locale) =>
+  format(d, fmt, locale ? { locale } : undefined);
 
 export function FilterBar<V extends Record<string, unknown>>({
   fields,
@@ -96,7 +105,14 @@ export function FilterBar<V extends Record<string, unknown>>({
   resetLabel = 'Reset',
   chips,
   className,
-  containerClassName
+  containerClassName,
+  layout = 'flex',
+  dateFormat: dateFormatProp,
+  mobileDateFormat: mobileDateFormatProp,
+  desktopDateFormat: desktopDateFormatProp,
+  dateLocale,
+  resetButtonClassName,
+  submitButtonClassName
 }: FilterBarProps<V>) {
   const [openField, setOpenField] = useState<string | null>(null);
 
@@ -106,6 +122,9 @@ export function FilterBar<V extends Record<string, unknown>>({
   };
 
   const hasActions = Boolean(onSubmit || onReset);
+  const isGrid = layout === 'responsive-grid';
+  const desktopDateFormat = desktopDateFormatProp ?? dateFormatProp ?? 'dd MMM yyyy';
+  const mobileDateFormat = mobileDateFormatProp ?? desktopDateFormat;
 
   const renderedFields = useMemo(() => fields, [fields]);
 
@@ -129,13 +148,22 @@ export function FilterBar<V extends Record<string, unknown>>({
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-end gap-3">
+        <div
+          className={cn(
+            isGrid
+              ? 'p-2 grid grid-cols-2 items-end gap-3 md:flex md:flex-nowrap md:items-end md:overflow-x-auto'
+              : 'flex flex-wrap items-end gap-3'
+          )}
+        >
           {renderedFields.map((field) => {
             if (field.type === 'text') {
               const v = values[field.name] as unknown;
               const str = typeof v === 'string' ? v : v == null ? '' : String(v);
               return (
-                <div key={field.name} className={cn('min-w-[220px] flex-1', field.className)}>
+                <div
+                  key={field.name}
+                  className={cn(isGrid ? 'min-w-0 w-full md:w-auto' : 'min-w-[220px] flex-1', field.className)}
+                >
                   <div className="mb-1 text-xs font-medium text-muted-foreground">{field.label}</div>
                   <Input
                     value={str}
@@ -151,7 +179,7 @@ export function FilterBar<V extends Record<string, unknown>>({
               const v = values[field.name];
               const value = typeof v === 'string' ? v : '';
               return (
-                <div key={field.name} className={cn('min-w-[200px]', field.className)}>
+                <div key={field.name} className={cn(isGrid ? 'min-w-0 w-full md:w-auto' : 'min-w-[200px]', field.className)}>
                   <div className="mb-1 text-xs font-medium text-muted-foreground">{field.label}</div>
                   <Select value={value} onValueChange={(val) => onChange(field.name as keyof V, val as V[keyof V])}>
                     <SelectTrigger className={cn('h-10', field.triggerClassName)}>
@@ -184,7 +212,7 @@ export function FilterBar<V extends Record<string, unknown>>({
                     : `${selectedLabels.length} selected`;
 
               return (
-                <div key={field.name} className={cn('min-w-[240px]', field.className)}>
+                <div key={field.name} className={cn(isGrid ? 'min-w-0 w-full md:w-auto' : 'min-w-[240px]', field.className)}>
                   <div className="mb-1 text-xs font-medium text-muted-foreground">{field.label}</div>
                   <Popover
                     open={openField === field.name}
@@ -262,12 +290,23 @@ export function FilterBar<V extends Record<string, unknown>>({
             if (field.type === 'date') {
               const v = values[field.name];
               const date = v instanceof Date ? v : null;
-              const labelText = date ? formatDate(date) : '';
+              const mobileText = date ? formatDate(date, mobileDateFormat, dateLocale) : '';
+              const desktopText = date ? formatDate(date, desktopDateFormat, dateLocale) : '';
+              const hasLabel = Boolean(desktopText);
+              const labelNode =
+                isGrid && mobileText && mobileText !== desktopText ? (
+                  <>
+                    <span className="md:hidden">{mobileText}</span>
+                    <span className="hidden md:inline">{desktopText}</span>
+                  </>
+                ) : (
+                  desktopText
+                );
               const fromYear = field.fromYear;
               const toYear = field.toYear;
 
               return (
-                <div key={field.name} className={cn('min-w-[200px]', field.className)}>
+                <div key={field.name} className={cn(isGrid ? 'min-w-0 w-full md:w-auto' : 'min-w-[200px]', field.className)}>
                   <div className="mb-1 text-xs font-medium text-muted-foreground">{field.label}</div>
                   <Popover
                     open={openField === field.name}
@@ -280,8 +319,8 @@ export function FilterBar<V extends Record<string, unknown>>({
                         className={cn('h-10 w-full justify-start rounded-lg font-normal', field.triggerClassName)}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 opacity-70" />
-                        <span className={cn('truncate', labelText ? '' : 'text-muted-foreground')}>
-                          {labelText || field.placeholder || field.label}
+                        <span className={cn('truncate', hasLabel ? '' : 'text-muted-foreground')}>
+                          {hasLabel ? labelNode : field.placeholder || field.label}
                         </span>
                       </Button>
                     </PopoverTrigger>
@@ -306,15 +345,31 @@ export function FilterBar<V extends Record<string, unknown>>({
 
             const v = values[field.name];
             const range = (v && typeof v === 'object' ? (v as DateRange) : undefined) as DateRange | undefined;
-            const labelText =
+            const mobileText =
               range?.from && range?.to
-                ? `${formatDate(range.from)} - ${formatDate(range.to)}`
+                ? `${formatDate(range.from, mobileDateFormat, dateLocale)} - ${formatDate(range.to, mobileDateFormat, dateLocale)}`
                 : range?.from
-                  ? `${formatDate(range.from)} - ...`
+                  ? `${formatDate(range.from, mobileDateFormat, dateLocale)} - ...`
                   : '';
+            const desktopText =
+              range?.from && range?.to
+                ? `${formatDate(range.from, desktopDateFormat, dateLocale)} - ${formatDate(range.to, desktopDateFormat, dateLocale)}`
+                : range?.from
+                  ? `${formatDate(range.from, desktopDateFormat, dateLocale)} - ...`
+                  : '';
+            const hasLabel = Boolean(desktopText);
+            const labelNode =
+              isGrid && mobileText && mobileText !== desktopText ? (
+                <>
+                  <span className="md:hidden">{mobileText}</span>
+                  <span className="hidden md:inline">{desktopText}</span>
+                </>
+              ) : (
+                desktopText
+              );
 
             return (
-              <div key={field.name} className={cn('min-w-[260px]', field.className)}>
+              <div key={field.name} className={cn(isGrid ? 'min-w-0 w-full md:w-auto' : 'min-w-[260px]', field.className)}>
                 <div className="mb-1 text-xs font-medium text-muted-foreground">{field.label}</div>
                 <Popover
                   open={openField === field.name}
@@ -327,8 +382,8 @@ export function FilterBar<V extends Record<string, unknown>>({
                       className={cn('h-10 w-full justify-start rounded-lg font-normal', field.triggerClassName)}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4 opacity-70" />
-                      <span className={cn('truncate', labelText ? '' : 'text-muted-foreground')}>
-                        {labelText || field.placeholder || field.label}
+                      <span className={cn('truncate', hasLabel ? '' : 'text-muted-foreground')}>
+                        {hasLabel ? labelNode : field.placeholder || field.label}
                       </span>
                     </Button>
                   </PopoverTrigger>
@@ -350,28 +405,76 @@ export function FilterBar<V extends Record<string, unknown>>({
           })}
 
           {hasActions ? (
-            <div className="ml-auto flex items-center gap-2">
-              {onReset ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10 rounded-lg"
-                  onClick={() => {
-                    onReset();
-                    setOpenField(null);
-                  }}
-                >
-                  <X className="mr-2 h-4 w-4" />
-                  {resetLabel}
-                </Button>
-              ) : null}
+            isGrid ? (
+              <>
+                {onReset ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="md:hidden h-10 w-full rounded-lg"
+                    onClick={() => {
+                      onReset();
+                      setOpenField(null);
+                    }}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    {resetLabel}
+                  </Button>
+                ) : null}
 
-              {onSubmit ? (
-                <Button type="submit" className="h-10 rounded-lg">
-                  {submitLabel}
-                </Button>
-              ) : null}
-            </div>
+                {onSubmit ? (
+                  <Button type="submit" className="md:hidden h-10 w-full rounded-lg">
+                    {submitLabel}
+                  </Button>
+                ) : null}
+
+                <div className="hidden md:flex ml-auto items-center gap-2">
+                  {onReset ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn('h-10 rounded-lg', resetButtonClassName)}
+                      onClick={() => {
+                        onReset();
+                        setOpenField(null);
+                      }}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      {resetLabel}
+                    </Button>
+                  ) : null}
+
+                  {onSubmit ? (
+                    <Button type="submit" className={cn('h-10 rounded-lg', submitButtonClassName)}>
+                      {submitLabel}
+                    </Button>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <div className="ml-auto flex items-center gap-2">
+                {onReset ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-lg"
+                    onClick={() => {
+                      onReset();
+                      setOpenField(null);
+                    }}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    {resetLabel}
+                  </Button>
+                ) : null}
+
+                {onSubmit ? (
+                  <Button type="submit" className="h-10 rounded-lg">
+                    {submitLabel}
+                  </Button>
+                ) : null}
+              </div>
+            )
           ) : null}
         </div>
       </form>
