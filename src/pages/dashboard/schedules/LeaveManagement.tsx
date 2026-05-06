@@ -1,15 +1,759 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { api, toFileUrl } from '@/lib/api';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 export const LeaveManagement: React.FC = () => {
+  type LeaveRow = {
+    id: string;
+    employeeName: string;
+    divisionName: string;
+    totalDays: number;
+    startDate: string;
+    endDate: string;
+    leaveType: string;
+    status: string;
+    attachmentUrl?: string;
+  };
+
+  type LeaveTypeOption = { value: string; label: string };
+  type EmployeeOption = { value: string; label: string };
+
+  const toRecord = (v: unknown): Record<string, unknown> =>
+    v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
+  const toStringSafe = (v: unknown): string =>
+    typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'bigint' ? String(v) : '';
+
+  const toNumberSafe = (v: unknown): number => {
+    const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : typeof v === 'bigint' ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const tryParseDate = (value: string): Date | null => {
+    const v = String(value ?? '').trim();
+    if (!v) return null;
+    const d = new Date(v);
+    if (!Number.isNaN(d.getTime())) return d;
+    const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    const iso = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return Number.isNaN(iso.getTime()) ? null : iso;
+  };
+
+  const formatDdMmmYy = (value: string) => {
+    const d = tryParseDate(value);
+    if (!d) return '-';
+    const formatted = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
+    return formatted.replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
+  };
+
+  const formatDateRange = (start: string, end: string) => {
+    const s = formatDdMmmYy(start);
+    const e = formatDdMmmYy(end);
+    if (s === '-' && e === '-') return '-';
+    if (s !== '-' && (e === '-' || s === e)) return s;
+    return `${s} - ${e}`;
+  };
+
+  const diffDaysInclusive = (start: string, end: string) => {
+    const s = tryParseDate(start);
+    const e = tryParseDate(end);
+    if (!s || !e) return 0;
+    const s0 = new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime();
+    const e0 = new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
+    const d = Math.floor((e0 - s0) / (1000 * 60 * 60 * 24));
+    return d >= 0 ? d + 1 : 0;
+  };
+
+  const statusBadge = (status: string) => {
+    const v = String(status ?? '').trim().toLowerCase();
+    if (!v) return <Badge variant="outline">-</Badge>;
+    if (['approved', 'approve', 'disetujui', 'accepted', 'accept'].includes(v)) {
+      return (
+        <Badge className="rounded-full border-transparent bg-transparent px-3 py-1 font-medium text-emerald-700 hover:bg-gray-200/10 dark:bg-emerald-400/15 dark:text-emerald-300 dark:hover:bg-emerald-400/15">
+          Disetujui
+        </Badge>
+      );
+    }
+    if (['rejected', 'reject', 'ditolak', 'declined', 'decline'].includes(v)) {
+      return (
+        <Badge className="rounded-full border-transparent bg-transparent px-3 py-1 font-medium text-rose-700 hover:bg-gray-200/10 dark:bg-rose-400/15 dark:text-rose-300 dark:hover:bg-rose-400/15">
+          Ditolak
+        </Badge>
+      );
+    }
+    if (['pending', 'menunggu', 'waiting', 'waiting_approval', 'waiting-approval', 'in_review', 'review'].includes(v)) {
+      return (
+        <Badge className="rounded-full border-transparent bg-transparent px-3 py-1 font-medium text-amber-700 hover:bg-gray-200/10 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/15">
+          Menunggu
+        </Badge>
+      );
+    }
+    return <Badge variant="outline">{status}</Badge>;
+  };
+
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [loading, setLoading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const [rows, setRows] = useState<LeaveRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const monthNames = useMemo(
+    () => ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'],
+    []
+  );
+
+  const yearOptions = useMemo(() => {
+    const y = new Date().getFullYear();
+    return Array.from({ length: 9 }).map((_, i) => y - 4 + i);
+  }, []);
+
+  const selectedMonth = currentDate.getMonth();
+  const selectedYear = currentDate.getFullYear();
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setCurrentDate((prev) => {
+      const d = new Date(prev);
+      d.setMonth(prev.getMonth() + (direction === 'prev' ? -1 : 1));
+      return d;
+    });
+  };
+
+  const setMonth = (monthIndex: number) => {
+    setCurrentDate((prev) => new Date(prev.getFullYear(), monthIndex, 1));
+  };
+
+  const setYear = (year: number) => {
+    setCurrentDate((prev) => new Date(year, prev.getMonth(), 1));
+  };
+
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    const load = async () => {
+      const month = String(selectedMonth + 1).padStart(2, '0');
+      const year = String(selectedYear);
+      const currentReq = (requestIdRef.current += 1);
+
+      setLoading(true);
+      setNotFound(false);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const qs = new URLSearchParams();
+        qs.set('month', month);
+        qs.set('year', year);
+        const res = await api.get<unknown>(
+          `/services/leave-management/list?${qs.toString()}`,
+          token ? { Authorization: token } : undefined
+        );
+
+        if (currentReq !== requestIdRef.current) return;
+
+        if (res.status !== 'success') {
+          setRows([]);
+          setNotFound(res.statusCode === 404);
+          return;
+        }
+
+        const payload = res.data as unknown;
+        const root = toRecord(payload);
+        const dataNode = root.data;
+        const dataObj = toRecord(dataNode);
+        const listNode =
+          (Array.isArray(payload) ? payload : undefined) ??
+          (Array.isArray(dataNode) ? dataNode : undefined) ??
+          (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
+          (Array.isArray(dataObj.rows) ? dataObj.rows : undefined) ??
+          (Array.isArray(dataObj.data) ? dataObj.data : undefined) ??
+          (Array.isArray(root.items) ? root.items : undefined) ??
+          (Array.isArray(root.rows) ? root.rows : undefined) ??
+          (Array.isArray(root.data) ? root.data : undefined) ??
+          [];
+
+        const mapped = (listNode as unknown[]).map((raw, idx) => {
+          const o = toRecord(raw);
+          const employee = toRecord(o.employee ?? o.user ?? o.karyawan);
+          const division = toRecord(o.division ?? employee.division);
+
+          const id = toStringSafe(o.id ?? o.leave_id ?? o.leaveId ?? o.uuid ?? o.request_id ?? o.requestId).trim() || `tmp-${idx}`;
+          const employeeName =
+            toStringSafe(o.employee_name ?? o.employeeName ?? employee.fullname ?? employee.full_name ?? employee.name ?? employee.fullname).trim() ||
+            '-';
+          const divisionName =
+            toStringSafe(o.division_name ?? o.divisionName ?? division.division_name ?? division.name ?? employee.division_name).trim() || '-';
+          const startDate = toStringSafe(o.start_date ?? o.startDate ?? o.date_start ?? o.dateStart ?? o.from_date ?? o.fromDate ?? o.date).trim();
+          const endDate = toStringSafe(o.end_date ?? o.endDate ?? o.date_end ?? o.dateEnd ?? o.to_date ?? o.toDate ?? startDate).trim();
+          const daysRaw = o.total_days ?? o.totalDays ?? o.days ?? o.day_count ?? o.jumlah_hari ?? o.jumlahHari;
+          const totalDays = toNumberSafe(daysRaw) || diffDaysInclusive(startDate, endDate);
+          const leaveType =
+            toStringSafe(o.leave_type ?? o.leaveType ?? o.type_name ?? o.typeName ?? o.leave_type_name ?? o.leaveTypeName).trim() || '-';
+          const status = toStringSafe(o.status ?? o.status_label ?? o.statusLabel ?? o.approval_status ?? o.approvalStatus).trim() || '-';
+          const attachmentRaw =
+            o.attachment ??
+            o.attachment_url ??
+            o.attachmentUrl ??
+            o.file ??
+            o.file_url ??
+            o.fileUrl ??
+            o.document ??
+            o.document_url ??
+            o.documentUrl;
+          const attachmentUrl = toStringSafe(attachmentRaw).trim();
+
+          return {
+            id,
+            employeeName,
+            divisionName,
+            totalDays,
+            startDate,
+            endDate,
+            leaveType,
+            status,
+            attachmentUrl: attachmentUrl ? toFileUrl(attachmentUrl) : undefined,
+          } satisfies LeaveRow;
+        });
+
+        setRows(mapped);
+      } finally {
+        if (currentReq === requestIdRef.current) setLoading(false);
+      }
+    };
+    load();
+    setPage(1);
+  }, [selectedMonth, selectedYear]);
+
+  const columns: Array<DataTableColumn<LeaveRow>> = useMemo(
+    () => [
+      { label: 'Nama', key: 'employeeName', width: '24%' },
+      { label: 'Divisi', key: 'divisionName', width: '18%' },
+      {
+        label: 'Jumlah Hari',
+        key: 'totalDays',
+        width: 120,
+        align: 'center',
+        render: (row) => (row.totalDays > 0 ? row.totalDays : '-'),
+      },
+      {
+        label: 'Tanggal',
+        key: 'startDate',
+        width: '18%',
+        render: (row) => formatDateRange(row.startDate, row.endDate),
+      },
+      { label: 'Jenis Cuti', key: 'leaveType', width: '16%' },
+      {
+        label: 'Status',
+        key: 'status',
+        width: 140,
+        align: 'center',
+        render: (row) => statusBadge(row.status),
+      },
+      {
+        label: 'Action',
+        key: '__action',
+        width: 140,
+        align: 'right',
+        sortable: false,
+        render: (row) => (
+          <div className="flex items-center justify-end gap-2">
+            {row.attachmentUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => window.open(row.attachmentUrl, '_blank', 'noopener,noreferrer')}
+              >
+                Attachment
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" size="sm" className="h-8" disabled>
+              Detail
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeOption[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+
+  const [createForm, setCreateForm] = useState({
+    employeeId: '',
+    replacementEmployeeId: '',
+    leaveType: '',
+    startDate: '',
+    endDate: '',
+    reason: '',
+    attachment: null as File | null,
+  });
+
+  const [scheduleCheck, setScheduleCheck] = useState({
+    employee: { hasSchedule: false, name: '', dateText: '' },
+    replacement: { hasSchedule: false, name: '', dateText: '' },
+  });
+  const [scheduleAlertDismissed, setScheduleAlertDismissed] = useState({ employee: false, replacement: false });
+
+  const resetCreateForm = () => {
+    setCreateForm({
+      employeeId: '',
+      replacementEmployeeId: '',
+      leaveType: '',
+      startDate: '',
+      endDate: '',
+      reason: '',
+      attachment: null,
+    });
+  };
+
+  useEffect(() => {
+    setScheduleAlertDismissed({ employee: false, replacement: false });
+  }, [createForm.employeeId, createForm.replacementEmployeeId, createForm.startDate, createForm.endDate]);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    const loadTypes = async () => {
+      setLeaveTypesLoading(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/services/leave-management/types', token ? { Authorization: token } : undefined);
+        if (res.status !== 'success') {
+          setLeaveTypes([]);
+          return;
+        }
+        const payload = res.data as unknown;
+        const root = toRecord(payload);
+        const dataNode = root.data;
+        const dataObj = toRecord(dataNode);
+        const listNode =
+          (Array.isArray(payload) ? payload : undefined) ??
+          (Array.isArray(dataNode) ? dataNode : undefined) ??
+          (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
+          (Array.isArray(dataObj.rows) ? dataObj.rows : undefined) ??
+          (Array.isArray(dataObj.data) ? dataObj.data : undefined) ??
+          (Array.isArray(root.items) ? root.items : undefined) ??
+          (Array.isArray(root.rows) ? root.rows : undefined) ??
+          (Array.isArray(root.data) ? root.data : undefined) ??
+          [];
+
+        const mapped = (listNode as unknown[]).map((raw, idx) => {
+          const o = toRecord(raw);
+          const value = toStringSafe(o.id ?? o.type_id ?? o.typeId ?? o.code ?? o.value).trim() || `type-${idx}`;
+          const label = toStringSafe(o.name ?? o.type_name ?? o.typeName ?? o.label).trim() || value;
+          return { value, label } satisfies LeaveTypeOption;
+        });
+        setLeaveTypes(mapped);
+      } finally {
+        setLeaveTypesLoading(false);
+      }
+    };
+
+    const loadEmployees = async () => {
+      setEmployeesLoading(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/services/employee/all', token ? { Authorization: token } : undefined);
+        if (res.status !== 'success') {
+          setEmployees([]);
+          return;
+        }
+
+        const payload = res.data as unknown;
+        const root = toRecord(payload);
+        const rootData = root.data;
+        const dataObj = toRecord(rootData);
+        const listNode =
+          (Array.isArray(payload) ? payload : undefined) ??
+          (Array.isArray(rootData) ? rootData : undefined) ??
+          (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
+          (Array.isArray(dataObj.employees) ? dataObj.employees : undefined) ??
+          (Array.isArray(root.employees) ? root.employees : undefined) ??
+          [];
+
+        const mapped = (listNode as unknown[]).map((raw, idx) => {
+          const o = toRecord(raw);
+          const id = toStringSafe(o.uuid ?? o.id ?? o.employee_uuid ?? o.employeeUuid).trim() || `emp-${idx}`;
+          const employeeId = toStringSafe(o.employee_id ?? o.employeeId ?? o.nip ?? o.nik).trim();
+          const fullname = toStringSafe(o.fullname ?? o.full_name ?? o.fullName ?? o.name).trim();
+          const label = `${employeeId || id}${fullname ? ` - ${fullname}` : ''}`.trim();
+          return { value: id, label: label || id } satisfies EmployeeOption;
+        });
+
+        setEmployees(mapped);
+      } finally {
+        setEmployeesLoading(false);
+      }
+    };
+
+    loadTypes();
+    loadEmployees();
+  }, [createOpen]);
+
+  const replacementOptions = useMemo(() => {
+    const selected = createForm.employeeId;
+    return employees.filter((e) => e.value !== selected);
+  }, [createForm.employeeId, employees]);
+
+  const scheduleReqRef = useRef(0);
+
+  useEffect(() => {
+    if (!createOpen) return;
+
+    const employeeId = String(createForm.employeeId ?? '').trim();
+    const replacementEmployeeId = String(createForm.replacementEmployeeId ?? '').trim();
+    const start = String(createForm.startDate ?? '').trim();
+    const end = String(createForm.endDate ?? '').trim();
+
+    const dateText = start && end ? (start === end ? formatDdMmmYy(start) : formatDateRange(start, end)) : '';
+
+    const getEmployeeLabel = (id: string) => employees.find((x) => x.value === id)?.label ?? id;
+    const getEmployeeName = (id: string) => {
+      const label = getEmployeeLabel(id);
+      const parts = label.split(' - ');
+      if (parts.length >= 2) return parts.slice(1).join(' - ').trim() || label;
+      return label;
+    };
+
+    const extractList = (payload: unknown): unknown[] => {
+      if (Array.isArray(payload)) return payload;
+      const root = toRecord(payload);
+      const dataNode = root.data;
+      const dataObj = toRecord(dataNode);
+      const listNode =
+        (Array.isArray(dataNode) ? dataNode : undefined) ??
+        (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
+        (Array.isArray(dataObj.rows) ? dataObj.rows : undefined) ??
+        (Array.isArray(dataObj.data) ? dataObj.data : undefined) ??
+        (Array.isArray(root.items) ? root.items : undefined) ??
+        (Array.isArray(root.rows) ? root.rows : undefined) ??
+        (Array.isArray(root.data) ? root.data : undefined) ??
+        [];
+      return Array.isArray(listNode) ? listNode : [];
+    };
+
+    const reqId = (scheduleReqRef.current += 1);
+
+    const run = async () => {
+      const token = localStorage.getItem('token') ?? '';
+      const headers = token ? { Authorization: token } : undefined;
+
+      const checkOne = async (key: 'employee' | 'replacement', id: string) => {
+        if (!id || !start || !end) {
+          setScheduleCheck((prev) => ({
+            ...prev,
+            [key]: { hasSchedule: false, name: '', dateText: dateText || '' },
+          }));
+          return;
+        }
+
+        const qs = new URLSearchParams();
+        qs.set('employee_id', id);
+        qs.set('start_date', start);
+        qs.set('end_date', end);
+        const res = await api.get<unknown>(`/services/schedule/operations/availibility?${qs.toString()}`, headers);
+
+        if (reqId !== scheduleReqRef.current) return;
+
+        if (res.status !== 'success') {
+          setScheduleCheck((prev) => ({
+            ...prev,
+            [key]: { hasSchedule: false, name: '', dateText },
+          }));
+          return;
+        }
+
+        const list = extractList(res.data as unknown);
+        const hasSchedule = list.length > 0;
+        const name = getEmployeeName(id);
+
+        setScheduleCheck((prev) => ({
+          ...prev,
+          [key]: { hasSchedule, name, dateText },
+        }));
+      };
+
+      await Promise.all([checkOne('employee', employeeId), checkOne('replacement', replacementEmployeeId)]);
+    };
+
+    run();
+  }, [createOpen, createForm.employeeId, createForm.replacementEmployeeId, createForm.startDate, createForm.endDate, employees]);
+
+  const canSave =
+    Boolean(createForm.employeeId) &&
+    Boolean(createForm.leaveType) &&
+    Boolean(createForm.startDate) &&
+    Boolean(createForm.endDate) &&
+    !creating;
+
+  const onSaveCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSave) return;
+    setCreating(true);
+    try {
+      setCreateOpen(false);
+      resetCreateForm();
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const scheduleAlertText = (name: string, dateText: string) =>
+    `${name} memiliki jadwal di tanggal ${dateText}, anda perlu reassign jadwal perjalanan ke karyawan lain`;
+
+  const renderScheduleAlert = (key: 'employee' | 'replacement') => {
+    const info = scheduleCheck[key];
+    const visible = Boolean(info.hasSchedule && info.name && info.dateText && !scheduleAlertDismissed[key]);
+    return (
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-200 ease-out',
+          visible ? 'max-h-[160px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-1 pointer-events-none'
+        )}
+        aria-hidden={!visible}
+      >
+        <div className="rounded-lg border bg-gray-100 dark:bg-gray-900/40 px-4 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm font-medium text-red-600">{scheduleAlertText(info.name, info.dateText)}</div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 w-full sm:w-auto"
+              onClick={() => setScheduleAlertDismissed((p) => ({ ...p, [key]: true }))}
+            >
+              Ok, mengerti
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Leave Management</h1>
-        <p className="text-gray-600 dark:text-gray-300 mt-1">Manage team leave and time off</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Leave Management</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">Kelola cuti dan izin karyawan</p>
+        </div>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Tambah Cuti Baru
+        </Button>
       </div>
-      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
-        <p className="text-gray-600 dark:text-gray-300">No leave data available.</p>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center">
+          <Button type="button" variant="outline" className="h-10 w-full sm:w-auto" onClick={() => navigateMonth('prev')}>
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Prev
+          </Button>
+          <Button type="button" variant="outline" className="h-10 w-full sm:w-auto" onClick={() => navigateMonth('next')}>
+            Next
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-end">
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Bulan</div>
+            <Select value={String(selectedMonth)} onValueChange={(v) => setMonth(Number(v))}>
+              <SelectTrigger className="h-10 w-full sm:w-[220px]">
+                <SelectValue placeholder="Pilih bulan" />
+              </SelectTrigger>
+              <SelectContent>
+                {monthNames.map((m, idx) => (
+                  <SelectItem key={m} value={String(idx)}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Tahun</div>
+            <Select value={String(selectedYear)} onValueChange={(v) => setYear(Number(v))}>
+              <SelectTrigger className="h-10 w-full sm:w-[140px]">
+                <SelectValue placeholder="Pilih tahun" />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
+
+      <DataTable
+        data={rows}
+        columns={columns}
+        loading={loading}
+        emptyTitle={notFound ? 'Not found' : 'Tidak ada data'}
+        emptyDescription={notFound ? 'Data cuti tidak ditemukan.' : 'Belum ada pengajuan cuti pada periode ini.'}
+        pagination={{
+          enabled: true,
+          page,
+          pageSize,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
+      />
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) resetCreateForm();
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-[720px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tambah Cuti Baru</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={onSaveCreate} className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Pilih Karyawan</Label>
+                <Select
+                  value={createForm.employeeId}
+                  onValueChange={(v) =>
+                    setCreateForm((p) => ({
+                      ...p,
+                      employeeId: v,
+                      replacementEmployeeId: p.replacementEmployeeId === v ? '' : p.replacementEmployeeId,
+                    }))
+                  }
+                  disabled={employeesLoading}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder={employeesLoading ? 'Memuat...' : 'Pilih karyawan'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Karyawan Pengganti</Label>
+                <Select
+                  value={createForm.replacementEmployeeId}
+                  onValueChange={(v) => setCreateForm((p) => ({ ...p, replacementEmployeeId: v }))}
+                  disabled={employeesLoading || !createForm.employeeId}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder={employeesLoading ? 'Memuat...' : 'Pilih karyawan pengganti'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {replacementOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tanggal Mulai</Label>
+                <Input
+                  type="date"
+                  className="h-11"
+                  value={createForm.startDate}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, startDate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tanggal Selesai</Label>
+                <Input
+                  type="date"
+                  className="h-11"
+                  value={createForm.endDate}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, endDate: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {renderScheduleAlert('employee')}
+              {renderScheduleAlert('replacement')}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Jenis Cuti</Label>
+                <Select
+                  value={createForm.leaveType}
+                  onValueChange={(v) => setCreateForm((p) => ({ ...p, leaveType: v }))}
+                  disabled={leaveTypesLoading}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder={leaveTypesLoading ? 'Memuat...' : 'Pilih jenis cuti'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leaveTypes.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Lampiran</Label>
+                <Input
+                  type="file"
+                  className={cn('h-11 pt-2')}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, attachment: e.target.files?.[0] ?? null }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Alasan Cuti</Label>
+              <Textarea
+                value={createForm.reason}
+                onChange={(e) => setCreateForm((p) => ({ ...p, reason: e.target.value }))}
+                placeholder="Tulis alasan cuti..."
+                className="min-h-[96px]"
+              />
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
+                Batal
+              </Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!canSave}>
+                {creating ? 'Menyimpan...' : 'Simpan'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
