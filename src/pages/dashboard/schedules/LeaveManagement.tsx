@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { api, toFileUrl } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,10 @@ import { cn } from '@/lib/utils';
 export const LeaveManagement: React.FC = () => {
   type LeaveRow = {
     id: string;
+    employeeId: string;
+    employeeNip: string;
     employeeName: string;
+    employeeAvatarUrl?: string;
     divisionName: string;
     totalDays: number;
     startDate: string;
@@ -101,6 +105,9 @@ export const LeaveManagement: React.FC = () => {
     return <Badge variant="outline">{status}</Badge>;
   };
 
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -186,18 +193,29 @@ export const LeaveManagement: React.FC = () => {
           const employee = toRecord(o.employee ?? o.user ?? o.karyawan);
           const division = toRecord(o.division ?? employee.division);
 
-          const id = toStringSafe(o.id ?? o.leave_id ?? o.leaveId ?? o.uuid ?? o.request_id ?? o.requestId).trim() || `tmp-${idx}`;
+          const id = toStringSafe(o.leave_id ?? o.leaveId ?? o.id ?? o.uuid ?? o.request_id ?? o.requestId).trim() || `tmp-${idx}`;
+
+          const employeeId = toStringSafe(o.employee_id ?? o.employeeId ?? employee.uuid ?? employee.id ?? employee.employee_uuid ?? employee.employeeUuid).trim();
+          const employeeNip = toStringSafe(o.employee_nip ?? o.employeeNip ?? employee.nip ?? employee.nik).trim();
           const employeeName =
-            toStringSafe(o.employee_name ?? o.employeeName ?? employee.fullname ?? employee.full_name ?? employee.name ?? employee.fullname).trim() ||
+            toStringSafe(o.customer_name ?? o.customerName ?? o.employee_name ?? o.employeeName ?? employee.fullname ?? employee.full_name ?? employee.name).trim() ||
             '-';
+          const avatarRaw = o.avatar ?? o.avatar_url ?? o.avatarUrl ?? employee.avatar_url ?? employee.avatarUrl ?? employee.avatar;
+          const employeeAvatarUrl = toStringSafe(avatarRaw).trim();
+
           const divisionName =
             toStringSafe(o.division_name ?? o.divisionName ?? division.division_name ?? division.name ?? employee.division_name).trim() || '-';
+
           const startDate = toStringSafe(o.start_date ?? o.startDate ?? o.date_start ?? o.dateStart ?? o.from_date ?? o.fromDate ?? o.date).trim();
           const endDate = toStringSafe(o.end_date ?? o.endDate ?? o.date_end ?? o.dateEnd ?? o.to_date ?? o.toDate ?? startDate).trim();
-          const daysRaw = o.total_days ?? o.totalDays ?? o.days ?? o.day_count ?? o.jumlah_hari ?? o.jumlahHari;
-          const totalDays = toNumberSafe(daysRaw) || diffDaysInclusive(startDate, endDate);
+
+          const totalDays = diffDaysInclusive(startDate, endDate);
+
           const leaveType =
-            toStringSafe(o.leave_type ?? o.leaveType ?? o.type_name ?? o.typeName ?? o.leave_type_name ?? o.leaveTypeName).trim() || '-';
+            toStringSafe(o.leave_type_label ?? o.leaveTypeLabel ?? o.type_label ?? o.typeLabel).trim() ||
+            toStringSafe(o.leave_type ?? o.leaveType ?? o.type_name ?? o.typeName ?? o.leave_type_name ?? o.leaveTypeName).trim() ||
+            '-';
+
           const status = toStringSafe(o.status ?? o.status_label ?? o.statusLabel ?? o.approval_status ?? o.approvalStatus).trim() || '-';
           const attachmentRaw =
             o.attachment ??
@@ -213,7 +231,10 @@ export const LeaveManagement: React.FC = () => {
 
           return {
             id,
+            employeeId,
+            employeeNip,
             employeeName,
+            employeeAvatarUrl: employeeAvatarUrl ? toFileUrl(employeeAvatarUrl) : undefined,
             divisionName,
             totalDays,
             startDate,
@@ -235,7 +256,29 @@ export const LeaveManagement: React.FC = () => {
 
   const columns: Array<DataTableColumn<LeaveRow>> = useMemo(
     () => [
-      { label: 'Nama', key: 'employeeName', width: '24%' },
+      {
+        label: 'Nama',
+        key: 'employeeName',
+        width: '28%',
+        render: (row) => {
+          const href = `${basePrefix}/organization/team-members/detail/${encodeURIComponent(row.employeeId || '')}`;
+          return (
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-muted">
+                {row.employeeAvatarUrl ? (
+                  <img src={row.employeeAvatarUrl} alt={row.employeeName} className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+              <div className="min-w-0">
+                <Link to={href} className="font-medium text-blue-700 hover:underline dark:text-blue-300 truncate block">
+                  {row.employeeName || '-'}
+                </Link>
+                <div className="text-xs text-muted-foreground truncate">{row.employeeNip || '-'}</div>
+              </div>
+            </div>
+          );
+        },
+      },
       { label: 'Divisi', key: 'divisionName', width: '18%' },
       {
         label: 'Jumlah Hari',
@@ -300,6 +343,7 @@ export const LeaveManagement: React.FC = () => {
 
   const [createForm, setCreateForm] = useState({
     employeeId: '',
+    employeeNip: '',
     replacementEmployeeId: '',
     leaveType: '',
     startDate: '',
@@ -317,6 +361,7 @@ export const LeaveManagement: React.FC = () => {
   const resetCreateForm = () => {
     setCreateForm({
       employeeId: '',
+      employeeNip: '',
       replacementEmployeeId: '',
       leaveType: '',
       startDate: '',
@@ -401,9 +446,9 @@ export const LeaveManagement: React.FC = () => {
         const mapped = (listNode as unknown[]).map((raw, idx) => {
           const o = toRecord(raw);
           const id = toStringSafe(o.uuid ?? o.id ?? o.employee_uuid ?? o.employeeUuid).trim() || `emp-${idx}`;
-          const employeeId = toStringSafe(o.employee_id ?? o.employeeId ?? o.nip ?? o.nik).trim();
+          const employeeNip = toStringSafe(o.employee_nip ?? o.employeeNip ?? o.nip ?? o.nik).trim();
           const fullname = toStringSafe(o.fullname ?? o.full_name ?? o.fullName ?? o.name).trim();
-          const label = `${employeeId || id}${fullname ? ` - ${fullname}` : ''}`.trim();
+          const label = `${employeeNip || id}${fullname ? ` - ${fullname}` : ''}`.trim();
           return { value: id, label: label || id } satisfies EmployeeOption;
         });
 
@@ -525,13 +570,13 @@ export const LeaveManagement: React.FC = () => {
       const headers = token ? { Authorization: token } : undefined;
       const payload: Record<string, unknown> = {
         employee_id: String(createForm.employeeId ?? '').trim(),
-        leave_type_id: String(createForm.leaveType ?? '').trim(),
+        leave_type: String(createForm.leaveType ?? '').trim(),
         start_date: String(createForm.startDate ?? '').trim(),
         end_date: String(createForm.endDate ?? '').trim(),
         reason: String(createForm.reason ?? '').trim(),
       };
       const replacement = String(createForm.replacementEmployeeId ?? '').trim();
-      if (replacement) payload.replacement_employee_id = replacement;
+      if (replacement) payload.substitute_id = replacement;
       if (attachmentPath.trim()) payload.attachment_path = attachmentPath.trim();
 
       const res = await api.post<unknown>('/services/leave-management/create', payload, headers);
