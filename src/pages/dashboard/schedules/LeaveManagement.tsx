@@ -107,6 +107,7 @@ export const LeaveManagement: React.FC = () => {
   const [rows, setRows] = useState<LeaveRow[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const monthNames = useMemo(
     () => ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'],
@@ -230,7 +231,7 @@ export const LeaveManagement: React.FC = () => {
     };
     load();
     setPage(1);
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, reloadKey]);
 
   const columns: Array<DataTableColumn<LeaveRow>> = useMemo(
     () => [
@@ -293,6 +294,9 @@ export const LeaveManagement: React.FC = () => {
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypeOption[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [attachmentPath, setAttachmentPath] = useState('');
+  const [attachmentError, setAttachmentError] = useState('');
 
   const [createForm, setCreateForm] = useState({
     employeeId: '',
@@ -320,6 +324,14 @@ export const LeaveManagement: React.FC = () => {
       reason: '',
       attachment: null,
     });
+    setAttachmentUploading(false);
+    setAttachmentPath('');
+    setAttachmentError('');
+    setScheduleCheck({
+      employee: { hasSchedule: false, name: '', dateText: '' },
+      replacement: { hasSchedule: false, name: '', dateText: '' },
+    });
+    setScheduleAlertDismissed({ employee: false, replacement: false });
   };
 
   useEffect(() => {
@@ -430,21 +442,21 @@ export const LeaveManagement: React.FC = () => {
       return label;
     };
 
-    const extractList = (payload: unknown): unknown[] => {
+    const extractItems = (payload: unknown): unknown[] => {
       if (Array.isArray(payload)) return payload;
       const root = toRecord(payload);
       const dataNode = root.data;
       const dataObj = toRecord(dataNode);
-      const listNode =
-        (Array.isArray(dataNode) ? dataNode : undefined) ??
+      const itemsNode =
         (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
+        (Array.isArray(root.items) ? root.items : undefined) ??
+        (Array.isArray(dataNode) ? dataNode : undefined) ??
         (Array.isArray(dataObj.rows) ? dataObj.rows : undefined) ??
         (Array.isArray(dataObj.data) ? dataObj.data : undefined) ??
-        (Array.isArray(root.items) ? root.items : undefined) ??
         (Array.isArray(root.rows) ? root.rows : undefined) ??
         (Array.isArray(root.data) ? root.data : undefined) ??
         [];
-      return Array.isArray(listNode) ? listNode : [];
+      return Array.isArray(itemsNode) ? itemsNode : [];
     };
 
     const reqId = (scheduleReqRef.current += 1);
@@ -478,8 +490,9 @@ export const LeaveManagement: React.FC = () => {
           return;
         }
 
-        const list = extractList(res.data as unknown);
-        const hasSchedule = list.length > 0;
+        const items = extractItems(res.data as unknown);
+        const isAvailable = items.length > 0;
+        const hasSchedule = !isAvailable;
         const name = getEmployeeName(id);
 
         setScheduleCheck((prev) => ({
@@ -499,6 +512,8 @@ export const LeaveManagement: React.FC = () => {
     Boolean(createForm.leaveType) &&
     Boolean(createForm.startDate) &&
     Boolean(createForm.endDate) &&
+    (!createForm.attachment || Boolean(attachmentPath)) &&
+    !attachmentUploading &&
     !creating;
 
   const onSaveCreate = async (e: React.FormEvent) => {
@@ -506,8 +521,25 @@ export const LeaveManagement: React.FC = () => {
     if (!canSave) return;
     setCreating(true);
     try {
+      const token = localStorage.getItem('token') ?? '';
+      const headers = token ? { Authorization: token } : undefined;
+      const payload: Record<string, unknown> = {
+        employee_id: String(createForm.employeeId ?? '').trim(),
+        leave_type_id: String(createForm.leaveType ?? '').trim(),
+        start_date: String(createForm.startDate ?? '').trim(),
+        end_date: String(createForm.endDate ?? '').trim(),
+        reason: String(createForm.reason ?? '').trim(),
+      };
+      const replacement = String(createForm.replacementEmployeeId ?? '').trim();
+      if (replacement) payload.replacement_employee_id = replacement;
+      if (attachmentPath.trim()) payload.attachment_path = attachmentPath.trim();
+
+      const res = await api.post<unknown>('/services/leave-management/create', payload, headers);
+      if (res.status !== 'success') return;
+
       setCreateOpen(false);
       resetCreateForm();
+      setReloadKey((k) => k + 1);
     } finally {
       setCreating(false);
     }
@@ -543,6 +575,64 @@ export const LeaveManagement: React.FC = () => {
         </div>
       </div>
     );
+  };
+
+  const extractAttachmentPath = (payload: unknown): string => {
+    if (typeof payload === 'string') return payload.trim();
+    const root = toRecord(payload);
+    const dataNode = root.data;
+    const dataObj = toRecord(dataNode);
+    const direct =
+      toStringSafe(
+        root.attachment_path ??
+          root.attachmentPath ??
+          root.path ??
+          root.file ??
+          root.file_path ??
+          root.filePath ??
+          root.url ??
+          root.first_url ??
+          dataObj.attachment_path ??
+          dataObj.attachmentPath ??
+          dataObj.path ??
+          dataObj.file ??
+          dataObj.file_path ??
+          dataObj.filePath ??
+          dataObj.url ??
+          dataObj.first_url
+      ).trim();
+    if (direct) return direct;
+    const filesRaw = root.files ?? dataObj.files;
+    if (Array.isArray(filesRaw) && filesRaw.length > 0) return toStringSafe(filesRaw[0]).trim();
+    return '';
+  };
+
+  const onAttachmentChange = async (file: File | null) => {
+    setCreateForm((p) => ({ ...p, attachment: file }));
+    setAttachmentError('');
+    setAttachmentPath('');
+    if (!file) return;
+
+    setAttachmentUploading(true);
+    try {
+      const token = localStorage.getItem('token') ?? '';
+      const headers = token ? { Authorization: token } : undefined;
+      const fd = new FormData();
+      fd.append('files', file);
+      const res = await api.post<unknown>('/services/leave-management/attachment', fd, headers);
+      if (res.status !== 'success') {
+        setAttachmentError('Upload gagal');
+        return;
+      }
+      const path = extractAttachmentPath(res.data as unknown);
+      if (!path) {
+        setAttachmentError('Upload gagal');
+        return;
+      }
+      setAttachmentPath(path);
+    } finally {
+      setAttachmentUploading(false);
+    }
   };
 
   return (
@@ -629,6 +719,7 @@ export const LeaveManagement: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Tambah Cuti Baru</DialogTitle>
           </DialogHeader>
+          <div className="text-sm text-muted-foreground">Lengkapi form berikut untuk membuat pengajuan cuti.</div>
           <form onSubmit={onSaveCreate} className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -728,8 +819,16 @@ export const LeaveManagement: React.FC = () => {
                 <Input
                   type="file"
                   className={cn('h-11 pt-2')}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, attachment: e.target.files?.[0] ?? null }))}
+                  disabled={attachmentUploading}
+                  onChange={(e) => onAttachmentChange(e.target.files?.[0] ?? null)}
                 />
+                {attachmentUploading ? (
+                  <div className="text-xs text-muted-foreground">Mengunggah...</div>
+                ) : attachmentError ? (
+                  <div className="text-xs text-red-600">{attachmentError}</div>
+                ) : attachmentPath ? (
+                  <div className="text-xs text-emerald-700">Lampiran terunggah</div>
+                ) : null}
               </div>
             </div>
 
@@ -743,13 +842,17 @@ export const LeaveManagement: React.FC = () => {
               />
             </div>
 
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
-                Batal
-              </Button>
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!canSave}>
-                {creating ? 'Menyimpan...' : 'Simpan'}
-              </Button>
+            <div className="space-y-3">
+              <div className="text-xs text-muted-foreground">Periksa kembali data sebelum menyimpan.</div>
+              <div className="h-px bg-border" />
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={creating || attachmentUploading}>
+                  Batal
+                </Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!canSave}>
+                  {creating ? 'Menyimpan...' : 'Simpan'}
+                </Button>
+              </div>
             </div>
           </form>
         </DialogContent>
