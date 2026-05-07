@@ -43,6 +43,8 @@ type FleetItem = {
   fleet_type: string;
   quantity: number;
   price: number;
+  addon_amount: number;
+  addons: Array<{ addon_name: string; addon_price: number }>;
   charge_amount: number;
   discount: number;
   sub_total: number;
@@ -718,30 +720,54 @@ export const OrderDetail: React.FC = () => {
       const itinerary = Object.values(groupedItinerary).sort((a, b) => a.day - b.day);
 
       const fleetsRaw = detail.fleets;
-      const fleets: FleetItem[] = Array.isArray(fleetsRaw) ? fleetsRaw.map((fleet: unknown) => {
-        const f = record(fleet);
-        const quantity = getNumber(f.quantity ?? f.qty, 0);
-        const price = getNumber(f.price, 0);
-        const subTotal = quantity * price;
-        return {
-          fleet_id: getString(f.fleet_id ?? f.fleetId, ''),
-          fleet_name: getString(f.fleet_name ?? f.fleetName, ''),
-          fleet_type: getString(f.fleet_type ?? f.fleetType, ''),
-          quantity,
-          price,
-          charge_amount: getNumber(f.charge_amount ?? f.chargeAmount, 0),
-          discount: getNumber(f.discount, 0),
-          sub_total: subTotal,
-          order_id: getString(f.order_id ?? f.orderId, ''),
-          order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
-          price_id: getString(f.price_id ?? f.priceId, ''),
-        };
-      }) : [];
+      const fleets: FleetItem[] = Array.isArray(fleetsRaw)
+        ? fleetsRaw.map((fleet: unknown) => {
+            const f = record(fleet);
+            const quantity = getNumber(f.quantity ?? f.qty, 0);
+            const price = getNumber(f.price, 0);
+            const chargeAmount = getNumber(f.charge_amount ?? f.chargeAmount, 0);
+            const discountAmount = getNumber(f.discount, 0);
+            const addonAmount = getNumber(f.addon_amount ?? f.addonAmount, 0);
 
-      const subtotalSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.sub_total) ? f.sub_total : 0), 0);
+            const addonsRaw = f.addons ?? f.addon;
+            const addonsArr = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
+            const addons = addonsArr
+              .map((a) => record(a))
+              .map((a) => {
+                const addon_name = getString(a.addon_name ?? a.addonName ?? a.name ?? a.title, '').trim();
+                const addon_price = getNumber(a.addon_price ?? a.addonPrice ?? a.price, 0);
+                return addon_name ? { addon_name, addon_price } : null;
+              })
+              .filter((x): x is { addon_name: string; addon_price: number } => Boolean(x));
+
+            const subTotalFromRes = getNumber(f.sub_total ?? f.subTotal, NaN);
+            const computedSubTotal = Math.max(0, (price + addonAmount + chargeAmount - discountAmount) * quantity);
+            const subTotal = Number.isFinite(subTotalFromRes) ? subTotalFromRes : computedSubTotal;
+
+            return {
+              fleet_id: getString(f.fleet_id ?? f.fleetId, ''),
+              fleet_name: getString(f.fleet_name ?? f.fleetName, ''),
+              fleet_type: getString(f.fleet_type ?? f.fleetType, ''),
+              quantity,
+              price,
+              addon_amount: addonAmount,
+              addons,
+              charge_amount: chargeAmount,
+              discount: discountAmount,
+              sub_total: subTotal,
+              order_id: getString(f.order_id ?? f.orderId, ''),
+              order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
+              price_id: getString(f.price_id ?? f.priceId, ''),
+            };
+          })
+        : [];
+
       const discountSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.discount) ? f.discount : 0), 0);
       const chargeSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.charge_amount) ? f.charge_amount : 0), 0);
-      const computedTotalAmount = Math.max(0, subtotalSum + chargeSum - discountSum);
+      const addonSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0), 0);
+      const originalSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.price) ? f.price : 0) * (Number.isFinite(f.quantity) ? f.quantity : 0), 0);
+      const computedTotalFallback = Math.max(0, originalSum + addonSum + chargeSum - discountSum);
+      const totalFromRes = getNumber(detail.total_amount ?? detail.totalAmount, computedTotalFallback);
 
       const remainingAmountRaw = hasPaymentInfo
         ? getNumber(
@@ -751,10 +777,10 @@ export const OrderDetail: React.FC = () => {
               payment.remainingAmount ??
               detail.payment_remaining ??
               detail.paymentRemaining,
-            computedTotalAmount
+            totalFromRes
           )
-        : computedTotalAmount;
-      const remainingAmount = hasPaymentInfo ? Math.min(remainingAmountRaw, computedTotalAmount) : computedTotalAmount;
+        : totalFromRes;
+      const remainingAmount = hasPaymentInfo ? Math.min(remainingAmountRaw, totalFromRes) : totalFromRes;
 
       const next: OrderData = {
         ...createEmptyOrderData(orderId),
@@ -771,10 +797,10 @@ export const OrderDetail: React.FC = () => {
         endDate,
         participants: quantity,
         status: getString(detail.status, paymentStatus === 'paid' ? 'success' : 'pending'),
-        totalAmount: computedTotalAmount,
+        totalAmount: totalFromRes,
         remainingAmount,
         additionalAmount: chargeSum,
-        originalAmount: subtotalSum,
+        originalAmount: originalSum,
         discount: discountSum,
         createdAt,
         paymentStatus,
@@ -1678,6 +1704,7 @@ export const OrderDetail: React.FC = () => {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="cursor-pointer"
+                  disabled={Math.max(0, orderData.totalAmount - orderData.remainingAmount) <= 0}
                   onSelect={(e) => {
                     e.preventDefault();
                     onPrintInvoice();
@@ -1832,13 +1859,25 @@ export const OrderDetail: React.FC = () => {
                             {orderData.fleets && orderData.fleets.map((fleet, index) => (
                               <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}>
                                 <td className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-sm text-center">{index + 1}</td>
-                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">{fleet.fleet_name}</td>
+                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
+                                  <div className="text-sm">{fleet.fleet_name}</div>
+                                  {Array.isArray(fleet.addons) && fleet.addons.length > 0 ? (
+                                    <div className="text-xs opacity-70 mt-1">
+                                      {fleet.addons
+                                        .map((a) => `${a.addon_name}${a.addon_price > 0 ? ` (${formatCurrency(a.addon_price)})` : ''}`)
+                                        .join(' • ')}
+                                    </div>
+                                  ) : null}
+                                </td>
                                 <td className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-sm text-right whitespace-nowrap text-center">{fleet.quantity} unit</td>
                                 <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">
-                                  Rp {fleet.price.toLocaleString('id-ID')}
+                                  <div>Rp {fleet.price.toLocaleString('id-ID')}</div>
+                                  {Array.isArray(fleet.addons) && fleet.addons.length > 0 ? (
+                                    <div className="text-xs opacity-70 mt-1">{formatCurrency(fleet.addon_amount || 0)}</div>
+                                  ) : null}
                                 </td>
                                 <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right font-medium">
-                                  Rp {(fleet.quantity * fleet.price).toLocaleString('id-ID')}
+                                  Rp {(Number.isFinite(fleet.sub_total) ? fleet.sub_total : fleet.quantity * fleet.price).toLocaleString('id-ID')}
                                 </td>
                               </tr>
                             ))}
@@ -1853,6 +1892,17 @@ export const OrderDetail: React.FC = () => {
                         <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
                           <span>Biaya Lain</span>
                           <span>{formatCurrency(orderData.additionalAmount || 0)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+                          <span>Total Addon</span>
+                          <span>
+                            {formatCurrency(
+                              (orderData.fleets ?? []).reduce(
+                                (acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0),
+                                0
+                              )
+                            )}
+                          </span>
                         </div>
                         <div className="flex justify-between text-sm font-semibold text-gray-900 dark:text-white pt-1">
                           <span>Total</span>
@@ -2020,6 +2070,17 @@ export const OrderDetail: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-300">Biaya Lain</span>
                       <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(orderData.additionalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Total Addon</span>
+                      <span className="text-sm text-gray-900 dark:text-white">
+                        {formatCurrency(
+                          (orderData.fleets ?? []).reduce(
+                            (acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0),
+                            0
+                          )
+                        )}
+                      </span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-medium">

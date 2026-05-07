@@ -1660,10 +1660,7 @@ export const FleetOrderForm: React.FC = () => {
                   <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                     <div className="text-sm font-medium text-gray-500">
                       Subtotal: {formatRupiahFromNumber(
-                        (row.fleet_prices.find(p => p.price_id === row.price_id)?.price ?? 0) * digitsToNumber(row.qty) +
-                        getAddonUnitPrice(row) * digitsToNumber(row.qty) +
-                        digitsToNumber(row.biaya_lain) * digitsToNumber(row.qty) -
-                        digitsToNumber(row.discount) * digitsToNumber(row.qty)
+                        (row.fleet_prices.find(p => p.price_id === row.price_id)?.price ?? 0) * digitsToNumber(row.qty)
                       )}
                     </div>
                     <Button
