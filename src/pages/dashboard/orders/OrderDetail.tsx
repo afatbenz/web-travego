@@ -1877,7 +1877,7 @@ export const OrderDetail: React.FC = () => {
                                   ) : null}
                                 </td>
                                 <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right font-medium">
-                                  Rp {(Number.isFinite(fleet.sub_total) ? fleet.sub_total : fleet.quantity * fleet.price).toLocaleString('id-ID')}
+                                  Rp {((fleet.price + (fleet.addon_amount || 0)) * fleet.quantity).toLocaleString('id-ID')}
                                 </td>
                               </tr>
                             ))}
@@ -1892,17 +1892,6 @@ export const OrderDetail: React.FC = () => {
                         <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
                           <span>Biaya Lain</span>
                           <span>{formatCurrency(orderData.additionalAmount || 0)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-                          <span>Total Addon</span>
-                          <span>
-                            {formatCurrency(
-                              (orderData.fleets ?? []).reduce(
-                                (acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0),
-                                0
-                              )
-                            )}
-                          </span>
                         </div>
                         <div className="flex justify-between text-sm font-semibold text-gray-900 dark:text-white pt-1">
                           <span>Total</span>
