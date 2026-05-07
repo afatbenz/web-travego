@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Settings, Pencil, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer } from 'lucide-react';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -195,12 +196,307 @@ export const OrderDetail: React.FC = () => {
     return s === 'pending' || s === 'paid' || s === 'lunas' || s === 'success';
   })();
 
+  const isEditDisabled = (() => {
+    const raw = String(orderData.pickup?.start_date ?? orderData.startDate ?? '').trim();
+    if (!raw) return false;
+    const parsed = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T'));
+    if (Number.isNaN(parsed.getTime())) return false;
+    const startDay = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return startDay.getTime() <= today.getTime();
+  })();
+
+  const isPaymentDisabled = (() => {
+    const s = String(orderData.paymentStatus ?? '').toLowerCase().trim();
+    return s === 'paid' || s === 'lunas' || s === 'success';
+  })();
+
   const scheduleUrlSuffix = (() => {
     const qs = new URLSearchParams();
     if (orderData.id) qs.set('order_id', orderData.id);
     if (orderData.fleetId) qs.set('fleet_id', orderData.fleetId);
     return qs.toString() ? `?${qs.toString()}` : '';
   })();
+
+  const onEditOrder = () => {
+    const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
+    navigate(`${basePrefix}/orders/fleet/form?order_id=${encodeURIComponent(resolvedId)}`);
+  };
+
+  const onViewScheduleArmadaTim = () => {
+    if (!showScheduleButton) return;
+    const resolvedId = (orderData.id || orderId || '').trim();
+    if (!resolvedId) return;
+    if (orderData.scheduled) {
+      navigate(`${basePrefix}/team/schedule-fleet/detail/${encodeURIComponent(resolvedId)}`);
+      return;
+    }
+    navigate(`${basePrefix}/team/schedule-armada/add${scheduleUrlSuffix}`);
+  };
+
+  const onCancelOrder = async () => {
+    const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
+    if (!resolvedId) return;
+    const result = await Swal.fire({
+      title: 'Batalkan pesanan?',
+      input: 'textarea',
+      inputLabel: 'Alasan pembatalan',
+      inputPlaceholder: 'Tulis alasan pembatalan...',
+      inputAttributes: { autocapitalize: 'off' },
+      showCancelButton: true,
+      confirmButtonText: 'Batalkan',
+      cancelButtonText: 'Batal',
+      preConfirm: (reason) => {
+        const v = String(reason ?? '').trim();
+        if (!v) {
+          Swal.showValidationMessage('Alasan wajib diisi');
+          return false;
+        }
+        return v;
+      },
+    });
+    if (!result.isConfirmed) return;
+    const reason = String(result.value ?? '').trim();
+    const token = localStorage.getItem('token') ?? '';
+    const res = await api.post<unknown>(
+      '/services/fleet/order/cancel',
+      { order_id: resolvedId, reason },
+      token ? { Authorization: token } : undefined
+    );
+    if (res && res.status === 'success') {
+      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan dibatalkan.' });
+      navigate(`${basePrefix}/orders/fleet`);
+      return;
+    }
+    await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal membatalkan pesanan.' });
+  };
+
+  const escapeHtml = (value: string) =>
+    String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+  const onPrintSuratPesanan = async () => {
+    const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
+    if (!resolvedId) return;
+    const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+    const popup = window.open('about:blank', '_blank');
+    if (popup) {
+      try {
+        popup.opener = null;
+      } catch {
+        void 0;
+      }
+      try {
+        popup.document.open();
+        popup.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Memproses Surat</title>
+    <style>
+      body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0b1220; color: #e5e7eb; }
+      .wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 24px; }
+      .card { width: min(560px, 100%); background: rgba(17, 24, 39, 0.75); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 20px; }
+      .title { font-weight: 800; font-size: 18px; margin: 0 0 10px 0; }
+      .desc { margin: 0; line-height: 1.5; color: #cbd5e1; }
+      .row { display:flex; gap: 12px; align-items:center; margin-top: 14px; }
+      .spinner { width: 18px; height: 18px; border-radius: 999px; border: 2px solid rgba(255,255,255,0.18); border-top-color: #ffffff; animation: spin 0.9s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .hint { margin-top: 12px; font-size: 12px; color: #94a3b8; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="title">Surat sedang diproses</div>
+        <p class="desc">Surat sedang diproses. Mohon tunggu dan izinkan popup.</p>
+        <div class="row">
+          <div class="spinner"></div>
+          <div>Menunggu respon server...</div>
+        </div>
+        <div class="hint">Tab ini akan otomatis terbuka ke dokumen setelah proses selesai.</div>
+      </div>
+    </div>
+  </body>
+</html>`);
+        popup.document.close();
+      } catch {
+        void 0;
+      }
+    }
+    void Swal.fire({
+      title: 'Surat sedang diproses',
+      text: 'Surat sedang diproses. Mohon tunggu dan izinkan popup',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+    const token = localStorage.getItem('token') ?? '';
+    const base = String(import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api').replace(/\/+$/, '');
+    const url = `${base}/services/print-management/fleet/order`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/pdf, application/octet-stream, application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: token } : {}),
+        },
+        body: JSON.stringify({ order_id: resolvedId }),
+      });
+
+      const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+      if (!res.ok) throw new Error('PRINT_FAILED');
+
+      if (contentType.includes('application/json')) {
+        const json = (await res.json().catch(() => null)) as unknown;
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const root = record(json);
+        const dataNode = record(root.data);
+        const urlCandidate =
+          String(dataNode.url ?? dataNode.file_url ?? dataNode.fileUrl ?? dataNode.path ?? dataNode.file ?? root.url ?? root.path ?? '').trim();
+        if (urlCandidate) {
+          const finalUrl = toFileUrl(urlCandidate);
+          await wait(700);
+          if (popup) popup.location.href = finalUrl;
+          else window.open(finalUrl, '_blank', 'noopener,noreferrer');
+          return;
+        }
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Surat pesanan berhasil digenerate.' });
+        if (popup) popup.close();
+        return;
+      }
+
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      await wait(700);
+      if (popup) popup.location.href = blobUrl;
+      else {
+        const opened = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        if (!opened) {
+          await Swal.fire({ icon: 'warning', title: 'Popup diblokir', text: 'Izinkan popup untuk melihat dokumen.' });
+        }
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+    } catch {
+      if (popup) popup.close();
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal generate surat pesanan.' });
+    } finally {
+      Swal.close();
+    }
+  };
+
+  const onPrintInvoice = async () => {
+    const resolvedOrderId = (orderData.id || orderId || routeOrderId || '').trim();
+    if (!resolvedOrderId) return;
+
+    const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+    const startedAt = Date.now();
+
+    const popup = window.open('about:blank', '_blank');
+    if (popup) {
+      try {
+        popup.opener = null;
+      } catch {
+        void 0;
+      }
+      try {
+        popup.document.open();
+        popup.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Invoice</title>
+    <style>
+      body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0b1220; color: #e5e7eb; }
+      .wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 24px; }
+      .card { width: min(560px, 100%); background: rgba(17, 24, 39, 0.75); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 20px; }
+      .title { font-weight: 800; font-size: 18px; margin: 0 0 10px 0; }
+      .desc { margin: 0; line-height: 1.5; color: #cbd5e1; }
+      .row { display:flex; gap: 12px; align-items:center; margin-top: 14px; }
+      .spinner { width: 18px; height: 18px; border-radius: 999px; border: 2px solid rgba(255,255,255,0.18); border-top-color: #ffffff; animation: spin 0.9s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .hint { margin-top: 12px; font-size: 12px; color: #94a3b8; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="title">Invoice sedang disiapkan</div>
+        <p class="desc">Mohon tunggu. Tab ini akan terbuka otomatis setelah invoice siap.</p>
+        <div class="row">
+          <div class="spinner"></div>
+          <div>Menunggu respon server...</div>
+        </div>
+        <div class="hint">Pastikan popup diizinkan.</div>
+      </div>
+    </div>
+  </body>
+</html>`);
+        popup.document.close();
+      } catch {
+        void 0;
+      }
+    }
+
+    try {
+      const token = localStorage.getItem('token') ?? '';
+      const base = String(import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api').replace(/\/+$/, '');
+      const url = `${base}/services/print-management/fleet/invoice`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/pdf, application/octet-stream, application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: token } : {}),
+        },
+        body: JSON.stringify({ order_id: resolvedOrderId }),
+      });
+
+      if (!res.ok) throw new Error('INVOICE_PRINT_FAILED');
+
+      const waitMs = Math.max(0, 5000 - (Date.now() - startedAt));
+      const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+
+      if (contentType.includes('application/json')) {
+        const json = (await res.json().catch(() => null)) as unknown;
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const root = record(json);
+        const dataNode = record(root.data);
+        const urlCandidate =
+          String(dataNode.url ?? dataNode.file_url ?? dataNode.fileUrl ?? dataNode.path ?? dataNode.file ?? root.url ?? root.path ?? '').trim();
+        if (!urlCandidate) throw new Error('INVOICE_URL_EMPTY');
+
+        await wait(waitMs);
+        const finalUrl = toFileUrl(urlCandidate);
+        if (popup) popup.location.href = finalUrl;
+        else window.open(finalUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      await wait(waitMs);
+      if (popup) popup.location.href = blobUrl;
+      else window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+    } catch {
+      if (popup) popup.close();
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal menyiapkan invoice.' });
+    }
+  };
 
   const canRefund = (() => {
     const status = String(orderData.paymentStatus ?? '').toLowerCase().trim();
@@ -349,22 +645,6 @@ export const OrderDetail: React.FC = () => {
       const paymentStatus = normalizePaymentStatus(detail.payment_status ?? payment.status ?? payment.payment_status);
 
       const quantity = getNumber(detail.quantity ?? detail.qty ?? detail.unit_qty ?? detail.unitQty, 0);
-      const price = getNumber(detail.price, 0);
-      const totalAmount = getNumber(detail.total_amount ?? detail.totalAmount, 0);
-      const additionalAmount = getNumber(detail.additional_amount ?? detail.additionalAmount, 0);
-      const originalAmount = price > 0 && quantity > 0 ? price * quantity : getNumber(detail.original_amount ?? detail.originalAmount, totalAmount);
-      const discount = Math.max(0, originalAmount - totalAmount);
-      const remainingAmount = hasPaymentInfo
-        ? getNumber(
-            payment.payment_remaining ??
-              payment.paymentRemaining ??
-              payment.remaining_amount ??
-              payment.remainingAmount ??
-              detail.payment_remaining ??
-              detail.paymentRemaining,
-            totalAmount
-          )
-        : totalAmount;
 
       const startDate = getString(pickup.start_date ?? pickup.startDate, '');
       const endDate = getString(pickup.end_date ?? pickup.endDate, '');
@@ -440,20 +720,41 @@ export const OrderDetail: React.FC = () => {
       const fleetsRaw = detail.fleets;
       const fleets: FleetItem[] = Array.isArray(fleetsRaw) ? fleetsRaw.map((fleet: unknown) => {
         const f = record(fleet);
+        const quantity = getNumber(f.quantity ?? f.qty, 0);
+        const price = getNumber(f.price, 0);
+        const subTotal = quantity * price;
         return {
           fleet_id: getString(f.fleet_id ?? f.fleetId, ''),
           fleet_name: getString(f.fleet_name ?? f.fleetName, ''),
           fleet_type: getString(f.fleet_type ?? f.fleetType, ''),
-          quantity: getNumber(f.quantity ?? f.qty, 0),
-          price: getNumber(f.price, 0),
+          quantity,
+          price,
           charge_amount: getNumber(f.charge_amount ?? f.chargeAmount, 0),
           discount: getNumber(f.discount, 0),
-          sub_total: getNumber(f.sub_total ?? f.subTotal, 0),
+          sub_total: subTotal,
           order_id: getString(f.order_id ?? f.orderId, ''),
           order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
           price_id: getString(f.price_id ?? f.priceId, ''),
         };
       }) : [];
+
+      const subtotalSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.sub_total) ? f.sub_total : 0), 0);
+      const discountSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.discount) ? f.discount : 0), 0);
+      const chargeSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.charge_amount) ? f.charge_amount : 0), 0);
+      const computedTotalAmount = Math.max(0, subtotalSum + chargeSum - discountSum);
+
+      const remainingAmountRaw = hasPaymentInfo
+        ? getNumber(
+            payment.payment_remaining ??
+              payment.paymentRemaining ??
+              payment.remaining_amount ??
+              payment.remainingAmount ??
+              detail.payment_remaining ??
+              detail.paymentRemaining,
+            computedTotalAmount
+          )
+        : computedTotalAmount;
+      const remainingAmount = hasPaymentInfo ? Math.min(remainingAmountRaw, computedTotalAmount) : computedTotalAmount;
 
       const next: OrderData = {
         ...createEmptyOrderData(orderId),
@@ -470,11 +771,11 @@ export const OrderDetail: React.FC = () => {
         endDate,
         participants: quantity,
         status: getString(detail.status, paymentStatus === 'paid' ? 'success' : 'pending'),
-        totalAmount,
+        totalAmount: computedTotalAmount,
         remainingAmount,
-        additionalAmount,
-        originalAmount,
-        discount,
+        additionalAmount: chargeSum,
+        originalAmount: subtotalSum,
+        discount: discountSum,
         createdAt,
         paymentStatus,
         paymentMethod: getString(
@@ -1026,6 +1327,76 @@ export const OrderDetail: React.FC = () => {
         return Number.isFinite(n) ? n : fallback;
       };
 
+      const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+      const payData = record(payRes.data);
+      const payDataInner = record(payData.data);
+      const invoiceNumber = getStringSafe(
+        payData.invoice_number ??
+          payData.invoiceNumber ??
+          payDataInner.invoice_number ??
+          payDataInner.invoiceNumber,
+        ''
+      ).trim();
+
+      if (invoiceNumber) {
+        void Swal.fire({
+          title: 'Memuat invoice...',
+          text: 'Memuat invoice...',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          showConfirmButton: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+        try {
+          const base = String(import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api').replace(/\/+$/, '');
+          const url = `${base}/services/print-management/fleet/invoice`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/pdf, application/octet-stream, application/json',
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: token } : {}),
+            },
+            body: JSON.stringify({ invoice_number: invoiceNumber, order_id: resolvedOrderId }),
+          });
+
+          const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+          if (!res.ok) throw new Error('INVOICE_PRINT_FAILED');
+
+          if (contentType.includes('application/json')) {
+            const json = (await res.json().catch(() => null)) as unknown;
+            const root = record(json);
+            const dataNode = record(root.data);
+            const urlCandidate = getStringSafe(
+              dataNode.url ??
+                dataNode.file_url ??
+                dataNode.fileUrl ??
+                dataNode.path ??
+                dataNode.file ??
+                root.url ??
+                root.path,
+              ''
+            ).trim();
+            if (urlCandidate) {
+              await wait(700);
+              window.open(toFileUrl(urlCandidate), '_blank', 'noopener,noreferrer');
+            }
+          } else {
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            await wait(700);
+            window.open(blobUrl, '_blank', 'noopener,noreferrer');
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+          }
+        } catch {
+          await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal memuat invoice.' });
+        } finally {
+          Swal.close();
+        }
+      }
+
       let refreshedPaymentDate = '';
       let refreshedRemainingAmount: number | null = null;
       let refreshedPaymentMethodLabel = paymentMethodLabel;
@@ -1227,7 +1598,7 @@ export const OrderDetail: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center space-x-4">
           <Button
             variant="outline"
@@ -1239,16 +1610,96 @@ export const OrderDetail: React.FC = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Detail Order {orderData.id}
+              Detail Pesanan
             </h1>
             <p className="text-gray-600 dark:text-gray-300 mt-1">
               Informasi lengkap pesanan pelanggan
             </p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          {getOrderStatusBadge(orderData.status)}
-          {getPaymentStatusBadge(orderData.paymentStatus)}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-200 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+              onClick={onEditOrder}
+              disabled={isEditDisabled}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Pesanan
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+              onClick={() => setIsUpdatePaymentOpen(true)}
+              disabled={isPaymentDisabled}
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Pembayaran
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+                >
+                  Lainnya
+                  <MoreHorizontal className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[220px]">
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  disabled={!showScheduleButton}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    onViewScheduleArmadaTim();
+                  }}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Lihat Jadwal Armada dan Tim
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    onPrintSuratPesanan();
+                  }}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Surat Pesanan
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    onPrintInvoice();
+                  }}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Invoice
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    onCancelOrder();
+                  }}
+                >
+                  <Ban className="mr-2 h-4 w-4" />
+                  Batalkan Pesanan
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
@@ -1361,6 +1812,8 @@ export const OrderDetail: React.FC = () => {
                       </p>
                     </div>
 
+                    <Separator className="my-4" />
+
                     {/* Fleet Table */}
                     <div className="mt-6">
                       <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-3 block">Detail Armada</label>
@@ -1368,44 +1821,43 @@ export const OrderDetail: React.FC = () => {
                         <table className="w-full border-collapse border border-gray-300 dark:border-gray-600">
                           <thead>
                             <tr className="bg-gray-100 dark:bg-gray-700">
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Armada</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Jumlah</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Harga</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Biaya Lain</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Discount</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left text-sm font-medium">Sub Total</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-center text-sm font-medium w-[52px]">No</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center text-sm font-medium">Armada</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-center text-sm font-medium w-[95px]">Jumlah Unit</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center text-sm font-medium w-[150px]">Harga</th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center text-sm font-medium w-[150px]">Sub Total</th>
                             </tr>
                           </thead>
                           <tbody>
                             {orderData.fleets && orderData.fleets.map((fleet, index) => (
                               <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}>
+                                <td className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-sm text-center">{index + 1}</td>
                                 <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">{fleet.fleet_name}</td>
-                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">{fleet.quantity} unit</td>
+                                <td className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-sm text-right whitespace-nowrap text-center">{fleet.quantity} unit</td>
                                 <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">
                                   Rp {fleet.price.toLocaleString('id-ID')}
                                 </td>
-                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">
-                                  Rp {fleet.charge_amount.toLocaleString('id-ID')}
-                                </td>
-                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">
-                                  Rp {fleet.discount.toLocaleString('id-ID')}
-                                </td>
                                 <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right font-medium">
-                                  Rp {fleet.sub_total.toLocaleString('id-ID')}
+                                  Rp {(fleet.quantity * fleet.price).toLocaleString('id-ID')}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
-                          <tfoot>
-                            <tr className="dark:bg-gray-700">
-                              <td colSpan={4} className="border border-white bg-white"></td>
-                              <td className="px-3 py-2 text-left text-sm font-medium"><b>Total</b></td>
-                              <td className="px-3 py-2 text-right text-sm font-medium"><b>
-                                Rp {orderData.totalAmount.toLocaleString('id-ID')}</b>
-                              </td>
-                            </tr>
-                          </tfoot>
                         </table>
+                      </div>
+                      <div className="mt-3 space-y-1 max-w-sm ml-auto">
+                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+                          <span>Discount</span>
+                          <span>- {formatCurrency(orderData.discount || 0)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+                          <span>Biaya Lain</span>
+                          <span>{formatCurrency(orderData.additionalAmount || 0)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm font-semibold text-gray-900 dark:text-white pt-1">
+                          <span>Total</span>
+                          <span>{formatCurrency(orderData.totalAmount || 0)}</span>
+                        </div>
                       </div>
                     </div>
 
@@ -1526,70 +1978,6 @@ export const OrderDetail: React.FC = () => {
               </Tabs>
             </CardContent>
           </Card>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {orderData.paymentStatus === 'paid' && orderData.remainingAmount === 0 ? (
-              <Button
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
-                onClick={() => {
-                  // Logic for refund could be added here later if needed
-                  Swal.fire({
-                    title: 'Refund Pembayaran',
-                    text: 'Fitur refund sedang dalam pengembangan',
-                    icon: 'info'
-                  });
-                }}
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Refund Pembayaran
-              </Button>
-            ) : (
-              <Button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setIsUpdatePaymentOpen(true)}
-              >
-                <CreditCard className="h-4 w-4 mr-2" />
-                Update Pembayaran
-              </Button>
-            )}
-            <Button
-              className="w-full bg-gray-600 hover:bg-gray-700 text-white"
-              onClick={() => {
-                const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
-                navigate(`${basePrefix}/orders/fleet/form?order_id=${encodeURIComponent(resolvedId)}`);
-              }}
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit Pesanan
-            </Button>
-            {showScheduleButton ? (
-              orderData.scheduled ? (
-                <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => {
-                    navigate(`${basePrefix}/team/schedule-fleet/detail/${encodeURIComponent(orderData.id || orderId || '')}`);
-                  }}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Lihat Jadwal
-                </Button>
-              ) : (
-                <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => {
-                    navigate(`${basePrefix}/team/schedule-armada/add${scheduleUrlSuffix}`);
-                  }}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Buat Jadwal
-                </Button>
-              )
-            ) : null}
-            <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-              <Settings className="h-4 w-4 mr-2" />
-              Update Status
-            </Button>
-          </div>
 
         </div>
 
