@@ -19,7 +19,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { ArrowLeft, Check, ChevronsUpDown, Eye, Loader2, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsUpDown, Eye, Loader2, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
@@ -236,12 +236,16 @@ type FleetPriceOption = {
 
 type ArmadaEntry = {
   armada_id: string;
+  addon_ids: string[];
+  addon_select_id: string;
   price_id: string;
   qty: string;
   biaya_lain: string;
   discount: string;
   fleet_prices: FleetPriceOption[];
   loading_prices: boolean;
+  addon_options: Option[];
+  loading_addons: boolean;
   order_item_id?: string;
 };
 
@@ -326,12 +330,16 @@ export const FleetOrderForm: React.FC = () => {
   const [armadaEntries, setArmadaEntries] = useState<ArmadaEntry[]>([
     {
       armada_id: '',
+      addon_ids: [],
+      addon_select_id: '',
       price_id: '',
       qty: '1',
       biaya_lain: '',
       discount: '',
       fleet_prices: [],
       loading_prices: false,
+      addon_options: [],
+      loading_addons: false,
     },
   ]);
   const [armadaEntryOptions, setArmadaEntryOptions] = useState<(Option | null)[]>([null]);
@@ -379,14 +387,26 @@ export const FleetOrderForm: React.FC = () => {
     return armadaEntryOptions[idx]?.label ?? '';
   }, [armadaEntries, armadaEntryOptions]);
 
+  const getAddonUnitPrice = useCallback((row: ArmadaEntry) => {
+    const ids = (row.addon_ids ?? []).map((x) => String(x ?? '').trim()).filter((x) => x);
+    if (ids.length <= 0) return 0;
+    return ids.reduce((acc, id) => {
+      const opt = row.addon_options.find((o) => o.id === id);
+      const raw = record(opt?.raw);
+      const priceRaw = raw.price ?? raw.addon_price ?? raw.addonPrice ?? raw.amount ?? raw.value ?? 0;
+      return acc + toNumberSafe(priceRaw);
+    }, 0);
+  }, []);
+
   const { armadaAdditionalTotal, armadaDiscountTotal, armadaBasePriceTotal, computedTotalPrice } = useMemo(() => {
-    const additional = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.biaya_lain), 0);
-    const discount = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.discount), 0);
+    const additional = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.biaya_lain) * digitsToNumber(r.qty), 0);
+    const discount = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.discount) * digitsToNumber(r.qty), 0);
     const base = armadaEntries.reduce((acc, r) => {
       const priceObj = r.fleet_prices.find((p) => p.price_id === r.price_id);
       const price = priceObj?.price ?? 0;
+      const addonUnitPrice = getAddonUnitPrice(r);
       const qty = digitsToNumber(r.qty) || 0;
-      return acc + price * qty;
+      return acc + (price + addonUnitPrice) * qty;
     }, 0);
     const total = Math.max(0, base + additional - discount);
     return {
@@ -395,7 +415,7 @@ export const FleetOrderForm: React.FC = () => {
       armadaBasePriceTotal: base,
       computedTotalPrice: total,
     };
-  }, [armadaEntries]);
+  }, [armadaEntries, getAddonUnitPrice]);
 
   const daysCount = useMemo(() => daysBetweenInclusive(pickupAt, dropoffAt), [pickupAt, dropoffAt]);
 
@@ -501,6 +521,45 @@ export const FleetOrderForm: React.FC = () => {
     }
   }, [token]);
 
+  const fetchAddonsForEntry = useCallback(
+    async (fleetId: string): Promise<Option[]> => {
+      if (!fleetId) return [];
+      try {
+        const res = await api.post<unknown>(
+          '/services/fleet/detail',
+          { fleet_id: fleetId },
+          token ? { Authorization: token } : undefined
+        );
+        if (res.status !== 'success') return [];
+
+        const root = record(res.data);
+        const data = record(root.data);
+        const addonsRaw = (root.addon ?? data.addon) as unknown;
+        const items = Array.isArray(addonsRaw) ? addonsRaw : [];
+
+        return items
+          .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
+          .filter((it): it is Record<string, unknown> => Boolean(it))
+          .map((it) => {
+            const idRaw = it.addon_id ?? it.addonId ?? it.uuid ?? it.id;
+            const nameRaw = it.addon_name ?? it.addonName ?? it.name ?? it.title ?? it.label;
+            const descRaw = it.addon_desc;
+            const priceRaw = it.price ?? it.addon_price ?? it.addonPrice ?? it.amount ?? it.value ?? 0;
+            const price = toNumberSafe(priceRaw);
+            const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+            const baseLabel = typeof nameRaw === 'string' ? nameRaw : id;
+            const label = baseLabel ? (price > 0 ? `${baseLabel} - ${descRaw} (${formatRupiahFromNumber(price)})` : baseLabel) : id;
+            return id && label ? { id, label, raw: it } : null;
+          })
+          .filter((o): o is Option => Boolean(o));
+      } catch (error) {
+        console.error('Error fetching addons:', error);
+        return [];
+      }
+    },
+    [token]
+  );
+
   useEffect(() => {
     const updateAllPrices = async () => {
       const newEntries = await Promise.all(
@@ -593,6 +652,20 @@ export const FleetOrderForm: React.FC = () => {
             ? fleetsRaw.map((raw) => {
                 const f = record(raw);
                 const armada_id = toStringSafe(f.fleet_id ?? f.fleetId ?? f.armada_id ?? f.armadaId).trim();
+                const addonsRaw = f.addons ?? f.addon_ids ?? f.addonIds ?? f.addon_id ?? f.addonId ?? f.addon_uuid ?? f.addonUuid;
+                const parsedAddonIds = Array.isArray(addonsRaw)
+                  ? (addonsRaw as unknown[])
+                      .map((x) => toStringSafe(x).trim())
+                      .filter((x) => x)
+                  : typeof addonsRaw === 'string'
+                    ? addonsRaw
+                        .split(',')
+                        .map((x) => x.trim())
+                        .filter((x) => x)
+                    : typeof addonsRaw === 'number'
+                      ? [String(addonsRaw)]
+                      : [];
+                const addon_ids = Array.from(new Set(parsedAddonIds));
                 const price_id = toStringSafe(f.price_id ?? f.priceId).trim();
                 const qty = String(toNumberSafe(f.quantity ?? f.qty ?? f.fleet_qty ?? f.fleetQty) || 0);
                 const biaya_lain = String(toNumberSafe(f.charge_amount ?? f.chargeAmount ?? f.biaya_lain ?? f.biayaLain) || 0);
@@ -600,24 +673,48 @@ export const FleetOrderForm: React.FC = () => {
                 const order_item_id = toStringSafe(f.order_item_id ?? f.orderItemId).trim();
                 return {
                   armada_id,
+                  addon_ids,
+                  addon_select_id: '',
                   price_id,
                   qty: qty === '0' ? '1' : qty,
                   biaya_lain: biaya_lain === '0' ? '' : biaya_lain,
                   discount: discount === '0' ? '' : discount,
                   fleet_prices: [],
                   loading_prices: Boolean(armada_id),
+                  addon_options: [],
+                  loading_addons: Boolean(armada_id),
                   ...(order_item_id ? { order_item_id } : {}),
                 };
               })
             : [
                 {
                   armada_id: toStringSafe(detail.fleet_id ?? detail.fleetId).trim(),
+                  addon_ids: (() => {
+                    const addonsRaw = detail.addons ?? detail.addon_ids ?? detail.addonIds ?? detail.addon_id ?? detail.addonId ?? detail.addon_uuid ?? detail.addonUuid;
+                    const parsedAddonIds = Array.isArray(addonsRaw)
+                      ? (addonsRaw as unknown[])
+                          .map((x) => toStringSafe(x).trim())
+                          .filter((x) => x)
+                      : typeof addonsRaw === 'string'
+                        ? addonsRaw
+                            .split(',')
+                            .map((x) => x.trim())
+                            .filter((x) => x)
+                        : typeof addonsRaw === 'number'
+                          ? [String(addonsRaw)]
+                          : [];
+                    const ids = Array.from(new Set(parsedAddonIds));
+                    return ids;
+                  })(),
+                  addon_select_id: '',
                   price_id: toStringSafe(detail.price_id ?? detail.priceId).trim(),
                   qty: String(toNumberSafe(detail.quantity ?? detail.qty ?? detail.unit_qty ?? detail.unitQty) || 1),
                   biaya_lain: String(toNumberSafe(detail.additional_amount ?? detail.additionalAmount) || ''),
                   discount: '',
                   fleet_prices: [],
                   loading_prices: Boolean(toStringSafe(detail.fleet_id ?? detail.fleetId).trim()),
+                  addon_options: [],
+                  loading_addons: Boolean(toStringSafe(detail.fleet_id ?? detail.fleetId).trim()),
                 },
               ];
 
@@ -640,12 +737,23 @@ export const FleetOrderForm: React.FC = () => {
         const pricesList = await Promise.all(
           baseEntries.map(async (e) => (e.armada_id ? fetchPricesForEntry(e.armada_id, nextRentType) : []))
         );
+        const addonsList = await Promise.all(baseEntries.map(async (e) => (e.armada_id ? fetchAddonsForEntry(e.armada_id) : [])));
         const nextEntries = baseEntries.map((e, idx) => {
           const prices = pricesList[idx] ?? [];
+          const addons = addonsList[idx] ?? [];
           let nextPriceId = e.price_id;
           if (prices.length === 1) nextPriceId = prices[0].price_id;
           else if (nextPriceId && !prices.find((p) => p.price_id === nextPriceId)) nextPriceId = '';
-          return { ...e, fleet_prices: prices, price_id: nextPriceId, loading_prices: false };
+          return {
+            ...e,
+            fleet_prices: prices,
+            price_id: nextPriceId,
+            loading_prices: false,
+            addon_options: addons,
+            addon_ids: e.addon_ids ?? [],
+            addon_select_id: '',
+            loading_addons: false,
+          };
         });
 
         setRentType(nextRentType);
@@ -684,7 +792,7 @@ export const FleetOrderForm: React.FC = () => {
       }
     };
     loadDetail();
-  }, [editOrderId, fetchPricesForEntry, token]);
+  }, [editOrderId, fetchAddonsForEntry, fetchPricesForEntry, token]);
 
   useEffect(() => {
     if (daysCount <= 0) {
@@ -805,6 +913,7 @@ export const FleetOrderForm: React.FC = () => {
         additional_request: specialRequest,
         fleets: armadaEntries.map((r) => ({
           armada_id: r.armada_id,
+          addon_id: (r.addon_ids ?? []).map((x) => String(x ?? '').trim()).filter((x) => x),
           price_id: r.price_id,
           qty: digitsToNumber(r.qty),
           biaya_lain: digitsToNumber(r.biaya_lain),
@@ -861,6 +970,7 @@ export const FleetOrderForm: React.FC = () => {
         fleets: armadaEntries.map((r) => ({
           ...(r.order_item_id ? { order_item_id: r.order_item_id } : {}),
           armada_id: r.armada_id,
+          addon_id: (r.addon_ids ?? []).map((x) => String(x ?? '').trim()).filter((x) => x),
           price_id: r.price_id,
           qty: digitsToNumber(r.qty),
           biaya_lain: digitsToNumber(r.biaya_lain),
@@ -1275,12 +1385,16 @@ export const FleetOrderForm: React.FC = () => {
                     ...prev,
                     {
                       armada_id: '',
+                      addon_ids: [],
+                      addon_select_id: '',
                       price_id: '',
                       qty: '1',
                       biaya_lain: '',
                       discount: '',
                       fleet_prices: [],
                       loading_prices: false,
+                      addon_options: [],
+                      loading_addons: false,
                     },
                   ]);
                   setArmadaEntryOptions((prev) => [...prev, null]);
@@ -1316,18 +1430,22 @@ export const FleetOrderForm: React.FC = () => {
                           
                           if (opt) {
                             setArmadaEntries((prev) =>
-                              prev.map((r, i) => (i === idx ? { ...r, loading_prices: true } : r))
+                              prev.map((r, i) => (i === idx ? { ...r, loading_prices: true, loading_addons: true } : r))
                             );
-                            const prices = await fetchPricesForEntry(opt.id, rentType);
+                            const [prices, addons] = await Promise.all([fetchPricesForEntry(opt.id, rentType), fetchAddonsForEntry(opt.id)]);
                             setArmadaEntries((prev) =>
                               prev.map((r, i) =>
                                 i === idx
                                   ? {
                                       ...r,
                                       armada_id: opt.id,
+                                      addon_ids: [],
+                                      addon_select_id: '',
+                                      addon_options: addons,
                                       fleet_prices: prices,
                                       price_id: prices.length === 1 ? prices[0].price_id : '',
                                       loading_prices: false,
+                                      loading_addons: false,
                                     }
                                   : r
                               )
@@ -1336,7 +1454,17 @@ export const FleetOrderForm: React.FC = () => {
                             setArmadaEntries((prev) =>
                               prev.map((r, i) =>
                                 i === idx
-                                  ? { ...r, armada_id: '', fleet_prices: [], price_id: '', loading_prices: false }
+                                  ? {
+                                      ...r,
+                                      armada_id: '',
+                                      fleet_prices: [],
+                                      price_id: '',
+                                      loading_prices: false,
+                                      addon_ids: [],
+                                      addon_select_id: '',
+                                      addon_options: [],
+                                      loading_addons: false,
+                                    }
                                   : r
                               )
                             );
@@ -1350,7 +1478,7 @@ export const FleetOrderForm: React.FC = () => {
                     </div>
 
                     <div className="space-y-2 col-span-1 md:col-span-3">
-                      <label className="text-sm font-medium">Durasi Sewa</label>
+                      <label className="text-sm font-medium">Harga Sewa</label>
                       <Select
                         value={row.price_id}
                         onValueChange={(v) =>
@@ -1364,10 +1492,10 @@ export const FleetOrderForm: React.FC = () => {
                           <SelectValue
                             placeholder={
                               !row.armada_id
-                                ? 'Pilih armada'
+                                ? 'Pilih harga sewa'
                                 : row.loading_prices
                                 ? 'Memuat...'
-                                : 'Pilih durasi'
+                                : 'Pilih harga sewa'
                             }
                           />
                         </SelectTrigger>
@@ -1427,13 +1555,115 @@ export const FleetOrderForm: React.FC = () => {
                         disabled={saving || loadingDetail}
                       />
                     </div>
+
+                    {(row.addon_options.length > 0 || (row.addon_ids ?? []).length > 0) ? (
+                      <div className="space-y-2 col-span-1 md:col-span-6 md:col-start-1">
+                        <label className="text-sm font-medium">Addon</label>
+                        {row.addon_options.length > 0 ? (
+                          <Select
+                            value={row.addon_select_id}
+                            onValueChange={async (v) => {
+                              const next = String(v ?? '').trim();
+                              if (!next) return;
+                              const taken = new Set((row.addon_ids ?? []).map((x) => String(x ?? '').trim()).filter((x) => x));
+                              if (taken.has(next)) {
+                                await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Addon sudah dipilih.' });
+                                setArmadaEntries((prev) =>
+                                  prev.map((r, i) => (i === idx ? { ...r, addon_select_id: '' } : r))
+                                );
+                                return;
+                              }
+                              setArmadaEntries((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx
+                                    ? { ...r, addon_ids: [...(r.addon_ids ?? []), next], addon_select_id: '' }
+                                    : r
+                                )
+                              );
+                            }}
+                            disabled={!row.armada_id || row.loading_addons || saving || loadingDetail}
+                          >
+                            <SelectTrigger className="h-12">
+                              <SelectValue
+                                placeholder={
+                                  !row.armada_id
+                                    ? 'Pilih armada dulu'
+                                    : row.loading_addons
+                                      ? 'Memuat...'
+                                      : 'Pilih addon (opsional)'
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {row.addon_options
+                                .filter((o) => !(row.addon_ids ?? []).includes(o.id))
+                                .map((a) => (
+                                  <SelectItem key={a.id} value={a.id}>
+                                    {a.label}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        ) : null}
+                        {(row.addon_ids ?? []).length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {(row.addon_ids ?? []).map((addonId) => {
+                              const addon = row.addon_options.find((o) => o.id === addonId);
+                              const addonRaw = record(addon?.raw);
+                              const addonName =
+                                toStringSafe(
+                                  addonRaw.addon_name ?? addonRaw.addonName ?? addonRaw.name ?? addonRaw.title ?? addonRaw.label ?? ''
+                                ).trim() ||
+                                String(addon?.label ?? addonId)
+                                  .replace(/\s*\(Rp.*\)\s*$/i, '')
+                                  .trim() ||
+                                addonId;
+                              return (
+                                <div
+                                  key={addonId}
+                                  className="flex items-center justify-between gap-2"
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    lineHeight: '1rem',
+                                    padding: '0.2rem 0.4rem',
+                                    width: '200px',
+                                    background: '#000',
+                                    borderRadius: '10rem',
+                                    border: '0px',
+                                    color: '#fff',
+                                  }}
+                                >
+                                  <div className="truncate">{addonName}</div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-5 w-5 p-0 text-red-500 hover:text-red-600 hover:bg-transparent"
+                                    disabled={saving || loadingDetail}
+                                    onClick={() =>
+                                      setArmadaEntries((prev) =>
+                                        prev.map((r, i) =>
+                                          i === idx ? { ...r, addon_ids: (r.addon_ids ?? []).filter((x) => x !== addonId) } : r
+                                        )
+                                      )
+                                    }
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                     <div className="text-sm font-medium text-gray-500">
                       Subtotal: {formatRupiahFromNumber(
                         (row.fleet_prices.find(p => p.price_id === row.price_id)?.price ?? 0) * digitsToNumber(row.qty) +
-                        digitsToNumber(row.biaya_lain) -
-                        digitsToNumber(row.discount)
+                        getAddonUnitPrice(row) * digitsToNumber(row.qty) +
+                        digitsToNumber(row.biaya_lain) * digitsToNumber(row.qty) -
+                        digitsToNumber(row.discount) * digitsToNumber(row.qty)
                       )}
                     </div>
                     <Button
