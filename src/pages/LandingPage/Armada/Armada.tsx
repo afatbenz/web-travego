@@ -55,7 +55,7 @@ const Armada = () => {
       name: 'Hiace Commuter',
       type: 'Minibus',
       capacity: '12-15 Penumpang',
-      price: 'Rp 750.000/hari',
+      price: 'Rp0/hari',
       originalPrice: 'Rp 900.000/hari',
       image: 'https://www.balialphardrental.com/wp-content/uploads/2024/11/Hiace-premio.jpg',
       rating: 4.7,
