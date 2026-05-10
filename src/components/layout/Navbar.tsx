@@ -67,12 +67,15 @@ export const Navbar: React.FC = () => {
   ];
 
   const isActive = (href: string) => location.pathname === href;
-  const isLightTop = !isDarkMode && !isScrolled;
+  const isHome = location.pathname === '/';
+  const isSolid = isScrolled || !isHome;
+  const isLightTop = isHome && !isDarkMode && !isScrolled;
+  const logoSrc = isDarkMode ? travegoLightLogo : isLightTop ? travegoLightLogo : travegoLogo;
 
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-colors duration-500 [font-family:Inter,sans-serif] ${
-        isScrolled
+        isSolid
           ? 'bg-white/95 dark:bg-black/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-gray-800/70 shadow-xl shadow-slate-900/5'
           : 'bg-transparent dark:bg-black/95 backdrop-blur-md dark:border-gray-800/40'
       }`}
@@ -81,7 +84,7 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-10">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <img src={isDarkMode ? travegoLightLogo : isScrolled ? travegoLogo : travegoLightLogo} alt="TraveGO" className="h-8 w-auto transition-all duration-500" />
+            <img src={logoSrc} alt="TraveGO" className="h-8 w-auto transition-all duration-500" />
           </Link>
 
           {/* Desktop Navigation */}
@@ -92,10 +95,10 @@ export const Navbar: React.FC = () => {
                 to={item.href}
                 className={`relative rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
                   isActive(item.href)
-                    ? isScrolled
+                    ? isSolid
                       ? 'bg-slate-100 text-slate-900 shadow-sm'
                       : 'bg-white/20 text-white shadow-sm'
-                    : isScrolled
+                    : isSolid
                       ? 'text-slate-700 hover:text-blue-600 hover:bg-slate-100'
                       : 'text-white/75 hover:text-white hover:bg-white/10'
                 }`}

@@ -99,7 +99,7 @@ export const Services: React.FC = () => {
         {/* Overlay */}
         <div className="absolute inset-0 bg-black/50" />
         
-        <div className="relative h-full flex items-center justify-center px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+        <div className="relative h-full flex items-center justify-center pt-24 px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">Layanan Kami</h1>
             <p className="text-xl text-blue-100 max-w-3xl mx-auto">

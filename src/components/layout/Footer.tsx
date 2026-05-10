@@ -33,9 +33,9 @@ export const Footer: React.FC = () => {
           <div>
             <h4 className="mb-3 font-semibold text-white">Kontak</h4>
             <div className="space-y-2 text-gray-400">
-              <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> +62 813 8888 9879</p>
-              <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> hello@travego.id</p>
-              <p>Jakarta, Indonesia</p>
+              <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> +62 813 3588 4729</p>
+              <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> solutions@travego.id</p>
+              <p>Yogyakarta, Indonesia</p>
             </div>
           </div>
           <div className="md:col-span-4 mt-6 border-t border-white/10 pt-6 text-center text-xs text-gray-500">

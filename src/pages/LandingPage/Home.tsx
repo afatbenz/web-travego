@@ -1,103 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Star, Shield, Clock, Headphones, Phone, Check, ChevronDown, ChevronUp, Globe, ClipboardList, Bell, Users, Bot, LayoutDashboard, ShoppingCart, DollarSign, Calendar, Truck, Quote } from 'lucide-react';
+import React from 'react';
+import { Star, Shield, Clock, Headphones, Phone, Check, Globe, ClipboardList, Bell, Users, Bot, LayoutDashboard, ShoppingCart, DollarSign, Calendar, Truck, Quote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { PricingSection } from './Pricing';
 import heroIllustration from '@/assets/general/dashboard-devices.png';
 import relationIllustration from '@/assets/landing-page/relation-ilustration.svg';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
-  const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
-  const pricingContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Scroll to the second card (index 1) on mobile load
-    if (pricingContainerRef.current) {
-      const container = pricingContainerRef.current;
-      const scrollContainer = () => {
-        // Check if container is scrollable (mobile view)
-        if (container.scrollWidth > container.clientWidth) {
-          const cards = container.children;
-          if (cards.length > 1) {
-            const middleIndex = 1; // 2nd card
-            const targetCard = cards[middleIndex] as HTMLElement;
-            // Calculate center position: cardLeft - containerHalfWidth + cardHalfWidth
-            const scrollLeft = targetCard.offsetLeft - (container.clientWidth / 2) + (targetCard.clientWidth / 2);
-            container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-          }
-        }
-      };
-      
-      // Use setTimeout to ensure layout is ready
-      setTimeout(scrollContainer, 100);
-    }
-  }, []);
-
-  const toggleExpand = (planName: string) => {
-    setExpandedPlans(prev => ({
-      ...prev,
-      [planName]: !prev[planName]
-    }));
-  };
-
-  const pricingPlans = [
-    {
-      name: 'Basic',
-      sixMonthPrice: 'Rp 425.000',
-      yearlyPrice: 'Rp 750.000',
-      popular: false,
-      features: [
-        'Support 24/7',
-        'Sharing hosting ERP',
-        'Team Management and Scheduling',
-        'Fleet Management',
-        'Catalogue',
-        '2 account 1 company'
-      ]
-    },
-    {
-      name: 'Standar',
-      sixMonthPrice: 'Rp 1.250.000',
-      yearlyPrice: 'Rp 2.200.000',
-      popular: true,
-      features: [
-        'Support 24/7',
-        'Sharing hosting ERP',
-        'Sharing memory',
-        'Dedicated Hosting Website',
-        'Team Management and Scheduling',
-        'Fleet Management',
-        'Catalogue',
-        'Finance Report',
-        '5 account',
-        'Whatsapp AI Sales Assistant',
-        '200 chat/day'
-      ]
-    },
-    {
-      name: 'Platinum',
-      sixMonthPrice: 'Rp 2.250.000',
-      yearlyPrice: 'Rp 4.000.000',
-      popular: false,
-      features: [
-        'Support 24/7',
-        'Dedicated hosting ERP',
-        'Dedicated Memory up to 100GB',
-        'Dedicated Hosting Website',
-        'Team Management and Scheduling',
-        'Fleet Management',
-        'Catalogue',
-        'Finance Report',
-        'Unlimited account',
-        'Whatsapp AI Sales Assistant',
-        '500 chat/day',
-        'Customer Relationship Program',
-        'Loyalty Program'
-      ]
-    }
-  ];
 
   const whyChooseUs = [
     {
@@ -180,18 +92,18 @@ export const Home: React.FC = () => {
 
   const testimonials = [
     {
-      name: 'Budi Santoso',
-      role: 'Owner, Wisata Pro',
+      name: 'Restu Anggoro',
+      role: 'Owner, Calista Prima Wisata',
       content: 'TraveGO sangat membantu kami kelola booking dan jadwal sopir. Tim jadi lebih fokus closing.',
     },
     {
-      name: 'Dewi Lestari',
-      role: 'Owner, Explore Nusantara',
+      name: 'Danu Aji Pangestu',
+      role: 'Owner, Putra Handayani',
       content: 'Fitur AI assistant-nya cepat respon. Customer lebih puas dan repeat order meningkat signifikan.',
     },
     {
-      name: 'Ricky Pratama',
-      role: 'Manager, Mandala Travel',
+      name: 'Lengkung Kusumo',
+      role: 'Owner, Joymar Express',
       content: 'Sistemnya stabil, laporan keuangan rapi, dan support timnya responsif saat dibutuhkan.',
     },
   ];
@@ -376,96 +288,7 @@ export const Home: React.FC = () => {
       {/* Pricing Section */}
       <section className="py-16 bg-white dark:bg-gray-950">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
-              Pilih Paket yang Sesuai dengan Kebutuhan Anda
-            </h2>
-            <div className="mx-auto inline-flex rounded-xl border border-blue-200 bg-blue-50 p-1 text-sm dark:border-blue-900/30 dark:bg-blue-900/20">
-              <button className="rounded-lg bg-blue-600 px-4 py-1.5 font-medium text-white">Bulanan</button>
-              <button className="rounded-lg px-4 py-1.5 font-medium text-blue-600 dark:text-blue-300">Tahunan hemat 20%</button>
-            </div>
-          </div>
-          
-          <div 
-            ref={pricingContainerRef}
-            className="relative mx-auto flex max-w-5xl gap-6 overflow-x-auto snap-x snap-mandatory px-4 pb-6 hide-scrollbar sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 md:grid-cols-3"
-          >
-            {pricingPlans.map((plan) => (
-              <Card 
-                key={plan.name}
-                className={`group overflow-hidden transition-all duration-300 transform hover:-translate-y-1 h-full flex flex-col relative min-w-[85%] sm:min-w-0 shrink-0 sm:shrink snap-center rounded-2xl ${
-                  plan.popular 
-                    ? 'border-2 border-blue-600 shadow-xl shadow-blue-100 dark:border-blue-400 dark:shadow-none' 
-                    : 'border border-gray-200 hover:border-blue-300 hover:shadow-lg dark:border-gray-800 dark:hover:border-blue-500'
-                }`}
-              >
-                <CardContent className="p-6 flex flex-col h-full">
-                  {plan.popular && (
-                    <Badge className="absolute top-4 right-4 bg-blue-600 hover:bg-blue-600 text-white z-10 rounded-lg">
-                      Paling Populer
-                    </Badge>
-                  )}
-                  <div className="text-center mb-6">
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                      {plan.name}
-                    </h3>
-                    <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
-                  </div>
-                  
-                  <div className="mb-6 flex-1">
-                    <div className="text-center mb-6">
-                      <div className="text-3xl font-bold text-orange-500 dark:text-orange-400 mb-1">
-                        {plan.sixMonthPrice}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        /6 bulan
-                      </div>
-                      <div className="text-lg font-semibold text-gray-700 dark:text-gray-300 mt-2">
-                        atau
-                      </div>
-                      <div className="text-2xl font-bold text-cyan-500 dark:text-cyan-400 mt-1">
-                        {plan.yearlyPrice}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        /tahun
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Fitur:</h4>
-                      {(expandedPlans[plan.name] ? plan.features : plan.features.slice(0, 4)).map((feature, index) => (
-                        <div key={index} className="flex items-start space-x-2">
-                          <Check className="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                          <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
-                        </div>
-                      ))}
-                      {plan.features.length > 4 && (
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(plan.name)}
-                          className="flex items-center space-x-1 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm font-medium mt-2 w-full justify-center pt-2 bg-transparent hover:bg-transparent"
-                        >
-                          <span>{expandedPlans[plan.name] ? 'Tutup' : 'Lihat Semua Fitur'}</span>
-                          {expandedPlans[plan.name] ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-auto">
-                    <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
-                    <Button className={`w-full rounded-xl ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'}`}>
-                      Pilih Paket
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <PricingSection />
         </div>
       </section>
 
