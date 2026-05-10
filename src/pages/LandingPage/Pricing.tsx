@@ -131,11 +131,15 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
   }, []);
 
   const resolvedTitle = title ?? 'Pilih Paket yang Sesuai dengan Kebutuhan Anda';
+  const shouldShowTitle = resolvedTitle.trim().length > 0;
 
   return (
     <div className={className}>
+      
       <div className="text-center mb-8 sm:mb-12">
-        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">{resolvedTitle}</h2>
+        {shouldShowTitle && (
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">{resolvedTitle}</h2>
+        )}
         {description && (
           <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{description}</p>
         )}
@@ -294,11 +298,31 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
 
 export const Pricing: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-28 pb-16">
-      <div className="max-w-none mx-auto px-8 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#03102b] via-[#0a2458] to-[#040d22] px-4 pt-20 pb-12 sm:px-6 sm:pb-16 lg:px-8 xl:px-12 2xl:px-16">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-20 left-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
+          <div className="absolute right-0 top-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+          <div className="absolute bottom-10 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-indigo-400/20 blur-3xl" />
+        </div>
+
+        <div className="relative mx-auto max-w-7xl text-center">
+          <h1 className="text-sm font-semibold tracking-wide text-blue-100/90 mt-6"></h1>
+          <div className="mt-4 flex justify-center">
+            <Badge className="rounded-xl border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-blue-100 shadow-sm backdrop-blur-md">
+              Paket Berlangganan
+            </Badge>
+          </div>
+          <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">Pilih paket yang sesuai kebutuhan bisnis Anda</h2>
+          <p className="mt-4 text-lg leading-relaxed text-blue-100/90">
+            Bayar bulanan atau hemat 20% untuk paket tahunan — semua fitur inti TraveGO tersedia dalam satu platform.
+          </p>
+        </div>
+      </section>
+
+      <div className="max-w-none mx-auto px-8 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 pt-10">
         <PricingSection
-          title="Pricing"
-          description="Pilih paket yang sesuai dengan kebutuhan bisnis Anda"
+          title=""
           className="mx-auto max-w-7xl"
         />
       </div>
