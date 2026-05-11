@@ -4,14 +4,19 @@ import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import travegoLogo from '@/assets/general/travego.svg';
 import authIllustration from '@/assets/general/auth-illustration.svg';
+import { cn } from '@/lib/utils';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
   title: string;
   subtitle: string;
+  belowCard?: React.ReactNode;
+  cardClassName?: string;
+  belowCardClassName?: string;
+  contentWrapperClassName?: string;
 }
 
-export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) => {
+export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, belowCard, cardClassName, belowCardClassName, contentWrapperClassName }) => {
   return (
     <div className="relative min-h-screen w-full">
       <div className="absolute top-4 right-4 z-10">
@@ -42,18 +47,27 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
                 </Link>
               </div>
 
-              <Card className="p-3 sm:p-4 lg:p-6 xl:p-8 shadow-2xl bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-0 overflow-hidden">
-                <div className="mb-3 sm:mb-4 lg:mb-6 text-center">
-                  <h1 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">
-                    {title}
-                  </h1>
-                  <p className="text-xs sm:text-sm lg:text-base xl:text-lg 2xl:text-xl text-gray-600 dark:text-gray-300 whitespace-pre-line">
-                    {subtitle}
-                  </p>
-                </div>
+              <div className={cn(contentWrapperClassName)}>
+                <Card
+                  className={cn(
+                    'p-3 sm:p-4 lg:p-6 xl:p-8 shadow-2xl bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-0 overflow-hidden',
+                    cardClassName
+                  )}
+                >
+                  <div className="mb-3 sm:mb-4 lg:mb-6 text-center">
+                    <h1 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">
+                      {title}
+                    </h1>
+                    <p className="text-xs sm:text-sm lg:text-base xl:text-lg 2xl:text-xl text-gray-600 dark:text-gray-300 whitespace-pre-line">
+                      {subtitle}
+                    </p>
+                  </div>
 
-                {children}
-              </Card>
+                  {children}
+                </Card>
+
+                {belowCard && <div className={cn('mt-4', belowCardClassName)}>{belowCard}</div>}
+              </div>
 
               <div className="mt-2 sm:mt-3 lg:mt-4 text-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                 <p>&copy; 2025 TraveGO. All rights reserved.</p>
