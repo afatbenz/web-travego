@@ -71,6 +71,11 @@ export const Navbar: React.FC = () => {
   const isSolid = isScrolled || !isHome;
   const isLightTop = isHome && !isDarkMode && !isScrolled;
   const logoSrc = isDarkMode ? travegoLightLogo : isLightTop ? travegoLightLogo : travegoLogo;
+  const themeToggleClassName = isSolid
+    ? isDarkMode
+      ? 'text-white [&_button]:text-white [&_button]:border-white/30 [&_button]:hover:bg-white/10'
+      : 'text-[#03102b] [&_button]:text-[#03102b] [&_button]:border-[#03102b]/30 [&_button]:hover:bg-[#03102b]/5'
+    : 'text-white [&_button]:text-white [&_button]:border-white/30 [&_button]:hover:bg-white/10';
 
   return (
     <nav
@@ -111,7 +116,7 @@ export const Navbar: React.FC = () => {
 
         {/* Theme Toggle and Auth Buttons */}
         <div className="hidden md:flex items-center gap-3">
-          <div className={isLightTop ? 'text-white [&_button]:border-white/30 [&_button]:text-white [&_button]:hover:bg-white/10' : 'text-slate-900'}>
+          <div className={themeToggleClassName}>
             <ThemeToggle />
           </div>
           {user ? (
@@ -155,12 +160,7 @@ export const Navbar: React.FC = () => {
                       : 'text-slate-700 hover:bg-white dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-900'
                   }`}
                 >
-                  Login
-                </Button>
-              </Link>
-              <Link to="/auth/register">
-                <Button className="rounded-xl bg-blue-600 px-5 text-white shadow-lg shadow-blue-600/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-500">
-                  Coba Gratis
+                  Login / Daftar
                 </Button>
               </Link>
             </>
@@ -169,16 +169,9 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile menu button */}
         <div className="md:hidden flex items-center space-x-2">
-          <div className={isLightTop ? 'text-white [&_button]:border-white/30 [&_button]:text-white [&_button]:hover:bg-white/10' : 'text-slate-900'}>
+          <div className={themeToggleClassName}>
             <ThemeToggle />
           </div>
-          {!user && (
-            <Link to="/auth/register">
-              <Button size="sm" className="rounded-xl bg-blue-600 px-4 text-white">
-                Coba Gratis
-              </Button>
-            </Link>
-          )}
           <Button
             variant="ghost"
             size="icon"
@@ -234,12 +227,7 @@ export const Navbar: React.FC = () => {
                     <div className="grid grid-cols-2 gap-2">
                       <Link to="/auth/login" onClick={() => setIsMenuOpen(false)}>
                         <Button variant="outline" size="sm" className="w-full rounded-xl">
-                          Login
-                        </Button>
-                      </Link>
-                      <Link to="/auth/register" onClick={() => setIsMenuOpen(false)}>
-                        <Button size="sm" className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
-                          Coba Gratis
+                          Login / Daftar
                         </Button>
                       </Link>
                     </div>

@@ -144,7 +144,10 @@ export const Services: React.FC = () => {
         </div>
 
         <div className="relative mx-auto max-w-6xl text-center">
-          <h1 className="text-sm font-semibold tracking-wide text-blue-100/90 mt-8">Layanan Kami</h1>
+          <h1 className="text-sm font-semibold tracking-wide text-blue-100/90 mt-8"></h1>
+          <Badge className="rounded-xl border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-blue-100 shadow-sm backdrop-blur-md">
+            Layanan Kami
+          </Badge>
           <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Semua yang Anda butuhkan, dalam satu platform
           </h2>
