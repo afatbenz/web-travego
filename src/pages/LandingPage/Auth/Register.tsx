@@ -13,6 +13,9 @@ export const Register: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
   const [policyType, setPolicyType] = useState<'terms' | 'privacy'>('terms');
+  const [entered, setEntered] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [leaveDirection, setLeaveDirection] = useState<'left' | 'right'>('left');
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -25,6 +28,7 @@ export const Register: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
 
   React.useEffect(() => {
+    const id = window.setTimeout(() => setEntered(true), 0);
     const token = localStorage.getItem('token');
     if (token && isTokenValid(token)) {
       const userStr = localStorage.getItem('user');
@@ -41,7 +45,10 @@ export const Register: React.FC = () => {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,12 +141,25 @@ export const Register: React.FC = () => {
     })();
   };
 
+  const navigateWithTransition = (to: string, direction: 'left' | 'right') => {
+    if (isLeaving) return;
+    setLeaveDirection(direction);
+    setIsLeaving(true);
+    window.setTimeout(() => navigate(to), 220);
+  };
+
   return (
     <AuthLayout
       title="Buat Akun Baru"
       subtitle="Bergabunglah dengan TraveGO untuk pengalaman perjalanan terbaik"
+      cardClassName="min-h-[560px] sm:min-h-[580px] lg:min-h-[600px] flex flex-col"
+      contentWrapperClassName={`transition-[opacity,transform] duration-300 ease-out ${
+        entered && !isLeaving
+          ? 'opacity-100 translate-x-0'
+          : `opacity-0 ${leaveDirection === 'right' ? 'translate-x-3' : '-translate-x-3'}`
+      }`}
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form id="register-form" onSubmit={handleSubmit} className="flex flex-1 flex-col">
         <div className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="fullName" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -259,104 +279,126 @@ export const Register: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-start space-x-2">
-          <div className="mt-1">
-            <Checkbox
-              id="acceptTerms"
-              checked={formData.acceptTerms}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, acceptTerms: checked as boolean }))
-              }
-              className="cursor-pointer bg-transparent border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 data-[state=checked]:bg-transparent data-[state=checked]:border-blue-600 dark:data-[state=checked]:border-blue-400 data-[state=checked]:text-blue-600 dark:data-[state=checked]:text-blue-400"
-            />
-          </div>
-          <label 
-            htmlFor="acceptTerms" 
-            className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed cursor-pointer flex-1 select-none"
-            onClick={(e) => {
-              const el = e.target as HTMLElement;
-              if (el.closest('a[href="/terms"]')) {
-                e.preventDefault();
-                setPolicyType('terms');
-                setPolicyOpen(true);
-              } else if (el.closest('a[href="/privacy"]')) {
-                e.preventDefault();
-                setPolicyType('privacy');
-                setPolicyOpen(true);
-              }
-            }}
-          >
-            Saya menyetujui{' '}
-            <Link 
-              to="/terms" 
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-              onClick={(e) => { e.preventDefault(); setPolicyType('terms'); setPolicyOpen(true); }}
-            >
-              Syarat dan Ketentuan
-            </Link>
-            {' '}serta{' '}
-            <Link 
-              to="/privacy" 
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-              onClick={(e) => { e.preventDefault(); setPolicyType('privacy'); setPolicyOpen(true); }}
-            >
-              Kebijakan Privasi
-            </Link>
-            {' '}TraveGO
-          </label>
-        </div>
-
-        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white" disabled={!formData.acceptTerms || submitting}>
-          {submitting ? (<span className="flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Mendaftar...</span>) : 'Daftar Sekarang'}
-        </Button>
-
-        <div className="text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Sudah punya akun?{' '}
-            <Link
-              to="/auth/login"
-              className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Masuk di sini
-            </Link>
-          </p>
-        </div>
-        <Dialog open={policyOpen} onOpenChange={setPolicyOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <div className="flex items-center space-x-2">
-                {policyType === 'terms' ? (
-                  <ShieldCheck className="h-5 w-5 text-blue-600 animate-pulse" />
-                ) : (
-                  <FileText className="h-5 w-5 text-blue-600 animate-pulse" />
-                )}
-                <DialogTitle>{policyType === 'terms' ? 'Syarat dan Ketentuan' : 'Kebijakan Privasi'}</DialogTitle>
-              </div>
-              <DialogDescription>
-                {policyType === 'terms'
-                  ? 'Dengan menggunakan layanan TraveGO, Anda menyetujui ketentuan penggunaan, batasan tanggung jawab, dan kebijakan pemesanan yang berlaku.'
-                  : 'Kami menghargai privasi Anda. Data pribadi digunakan untuk memberikan layanan dan tidak dibagikan tanpa persetujuan kecuali diwajibkan oleh hukum.'}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="my-2 h-px bg-gray-200 dark:bg-gray-800" />
-            <div className="max-h-64 overflow-y-auto space-y-3 text-sm text-gray-700 dark:text-gray-300">
-              <p>Mohon baca dengan teliti informasi berikut sebelum melanjutkan proses pendaftaran akun TraveGO Anda.</p>
-              <p>Dengan menekan tombol Setuju, Anda menyetujui untuk mematuhi seluruh ketentuan layanan, termasuk kebijakan pembatalan, pengembalian dana, dan perubahan jadwal yang mungkin dikenakan biaya.</p>
-              <p>Kami berkomitmen menjaga keamanan data Anda. Informasi yang Anda berikan digunakan untuk memproses pesanan, meningkatkan layanan, dan pengalaman pengguna.</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Tidak membagikan kredensial akun kepada pihak lain.</li>
-                <li>Memastikan data pribadi yang dimasukkan akurat dan terbaru.</li>
-                <li>Mematuhi peraturan perundang-undangan yang berlaku.</li>
-                <li>Menyetujui pengolahan data sesuai kebijakan privasi TraveGO.</li>
-              </ul>
-              <p>Jika Anda tidak setuju dengan ketentuan atau kebijakan privasi, silakan tutup modal ini dan hubungi kami untuk bantuan lebih lanjut.</p>
+        <div className="mt-auto pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
+          <div className="flex items-start space-x-2">
+            <div className="mt-1">
+              <Checkbox
+                id="acceptTerms"
+                checked={formData.acceptTerms}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, acceptTerms: checked as boolean }))}
+                className="cursor-pointer bg-transparent border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 data-[state=checked]:bg-transparent data-[state=checked]:border-blue-600 dark:data-[state=checked]:border-blue-400 data-[state=checked]:text-blue-600 dark:data-[state=checked]:text-blue-400"
+              />
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setPolicyOpen(false)}>Tutup</Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => { setPolicyOpen(false); setFormData(prev => ({ ...prev, acceptTerms: true })); }}>Setuju</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            <label
+              htmlFor="acceptTerms"
+              className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed cursor-pointer flex-1 select-none"
+              onClick={(e) => {
+                const el = e.target as HTMLElement;
+                if (el.closest('a[href="/terms"]')) {
+                  e.preventDefault();
+                  setPolicyType('terms');
+                  setPolicyOpen(true);
+                } else if (el.closest('a[href="/privacy"]')) {
+                  e.preventDefault();
+                  setPolicyType('privacy');
+                  setPolicyOpen(true);
+                }
+              }}
+            >
+              Saya menyetujui{' '}
+              <Link
+                to="/terms"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPolicyType('terms');
+                  setPolicyOpen(true);
+                }}
+              >
+                Syarat dan Ketentuan
+              </Link>
+              {' '}serta{' '}
+              <Link
+                to="/privacy"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPolicyType('privacy');
+                  setPolicyOpen(true);
+                }}
+              >
+                Kebijakan Privasi
+              </Link>
+              {' '}TraveGO
+            </label>
+          </div>
+
+          <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white" disabled={!formData.acceptTerms || submitting}>
+            {submitting ? (
+              <span className="flex items-center justify-center">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Mendaftar...
+              </span>
+            ) : (
+              'Daftar Sekarang'
+            )}
+          </Button>
+
+          <div className="text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Sudah punya akun?{' '}
+              <Link
+                to="/auth/login"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateWithTransition('/auth/login', 'right');
+                }}
+                className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Masuk di sini
+              </Link>
+            </p>
+          </div>
+
+          <Dialog open={policyOpen} onOpenChange={setPolicyOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <div className="flex items-center space-x-2">
+                  {policyType === 'terms' ? (
+                    <ShieldCheck className="h-5 w-5 text-blue-600 animate-pulse" />
+                  ) : (
+                    <FileText className="h-5 w-5 text-blue-600 animate-pulse" />
+                  )}
+                  <DialogTitle>{policyType === 'terms' ? 'Syarat dan Ketentuan' : 'Kebijakan Privasi'}</DialogTitle>
+                </div>
+                <DialogDescription>
+                  {policyType === 'terms'
+                    ? 'Dengan menggunakan layanan TraveGO, Anda menyetujui ketentuan penggunaan, batasan tanggung jawab, dan kebijakan pemesanan yang berlaku.'
+                    : 'Kami menghargai privasi Anda. Data pribadi digunakan untuk memberikan layanan dan tidak dibagikan tanpa persetujuan kecuali diwajibkan oleh hukum.'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="my-2 h-px bg-gray-200 dark:bg-gray-800" />
+              <div className="max-h-64 overflow-y-auto space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                <p>Mohon baca dengan teliti informasi berikut sebelum melanjutkan proses pendaftaran akun TraveGO Anda.</p>
+                <p>Dengan menekan tombol Setuju, Anda menyetujui untuk mematuhi seluruh ketentuan layanan, termasuk kebijakan pembatalan, pengembalian dana, dan perubahan jadwal yang mungkin dikenakan biaya.</p>
+                <p>Kami berkomitmen menjaga keamanan data Anda. Informasi yang Anda berikan digunakan untuk memproses pesanan, meningkatkan layanan, dan pengalaman pengguna.</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Tidak membagikan kredensial akun kepada pihak lain.</li>
+                  <li>Memastikan data pribadi yang dimasukkan akurat dan terbaru.</li>
+                  <li>Mematuhi peraturan perundang-undangan yang berlaku.</li>
+                  <li>Menyetujui pengolahan data sesuai kebijakan privasi TraveGO.</li>
+                </ul>
+                <p>Jika Anda tidak setuju dengan ketentuan atau kebijakan privasi, silakan tutup modal ini dan hubungi kami untuk bantuan lebih lanjut.</p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPolicyOpen(false)}>Tutup</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => { setPolicyOpen(false); setFormData(prev => ({ ...prev, acceptTerms: true })); }}>
+                  Setuju
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </form>
     </AuthLayout>
   );

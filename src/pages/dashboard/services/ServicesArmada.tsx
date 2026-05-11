@@ -109,7 +109,7 @@ export const ServicesArmada: React.FC = () => {
       label: 'Nama',
       key: 'name',
       sortable: true,
-      width: 150,
+      width: 250,
       render: (item) => (
         <div className="flex items-center gap-3">
           <img src={item.image} alt={item.name} className="h-12 w-12 rounded-lg object-cover" />
@@ -180,7 +180,7 @@ export const ServicesArmada: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Rental Kendaraan</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
-            Kelola armada yang tersedia
+            Tambah dan kelola armada anda
           </p>
         </div>
         <Button 
@@ -227,7 +227,7 @@ export const ServicesArmada: React.FC = () => {
         loading={loading}
         stickyHeader
         zebra
-        tableClassName="table-fixed w-[1280px] min-w-[1280px]"
+        tableClassName="table-auto w-full min-w-0"
         emptyTitle="Tidak ada data armada"
         emptyDescription="Coba ubah pencarian atau filter."
         actions={{
