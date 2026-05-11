@@ -33,7 +33,7 @@ export const Footer: React.FC = () => {
           <div>
             <h4 className="mb-3 font-semibold text-white">Kontak</h4>
             <div className="space-y-2 text-gray-400">
-              <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> +62 813 3588 4729</p>
+              <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> +62 851 9591 1626</p>
               <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> solutions@travego.id</p>
               <p>Yogyakarta, Indonesia</p>
             </div>

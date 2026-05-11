@@ -1,5 +1,5 @@
-import React from 'react';
-import { Star, Shield, Clock, Headphones, Phone, Check, Globe, ClipboardList, Bell, Users, Bot, LayoutDashboard, ShoppingCart, DollarSign, Calendar, Truck, Quote } from 'lucide-react';
+import React, { useState } from 'react';
+import { Star, Shield, Clock, Headphones, Phone, Check, Globe, ClipboardList, Bell, Users, Bot, LayoutDashboard, ShoppingCart, Truck, Quote, Bus, Sparkles, BarChart2, Receipt, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,8 @@ import relationIllustration from '@/assets/landing-page/relation-ilustration.svg
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
+  const [activeOptimizationIndex, setActiveOptimizationIndex] = useState(0);
+  const [activeControlIndex, setActiveControlIndex] = useState(0);
 
   const whyChooseUs = [
     {
@@ -36,29 +38,34 @@ export const Home: React.FC = () => {
 
   const optimizationFeatures = [
     {
-      icon: Globe,
-      title: 'Integrasi Website',
-      description: 'Dapat diintegrasikan dengan website anda'
+      icon: LayoutDashboard,
+      title: 'Pemesanan terpusat, nol terlewat',
+      description: 'Semua order dari WhatsApp, telepon, dan website masuk ke satu dashboard. Tidak ada pesanan yang jatuh di celah.',
+      label: 'Pemesanan',
     },
     {
-      icon: ClipboardList,
-      title: 'Pencatatan Rapi',
-      description: 'Semua aktifitas tercatat rapi'
-    },
-    {
-      icon: Bell,
-      title: 'Anti Missed Order',
-      description: 'Tidak ada pesanan yang terlewatkan'
+      icon: Bus,
+      title: 'Armada selalu siap & terpantau',
+      description: 'Status kendaraan, penugasan driver, dan jadwal servis terpantau real-time dari mana saja.',
+      label: 'Armada',
     },
     {
       icon: Users,
-      title: 'Hubungan Pelanggan',
-      description: 'Lebih dekat dengan Customer'
+      title: 'Pelanggan loyal, bukan sekadar pembeli',
+      description: 'Riwayat perjalanan, preferensi, dan follow-up otomatis membuat pelanggan merasa dikenal dan kembali lagi.',
+      label: 'CRM',
     },
     {
-      icon: Bot,
-      title: 'Asisten AI',
-      description: 'AI assistant siap membantu anda'
+      icon: Sparkles,
+      title: 'AI yang bekerja, bukan sekadar fitur',
+      description: 'Dari auto-reply WhatsApp hingga prediksi permintaan — AI Travego mengurangi pekerjaan manual hingga 70%.',
+      label: 'AI',
+    },
+    {
+      icon: BarChart2,
+      title: 'Laporan instan, keputusan lebih cepat',
+      description: 'Dashboard real-time tunjukkan pendapatan, performa agen, dan tren bisnis kapan saja.',
+      label: 'Analitik',
     }
   ];
 
@@ -66,27 +73,67 @@ export const Home: React.FC = () => {
     {
       icon: LayoutDashboard,
       title: 'Dashboard',
-      description: 'Pantau performa bisnis dalam satu tampilan'
+      description: 'Gambaran bisnis secara menyeluruh dalam satu layar',
+      tag: 'Real-time',
+      badgeClassName: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200',
+      iconClassName: 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-200',
+      previewTitle: 'Bisnis Anda dalam satu pandangan',
+      previewDescription:
+        'Pantau pendapatan, order masuk, performa armada, dan aktivitas agen — semua tersaji dalam dashboard yang bisa diakses dari HP maupun laptop.',
+      previewFeatures: ['Metrik real-time tanpa refresh manual', 'Grafik pendapatan harian & bulanan', 'Notifikasi pintar untuk hal penting'],
+      stats: ['42 / Order hari ini', 'Rp8,4jt / Pendapatan'],
     },
     {
       icon: ShoppingCart,
       title: 'Order',
-      description: 'Kelola pesanan pelanggan dengan mudah'
+      description: 'Terima dan kelola semua pesanan tanpa satu pun terlewat',
+      tag: 'Multi-channel',
+      badgeClassName: 'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-200',
+      iconClassName: 'bg-teal-100 text-teal-700 dark:bg-teal-900/20 dark:text-teal-200',
+      previewTitle: 'Nol pesanan terlewat, nol pelanggan kecewa',
+      previewDescription:
+        'Order masuk dari WhatsApp, telepon, maupun website langsung terkumpul di satu antrian. Konfirmasi, ubah, atau batalkan hanya dengan beberapa klik.',
+      previewFeatures: ['Agregasi order dari semua channel', 'Auto-konfirmasi & notifikasi pelanggan', 'Riwayat order lengkap & mudah dicari'],
+      stats: ['18 / Pending', '24 / Confirmed'],
     },
     {
-      icon: DollarSign,
+      icon: Receipt,
       title: 'Finance',
-      description: 'Laporan keuangan yang akurat dan transparan'
+      description: 'Laporan keuangan akurat tanpa kerja ekstra di spreadsheet',
+      tag: 'Auto-rekonsiliasi',
+      badgeClassName: 'bg-amber-100 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200',
+      iconClassName: 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200',
+      previewTitle: 'Keuangan beres tanpa akuntan tambahan',
+      previewDescription:
+        'Invoice otomatis, rekonsiliasi pembayaran, dan laporan laba rugi siap dalam hitungan detik. Tidak perlu lagi rekap manual di akhir bulan.',
+      previewFeatures: ['Invoice & kwitansi otomatis', 'Rekonsiliasi payment gateway', 'Ekspor laporan ke PDF & Excel'],
+      stats: ['Rp48jt / Bulan ini', '↑18% / vs bulan lalu'],
     },
     {
-      icon: Calendar,
+      icon: CalendarDays,
       title: 'Schedule',
-      description: 'Atur jadwal perjalanan tanpa bentrok'
+      description: 'Jadwal perjalanan teratur, bebas bentrok dan miskomunikasi',
+      tag: 'Conflict-free',
+      badgeClassName: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-200',
+      iconClassName: 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-200',
+      previewTitle: 'Jadwal rapi, driver tidak bingung',
+      previewDescription:
+        'Atur jadwal keberangkatan, tetapkan driver, dan bagikan itinerary ke tim — semua sinkron otomatis. Tidak ada lagi bentrok jadwal.',
+      previewFeatures: ['Kalender perjalanan visual', 'Deteksi bentrok jadwal otomatis', 'Notifikasi ke driver via WhatsApp'],
+      stats: ['7 / Perjalanan hari ini', '0 / Bentrok'],
     },
     {
       icon: Truck,
-      title: 'Fleet Management',
-      description: 'Kontrol armada dan pemeliharaan rutin'
+      title: 'Fleet',
+      description: 'Armada dan pemeliharaan terpantau agar selalu siap jalan',
+      tag: 'Live tracking',
+      badgeClassName: 'bg-rose-100 text-rose-800 dark:bg-rose-900/20 dark:text-rose-200',
+      iconClassName: 'bg-rose-100 text-rose-700 dark:bg-rose-900/20 dark:text-rose-200',
+      previewTitle: 'Armada terpantau, tidak ada yang mangkrak',
+      previewDescription:
+        'Lihat status setiap kendaraan secara real-time, catat riwayat servis, dan terima pengingat pemeliharaan agar armada selalu prima.',
+      previewFeatures: ['Status kendaraan live', 'Riwayat & jadwal servis otomatis', 'Penugasan driver terintegrasi'],
+      stats: ['8 / Aktif', '1 / Servis'],
     }
   ];
 
@@ -179,7 +226,7 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="py-16 bg-white dark:bg-gray-950">
+      <section className="py-20 bg-slate-100 dark:bg-slate-900">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
@@ -215,41 +262,97 @@ export const Home: React.FC = () => {
 
         <div className="relative max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 pt-12 sm:pt-16">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Optimasi Travel Anda
+            <Badge className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-1.5 text-xs font-medium text-blue-700 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
+              Kenapa Travego?
+            </Badge>
+            <h2 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">
+              Satu sistem yang menggantikan puluhan aplikasi
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Mulailah beralih dengan digitalisasi dan automatisasi untuk mempermudah pekerjaan anda
+            <p className="mt-4 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
+              Berhenti copy-paste dari WhatsApp ke spreadsheet. Travego mengotomasi seluruh alur kerja Anda — dari pemesanan masuk hingga laporan keluar.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            {/* Left Column - Illustration */}
-            <div className="hidden justify-center md:flex">
-              <img 
-                src={relationIllustration}
-                alt="Optimization Illustration" 
-                className="w-full h-auto object-contain max-w-md"
-              />
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-12 items-start">
+            <div className="space-y-3">
+              {optimizationFeatures.map((item, index) => {
+                const isActive = activeOptimizationIndex === index;
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.title}
+                    type="button"
+                    onClick={() => setActiveOptimizationIndex(index)}
+                    className={`w-full rounded-2xl border p-5 text-left transition-all duration-300 ${
+                      isActive
+                        ? 'border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-900/40 dark:bg-blue-900/20'
+                        : 'border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/40 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-900/40 dark:hover:bg-blue-900/10'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                          isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className={`text-base font-semibold ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-900 dark:text-white'}`}>
+                          {item.title}
+                        </div>
+                        <div className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {item.description}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Right Column - Features */}
-            <div className="space-y-6">
-              {optimizationFeatures.map((feature, index) => (
-                <div key={index} className="flex items-start">
-                  <div className="w-12 h-12 mr-4 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex-shrink-0 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                    <feature.icon className="h-6 w-6" />
+            <div>
+              <Card className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <CardContent className="p-7">
+                  <div className="flex items-center justify-between">
+                    <Badge className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200">
+                      {optimizationFeatures[activeOptimizationIndex]?.label}
+                    </Badge>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                      {feature.title}
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                      {feature.description}
-                    </p>
+                  <h3 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
+                    {optimizationFeatures[activeOptimizationIndex]?.title}
+                  </h3>
+                  <p className="mt-2 text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {optimizationFeatures[activeOptimizationIndex]?.description}
+                  </p>
+
+                  <div className="mt-6 relative overflow-hidden rounded-2xl bg-secondary p-6">
+                    <div className="pointer-events-none absolute inset-0 opacity-25">
+                      <img src={relationIllustration} alt="" className="h-full w-full object-contain" />
+                    </div>
+                    <div className="relative text-sm font-medium text-gray-700 dark:text-gray-200">
+                      Preview sistem
+                    </div>
                   </div>
-                </div>
-              ))}
+
+                  <div className="mt-6 flex items-center rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                    <div className="flex-1 py-4 text-center">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">70%</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">Lebih sedikit kerja manual</div>
+                    </div>
+                    <div className="h-10 w-px bg-gray-200 dark:bg-gray-800" />
+                    <div className="flex-1 py-4 text-center">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">0</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">Pesanan terlewat</div>
+                    </div>
+                    <div className="h-10 w-px bg-gray-200 dark:bg-gray-800" />
+                    <div className="flex-1 py-4 text-center">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">2 jam</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">Waktu setup</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -258,29 +361,94 @@ export const Home: React.FC = () => {
       {/* Control Easy Section */}
       <section className="py-20 bg-slate-100 dark:bg-slate-900">
         <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Kontrol mudah kapanpun dimanapun
+          <div className="text-center mb-12">
+            <Badge className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-1.5 text-xs font-medium text-blue-700 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
+              Semua dalam genggaman
+            </Badge>
+            <h2 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">
+              Kelola bisnis travel dari mana saja, kapan saja
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Akses seluruh operasional bisnis travel Anda dalam satu genggaman
+            <p className="mt-4 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
+              Lima modul inti yang saling terhubung — dirancang agar Anda fokus mengembangkan bisnis, bukan mengurus sistem.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
-            {controlFeatures.map((feature, index) => (
-              <div key={index} className="flex flex-col items-center text-center group">
-                <div className="w-20 h-20 mb-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm flex items-center justify-center group-hover:shadow-md group-hover:-translate-y-1 transition-all duration-300">
-                  <feature.icon className="h-10 w-10 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  {feature.title}
+          <div className="mx-auto max-w-7xl">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-5">
+              {controlFeatures.map((module, index) => {
+                const isActive = activeControlIndex === index;
+                const Icon = module.icon;
+                return (
+                  <button
+                    key={module.title}
+                    type="button"
+                    onClick={() => setActiveControlIndex(index)}
+                    className={`rounded-2xl border bg-white p-5 text-left transition-all duration-300 dark:bg-gray-900 ${
+                      isActive
+                        ? 'border-2 border-blue-600 shadow-sm dark:border-blue-400'
+                        : 'border-gray-200 hover:border-blue-200 hover:shadow-sm dark:border-gray-800 dark:hover:border-blue-900/40'
+                    }`}
+                  >
+                    <div className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ${module.iconClassName}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="mt-4 text-base font-semibold text-gray-900 dark:text-white">{module.title}</div>
+                    <div className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{module.description}</div>
+                    <div className="mt-4">
+                      <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200">
+                        {module.tag}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-10 grid gap-8 md:grid-cols-2 md:items-stretch">
+              <div className="rounded-2xl border border-gray-200 bg-white p-7 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <Badge className={`rounded-xl px-3 py-1 text-xs font-semibold ${controlFeatures[activeControlIndex]?.badgeClassName}`}>
+                  {controlFeatures[activeControlIndex]?.title}
+                </Badge>
+                <h3 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
+                  {controlFeatures[activeControlIndex]?.previewTitle}
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[160px]">
-                  {feature.description}
+                <p className="mt-3 text-gray-600 dark:text-gray-300 leading-relaxed">
+                  {controlFeatures[activeControlIndex]?.previewDescription}
                 </p>
+
+                <div className="mt-6 space-y-3">
+                  {controlFeatures[activeControlIndex]?.previewFeatures.map((feature) => (
+                    <div key={feature} className="flex items-start gap-3">
+                      <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500 dark:text-emerald-400" />
+                      <div className="text-sm text-gray-700 dark:text-gray-200">{feature}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+
+              <div className="rounded-2xl bg-secondary p-7">
+                <div className="grid grid-cols-2 gap-4">
+                  {controlFeatures[activeControlIndex]?.stats.map((stat) => {
+                    const [value, label] = stat.split(' / ');
+                    return (
+                      <div
+                        key={stat}
+                        className="rounded-2xl border border-gray-200/80 bg-white/70 p-4 shadow-sm backdrop-blur-sm dark:border-gray-800/80 dark:bg-white/5"
+                      >
+                        <div className="text-xl font-bold text-gray-900 dark:text-white">{value}</div>
+                        <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">{label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <div className="h-3 w-11/12 rounded-full bg-white/70 dark:bg-white/10" />
+                  <div className="h-3 w-9/12 rounded-full bg-white/60 dark:bg-white/10" />
+                  <div className="h-3 w-10/12 rounded-full bg-white/50 dark:bg-white/10" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -293,7 +461,7 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="bg-white py-16 dark:bg-gray-950">
+      <section className="py-20 bg-slate-100 dark:bg-slate-900">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-10 text-center">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Apa Kata Mereka?</h2>
@@ -323,7 +491,7 @@ export const Home: React.FC = () => {
       </section>
 
       {/* CTA + Footer */}
-      <section className="">
+      <section className="py-10 bg-slate-100 dark:bg-slate-900">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-10 rounded-2xl bg-blue-600 px-6 py-6 shadow-xl shadow-blue-900/30">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

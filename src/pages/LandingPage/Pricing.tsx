@@ -6,6 +6,7 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 type PricingPlan = {
   name: string;
+  priceDescription: string;
   monthlyPrice: string;
   popular: boolean;
   features: string[];
@@ -15,12 +16,13 @@ const pricingPlans: PricingPlan[] = [
   {
     name: 'Basic',
     monthlyPrice: 'Rp0',
+    priceDescription: 'Untuk bisnis travel yang baru mulai mendigitalisasi operasional.',
     popular: false,
     features: [
-      'Support 24/7 ERP',
+      'Dashboard Analytics',
       'Sharing hosting ERP',
       'Manajemen Tim dan Armada',
-      'Katalog',
+      'Katalog layanan',
       'Generate Dokumen Order',
       'Generate Surat Jalan',
       'Akses 1 akun',
@@ -29,12 +31,13 @@ const pricingPlans: PricingPlan[] = [
   {
     name: 'Premiere',
     monthlyPrice: 'Rp83.000',
+    priceDescription: 'Untuk bisnis travel yang sedang tumbuh dan butuh sistem yang lebih cerdas.',
     popular: true,
     features: [
-      'Support 24/7',
+      'Dashboard Analytics',
       'Sharing hosting ERP',
       'Manajemen Tim dan Armada',
-      'Katalog',
+      'Katalog layanan',
       'Generate Dokumen Order',
       'Generate Surat Jalan',
       'Custom Template Dokumen',
@@ -45,19 +48,21 @@ const pricingPlans: PricingPlan[] = [
   },
   {
     name: 'Diamond',
-    monthlyPrice: 'Rp125.000',
+    monthlyPrice: 'Rp157.000',
+    priceDescription: 'Untuk bisnis travel skala besar yang butuh performa penuh dan infrastruktur eksklusif.',
     popular: false,
     features: [
-      'Support 24/7 ERP & Web Katalog',
+      'Dashboard Analytics',
       'Dedicated hosting ERP',
       'Manajemen Tim dan Armada',
-      'Katalog',
+      'Katalog layanan',
       'Generate Dokumen Order',
       'Generate Surat Jalan',
       'Custom Template Dokumen',
       'AI Bot Assistant - Telegram',
       'AI Sales & Marketing - Whatsapp',
       'Akses hingga 10 akun',
+      'Integrasi Payment Gateway',
     ],
   },
 ];
@@ -164,7 +169,10 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
                 : 'text-blue-600 dark:text-blue-300 hover:bg-blue-100/70 dark:hover:bg-blue-900/30'
             }`}
           >
-            Tahunan hemat 20%
+            <span>Tahunan</span>
+            <span className="ml-2 inline-flex items-center rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-700 shadow-sm">
+              Hemat 20%
+            </span>
           </button>
         </div>
       </div>
@@ -177,7 +185,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
         {pricingPlans.map((plan) => (
           <Card
             key={plan.name}
-            className={`group overflow-hidden transition-all duration-300 transform hover:-translate-y-1 h-full flex flex-col relative min-w-[85%] sm:min-w-0 shrink-0 sm:shrink snap-center rounded-2xl ${
+            className={`group overflow-hidden transition-all duration-300 transform hover:-translate-y-1 h-full flex flex-col relative w-[92%] max-w-[28rem] flex-none sm:w-auto sm:max-w-none sm:flex-auto sm:min-w-0 snap-center rounded-2xl ${
               plan.popular
                 ? 'border-2 border-blue-600 shadow-xl shadow-blue-100 dark:border-blue-400 dark:shadow-none'
                 : 'border border-gray-200 hover:border-blue-300 hover:shadow-lg dark:border-gray-800 dark:hover:border-blue-500'
@@ -196,36 +204,27 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
 
               <div className="mb-6 flex-1">
                 <div className="text-center mb-4">
-                  <div className="relative mb-1 h-10">
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{plan.priceDescription}</div>
+                  <div className="mt-1 relative h-10">
                     <div
-                      className={`absolute inset-0 flex items-center justify-center text-3xl font-bold text-orange-500 transition-[opacity,transform] duration-300 dark:text-orange-400 ${
+                      className={`absolute inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
                         pricingPeriod === 'monthly' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
                       }`}
                     >
-                      {formatRupiah(parseRupiah(plan.monthlyPrice))}
+                      <span className="text-3xl font-bold text-orange-500 dark:text-orange-400">
+                        {formatRupiah(parseRupiah(plan.monthlyPrice))}
+                      </span>
+                      <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/ bulan</span>
                     </div>
                     <div
-                      className={`absolute inset-0 flex items-center justify-center text-3xl font-bold text-orange-500 transition-[opacity,transform] duration-300 dark:text-orange-400 ${
+                      className={`absolute inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
                         pricingPeriod === 'yearly' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
                       }`}
                     >
-                      {formatRupiah(parseRupiah(plan.monthlyPrice) * 12 * 0.8)}
-                    </div>
-                  </div>
-                  <div className="relative h-5 text-sm text-gray-500 dark:text-gray-400">
-                    <div
-                      className={`absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-300 ${
-                        pricingPeriod === 'monthly' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-0.5'
-                      }`}
-                    >
-                      / bulan
-                    </div>
-                    <div
-                      className={`absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-300 ${
-                        pricingPeriod === 'yearly' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-0.5'
-                      }`}
-                    >
-                      / tahun
+                      <span className="text-3xl font-bold text-orange-500 dark:text-orange-400">
+                        {formatRupiah(parseRupiah(plan.monthlyPrice) * 12 * 0.8)}
+                      </span>
+                      <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/ tahun</span>
                     </div>
                   </div>
                 </div>
@@ -297,6 +296,23 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
 };
 
 export const Pricing: React.FC = () => {
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      question: 'Apakah bisa upgrade atau downgrade paket sewaktu-waktu?',
+      answer: 'Ya, perubahan berlaku di siklus tagihan berikutnya dan sisa saldo dikreditkan otomatis.',
+    },
+    {
+      question: 'Apakah ada biaya setup atau biaya tersembunyi?',
+      answer: 'Tidak ada. Harga sudah all-in. Paket Diamond sudah termasuk onboarding dan migrasi data.',
+    },
+    {
+      question: 'Bagaimana cara kerja uji coba 14 hari gratis?',
+      answer: 'Nikmati semua fitur Premiere selama 14 hari tanpa kartu kredit. Setelah itu pilih lanjut atau kembali ke Basic.',
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16">
       <section className="relative overflow-hidden bg-gradient-to-br from-[#03102b] via-[#0a2458] to-[#040d22] px-4 pt-20 pb-12 sm:px-6 sm:pb-16 lg:px-8 xl:px-12 2xl:px-16">
@@ -307,24 +323,89 @@ export const Pricing: React.FC = () => {
         </div>
 
         <div className="relative mx-auto max-w-7xl text-center">
-          <h1 className="text-sm font-semibold tracking-wide text-blue-100/90 mt-6"></h1>
+          <h1 className="text-sm font-semibold tracking-wide text-blue-100/90 mt-8"></h1>
           <div className="mt-4 flex justify-center">
             <Badge className="rounded-xl border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-blue-100 shadow-sm backdrop-blur-md">
               Paket Berlangganan
             </Badge>
           </div>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">Pilih paket yang sesuai kebutuhan bisnis Anda</h2>
+          <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">Mulai gratis, berkembang sesuai bisnis anda</h2>
           <p className="mt-4 text-lg leading-relaxed text-blue-100/90">
-            Bayar bulanan atau hemat 20% untuk paket tahunan — semua fitur inti TraveGO tersedia dalam satu platform.
+            Pilih paket yang tepat untuk tim Anda. Upgrade atau downgrade kapan saja tidak ada kontrak jangka panjang.
           </p>
         </div>
       </section>
 
-      <div className="max-w-none mx-auto px-8 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 pt-10">
+      <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 pt-10">
         <PricingSection
           title=""
           className="mx-auto max-w-7xl"
         />
+
+        <div className="mx-auto max-w-7xl mt-12 space-y-10">
+          <Card className="rounded-2xl border border-blue-200 bg-blue-50 dark:border-blue-900/30 dark:bg-blue-900/20">
+            <CardContent className="p-6 sm:p-8">
+              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div className="max-w-2xl">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Butuh paket khusus untuk bisnis Anda?</h3>
+                  <p className="mt-2 text-gray-600 dark:text-gray-300">
+                    Kami menyediakan solusi Enterprise untuk franchise, agen travel besar, dan kebutuhan integrasi khusus.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                  <Button className="rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+                    Hubungi Sales
+                  </Button>
+                  <Button variant="outline" className="rounded-xl">
+                    Jadwalkan Demo
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <CardContent className="p-6 sm:p-8">
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Pertanyaan Umum</h3>
+                <p className="mt-2 text-gray-600 dark:text-gray-300">Jawaban singkat untuk pertanyaan yang paling sering ditanyakan.</p>
+              </div>
+
+              <div className="divide-y divide-gray-200 dark:divide-gray-800">
+                {faqs.map((item, index) => {
+                  const isOpen = openFaqIndex === index;
+                  return (
+                    <div key={item.question} className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                        className="flex w-full items-center justify-between py-4 text-left"
+                      >
+                        <span className="font-medium text-gray-900 dark:text-white">{item.question}</span>
+                        <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform duration-200 dark:text-gray-400 ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      <div
+                        className={`grid transition-all duration-300 ease-in-out ${
+                          isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                        }`}
+                      >
+                        <div className="overflow-hidden">
+                          <div
+                            className={`pb-4 text-sm leading-relaxed text-gray-600 transition-[opacity,transform] duration-300 dark:text-gray-300 ${
+                              isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
+                            }`}
+                          >
+                            {item.answer}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
