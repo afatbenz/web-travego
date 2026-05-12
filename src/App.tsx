@@ -100,13 +100,13 @@ import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
 import { PartnerChangePassword } from '@/pages/dashboard/partner/ChangePassword';
 import PartnerContent from '@/pages/dashboard/partner/content/Content';
 import ContentMenu from '@/pages/dashboard/partner/content/ContentMenu';
-import { 
-  GeneralContent, 
-  ImageSliderContent, 
-  CatalogueContent, 
-  HotOffersContent, 
-  ServicesContent, 
-  TeamContent, 
+import {
+  GeneralContent,
+  ImageSliderContent,
+  CatalogueContent,
+  HotOffersContent,
+  ServicesContent,
+  TeamContent,
   ContactContent,
   WhyChooseUsContent,
   SocialMediaContent,
@@ -321,7 +321,7 @@ function App() {
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
           <Route path="/auth/otp" element={<Otp />} />
           <Route path="/auth/organization/register" element={<OrganizationRegister />} />
-          
+
           <Route path="/auth/organization/pending" element={<OrganizationPending />} />
           <Route path="/auth/organization/join" element={<OrganizationJoin />} />
 
@@ -607,12 +607,12 @@ function App() {
               <GeneralLedger />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/finance/general-expenses" element={
+          <Route path="/dashboard/partner/finance/expenses" element={
             <DashboardLayout>
               <GeneralExpenses />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/finance/general-expenses" element={
+          <Route path="/dashboard/finance/expenses" element={
             <DashboardLayout>
               <GeneralExpenses />
             </DashboardLayout>
@@ -667,11 +667,11 @@ function App() {
           } />
           <Route path="/dashboard/partner/orders/fleet" element={
             <DashboardLayout>
-              <OrdersTable 
-                status="all" 
+              <OrdersTable
+                status="all"
                 type="fleet"
-                title="Fleet Orders" 
-                description="Kelola pesanan armada" 
+                title="Fleet Orders"
+                description="Kelola pesanan armada"
               />
             </DashboardLayout>
           } />
@@ -682,11 +682,11 @@ function App() {
           } />
           <Route path="/dashboard/orders/fleet" element={
             <DashboardLayout>
-              <OrdersTable 
-                status="all" 
+              <OrdersTable
+                status="all"
                 type="fleet"
-                title="Fleet Orders" 
-                description="Kelola pesanan armada" 
+                title="Fleet Orders"
+                description="Kelola pesanan armada"
               />
             </DashboardLayout>
           } />
@@ -697,11 +697,11 @@ function App() {
           } />
           <Route path="/dashboard/partner/orders/tour" element={
             <DashboardLayout>
-              <OrdersTable 
-                status="all" 
+              <OrdersTable
+                status="all"
                 type="tour"
-                title="Tour Orders" 
-                description="Kelola pesanan paket wisata" 
+                title="Tour Orders"
+                description="Kelola pesanan paket wisata"
               />
             </DashboardLayout>
           } />
@@ -717,11 +717,11 @@ function App() {
           } />
           <Route path="/dashboard/orders/tour" element={
             <DashboardLayout>
-              <OrdersTable 
-                status="all" 
+              <OrdersTable
+                status="all"
                 type="tour"
-                title="Tour Orders" 
-                description="Kelola pesanan paket wisata" 
+                title="Tour Orders"
+                description="Kelola pesanan paket wisata"
               />
             </DashboardLayout>
           } />
@@ -737,19 +737,19 @@ function App() {
           } />
           <Route path="/dashboard/partner/orders/waiting-approval" element={
             <DashboardLayout>
-              <OrdersTable 
-                status="waiting-approval" 
-                title="Waiting Approval" 
-                description="Pesanan menunggu persetujuan" 
+              <OrdersTable
+                status="waiting-approval"
+                title="Waiting Approval"
+                description="Pesanan menunggu persetujuan"
               />
             </DashboardLayout>
           } />
           <Route path="/dashboard/orders/waiting-approval" element={
             <DashboardLayout>
-              <OrdersTable 
-                status="waiting-approval" 
-                title="Waiting Approval" 
-                description="Pesanan menunggu persetujuan" 
+              <OrdersTable
+                status="waiting-approval"
+                title="Waiting Approval"
+                description="Pesanan menunggu persetujuan"
               />
             </DashboardLayout>
           } />
@@ -1009,10 +1009,10 @@ function App() {
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/content/content/edit/:section_tag" element={
-          <DashboardLayout>
-            <ContentEdit />
-          </DashboardLayout>
-        } />
+            <DashboardLayout>
+              <ContentEdit />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/partner/content/image-layout" element={
             <DashboardLayout>
               <ImageLayout />
