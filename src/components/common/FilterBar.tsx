@@ -13,57 +13,57 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export type FilterOption = {
-  label: string;
-  value: string;
-  disabled?: boolean;
+  readonly label: string;
+  readonly value: string;
+  readonly disabled?: boolean;
 };
 
 export type FilterFieldType = 'text' | 'select' | 'multiselect' | 'date' | 'daterange';
 
 export type FilterField<V extends Record<string, unknown>> =
   | {
-      name: keyof V & string;
-      type: 'text';
-      label: string;
-      placeholder?: string;
-      className?: string;
-      inputClassName?: string;
+      readonly name: keyof V & string;
+      readonly type: 'text';
+      readonly label: string;
+      readonly placeholder?: string;
+      readonly className?: string;
+      readonly inputClassName?: string;
     }
   | {
-      name: keyof V & string;
-      type: 'select';
-      label: string;
-      placeholder?: string;
-      options: FilterOption[];
-      className?: string;
-      triggerClassName?: string;
+      readonly name: keyof V & string;
+      readonly type: 'select';
+      readonly label: string;
+      readonly placeholder?: string;
+      readonly options: readonly FilterOption[];
+      readonly className?: string;
+      readonly triggerClassName?: string;
     }
   | {
-      name: keyof V & string;
-      type: 'multiselect';
-      label: string;
-      placeholder?: string;
-      options: FilterOption[];
-      className?: string;
-      triggerClassName?: string;
+      readonly name: keyof V & string;
+      readonly type: 'multiselect';
+      readonly label: string;
+      readonly placeholder?: string;
+      readonly options: readonly FilterOption[];
+      readonly className?: string;
+      readonly triggerClassName?: string;
     }
   | {
-      name: keyof V & string;
-      type: 'date';
-      label: string;
-      placeholder?: string;
-      className?: string;
-      triggerClassName?: string;
-      fromYear?: number;
-      toYear?: number;
+      readonly name: keyof V & string;
+      readonly type: 'date';
+      readonly label: string;
+      readonly placeholder?: string;
+      readonly className?: string;
+      readonly triggerClassName?: string;
+      readonly fromYear?: number;
+      readonly toYear?: number;
     }
   | {
-      name: keyof V & string;
-      type: 'daterange';
-      label: string;
-      placeholder?: string;
-      className?: string;
-      triggerClassName?: string;
+      readonly name: keyof V & string;
+      readonly type: 'daterange';
+      readonly label: string;
+      readonly placeholder?: string;
+      readonly className?: string;
+      readonly triggerClassName?: string;
     };
 
 export type QuickFilterChip = {
@@ -73,7 +73,7 @@ export type QuickFilterChip = {
 };
 
 export type FilterBarProps<V extends Record<string, unknown>> = {
-  fields: Array<FilterField<V>>;
+  readonly fields: readonly FilterField<V>[];
   values: V;
   onChange: <K extends keyof V>(name: K, value: V[K]) => void;
   onSubmit?: (values: V) => void;

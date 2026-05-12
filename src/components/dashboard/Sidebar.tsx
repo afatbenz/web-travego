@@ -129,11 +129,10 @@ export const Sidebar: React.FC = () => {
         ]
       },
       {
-        label: 'Keuangan',
+        label: 'Finance',
         items: [
           { title: 'Pendapatan', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
-          { title: 'Buku Besar', icon: FileText, href: `${basePrefix}/finance/general-ledger` },
-          { title: 'Pengeluaran Umum', icon: ShoppingBag, href: `${basePrefix}/finance/general-expenses` },
+          { title: 'Pengeluaran Umum', icon: ShoppingBag, href: `${basePrefix}/finance/expenses` },
           { title: 'Pengeluaran Armada', icon: Car, href: `${basePrefix}/finance/fleet-expenses` },
           { title: 'Pengeluaran Operasional', icon: Settings, href: `${basePrefix}/finance/operational-expenses` }
         ]

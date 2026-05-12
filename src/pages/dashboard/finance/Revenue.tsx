@@ -130,6 +130,10 @@ export const Revenue: React.FC = () => {
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [transactionDateOpen, setTransactionDateOpen] = useState(false);
   const [transactionTypeOpen, setTransactionTypeOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderTypes, setOrderTypes] = useState<IntOption[]>([]);
+  const [orderList, setOrderList] = useState<{ id: string; label: string }[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<IntOption[]>([]);
   const [paymentStatuses, setPaymentStatuses] = useState<IntOption[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<IntOption[]>([]);
@@ -137,6 +141,8 @@ export const Revenue: React.FC = () => {
   const [manualForm, setManualForm] = useState({
     transaction_date: toYmdLocal(new Date()),
     transaction_type: '',
+    order_type: '',
+    order_id: '',
     status: '',
     payment_method: '',
     amount: '',
@@ -177,7 +183,7 @@ export const Revenue: React.FC = () => {
     try {
       const token = localStorage.getItem('token') ?? '';
       const headers = headersOverride ?? (token ? { Authorization: token } : undefined);
-      const res = await api.get<unknown>('/services/transactions/income', headers);
+      const res = await api.get<unknown>('/services/transactions/revenue', headers);
       if (currentReq !== requestIdRef.current) return;
 
       if (res.status !== 'success') {
@@ -252,11 +258,12 @@ export const Revenue: React.FC = () => {
       try {
         const token = localStorage.getItem('token') ?? '';
         const headers = token ? { Authorization: token } : undefined;
-        const [typesRes, statusesRes, methodsRes, banksRes] = await Promise.all([
-          api.get<unknown>('/services/transactions/types?filteredby=income', headers),
+        const [typesRes, statusesRes, methodsRes, banksRes, orderTypesRes] = await Promise.all([
+          api.get<unknown>('/services/transactions/labels?filteredby=income', headers),
           api.get<unknown>('/general/payment-status', headers),
           api.get<unknown>('/general/payment-method', headers),
           api.get<unknown>('/general/bank-list', headers),
+          api.get<unknown>('/services/transactions/types', headers),
         ]);
         if (currentReq !== metaRequestIdRef.current) return;
 
@@ -267,9 +274,11 @@ export const Revenue: React.FC = () => {
           if (Array.isArray(dataNode)) return dataNode;
           const dataObj = toRecord(dataNode);
           if (Array.isArray(dataObj.data)) return dataObj.data as unknown[];
+          if (Array.isArray(dataObj.orders)) return dataObj.orders as unknown[];
           if (Array.isArray(dataObj.items)) return dataObj.items as unknown[];
           if (Array.isArray(root.items)) return root.items as unknown[];
           if (Array.isArray(root.rows)) return root.rows as unknown[];
+          if (Array.isArray(root.orders)) return root.orders as unknown[];
           return [];
         };
 
@@ -303,6 +312,7 @@ export const Revenue: React.FC = () => {
         if (statusesRes.status === 'success') setPaymentStatuses(toIntOptions(statusesRes.data));
         if (methodsRes.status === 'success') setPaymentMethods(toIntOptions(methodsRes.data));
         if (banksRes.status === 'success') setBanks(toBankOptions(banksRes.data));
+        if (orderTypesRes.status === 'success') setOrderTypes(toIntOptions(orderTypesRes.data));
       } catch {
         return;
       }
@@ -311,6 +321,77 @@ export const Revenue: React.FC = () => {
     loadTransactions();
     loadMeta();
   }, []);
+
+  useEffect(() => {
+    const ot = Number(manualForm.order_type);
+    if (![1, 2, 4].includes(ot)) {
+      setOrderList([]);
+      setManualForm((prev) => ({ ...prev, order_id: '' }));
+      return;
+    }
+
+    const loadOrders = async () => {
+      setOrderLoading(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const headers = token ? { Authorization: token } : undefined;
+        let url = '';
+        if (ot === 1) url = '/services/fleet/orders';
+        else if (ot === 2) url = '/services/tour-packages/order/list';
+        else if (ot === 4) url = '/services/fleet-units';
+
+        const res = await api.get<unknown>(url, headers);
+        if (res.status !== 'success') {
+          setOrderList([]);
+          return;
+        }
+
+        const extractList = (payload: unknown): unknown[] => {
+          if (Array.isArray(payload)) return payload;
+          const root = toRecord(payload);
+          const dataNode = root.data;
+          if (Array.isArray(dataNode)) return dataNode;
+          const dataObj = toRecord(dataNode);
+          if (Array.isArray(dataObj.data)) return dataObj.data as unknown[];
+          if (Array.isArray(dataObj.orders)) return dataObj.orders as unknown[];
+          if (Array.isArray(dataObj.items)) return dataObj.items as unknown[];
+          if (Array.isArray(root.items)) return root.items as unknown[];
+          if (Array.isArray(root.rows)) return root.rows as unknown[];
+          if (Array.isArray(root.orders)) return root.orders as unknown[];
+          return [];
+        };
+
+        const list = extractList(res.data);
+        const mapped = list.map((raw) => {
+          const o = toRecord(raw);
+          if (ot === 4) {
+            const unit_id = toStringSafe(o.unit_id ?? o.id);
+            const fleet_name = toStringSafe(o.fleet_name ?? o.fleet);
+            const vehicle_id = toStringSafe(o.vehicle_id);
+            const plate_number = toStringSafe(o.plate_number);
+            return {
+              id: unit_id,
+              label: `${fleet_name} | ${vehicle_id} | ${plate_number}`.trim(),
+            };
+          } else {
+            const order_id = toStringSafe(o.order_id ?? o.id);
+            return {
+              id: order_id,
+              label: order_id,
+            };
+          }
+        }).filter(x => x.id);
+        
+        setOrderList(mapped);
+      } catch {
+        setOrderList([]);
+      } finally {
+        setOrderLoading(false);
+      }
+    };
+
+    loadOrders();
+  }, [manualForm.order_type]);
 
   useEffect(() => {
     setPage(1);
@@ -700,6 +781,12 @@ export const Revenue: React.FC = () => {
                 showAlert({ title: 'Gagal', description: 'Metode pembayaran wajib dipilih.', type: 'warning' });
                 return;
               }
+              const orderType = Number(manualForm.order_type || 0);
+              if (orderType && !manualForm.order_id) {
+                const label = orderType === 4 ? 'Unit armada' : 'Order';
+                showAlert({ title: 'Gagal', description: `${label} wajib dipilih jika jenis order ditentukan.`, type: 'warning' });
+                return;
+              }
               if (showBankFields) {
                 if (!manualForm.bank_code) {
                   showAlert({ title: 'Gagal', description: 'Pilih bank wajib diisi.', type: 'warning' });
@@ -722,6 +809,8 @@ export const Revenue: React.FC = () => {
                   payment_method: paymentMethod,
                   amount,
                   description: manualForm.description,
+                  order_type: orderType || undefined,
+                  order_id: manualForm.order_id || undefined,
                 };
                 if (showBankFields) {
                   payload.bank_code = manualForm.bank_code;
@@ -748,6 +837,8 @@ export const Revenue: React.FC = () => {
                   ...prev,
                   transaction_date: toYmdLocal(new Date()),
                   transaction_type: '',
+                  order_type: '',
+                  order_id: '',
                   status: '',
                   payment_method: '',
                   amount: '',
@@ -762,47 +853,66 @@ export const Revenue: React.FC = () => {
             }}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tanggal Transaksi</Label>
-                <Popover open={transactionDateOpen} onOpenChange={setTransactionDateOpen}>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="outline" className="w-full h-11 justify-start text-left font-normal rounded-xl">
-                      <CalendarIcon className="mr-2 h-4 w-4 opacity-70" />
-                      {manualForm.transaction_date
-                        ? (tryParseDate(manualForm.transaction_date)?.toLocaleDateString('id-ID', {
-                            day: '2-digit',
-                            month: 'long',
-                            year: 'numeric',
-                          }) ?? 'Pilih tanggal transaksi')
-                        : 'Pilih tanggal transaksi'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={tryParseDate(manualForm.transaction_date) ?? undefined}
-                      onSelect={(d) => {
-                        setManualForm((prev) => ({ ...prev, transaction_date: d ? toYmdLocal(d) : '' }));
-                        if (d) setTransactionDateOpen(false);
-                      }}
-                      captionLayout="dropdown"
-                      fromYear={2000}
-                      toYear={new Date().getFullYear() + 1}
-                      initialFocus
-                    classNames={{
-                      month: 'space-y-4',
-                      table: 'w-full border-collapse space-y-1',
-                      head_row: 'flex w-full',
-                      head_cell: 'text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem] text-center',
-                      row: 'flex w-full mt-2',
-                      cell:
-                        'relative p-0 text-center text-sm flex-1 focus-within:relative focus-within:z-20 bg-transparent [&:has([aria-selected])]:bg-gray-100 dark:[&:has([aria-selected])]:bg-gray-800 [&:has([aria-selected].day-outside)]:bg-gray-100 dark:[&:has([aria-selected].day-outside)]:bg-gray-800 [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected])]:rounded-md',
-                      day:
-                        'h-9 w-full p-0 font-normal aria-selected:opacity-100 bg-transparent text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800 rounded-md',
-                    }}
-                    />
-                  </PopoverContent>
-                </Popover>
+              <div className="grid grid-cols-2 gap-4 col-span-1 md:col-span-2">
+                <div className="space-y-2">
+                  <Label>Tanggal Transaksi</Label>
+                  <Popover open={transactionDateOpen} onOpenChange={setTransactionDateOpen}>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full h-11 justify-start text-left font-normal rounded-xl">
+                        <CalendarIcon className="mr-2 h-4 w-4 opacity-70" />
+                        {manualForm.transaction_date
+                          ? (tryParseDate(manualForm.transaction_date)?.toLocaleDateString('id-ID', {
+                              day: '2-digit',
+                              month: 'long',
+                              year: 'numeric',
+                            }) ?? 'Pilih tanggal transaksi')
+                          : 'Pilih tanggal transaksi'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={tryParseDate(manualForm.transaction_date) ?? undefined}
+                        onSelect={(d) => {
+                          setManualForm((prev) => ({ ...prev, transaction_date: d ? toYmdLocal(d) : '' }));
+                          if (d) setTransactionDateOpen(false);
+                        }}
+                        captionLayout="dropdown"
+                        fromYear={2000}
+                        toYear={new Date().getFullYear() + 1}
+                        initialFocus
+                        classNames={{
+                          month: 'space-y-4',
+                          table: 'w-full border-collapse space-y-1',
+                          head_row: 'flex w-full',
+                          head_cell: 'text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem] text-center',
+                          row: 'flex w-full mt-2',
+                          cell:
+                            'relative p-0 text-center text-sm flex-1 focus-within:relative focus-within:z-20 bg-transparent [&:has([aria-selected])]:bg-gray-100 dark:[&:has([aria-selected])]:bg-gray-800 [&:has([aria-selected].day-outside)]:bg-gray-100 dark:[&:has([aria-selected].day-outside)]:bg-gray-800 [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected])]:rounded-md',
+                          day:
+                            'h-9 w-full p-0 font-normal aria-selected:opacity-100 bg-transparent text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800 rounded-md',
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Jenis Order</Label>
+                  <Select value={manualForm.order_type} onValueChange={(v) => setManualForm((prev) => ({ ...prev, order_type: v, order_id: '' }))}>
+                    <SelectTrigger className="h-11 rounded-xl">
+                      <SelectValue placeholder="Pilih jenis order (opsional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Tanpa Order</SelectItem>
+                      {orderTypes.map((o) => (
+                        <SelectItem key={o.id} value={String(o.id)}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -852,6 +962,59 @@ export const Revenue: React.FC = () => {
                   </PopoverContent>
                 </Popover>
               </div>
+
+              {manualForm.order_type && ['1', '2', '4'].includes(manualForm.order_type) ? (
+                <div className="space-y-2">
+                  <Label>{manualForm.order_type === '4' ? 'Pilih Armada' : 'Pilih Pesanan'}</Label>
+                  <Popover open={orderOpen} onOpenChange={setOrderOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={orderOpen}
+                        className="w-full h-11 justify-between rounded-xl font-normal"
+                        disabled={orderLoading}
+                      >
+                        <span className={cn('truncate text-left', manualForm.order_id ? '' : 'text-muted-foreground')}>
+                          {orderLoading
+                            ? 'Memuat...'
+                            : manualForm.order_id
+                            ? (orderList.find((x) => x.id === manualForm.order_id)?.label ?? 'Pilih...')
+                            : 'Pilih...'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Cari..." />
+                        <CommandList>
+                          <CommandEmpty>Tidak ada data.</CommandEmpty>
+                          <CommandGroup>
+                            {orderList.map((o) => {
+                              const selected = o.id === manualForm.order_id;
+                              return (
+                                <CommandItem
+                                  key={o.id}
+                                  value={o.label}
+                                  onSelect={() => {
+                                    setManualForm((prev) => ({ ...prev, order_id: o.id }));
+                                    setOrderOpen(false);
+                                  }}
+                                >
+                                  <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                                  <span className="truncate">{o.label}</span>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              ) : null}
 
               <div className="space-y-2">
                 <Label>Status Pembayaran</Label>

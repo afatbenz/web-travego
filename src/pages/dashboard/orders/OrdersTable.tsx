@@ -49,7 +49,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const [summaryRevenue, setSummaryRevenue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initializedDefaultRange, setInitializedDefaultRange] = useState(false);
-  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   // client-side parsing helpers removed since filtering now handled by backend
   useEffect(() => {
@@ -314,7 +314,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const canAddOrder = (type === 'fleet' || type === 'tour') && status === 'all' && basePrefix === '/dashboard/partner';
   const createOrderPath =
     type === 'tour' ? `${basePrefix}/orders/tour/form` : `${basePrefix}/orders/fleet/form`;
-  const enableMobileFilterToggle = basePrefix === '/dashboard/partner' && (type === 'fleet' || type === 'tour');
   const goToOrder = (orderId: string) => {
     if (basePrefix === '/dashboard/partner' && type === 'fleet') {
       navigate(`${basePrefix}/orders/fleet/detail/${orderId}`);
@@ -618,22 +617,24 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             {description}
           </p>
         </div>
-        {enableMobileFilterToggle ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className={cn('md:hidden h-10 w-10 rounded-full', showFiltersMobile ? 'bg-muted' : '')}
-            onClick={() => setShowFiltersMobile((v) => !v)}
-            aria-pressed={showFiltersMobile}
-            title="Filter"
-          >
-            <Filter className="h-4 w-4" />
-          </Button>
-        ) : null}
+      </div>
+
+      <div className={cn('flex items-center gap-3', canAddOrder ? 'justify-between' : 'justify-end')}>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 rounded-xl"
+          onClick={() => setFilterOpen((v) => !v)}
+          aria-expanded={filterOpen}
+          title={filterOpen ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
+        >
+          <Filter className="h-4 w-4" />
+        </Button>
         {canAddOrder ? (
           <Button
-            className="hidden md:inline-flex rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+            type="button"
+            className="h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => navigate(createOrderPath)}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -720,28 +721,27 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
       {/* Filters */}
       <div
-        className={cn(
-          enableMobileFilterToggle ? 'transition-all duration-300 ease-out' : '',
-          enableMobileFilterToggle ? (showFiltersMobile ? 'max-h-[720px] opacity-100' : 'max-h-0 opacity-0') : '',
-          enableMobileFilterToggle ? 'md:max-h-none md:opacity-100' : '',
-          enableMobileFilterToggle ? 'overflow-hidden' : ''
-        )}
+        className={`overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out ${
+          filterOpen ? 'max-h-[720px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-1'
+        }`}
       >
-        <FilterBar
-          fields={filterFields}
-          values={filterValues}
-          onChange={(name, value) => {
-            if (name === 'q') setSearchTerm(String(value ?? ''));
-            if (name === 'orderPeriod') setOrderPeriod(value as DateRange | undefined);
-            if (name === 'orderDate') setOrderDate(value as DateRange | undefined);
-          }}
-          onReset={handleResetFilters}
-          layout="responsive-grid"
-          mobileDateFormat="dd MMMM"
-          desktopDateFormat="dd MMM yyyy"
-          dateLocale={idLocale}
-          resetButtonClassName="hidden md:inline-flex md:w-auto"
-        />
+        <div className="pt-1">
+          <FilterBar
+            fields={filterFields}
+            values={filterValues}
+            onChange={(name, value) => {
+              if (name === 'q') setSearchTerm(String(value ?? ''));
+              if (name === 'orderPeriod') setOrderPeriod(value as DateRange | undefined);
+              if (name === 'orderDate') setOrderDate(value as DateRange | undefined);
+            }}
+            onReset={handleResetFilters}
+            layout="responsive-grid"
+            mobileDateFormat="dd MMMM"
+            desktopDateFormat="dd MMM yyyy"
+            dateLocale={idLocale}
+            resetButtonClassName="hidden md:inline-flex md:w-auto"
+          />
+        </div>
       </div>
 
       {/* Table */}
