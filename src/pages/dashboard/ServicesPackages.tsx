@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
@@ -19,6 +20,7 @@ interface TourPackage {
   min_pax: number;
   max_pax: number;
   min_price: number;
+  active: boolean;
   status: string;
 }
 
@@ -61,28 +63,21 @@ export const ServicesPackages: React.FC = () => {
           const rawId = item.package_id ?? item.id ?? item.packageId;
           const package_id =
             typeof rawId === 'string' || typeof rawId === 'number' ? rawId : String(rawId ?? '');
-          const destinationRaw =
-            item.destination ??
-            item.tujuan ??
-            item.city_name ??
-            item.cityName ??
-            item.destination_name ??
-            item.destinationName ??
-            item.location ??
-            item.location_name ??
-            item.locationName ??
-            item.area ??
-            item.region;
+          const destinations = item.destinations;
+          const destinationStr = typeof destinations === 'string' ? destinations : '';
+          const destinationRaw = destinationStr.length > 25 ? `${destinationStr.slice(0, 25)}...` : destinationStr;
+          const status = normalizeStatus(item.status ?? item.active);
           return {
             package_id,
             package_name: String(item.package_name ?? item.name ?? ''),
             thumbnail: toFileUrl(String(item.thumbnail ?? '')),
             package_description: String(item.package_description ?? item.description ?? ''),
-            destination: typeof destinationRaw === 'string' ? destinationRaw : '',
+            destination: destinationRaw,
             min_pax: Number(item.min_pax ?? 0),
             max_pax: Number(item.max_pax ?? 0),
             min_price: Number(item.min_price ?? 0),
-            status: normalizeStatus(item.status ?? item.active),
+            active: status === 'active',
+            status,
           } satisfies TourPackage;
         });
         setPackages(mapped);
@@ -127,16 +122,44 @@ export const ServicesPackages: React.FC = () => {
     }
   };
 
-  const getStatusText = (status: string) => {
-    const s = status === 'active' ? 'active' : status === 'inactive' ? 'inactive' : status;
-    const label = s === 'active' ? 'Aktif' : s === 'inactive' ? 'Tidak Aktif' : status;
-    const cls =
-      s === 'active'
-        ? 'text-green-600 dark:text-green-400'
-        : s === 'inactive'
-          ? 'text-gray-600 dark:text-gray-300'
-          : 'text-gray-900 dark:text-white';
-    return <span className={`text-sm font-medium ${cls}`}>{label}</span>;
+  const handleToggleStatus = async (pkg: TourPackage) => {
+    const packageId = String(pkg.package_id ?? '').trim();
+    if (!packageId) return;
+
+    const prevActive = pkg.active;
+    const action = prevActive ? 'inactive' : 'active';
+    const nextActive = !prevActive;
+    const nextStatus = nextActive ? 'active' : 'inactive';
+
+    setPackages((prev) =>
+      prev.map((p) =>
+        p.package_id === pkg.package_id ? { ...p, active: nextActive, status: nextStatus } : p
+      )
+    );
+
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const res = await api.post(
+        '/services/tour-packages/activate',
+        { action, package_id: packageId },
+        { Authorization: token }
+      );
+      if (res.status !== 'success') {
+        setPackages((prev) =>
+          prev.map((p) =>
+            p.package_id === pkg.package_id ? { ...p, active: prevActive, status: pkg.status } : p
+          )
+        );
+        Swal.fire('Error', 'Gagal mengubah status', 'error');
+      }
+    } catch {
+      setPackages((prev) =>
+        prev.map((p) =>
+          p.package_id === pkg.package_id ? { ...p, active: prevActive, status: pkg.status } : p
+        )
+      );
+      Swal.fire('Error', 'Terjadi kesalahan saat mengubah status', 'error');
+    }
   };
 
   const filteredPackages = packages.filter(pkg => {
@@ -222,7 +245,7 @@ export const ServicesPackages: React.FC = () => {
     {
       label: 'Tujuan',
       key: 'destination',
-      width: 240,
+      width: 300,
       sortable: true,
       render: (pkg) => (
         <span className="text-sm text-foreground">
@@ -243,7 +266,9 @@ export const ServicesPackages: React.FC = () => {
       key: 'status',
       width: 140,
       sortable: true,
-      render: (pkg) => getStatusText(pkg.status)
+      render: (pkg) => (
+        <Switch checked={pkg.active} onCheckedChange={() => void handleToggleStatus(pkg)} />
+      )
     },
   ];
 

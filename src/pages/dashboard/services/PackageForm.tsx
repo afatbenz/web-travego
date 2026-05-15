@@ -258,13 +258,26 @@ export const PackageForm: React.FC = () => {
           setGalleryPreviews(uniqueImagesUrl.map((url) => ({ url: toFileUrl(url), path: toServerPath(url), status: 'done' as const })));
 
           const itinerariesRaw = root.itineraries ?? root.itinerary ?? metaRaw.itineraries ?? metaRaw.itinerary;
-          const toMinutes = (time: string) => {
-            const hh = Number(time.slice(0, 2));
-            const mm = Number(time.slice(3, 5));
-            if (!Number.isFinite(hh) || !Number.isFinite(mm)) return -1;
-            return hh * 60 + mm;
-          };
+          type ItDay = { uuid: string | undefined; day: number; activities: ItAct[] };
           type ItAct = { uuid: string | undefined; time: string; description: string; city: { id: number; name: string } | undefined; location: string };
+          const groupItineraryByDay = (days: ItDay[]): ItDay[] => {
+            const byDay = new Map<number, ItDay>();
+            for (const entry of days) {
+              const existing = byDay.get(entry.day);
+              if (existing) {
+                existing.activities.push(...entry.activities);
+                if (!existing.uuid && entry.uuid) existing.uuid = entry.uuid;
+              } else {
+                byDay.set(entry.day, { uuid: entry.uuid, day: entry.day, activities: [...entry.activities] });
+              }
+            }
+            return Array.from(byDay.values()).sort((a, b) => a.day - b.day);
+          };
+          const readDay = (obj: Record<string, unknown>, fallback: number) => {
+            const dayRaw = obj.day ?? fallback;
+            const day = typeof dayRaw === 'number' ? dayRaw : typeof dayRaw === 'string' ? Number(dayRaw) : fallback;
+            return Number.isFinite(day) ? day : fallback;
+          };
           const readActivity = (input: unknown): ItAct | null => {
             if (!input || typeof input !== 'object') return null;
             const ao = input as Record<string, unknown>;
@@ -286,40 +299,37 @@ export const PackageForm: React.FC = () => {
             const arr = itinerariesRaw as unknown[];
             const first = arr[0];
             if (first && typeof first === 'object' && 'activities' in (first as Record<string, unknown>)) {
-              return arr
+              const nested = arr
                 .map((x, i) => {
                   if (!x || typeof x !== 'object') return null;
                   const obj = x as Record<string, unknown>;
                   const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
-                  const dayRaw = obj.day ?? i + 1;
-                  const day = typeof dayRaw === 'number' ? dayRaw : typeof dayRaw === 'string' ? Number(dayRaw) : i + 1;
+                  const day = readDay(obj, i + 1);
                   const activitiesRaw = obj.activities;
                   const activities = Array.isArray(activitiesRaw)
                     ? (activitiesRaw as unknown[])
                         .map(readActivity)
                         .filter((v): v is ItAct => v !== null)
                     : [];
-                  return { uuid, day: Number.isFinite(day) ? day : i + 1, activities };
+                  return { uuid, day, activities };
                 })
-                .filter((v): v is { uuid: string | undefined; day: number; activities: ItAct[] } => v !== null);
+                .filter((v): v is ItDay => v !== null);
+              return groupItineraryByDay(nested);
             }
-            const flat = arr
-              .map(readActivity)
-              .filter((v): v is ItAct => v !== null);
-            let day = 1;
-            let prevMin = -1;
             const byDay = new Map<number, ItAct[]>();
-            for (const a of flat) {
-              const m = toMinutes(a.time);
-              if (prevMin !== -1 && m !== -1 && m < prevMin) day += 1;
-              prevMin = m !== -1 ? m : prevMin;
+            for (const x of arr) {
+              if (!x || typeof x !== 'object') continue;
+              const obj = x as Record<string, unknown>;
+              const activity = readActivity(x);
+              if (!activity) continue;
+              const day = readDay(obj, 1);
               const list = byDay.get(day) ?? [];
-              list.push(a);
+              list.push(activity);
               byDay.set(day, list);
             }
-            return Array.from(byDay.entries())
-              .sort((a, b) => a[0] - b[0])
-              .map(([d, activities]) => ({ uuid: undefined, day: d, activities }));
+            return groupItineraryByDay(
+              Array.from(byDay.entries()).map(([d, activities]) => ({ uuid: undefined, day: d, activities }))
+            );
           })();
 
           setFormData(prev => ({
