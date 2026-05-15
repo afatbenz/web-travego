@@ -20,13 +20,15 @@ export const GeneralContent = () => (
   />
 );
 
-export const ImageSliderContent = () => (
+export const ImageBannerContent = () => (
   <GenericContentPage 
     title="Image Sliders" 
     description="Manage image sliders and banners."
-    parent="image-slider"
+    parent="image-banner"
     initialSections={[
-      { id: 1, name: 'Main Banner Slider', description: 'Images for the main banner slider', section_tag: 'main-banner', status: 'Checking...', lastUpdated: '-', type: 'image' }
+      { id: 1, name: 'Main Image Banner', description: 'Images for the main banner', section_tag: 'main-banner', status: 'Checking...', lastUpdated: '-', type: 'image' },
+      { id: 2, name: 'Catalogue Image Banner', description: 'Images for the catalogue banner', section_tag: 'catalogue-banner', status: 'Checking...', lastUpdated: '-', type: 'image' },
+      { id: 3, name: 'Fleet Image Banner', description: 'Images for the fleet banner', section_tag: 'fleet-banner', status: 'Checking...', lastUpdated: '-', type: 'image' }
     ]}
   />
 );

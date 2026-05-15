@@ -81,7 +81,7 @@ export const DashboardHome: React.FC = () => {
       color: 'text-blue-600 dark:text-blue-400'
     },
     {
-      title: 'Jumlah Anggota',
+      title: 'Jumlah Pelanggan',
       value: totalCustomers.toLocaleString('id-ID'),
       change: `${customerPercentage >= 0 ? '+' : ''}${customerPercentage}%`,
       changeType: customerPercentage >= 0 ? 'increase' : 'decrease',

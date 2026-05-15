@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api, toFileUrl } from '@/lib/api';
 import { Star, Shield, Clock, Headphones, Phone, Check, Globe, ClipboardList, Bell, Users, Bot, LayoutDashboard, ShoppingCart, Truck, Quote, Bus, Sparkles, BarChart2, Receipt, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +13,28 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [activeOptimizationIndex, setActiveOptimizationIndex] = useState(0);
   const [activeControlIndex, setActiveControlIndex] = useState(0);
+  const [popularCatalogs, setPopularCatalogs] = useState<Record<string, unknown>[]>([]);
+  const [loadingCatalogs, setLoadingCatalogs] = useState(false);
+
+  useEffect(() => {
+    async function fetchPopularCatalogs() {
+      setLoadingCatalogs(true);
+      const res = await api.get<unknown>('/service/tour-packages');
+      if (res.status === 'success') {
+        const raw = res.data as unknown;
+        const items = Array.isArray(raw)
+          ? raw
+          : (raw && typeof raw === 'object' && (raw as Record<string, unknown>).data && Array.isArray((raw as Record<string, unknown>).data))
+            ? ((raw as Record<string, unknown>).data as unknown[])
+            : [];
+        setPopularCatalogs(items as Record<string, unknown>[]);
+      } else {
+        setPopularCatalogs([]);
+      }
+      setLoadingCatalogs(false);
+    }
+    fetchPopularCatalogs();
+  }, []);
 
   const whyChooseUs = [
     {
@@ -457,6 +480,97 @@ export const Home: React.FC = () => {
       <section className="py-16 bg-white dark:bg-gray-950">
         <div className="mx-auto max-w-7xl px-6">
           <PricingSection />
+        </div>
+      </section>
+
+      {/* Popular Catalogs */}
+      <section className="py-20 bg-white dark:bg-gray-950">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="text-center mb-12">
+            <Badge className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-1.5 text-xs font-medium text-blue-700 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
+              Pilihan Terbaik
+            </Badge>
+            <h2 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white">Paket Wisata Populer</h2>
+            <p className="mt-3 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Temukan paket wisata terbaik yang paling banyak diminati oleh pelanggan kami.
+            </p>
+          </div>
+          {loadingCatalogs ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="rounded-2xl border border-gray-200 shadow-sm dark:border-gray-800 dark:bg-gray-900 animate-pulse">
+                  <div className="h-48 bg-gray-200 dark:bg-gray-800" />
+                  <CardContent className="p-4">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-full mb-1" />
+                    <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/2" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : popularCatalogs.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {popularCatalogs.slice(0, 8).map((item: Record<string, unknown>) => {
+                const catalogId = String(item.package_id ?? item.id ?? '');
+                const imageUrl = String(item.thumbnail ?? item.image ?? '');
+                const displayImage = imageUrl && !imageUrl.startsWith('http') ? toFileUrl(imageUrl) : imageUrl;
+                const priceRaw = Number(item.price ?? item.price_per_pax ?? 0);
+                const displayPrice = priceRaw > 0 ? `Rp ${priceRaw.toLocaleString('id-ID')}` : '';
+                const originalPriceRaw = Number(item.original_price ?? item.price_before ?? 0);
+                const displayOriginalPrice = originalPriceRaw > 0 ? `Rp ${originalPriceRaw.toLocaleString('id-ID')}` : undefined;
+                const discount = originalPriceRaw > 0 && priceRaw > 0 ? Math.round(((originalPriceRaw - priceRaw) / originalPriceRaw) * 100) : undefined;
+                return (
+                  <Card key={catalogId} className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-2xl border border-gray-200 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                    <div className="relative overflow-hidden h-48">
+                      {displayImage ? (
+                        <img
+                          src={displayImage}
+                          alt={String(item.package_name ?? item.title ?? '')}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                          <Globe className="h-12 w-12 text-gray-400" />
+                        </div>
+                      )}
+                      {discount && discount > 0 && (
+                        <Badge className="absolute top-4 left-4 bg-orange-500 hover:bg-orange-500 text-white">-{discount}%</Badge>
+                      )}
+                    </div>
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 mb-1">
+                        {String(item.package_name ?? item.title ?? '')}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">
+                        {String(item.package_description ?? item.description ?? '')}
+                      </p>
+                      {displayPrice && (
+                        <div className="flex items-baseline gap-1">
+                          {displayOriginalPrice && (
+                            <span className="text-xs text-gray-400 line-through">{displayOriginalPrice}</span>
+                          )}
+                          <span className="text-base font-bold text-blue-600 dark:text-blue-400">{displayPrice}</span>
+                          <span className="text-xs text-gray-500">/pax</span>
+                        </div>
+                      )}
+                      <Button
+                        size="sm"
+                        className="w-full mt-3"
+                        onClick={() => navigate(`/detail/catalog/${catalogId}`)}
+                      >
+                        Lihat Detail
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Globe className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400">Belum ada paket wisata tersedia.</p>
+            </div>
+          )}
         </div>
       </section>
 

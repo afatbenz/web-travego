@@ -3,11 +3,43 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Eye, Edit, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { Switch } from '@/components/ui/switch';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
+
+const formatListField = (raw: unknown): string => {
+  if (raw == null || raw === '') return '-';
+  if (typeof raw === 'string') return raw || '-';
+  if (typeof raw === 'number') return String(raw);
+  if (Array.isArray(raw)) {
+    const parts = raw
+      .map((item) => {
+        if (typeof item === 'string' || typeof item === 'number') return String(item);
+        if (item && typeof item === 'object') {
+          const o = item as Record<string, unknown>;
+          const val = o.name ?? o.engine ?? o.capacity ?? o.value ?? o.label;
+          if (typeof val === 'string' || typeof val === 'number') return String(val);
+        }
+        return '';
+      })
+      .filter(Boolean);
+    return parts.length ? parts.join(', ') : '-';
+  }
+  return '-';
+};
+
+const normalizeStatus = (raw: unknown): 'active' | 'inactive' => {
+  if (raw === true || raw === 1 || raw === '1') return 'active';
+  if (raw === false || raw === 0 || raw === '0') return 'inactive';
+  if (typeof raw === 'string') {
+    const s = raw.toLowerCase();
+    if (s === 'active') return 'active';
+    if (s === 'inactive') return 'inactive';
+  }
+  return 'inactive';
+};
 
 export const ServicesArmada: React.FC = () => {
   const navigate = useNavigate();
@@ -18,7 +50,19 @@ export const ServicesArmada: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
-  const [armada, setArmada] = useState<Array<{ id: string | number; name: string; type: string; totalUnit: string; body?: string; engine?: string; status: string; image?: string; description?: string }>>([]);
+  const [armada, setArmada] = useState<Array<{
+    id: string | number;
+    name: string;
+    type: string;
+    totalUnit: string;
+    body?: string;
+    engines: string;
+    capacities: string;
+    active: boolean;
+    status: string;
+    image?: string;
+    description?: string;
+  }>>([]);
   const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
@@ -49,7 +93,7 @@ export const ServicesArmada: React.FC = () => {
         }
         const mapped = items.map((raw, i) => {
           const x = record(raw);
-          const idRaw = x.id ?? x.fleet_id;
+          const idRaw = x.fleet_id ?? x.id;
           const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? (idRaw as string | number) : i;
           const name = typeof x.name === 'string' ? x.name : (typeof x.fleet_name === 'string' ? x.fleet_name : '');
           const type = typeof x.type === 'string' ? x.type : (typeof x.fleet_type === 'string' ? x.fleet_type : '');
@@ -62,11 +106,12 @@ export const ServicesArmada: React.FC = () => {
                 : 0;
           const totalUnit =  `${totalUnitNum} unit`;
           const body = typeof x.body === 'string' ? x.body : (typeof x.fleet_body === 'string' ? x.fleet_body : undefined);
-          const engine = typeof x.engine === 'string' ? x.engine : (typeof x.fleet_engine === 'string' ? x.fleet_engine : undefined);
-          const status = typeof x.status === 'string' ? x.status : x.active === true ? 'active' : 'inactive';
+          const engines = formatListField(x.engines ?? x.engine ?? x.fleet_engine);
+          const capacities = formatListField(x.capacities ?? x.capacity);
+          const status = normalizeStatus(x.status ?? x.active);
           const image = typeof x.image === 'string' ? x.image : typeof x.thumbnail === 'string' ? x.thumbnail : undefined;
           const description = typeof x.description === 'string' ? x.description : '';
-          return { id, name, type, totalUnit, body, engine, status, image, description };
+          return { id, name, type, totalUnit, body, engines, capacities, active: status === 'active', status, image, description };
         });
         setArmada(mapped);
         setTotalCount(total);
@@ -79,23 +124,46 @@ export const ServicesArmada: React.FC = () => {
     load();
   }, [currentPage, itemsPerPage, searchTerm, statusFilter]);
 
-  const getStatusText = (status: string) => {
-    const s = status === 'active' ? 'active' : status === 'inactive' ? 'inactive' : status;
-    const label = s === 'active' ? 'Publish' : s === 'inactive' ? 'Private' : status;
-    const cls =
-      s === 'active'
-        ? 'text-green-600 dark:text-green-400'
-        : s === 'inactive'
-          ? 'text-gray-600 dark:text-gray-300'
-          : 'text-gray-900 dark:text-white';
-    return <span className={`text-sm font-medium ${cls}`}>{label}</span>;
+  type ArmadaRow = (typeof armada)[number];
+
+  const handleToggleStatus = async (item: ArmadaRow) => {
+    const fleetId = String(item.id ?? '').trim();
+    if (!fleetId) return;
+
+    const prevActive = item.active;
+    const action = prevActive ? 'inactive' : 'active';
+    const nextActive = !prevActive;
+    const nextStatus = nextActive ? 'active' : 'inactive';
+
+    setArmada((prev) =>
+      prev.map((a) => (a.id === item.id ? { ...a, active: nextActive, status: nextStatus } : a))
+    );
+
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const res = await api.post(
+        '/services/fleet/activate',
+        { action, fleet_id: fleetId },
+        { Authorization: token }
+      );
+      if (res.status !== 'success') {
+        setArmada((prev) =>
+          prev.map((a) => (a.id === item.id ? { ...a, active: prevActive, status: item.status } : a))
+        );
+        Swal.fire('Error', 'Gagal mengubah status', 'error');
+      }
+    } catch {
+      setArmada((prev) =>
+        prev.map((a) => (a.id === item.id ? { ...a, active: prevActive, status: item.status } : a))
+      );
+      Swal.fire('Error', 'Terjadi kesalahan saat mengubah status', 'error');
+    }
   };
 
   const filteredArmada = armada; // server-side filtering/pagination
   const startIndex = (currentPage - 1) * itemsPerPage;
   const totalItems = Math.max(totalCount, filteredArmada.length);
 
-  type ArmadaRow = (typeof armada)[number];
   const columns: Array<DataTableColumn<ArmadaRow>> = [
     {
       label: 'No',
@@ -109,7 +177,7 @@ export const ServicesArmada: React.FC = () => {
       label: 'Nama',
       key: 'name',
       sortable: true,
-      width: 250,
+      width: 270,
       render: (item) => (
         <div className="flex items-center gap-3">
           <img src={item.image} alt={item.name} className="h-12 w-12 rounded-lg object-cover" />
@@ -121,7 +189,7 @@ export const ServicesArmada: React.FC = () => {
               {item.name}
             </Link>
             <div className="line-clamp-1 text-sm text-muted-foreground">
-              {[item.body, item.engine].filter(Boolean).join(' - ') || item.description}
+              {item.body || item.description}
             </div>
           </div>
         </div>
@@ -142,11 +210,27 @@ export const ServicesArmada: React.FC = () => {
       render: (item) => <span className="text-sm text-foreground">{item.totalUnit}</span>
     },
     {
+      label: 'Engine',
+      key: 'engines',
+      sortable: true,
+      width: 200,
+      render: (item) => <span className="text-sm text-foreground">{item.engines}</span>
+    },
+    {
+      label: 'Kapasitas',
+      key: 'capacities',
+      sortable: true,
+      width: 100,
+      render: (item) => <span className="text-sm text-foreground">{item.capacities} seat</span>
+    },
+    {
       label: 'Status',
       key: 'status',
       sortable: true,
-      width: 50,
-      render: (item) => getStatusText(item.status)
+      width: 80,
+      render: (item) => (
+        <Switch checked={item.active} onCheckedChange={() => void handleToggleStatus(item)} />
+      )
     },
   ];
 

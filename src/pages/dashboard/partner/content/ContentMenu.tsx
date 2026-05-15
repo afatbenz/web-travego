@@ -19,10 +19,10 @@ const ContentMenu = () => {
       description: 'Manage content for your landing page'
     },
     { 
-      title: 'Image Slider', 
-      path: '/dashboard/partner/content/image-slider',
+      title: 'Image Banner', 
+      path: '/dashboard/partner/content/image-banner',
       icon: <Image className="h-8 w-8 mb-2 text-purple-600" />,
-      description: 'Manage image sliders and banners'
+      description: 'Manage image banners'
     },
     { 
       title: 'Catalogue & Product', 
