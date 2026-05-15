@@ -863,9 +863,12 @@ export const PackageForm: React.FC = () => {
                 {formData.schedules?.map((schedule, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative border-b pb-4 last:border-0">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        Tanggal Mulai
-                      </label>
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          Tanggal Mulai
+                        </label>
+                        <div className="h-6 w-6" />
+                      </div>
                       <Input
                         type="date"
                         min={new Date().toISOString().split('T')[0]}

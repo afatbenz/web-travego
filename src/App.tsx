@@ -102,7 +102,7 @@ import PartnerContent from '@/pages/dashboard/partner/content/Content';
 import ContentMenu from '@/pages/dashboard/partner/content/ContentMenu';
 import {
   GeneralContent,
-  ImageSliderContent,
+  ImageBannerContent,
   CatalogueContent,
   HotOffersContent,
   ServicesContent,
@@ -958,9 +958,9 @@ function App() {
               <PartnerContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/image-slider" element={
+          <Route path="/dashboard/partner/content/image-banner" element={
             <DashboardLayout>
-              <ImageSliderContent />
+              <ImageBannerContent />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/content/catalogue" element={
