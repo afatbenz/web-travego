@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Plus, Save, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { api, toFileUrl } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,11 +36,6 @@ export const LeaveManagement: React.FC = () => {
 
   const toStringSafe = (v: unknown): string =>
     typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'bigint' ? String(v) : '';
-
-  const toNumberSafe = (v: unknown): number => {
-    const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : typeof v === 'bigint' ? Number(v) : NaN;
-    return Number.isFinite(n) ? n : 0;
-  };
 
   const tryParseDate = (value: string): Date | null => {
     const v = String(value ?? '').trim();
@@ -760,15 +755,29 @@ export const LeaveManagement: React.FC = () => {
           if (!open) resetCreateForm();
         }}
       >
-        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-[720px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Tambah Cuti Baru</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm text-muted-foreground">Lengkapi form berikut untuk membuat pengajuan cuti.</div>
-          <form onSubmit={onSaveCreate} className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-[720px] p-0 border-none bg-white overflow-hidden">
+          <div className="p-8 space-y-6 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-2xl font-bold text-slate-900 truncate">Tambah Cuti Baru</h2>
+                  <p className="text-slate-500 text-sm truncate">Lengkapi form berikut untuk membuat pengajuan cuti.</p>
+                </div>
+              </div>
+              <DialogClose className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400 shrink-0">
+                <X className="w-5 h-5" />
+              </DialogClose>
+            </div>
+
+            <div className="h-px bg-slate-100" />
+
+            <form onSubmit={onSaveCreate} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
-                <Label>Pilih Karyawan</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Pilih Karyawan</Label>
                 <Select
                   value={createForm.employeeId}
                   onValueChange={(v) =>
@@ -780,12 +789,12 @@ export const LeaveManagement: React.FC = () => {
                   }
                   disabled={employeesLoading}
                 >
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
                     <SelectValue placeholder={employeesLoading ? 'Memuat...' : 'Pilih karyawan'} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                     {employees.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
+                      <SelectItem key={o.value} value={o.value} className="rounded-lg">
                         {o.label}
                       </SelectItem>
                     ))}
@@ -793,18 +802,18 @@ export const LeaveManagement: React.FC = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Karyawan Pengganti</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Karyawan Pengganti</Label>
                 <Select
                   value={createForm.replacementEmployeeId}
                   onValueChange={(v) => setCreateForm((p) => ({ ...p, replacementEmployeeId: v }))}
                   disabled={employeesLoading || !createForm.employeeId}
                 >
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
                     <SelectValue placeholder={employeesLoading ? 'Memuat...' : 'Pilih karyawan pengganti'} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                     {replacementOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
+                      <SelectItem key={o.value} value={o.value} className="rounded-lg">
                         {o.label}
                       </SelectItem>
                     ))}
@@ -815,19 +824,19 @@ export const LeaveManagement: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Tanggal Mulai</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Tanggal Mulai</Label>
                 <Input
                   type="date"
-                  className="h-11"
+                  className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
                   value={createForm.startDate}
                   onChange={(e) => setCreateForm((p) => ({ ...p, startDate: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Tanggal Selesai</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Tanggal Selesai</Label>
                 <Input
                   type="date"
-                  className="h-11"
+                  className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
                   value={createForm.endDate}
                   onChange={(e) => setCreateForm((p) => ({ ...p, endDate: e.target.value }))}
                 />
@@ -841,18 +850,18 @@ export const LeaveManagement: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Jenis Cuti</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Jenis Cuti</Label>
                 <Select
                   value={createForm.leaveType}
                   onValueChange={(v) => setCreateForm((p) => ({ ...p, leaveType: v }))}
                   disabled={leaveTypesLoading}
                 >
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
                     <SelectValue placeholder={leaveTypesLoading ? 'Memuat...' : 'Pilih jenis cuti'} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                     {leaveTypes.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
+                      <SelectItem key={o.value} value={o.value} className="rounded-lg">
                         {o.label}
                       </SelectItem>
                     ))}
@@ -860,10 +869,10 @@ export const LeaveManagement: React.FC = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Lampiran</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Lampiran</Label>
                 <Input
                   type="file"
-                  className={cn('h-11 pt-2')}
+                  className={cn('h-12 pt-3 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all')}
                   disabled={attachmentUploading}
                   onChange={(e) => onAttachmentChange(e.target.files?.[0] ?? null)}
                 />
@@ -878,28 +887,50 @@ export const LeaveManagement: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Alasan Cuti</Label>
+              <Label className="text-slate-700 font-semibold ml-1">Alasan Cuti</Label>
               <Textarea
                 value={createForm.reason}
                 onChange={(e) => setCreateForm((p) => ({ ...p, reason: e.target.value }))}
                 placeholder="Tulis alasan cuti..."
-                className="min-h-[96px]"
+                className="min-h-[96px] rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
               />
             </div>
 
-            <div className="space-y-3">
-              <div className="text-xs text-muted-foreground">Periksa kembali data sebelum menyimpan.</div>
-              <div className="h-px bg-border" />
-              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={creating || attachmentUploading}>
-                  Batal
-                </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!canSave}>
-                  {creating ? 'Menyimpan...' : 'Simpan'}
-                </Button>
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                  <div className="text-blue-600">
+                    <Info className="w-4 h-4" />
+                  </div>
+                  <p className="text-xs text-blue-700 font-medium">Pastikan tanggal dan karyawan pengganti sudah sesuai sebelum menyimpan.</p>
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setCreateOpen(false)}
+                    disabled={creating || attachmentUploading}
+                    className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!canSave}
+                    className="flex-1 md:flex-none h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_25px_rgba(37,99,235,0.3)] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                  >
+                    {creating ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        Simpan Cuti
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
-          </form>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
