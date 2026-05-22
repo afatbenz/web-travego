@@ -300,7 +300,7 @@ export const FleetUnitDetail: React.FC = () => {
               <TabsTrigger
                 value="orders"
               >
-                Riwayat Order
+                Riwayat Perjalanan
               </TabsTrigger>
             </TabsList>
 

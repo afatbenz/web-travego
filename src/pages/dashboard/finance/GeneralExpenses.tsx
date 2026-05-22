@@ -307,6 +307,7 @@ export const GeneralExpenses: React.FC = () => {
 
     loadTransactions();
     loadMeta();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -442,7 +443,7 @@ export const GeneralExpenses: React.FC = () => {
     let expense = 0;
     let operationalExpense = 0;
     let otherExpense = 0;
-    let transactionCount = filteredRows.length;
+    const transactionCount = filteredRows.length;
 
     filteredRows.forEach((r) => {
       const val = Math.abs(r.amount || 0);
