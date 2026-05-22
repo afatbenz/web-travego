@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Clock, DollarSign, Download, Eye, Filter, MoreHorizontal, Plus, ShoppingBag } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, DollarSign, Download, Eye, Filter, MoreHorizontal, Plus, ShoppingBag, XCircle } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -97,6 +97,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     uom: string;
     unitQty: number;
     paymentStatus: number;
+    status: number;
     latestPaymentStatus: string;
     customerName: string;
     totalAmount: number;
@@ -212,6 +213,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
               uom: typeof uomRaw === 'string' ? uomRaw : 'hari',
               unitQty: Number.isFinite(Number(item.unit_qty ?? item.qty)) ? Number(item.unit_qty ?? item.qty) : 0,
               paymentStatus: Number.isFinite(Number(item.payment_status)) ? Number(item.payment_status) : 0,
+              status: Number.isFinite(Number(item.status)) ? Number(item.status) : 0,
               latestPaymentStatus:
                 typeof latestPaymentStatusRaw === 'string' || typeof latestPaymentStatusRaw === 'number'
                   ? String(latestPaymentStatusRaw)
@@ -251,42 +253,75 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     fetchOrders();
   }, [type, searchTerm, orderPeriod, orderDate]);
 
-  const getPaymentStatusBadge = (status: number) => {
-    switch (status) {
+  const getStatusBadge = (order: Order) => {
+    // Logic based on order status
+    if (order.status === 2) {
+      return (
+        <Badge className="rounded-full border-transparent bg-blue-500/50 px-3 py-1 font-medium text-amber-800 hover:bg-amber-500/10 dark:bg-amber-400/15 dark:text-amber-300">
+          <Clock className="mr-1.5 h-3.5 w-3.5" />
+          Menunggu Konfirmasi
+        </Badge>
+      );
+    }
+
+    if (order.status === 0) {
+      return (
+        <Badge className="rounded-full border-transparent bg-zinc-500/10 px-3 py-1 font-medium text-zinc-800 hover:bg-zinc-500/10 dark:bg-zinc-400/15 dark:text-zinc-200">
+          <XCircle className="mr-1.5 h-3.5 w-3.5" />
+          Pesanan Dibatalkan
+        </Badge>
+      );
+    }
+
+    // Default to payment status logic if status is 1 or other
+    switch (order.paymentStatus) {
       case 1:
         return (
-          <Badge className="rounded-full border-transparent bg-transparent px-3 py-1 font-medium text-emerald-700 hover:bg-gray-200/10 dark:bg-emerald-400/15 dark:text-emerald-300 dark:hover:bg-emerald-400/15">
+          <Badge className="rounded-full border-transparent bg-emerald-500/10 px-3 py-1 font-medium text-emerald-700 hover:bg-emerald-500/10 dark:bg-emerald-400/15 dark:text-emerald-300">
+            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
             Pembayaran Selesai
           </Badge>
         );
       case 2:
         return (
-          <Badge className="rounded-full border-transparent bg-red-500/10 px-3 py-1 font-medium text-amber-800 hover:bg-red-500/10 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/15">
+          <Badge className="rounded-full border-transparent bg-amber-500/10 px-3 py-1 font-medium text-amber-800 hover:bg-amber-500/10 dark:bg-amber-400/15 dark:text-amber-300">
+            <Clock className="mr-1.5 h-3.5 w-3.5" />
             Menunggu Pembayaran
           </Badge>
         );
       case 3:
         return (
-          <Badge className="rounded-full border-transparent bg-sky-500/10 px-3 py-1 font-medium text-sky-800 hover:bg-sky-500/10 dark:bg-sky-400/15 dark:text-sky-300 dark:hover:bg-sky-400/15">
+          <Badge className="rounded-full border-transparent bg-sky-500/10 px-3 py-1 font-medium text-sky-800 hover:bg-sky-500/10 dark:bg-sky-400/15 dark:text-sky-300">
+            <Clock className="mr-1.5 h-3.5 w-3.5" />
             Menunggu Persetujuan
           </Badge>
         );
       case 4:
         return (
-          <Badge className="rounded-full border-transparent bg-rose-500/10 px-3 py-1 font-medium text-rose-800 hover:bg-rose-500/10 dark:bg-rose-400/15 dark:text-rose-300 dark:hover:bg-rose-400/15">
+          <Badge className="rounded-full border-transparent bg-rose-500/10 px-3 py-1 font-medium text-rose-800 hover:bg-rose-500/10 dark:bg-rose-400/15 dark:text-rose-300">
+            <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
             Belum Lunas
           </Badge>
         );
       case 5:
         return (
-          <Badge className="rounded-full border-transparent bg-violet-500/10 px-3 py-1 font-medium text-violet-800 hover:bg-violet-500/10 dark:bg-violet-400/15 dark:text-violet-300 dark:hover:bg-violet-400/15">
+          <Badge className="rounded-full border-transparent bg-violet-500/10 px-3 py-1 font-medium text-violet-800 hover:bg-violet-500/10 dark:bg-violet-400/15 dark:text-violet-300">
+            <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
             Refund
+          </Badge>
+        );
+      case 6:
+        return (
+          <Badge className="rounded-full border-transparent bg-blue-500/10 px-3 py-1 font-medium text-white hover:bg-blue-500/10 dark:bg-blue-400/15 dark:text-white">
+            <Clock className="mr-1.5 h-3.5 w-3.5" />
+            Menunggu Konfirmasi
           </Badge>
         );
       case 0:
         return (
-          <Badge className="rounded-full border-transparent bg-zinc-500/10 px-3 py-1 font-medium text-zinc-800 hover:bg-zinc-500/10 dark:bg-zinc-400/15 dark:text-zinc-200 dark:hover:bg-zinc-400/15">
-            Pembayaran Dibatalkan
+          <Badge className="rounded-full border-transparent bg-zinc-500/10 px-3 py-1 font-medium text-zinc-800 hover:bg-zinc-500/10 dark:bg-zinc-400/15 dark:text-zinc-200">
+            <XCircle className="mr-1.5 h-3.5 w-3.5" />
+            Pesanan Dibatalkan
           </Badge>
         );
       default:
@@ -600,7 +635,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       width: 220,
       render: (row) => (
         <div title={row.latestPaymentStatus || undefined} className="inline-flex">
-          {getPaymentStatusBadge(row.paymentStatus)}
+          {getStatusBadge(row)}
         </div>
       )
     },
@@ -634,7 +669,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         {canAddOrder ? (
           <Button
             type="button"
-            className="h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+            className="h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-4 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
             onClick={() => navigate(createOrderPath)}
           >
             <Plus className="h-4 w-4 mr-2" />

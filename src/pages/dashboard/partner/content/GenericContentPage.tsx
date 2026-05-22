@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Eye, Trash, Upload, Image as ImageIcon, Check, Star, Shield, Truck, Phone, Mail, MapPin, Facebook, Twitter, Instagram, Tag, BadgePercent, Gift, Megaphone, Percent } from 'lucide-react';
+import { Edit, Eye, Trash, Upload, Image as ImageIcon, Check, Star, Shield, Truck, Phone, Mail, MapPin, Facebook, Twitter, Instagram, Tag, BadgePercent, Gift, Megaphone, Percent, GripVertical, Plus, Info, Save, X, Globe, Youtube } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -11,9 +11,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
+import { Switch } from '@/components/ui/switch';
 import BackButton from '@/components/common/BackButton';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 export interface Section {
   id: number;
@@ -47,8 +50,26 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
   const [savingEdit, setSavingEdit] = useState(false);
   const [listModalOpen, setListModalOpen] = useState(false);
   const [listRows, setListRows] = useState<Array<{ icon: string; label: string; subLabel: string; uuid?: string }>>([]);
+  const [socialMediaModalOpen, setSocialMediaModalOpen] = useState(false);
+  const [socialMediaRows, setSocialMediaRows] = useState<Array<{ platform: string; url: string; isActive: boolean; uuid?: string }>>([]);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const PLATFORM_OPTIONS = [
+    { value: 'instagram', label: 'Instagram', icon: Instagram },
+    { value: 'facebook', label: 'Facebook', icon: Facebook },
+    { value: 'tiktok', label: 'TikTok', icon: Globe }, // TikTok icon might not be in lucide, use Globe as fallback or similar
+    { value: 'youtube', label: 'YouTube', icon: Youtube },
+  ];
+
+  const renderPlatformIcon = (platform: string) => {
+    const p = platform.toLowerCase();
+    if (p === 'instagram') return <Instagram className="w-6 h-6 text-pink-600" />;
+    if (p === 'facebook') return <Facebook className="w-6 h-6 text-blue-600" />;
+    if (p === 'tiktok') return <Globe className="w-6 h-6 text-black" />;
+    if (p === 'youtube') return <Youtube className="w-6 h-6 text-red-600" />;
+    return <Globe className="w-6 h-6 text-gray-400" />;
+  };
 
   const renderPreviewIcon = (icon: string) => {
     const i = (icon ?? '').trim();
@@ -146,7 +167,7 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
         if (Array.isArray(data)) items = data;
         else if (data && typeof data === 'object') items = fromObj(data as Record<string, unknown>);
         else if (typeof data === 'string') {
-          try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) items = parsed; } catch (_e) { items = undefined; }
+          try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) items = parsed; } catch { items = undefined; }
         }
         const objArr = tryObjectArray(items) ?? [];
         const rows = objArr.map((it) => ({
@@ -239,7 +260,7 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
         if (Array.isArray(data)) items = data;
         else if (data && typeof data === 'object') items = fromObj(data as Record<string, unknown>);
         else if (typeof data === 'string') {
-          try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) items = parsed; } catch (_e) { items = undefined; }
+          try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) items = parsed; } catch { items = undefined; }
         }
         const objArr = tryObjectArray(items);
         if (objArr) {
@@ -254,6 +275,34 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
       if (rows.length === 0) rows = [{ icon: '', label: '', subLabel: '' }];
       setListRows(rows);
       setListModalOpen(true);
+      return;
+    }
+    if ((section.type ?? '') === 'social-media') {
+      let rows: Array<{ platform: string; url: string; isActive: boolean; uuid?: string }> = [];
+      if (resp.status === 'success') {
+        const data = resp.data as unknown;
+        const tryArray = (val: unknown) => Array.isArray(val) ? val : undefined;
+        const tryObjectArray = (val: unknown) => Array.isArray(val) ? val as Array<Record<string, unknown>> : undefined;
+        const fromObj = (obj: Record<string, unknown>) => {
+          const items = tryArray(obj['items']) ?? tryArray(obj['list']) ?? tryArray(obj['content']);
+          return items;
+        };
+        let items: unknown = undefined;
+        if (Array.isArray(data)) items = data;
+        else if (data && typeof data === 'object') items = fromObj(data as Record<string, unknown>);
+        const objArr = tryObjectArray(items);
+        if (objArr) {
+          rows = objArr.map((it) => ({
+            platform: String(it['platform'] ?? it['label'] ?? ''),
+            url: String(it['url'] ?? it['sub_label'] ?? ''),
+            isActive: it['is_active'] !== undefined ? Boolean(it['is_active']) : true,
+            uuid: String((it['uuid'] ?? it['id'] ?? '') as string) || undefined,
+          }));
+        }
+      }
+      if (rows.length === 0) rows = [{ platform: 'instagram', url: '', isActive: true }];
+      setSocialMediaRows(rows);
+      setSocialMediaModalOpen(true);
       return;
     }
     if ((section.type ?? '') === 'image') {
@@ -329,6 +378,33 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
     }
   };
 
+  const saveSocialMedia = async () => {
+    if (!editSection) return;
+    setSavingEdit(true);
+    const token = localStorage.getItem('token') ?? '';
+    const resp = await api.post('/content/update', {
+      parent,
+      section_tag: editSection.section_tag,
+      list: socialMediaRows.map(r => ({
+        platform: r.platform,
+        label: r.platform,
+        sub_label: r.url,
+        url: r.url,
+        is_active: r.isActive,
+        ...(r.uuid ? { list_id: String(r.uuid) } : {})
+      })),
+      type: editSection.type
+    }, { Authorization: token });
+    setSavingEdit(false);
+    if (resp.status === 'success') {
+      setSocialMediaModalOpen(false);
+      setSections(prev => prev.map(s => 
+        s.id === editSection.id ? { ...s, status: 'Available' } : s
+      ));
+      setEditSection(null);
+    }
+  };
+
   const handleImageUpload = async () => {
     if (!editSection || !selectedFile) return;
     setSavingEdit(true);
@@ -361,6 +437,19 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
       return;
     }
     setListRows(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleDeleteSocialMediaRow = async (idx: number) => {
+    const row = socialMediaRows[idx];
+    if (row?.uuid) {
+      const token = localStorage.getItem('token') ?? '';
+      const resp = await api.delete(`/content/delete-list/${row.uuid}`, { Authorization: token });
+      if (resp.status === 'success') {
+        setSocialMediaRows(prev => prev.filter((_, i) => i !== idx));
+      }
+      return;
+    }
+    setSocialMediaRows(prev => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -551,12 +640,12 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_1fr] gap-3">
                   <Select
                     value={row.icon}
                     onValueChange={(val) => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, icon: val === 'none' ? '' : val } : r))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                       <SelectValue placeholder="Pilih Icon (opsional)" />
                     </SelectTrigger>
                     <SelectContent>
@@ -574,25 +663,33 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
                     value={row.label}
                     onChange={(e) => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, label: e.target.value } : r))}
                     placeholder="Label (wajib)"
-                    className="w-full bg-gray-100 dark:bg-gray-800 p-2 rounded-md text-sm"
+                    className="w-full h-10 bg-white border-2 dark:bg-gray-800 px-3 rounded-md text-sm"
                   />
-                  <textarea
+                  <input
                     value={row.subLabel}
                     onChange={(e) => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, subLabel: e.target.value } : r))}
                     placeholder="Sub Label (opsional)"
-                    rows={4}
-                    className="md:col-span-3 w-full bg-gray-100 dark:bg-gray-800 p-2 rounded-md text-sm"
+                    className="w-full h-10 bg-white border-2 dark:bg-gray-800 px-3 rounded-md text-sm"
                   />
                 </div>
               </div>
             ))}
             <div className="sticky bottom-0 pt-3 border-t border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90">
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setListRows(prev => [...prev, { icon: '', label: '', subLabel: '' }])}>Add Row</Button>
-                <div className="space-x-2">
-                  <Button variant="outline" onClick={() => setListModalOpen(false)}>Cancel</Button>
-                  <Button onClick={saveList} disabled={savingEdit} className="bg-blue-600 hover:bg-blue-700">
-                    {savingEdit ? 'Saving...' : 'Save'}
+              <div className="space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full border-2 border-blue-600 hover:border-blue-700 text-blue-600 hover:text-blue-700 text-sm"
+                  onClick={() => setListRows(prev => [...prev, { icon: '', label: '', subLabel: '' }])}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tambah Sosial Media
+                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="w-full" onClick={() => setListModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={saveList} disabled={savingEdit} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                    {savingEdit ? 'Saving...' : 'Simpan Sosial Media'}
                   </Button>
                 </div>
               </div>
@@ -600,6 +697,167 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={socialMediaModalOpen} onOpenChange={setSocialMediaModalOpen}>
+        <DialogContent className="max-w-5xl p-0 border-none bg-white overflow-hidden">
+          <div className="p-8 space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                  <Globe className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Social Media</h2>
+                  <p className="text-slate-500 text-sm">Kelola daftar social media yang akan ditampilkan di website.</p>
+                </div>
+              </div>
+              <DialogClose className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                <X className="w-5 h-5" />
+              </DialogClose>
+            </div>
+
+            <div className="h-px bg-slate-100" />
+
+            {/* Info Alert */}
+            <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+              <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                <Info className="w-4 h-4" />
+              </div>
+              <p className="text-sm text-blue-700 font-medium">
+                Urutkan item menggunakan drag & drop untuk mengubah posisi tampilan.
+              </p>
+            </div>
+
+            {/* Content List */}
+            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+              {socialMediaRows.map((row, idx) => (
+                <div 
+                  key={idx} 
+                  className="group relative p-5 rounded-2xl border border-slate-200 bg-white hover:border-blue-300 hover:shadow-md transition-all duration-300"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-[24px_64px_180px_1fr_auto_auto] items-center gap-6">
+                    {/* Drag Handle */}
+                    <div className="hidden md:flex items-center justify-center text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-400 transition-colors">
+                      <GripVertical className="w-6 h-6" />
+                    </div>
+
+                    {/* Icon Preview */}
+                    <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center shrink-0">
+                      {renderPlatformIcon(row.platform)}
+                    </div>
+
+                    {/* Platform Select */}
+                    <div>
+                      <Select
+                        value={row.platform}
+                        onValueChange={(val) => setSocialMediaRows(prev => prev.map((r, i) => i === idx ? { ...r, platform: val } : r))}
+                      >
+                        <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
+                          <SelectValue placeholder="Platform" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                          {PLATFORM_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value} className="rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <opt.icon className="w-4 h-4" />
+                                <span>{opt.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* URL Input */}
+                    <div className="flex-1">
+                      <div className="relative">
+                        <input
+                          value={row.url}
+                          onChange={(e) => setSocialMediaRows(prev => prev.map((r, i) => i === idx ? { ...r, url: e.target.value } : r))}
+                          placeholder="https://instagram.com/username"
+                          className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all text-sm text-slate-700"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Status Toggle */}
+                    <div className="flex items-center gap-3 px-2">
+                      <Switch 
+                        checked={row.isActive}
+                        onCheckedChange={(checked) => setSocialMediaRows(prev => prev.map((r, i) => i === idx ? { ...r, isActive: checked } : r))}
+                      />
+                      <span className={cn(
+                        "text-xs font-semibold px-2.5 py-1 rounded-full",
+                        row.isActive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+                      )}>
+                        {row.isActive ? '✓ Aktif' : 'Nonaktif'}
+                      </span>
+                    </div>
+
+                    {/* Delete Button */}
+                    <div>
+                      <button
+                        onClick={() => handleDeleteSocialMediaRow(idx)}
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-rose-500 hover:bg-rose-50 transition-colors shrink-0 border border-transparent hover:border-rose-100"
+                      >
+                        <Trash className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Add Button */}
+              <button
+                onClick={() => setSocialMediaRows(prev => [...prev, { platform: 'instagram', url: '', isActive: true }])}
+                className="w-full h-16 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center gap-2 text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-300"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="font-semibold">Tambah Social Media</span>
+              </button>
+            </div>
+
+            {/* Footer / Bottom Section */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
+              {/* Tips Card */}
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                <div className="text-blue-600">
+                  <Info className="w-4 h-4" />
+                </div>
+                <p className="text-xs text-blue-700 font-medium">
+                  Pastikan URL diawali dengan <span className="underline italic">https://</span> untuk link yang valid.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <button
+                  onClick={() => setSocialMediaModalOpen(false)}
+                  className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={saveSocialMedia}
+                  disabled={savingEdit}
+                  className="flex-1 md:flex-none h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_25px_rgba(37,99,235,0.3)] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                >
+                  {savingEdit ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      Simpan Perubahan
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={imageModalOpen} onOpenChange={setImageModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>

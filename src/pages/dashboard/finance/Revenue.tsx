@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Car, Check, ChevronsUpDown, DollarSign, Filter, Layers, LogIn, Plus } from 'lucide-react';
+import { Calendar as CalendarIcon, Car, Check, ChevronsUpDown, DollarSign, Filter, Info, Layers, LogIn, Plus, Save, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { FilterBar } from '@/components/common/FilterBar';
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -745,121 +745,136 @@ export const Revenue: React.FC = () => {
           setManualOpen(v);
         }}
       >
-        <DialogContent className="max-w-2xl p-0 overflow-hidden">
-          <div className="border-b bg-gray-50 dark:bg-gray-900 px-6 py-4">
-            <DialogHeader className="space-y-0">
-              <DialogTitle className="text-base md:text-lg">Tambah Revenue Manual</DialogTitle>
-              <div className="mt-1 text-xs text-muted-foreground">Tambahkan catatan pendapatan anda secara manual di sini</div>
-            </DialogHeader>
-          </div>
+        <DialogContent className="max-w-2xl p-0 border-none bg-white overflow-hidden">
+          <div className="p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Tambah Revenue</h2>
+                  <p className="text-slate-500 text-sm">Tambahkan catatan pendapatan anda secara manual di sini</p>
+                </div>
+              </div>
+              <DialogClose className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                <X className="w-5 h-5" />
+              </DialogClose>
+            </div>
 
-          <form
-            className="space-y-4 p-6"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!manualForm.transaction_date) {
-                showAlert({ title: 'Gagal', description: 'Tanggal transaksi wajib diisi.', type: 'warning' });
-                return;
-              }
-              const amount = Number(String(manualForm.amount ?? '').replace(/\D/g, '') || 0);
-              if (!amount) {
-                showAlert({ title: 'Gagal', description: 'Nominal pembayaran wajib diisi.', type: 'warning' });
-                return;
-              }
-              const transactionType = Number(manualForm.transaction_type || 0);
-              if (!transactionType) {
-                showAlert({ title: 'Gagal', description: 'Jenis transaksi wajib dipilih.', type: 'warning' });
-                return;
-              }
-              const status = Number(manualForm.status || 0);
-              if (!status) {
-                showAlert({ title: 'Gagal', description: 'Status pembayaran wajib dipilih.', type: 'warning' });
-                return;
-              }
-              const paymentMethod = Number(manualForm.payment_method || 0);
-              if (!paymentMethod) {
-                showAlert({ title: 'Gagal', description: 'Metode pembayaran wajib dipilih.', type: 'warning' });
-                return;
-              }
-              const orderType = Number(manualForm.order_type || 0);
-              if (orderType && !manualForm.order_id) {
-                const label = orderType === 4 ? 'Unit armada' : 'Order';
-                showAlert({ title: 'Gagal', description: `${label} wajib dipilih jika jenis order ditentukan.`, type: 'warning' });
-                return;
-              }
-              if (showBankFields) {
-                if (!manualForm.bank_code) {
-                  showAlert({ title: 'Gagal', description: 'Pilih bank wajib diisi.', type: 'warning' });
+            <div className="h-px bg-slate-100" />
+
+            <form
+              className="space-y-6"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!manualForm.transaction_date) {
+                  showAlert({ title: 'Gagal', description: 'Tanggal transaksi wajib diisi.', type: 'warning' });
                   return;
                 }
-                if (!manualForm.bank_account.trim()) {
-                  showAlert({ title: 'Gagal', description: 'No. rekening wajib diisi.', type: 'warning' });
+                const amount = Number(String(manualForm.amount ?? '').replace(/\D/g, '') || 0);
+                if (!amount) {
+                  showAlert({ title: 'Gagal', description: 'Nominal pembayaran wajib diisi.', type: 'warning' });
                   return;
                 }
-              }
-
-              setManualSubmitting(true);
-              try {
-                const token = localStorage.getItem('token') ?? '';
-                const headers = token ? { Authorization: token } : undefined;
-                const payload: Record<string, unknown> = {
-                  transaction_date: manualForm.transaction_date,
-                  transaction_type: transactionType,
-                  status,
-                  payment_method: paymentMethod,
-                  amount,
-                  description: manualForm.description,
-                  order_type: orderType || undefined,
-                  order_id: manualForm.order_id || undefined,
-                };
+                const transactionType = Number(manualForm.transaction_type || 0);
+                if (!transactionType) {
+                  showAlert({ title: 'Gagal', description: 'Jenis transaksi wajib dipilih.', type: 'warning' });
+                  return;
+                }
+                const status = Number(manualForm.status || 0);
+                if (!status) {
+                  showAlert({ title: 'Gagal', description: 'Status pembayaran wajib dipilih.', type: 'warning' });
+                  return;
+                }
+                const paymentMethod = Number(manualForm.payment_method || 0);
+                if (!paymentMethod) {
+                  showAlert({ title: 'Gagal', description: 'Metode pembayaran wajib dipilih.', type: 'warning' });
+                  return;
+                }
+                const orderType = Number(manualForm.order_type || 0);
+                if (orderType && !manualForm.order_id) {
+                  const label = orderType === 4 ? 'Unit armada' : 'Order';
+                  showAlert({ title: 'Gagal', description: `${label} wajib dipilih jika jenis order ditentukan.`, type: 'warning' });
+                  return;
+                }
                 if (showBankFields) {
-                  payload.bank_code = manualForm.bank_code;
-                  payload.bank_account = manualForm.bank_account;
+                  if (!manualForm.bank_code) {
+                    showAlert({ title: 'Gagal', description: 'Pilih bank wajib diisi.', type: 'warning' });
+                    return;
+                  }
+                  if (!manualForm.bank_account.trim()) {
+                    showAlert({ title: 'Gagal', description: 'No. rekening wajib diisi.', type: 'warning' });
+                    return;
+                  }
                 }
 
-                const res = await api.post<unknown>('/services/transactions/create', payload, headers);
-                if (res.status !== 'success') {
-                  const code = String(res.message ?? '');
-                  const map: Record<string, string> = {
-                    PAYMENT_METHOD_DOESNT_EXIST: 'Metode pembayaran tidak tersedia. Silakan pilih metode lain.',
-                    PAYMENT_STATUS_DOESNT_EXIST: 'Status pembayaran tidak tersedia. Silakan pilih status lain.',
-                    TRANSACTION_TYPE_DOESNT_EXIST: 'Jenis transaksi tidak tersedia. Silakan pilih jenis lain.',
-                    BANK_DOESNT_EXIST: 'Bank tidak tersedia. Silakan pilih bank lain.',
+                setManualSubmitting(true);
+                try {
+                  const token = localStorage.getItem('token') ?? '';
+                  const headers = token ? { Authorization: token } : undefined;
+                  const payload: Record<string, unknown> = {
+                    transaction_date: manualForm.transaction_date,
+                    transaction_type: transactionType,
+                    status,
+                    payment_method: paymentMethod,
+                    amount,
+                    description: manualForm.description,
+                    order_type: orderType || undefined,
+                    order_id: manualForm.order_id || undefined,
                   };
-                  const message = map[code] ?? 'Gagal menambahkan revenue. Silakan coba lagi.';
-                  showAlert({ title: 'Gagal', description: message, type: 'error' });
-                  return;
-                }
+                  if (showBankFields) {
+                    payload.bank_code = manualForm.bank_code;
+                    payload.bank_account = manualForm.bank_account;
+                  }
 
-                showAlert({ title: 'Berhasil', description: 'Revenue berhasil ditambahkan.', type: 'success' });
-                setManualOpen(false);
-                setManualForm((prev) => ({
-                  ...prev,
-                  transaction_date: toYmdLocal(new Date()),
-                  transaction_type: '',
-                  order_type: '',
-                  order_id: '',
-                  status: '',
-                  payment_method: '',
-                  amount: '',
-                  description: '',
-                  bank_code: '',
-                  bank_account: '',
-                }));
-                await loadTransactions(headers);
-              } finally {
-                setManualSubmitting(false);
-              }
-            }}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  const res = await api.post<unknown>('/services/transactions/create', payload, headers);
+                  if (res.status !== 'success') {
+                    const code = String(res.message ?? '');
+                    const map: Record<string, string> = {
+                      PAYMENT_METHOD_DOESNT_EXIST: 'Metode pembayaran tidak tersedia. Silakan pilih metode lain.',
+                      PAYMENT_STATUS_DOESNT_EXIST: 'Status pembayaran tidak tersedia. Silakan pilih status lain.',
+                      TRANSACTION_TYPE_DOESNT_EXIST: 'Jenis transaksi tidak tersedia. Silakan pilih jenis lain.',
+                      BANK_DOESNT_EXIST: 'Bank tidak tersedia. Silakan pilih bank lain.',
+                    };
+                    const message = map[code] ?? 'Gagal menambahkan revenue. Silakan coba lagi.';
+                    showAlert({ title: 'Gagal', description: message, type: 'error' });
+                    return;
+                  }
+
+                  showAlert({ title: 'Berhasil', description: 'Revenue berhasil ditambahkan.', type: 'success' });
+                  setManualOpen(false);
+                  setManualForm((prev) => ({
+                    ...prev,
+                    transaction_date: toYmdLocal(new Date()),
+                    transaction_type: '',
+                    order_type: '',
+                    order_id: '',
+                    status: '',
+                    payment_method: '',
+                    amount: '',
+                    description: '',
+                    bank_code: '',
+                    bank_account: '',
+                  }));
+                  await loadTransactions(headers);
+                } finally {
+                  setManualSubmitting(false);
+                }
+              }}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="grid grid-cols-2 gap-4 col-span-1 md:col-span-2">
                 <div className="space-y-2">
-                  <Label>Tanggal Transaksi</Label>
+                  <Label className="text-slate-700 font-semibold ml-1">Tanggal Transaksi</Label>
                   <Popover open={transactionDateOpen} onOpenChange={setTransactionDateOpen}>
                     <PopoverTrigger asChild>
-                      <Button type="button" variant="outline" className="w-full h-11 justify-start text-left font-normal rounded-xl">
-                        <CalendarIcon className="mr-2 h-4 w-4 opacity-70" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-12 justify-start text-left font-normal rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
                         {manualForm.transaction_date
                           ? (tryParseDate(manualForm.transaction_date)?.toLocaleDateString('id-ID', {
                               day: '2-digit',
@@ -869,7 +884,7 @@ export const Revenue: React.FC = () => {
                           : 'Pilih tanggal transaksi'}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 rounded-2xl border-slate-200 shadow-2xl" align="start">
                       <Calendar
                         mode="single"
                         selected={tryParseDate(manualForm.transaction_date) ?? undefined}
@@ -898,12 +913,12 @@ export const Revenue: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Jenis Order</Label>
+                  <Label className="text-slate-700 font-semibold ml-1">Jenis Order</Label>
                   <Select value={manualForm.order_type} onValueChange={(v) => setManualForm((prev) => ({ ...prev, order_type: v, order_id: '' }))}>
-                    <SelectTrigger className="h-11 rounded-xl">
+                    <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
                       <SelectValue placeholder="Pilih jenis order (opsional)" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                       <SelectItem value="0">Tanpa Order</SelectItem>
                       {orderTypes.map((o) => (
                         <SelectItem key={o.id} value={String(o.id)}>
@@ -916,7 +931,7 @@ export const Revenue: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Jenis Transaksi</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Jenis Transaksi</Label>
                 <Popover open={transactionTypeOpen} onOpenChange={setTransactionTypeOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -924,9 +939,9 @@ export const Revenue: React.FC = () => {
                       variant="outline"
                       role="combobox"
                       aria-expanded={transactionTypeOpen}
-                      className="w-full h-11 justify-between rounded-xl font-normal"
+                      className="w-full h-12 justify-between rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all font-normal text-slate-700"
                     >
-                      <span className={cn('truncate text-left', manualForm.transaction_type ? '' : 'text-muted-foreground')}>
+                      <span className={cn('truncate text-left', manualForm.transaction_type ? 'text-slate-900' : 'text-slate-400')}>
                         {manualForm.transaction_type
                           ? (transactionTypes.find((x) => x.id === Number(manualForm.transaction_type))?.label ?? 'Pilih jenis transaksi')
                           : 'Pilih jenis transaksi'}
@@ -934,7 +949,7 @@ export const Revenue: React.FC = () => {
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl border-slate-200 shadow-xl" align="start">
                     <Command>
                       <CommandInput placeholder="Cari jenis transaksi..." />
                       <CommandList>
@@ -950,6 +965,7 @@ export const Revenue: React.FC = () => {
                                   setManualForm((prev) => ({ ...prev, transaction_type: String(o.id) }));
                                   setTransactionTypeOpen(false);
                                 }}
+                                className="rounded-lg"
                               >
                                 <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
                                 <span className="truncate">{o.label}</span>
@@ -965,7 +981,7 @@ export const Revenue: React.FC = () => {
 
               {manualForm.order_type && ['1', '2', '4'].includes(manualForm.order_type) ? (
                 <div className="space-y-2">
-                  <Label>{manualForm.order_type === '4' ? 'Pilih Armada' : 'Pilih Pesanan'}</Label>
+                  <Label className="text-slate-700 font-semibold ml-1">{manualForm.order_type === '4' ? 'Pilih Armada' : 'Pilih Pesanan'}</Label>
                   <Popover open={orderOpen} onOpenChange={setOrderOpen}>
                     <PopoverTrigger asChild>
                       <Button
@@ -973,10 +989,10 @@ export const Revenue: React.FC = () => {
                         variant="outline"
                         role="combobox"
                         aria-expanded={orderOpen}
-                        className="w-full h-11 justify-between rounded-xl font-normal"
+                        className="w-full h-12 justify-between rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all font-normal text-slate-700"
                         disabled={orderLoading}
                       >
-                        <span className={cn('truncate text-left', manualForm.order_id ? '' : 'text-muted-foreground')}>
+                        <span className={cn('truncate text-left', manualForm.order_id ? 'text-slate-900' : 'text-slate-400')}>
                           {orderLoading
                             ? 'Memuat...'
                             : manualForm.order_id
@@ -986,7 +1002,7 @@ export const Revenue: React.FC = () => {
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl border-slate-200 shadow-xl" align="start">
                       <Command>
                         <CommandInput placeholder="Cari..." />
                         <CommandList>
@@ -1002,6 +1018,7 @@ export const Revenue: React.FC = () => {
                                     setManualForm((prev) => ({ ...prev, order_id: o.id }));
                                     setOrderOpen(false);
                                   }}
+                                  className="rounded-lg"
                                 >
                                   <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
                                   <span className="truncate">{o.label}</span>
@@ -1017,14 +1034,14 @@ export const Revenue: React.FC = () => {
               ) : null}
 
               <div className="space-y-2">
-                <Label>Status Pembayaran</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Status Pembayaran</Label>
                 <Select value={manualForm.status} onValueChange={(v) => setManualForm((prev) => ({ ...prev, status: v }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
                     <SelectValue placeholder="Pilih status" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                     {paymentStatuses.map((o) => (
-                      <SelectItem key={o.id} value={String(o.id)}>
+                      <SelectItem key={o.id} value={String(o.id)} className="rounded-lg">
                         {o.label}
                       </SelectItem>
                     ))}
@@ -1033,14 +1050,14 @@ export const Revenue: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Metode Pembayaran</Label>
+                <Label className="text-slate-700 font-semibold ml-1">Metode Pembayaran</Label>
                 <Select value={manualForm.payment_method} onValueChange={(v) => setManualForm((prev) => ({ ...prev, payment_method: v }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
                     <SelectValue placeholder="Pilih metode pembayaran" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                     {paymentMethods.map((o) => (
-                      <SelectItem key={o.id} value={String(o.id)}>
+                      <SelectItem key={o.id} value={String(o.id)} className="rounded-lg">
                         {o.label}
                       </SelectItem>
                     ))}
@@ -1049,28 +1066,28 @@ export const Revenue: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="amount">Nominal Pembayaran</Label>
+                <Label htmlFor="amount" className="text-slate-700 font-semibold ml-1">Nominal Pembayaran</Label>
                 <Input
                   id="amount"
                   inputMode="numeric"
                   value={formatRupiahInput(manualForm.amount)}
                   onChange={(e) => setManualForm((prev) => ({ ...prev, amount: e.target.value.replace(/\D/g, '') }))}
                   placeholder="Rp 0"
-                  className="tabular-nums"
+                  className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all tabular-nums text-slate-700"
                 />
               </div>
 
               {showBankFields ? (
                 <>
                   <div className="space-y-2">
-                    <Label>Pilih Bank</Label>
+                    <Label className="text-slate-700 font-semibold ml-1">Pilih Bank</Label>
                     <Select value={manualForm.bank_code} onValueChange={(v) => setManualForm((prev) => ({ ...prev, bank_code: v }))}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
                         <SelectValue placeholder="Pilih bank" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="rounded-xl border-slate-200 shadow-xl">
                         {banks.map((b) => (
-                          <SelectItem key={b.code} value={b.code}>
+                          <SelectItem key={b.code} value={b.code} className="rounded-lg">
                             {b.name}
                           </SelectItem>
                         ))}
@@ -1079,13 +1096,14 @@ export const Revenue: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="bank_account">No. Rekening</Label>
+                    <Label htmlFor="bank_account" className="text-slate-700 font-semibold ml-1">No. Rekening</Label>
                     <Input
                       id="bank_account"
                       inputMode="numeric"
                       value={manualForm.bank_account}
                       onChange={(e) => setManualForm((prev) => ({ ...prev, bank_account: e.target.value.replace(/\D/g, '') }))}
                       placeholder="Masukkan no. rekening"
+                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
                     />
                   </div>
                 </>
@@ -1093,28 +1111,52 @@ export const Revenue: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Keterangan</Label>
+              <Label htmlFor="description" className="text-slate-700 font-semibold ml-1">Keterangan</Label>
               <Textarea
                 id="description"
                 value={manualForm.description}
                 onChange={(e) => setManualForm((prev) => ({ ...prev, description: e.target.value }))}
                 placeholder="Masukkan keterangan"
-                rows={4}
+                rows={3}
+                className="rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
               />
             </div>
 
-            <div className="border-t pt-4">
-              <DialogFooter className="gap-2">
-                <Button type="button" variant="outline" onClick={() => setManualOpen(false)} disabled={manualSubmitting}>
-                  Batal
-                </Button>
-                <Button type="submit" disabled={manualSubmitting} className='bg-blue-600 hover:bg-blue-700 text-white'>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Tambahkan Revenue
-                </Button>
-              </DialogFooter>
-            </div>
-          </form>
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                  <div className="text-blue-600">
+                    <Info className="w-4 h-4" />
+                  </div>
+                  <p className="text-xs text-blue-700 font-medium">Pastikan nominal dan tanggal sesuai dengan data transaksi.</p>
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setManualOpen(false)}
+                    disabled={manualSubmitting}
+                    className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={manualSubmitting}
+                    className="flex-1 md:flex-none h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_25px_rgba(37,99,235,0.3)] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                  >
+                    {manualSubmitting ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        Simpan Revenue
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

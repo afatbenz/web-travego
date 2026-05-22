@@ -283,7 +283,7 @@ export const ServicesPackages: React.FC = () => {
           </p>
         </div>
         <Button 
-          className="hidden md:inline-flex bg-blue-600 hover:bg-blue-700 text-white"
+          className="h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-4 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
           onClick={() => navigate(`${basePrefix}/services/packages/create`)}
         >
           <Plus className="h-4 w-4 mr-2" />

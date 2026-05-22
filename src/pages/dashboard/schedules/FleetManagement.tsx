@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, ChevronLeft, ChevronRight, Eye, MoreHorizontal, Printer } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Eye, MoreHorizontal, Printer, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Pagination } from '@/components/common/Pagination';
@@ -46,17 +46,6 @@ const tryParseDate = (value: string): Date | null => {
   if (!m) return null;
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   return Number.isNaN(d.getTime()) ? null : d;
-};
-
-const formatTimeMaybe = (value: string): string => {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (!Number.isNaN(d.getTime())) {
-    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-  }
-  const m = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (m) return `${m[1].padStart(2, '0')}:${m[2]}`;
-  return value;
 };
 
 const getDaysInMonthGrid = (date: Date) => {
@@ -288,11 +277,11 @@ export const FleetManagement: React.FC = () => {
 
   const escapeHtml = (value: string) =>
     (value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
 
   const printSuratTugas = (row: ScheduledFleetDetail) => {
     const title = 'Surat Tugas';
@@ -579,141 +568,174 @@ export const FleetManagement: React.FC = () => {
       </Card>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="w-[calc(100vw-24px)] sm:max-w-5xl max-h-[80vh] overflow-y-auto text-xs sm:text-sm">
-          <DialogHeader>
-            <DialogTitle className="text-sm sm:text-base">Armada Terjadwal - {selectedLabel}</DialogTitle>
-          </DialogHeader>
-          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-            {modalLoading ? 'Memuat data...' : `${modalRows.length} armada terjadwal`}
-          </div>
-          <div className="w-full overflow-x-auto overflow-hidden rounded-2xl border">
-            <Table className="text-xs sm:text-sm table-fixed min-w-[940px]">
-              <TableHeader className="bg-muted/30">
-                <TableRow>
-                  <TableHead className="w-[64px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground text-center whitespace-nowrap">No.</TableHead>
-                  <TableHead className="w-[240px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Nama Armada</TableHead>
-                  <TableHead className="w-[140px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Kode Armada</TableHead>
-                  <TableHead className="w-[140px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Plat Nomor</TableHead>
-                  <TableHead className="w-[240px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Tujuan</TableHead>
-                  <TableHead className="w-[180px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Driver</TableHead>
-                  <TableHead className="w-[88px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground text-right whitespace-nowrap">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {modalLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                      Memuat...
-                    </TableCell>
-                  </TableRow>
-                ) : modalRows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                      Tidak ada armada terjadwal pada tanggal ini.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  modalPagedRows.map((o, idx) => (
-                    <TableRow
-                      key={`${o.vehicleId}-${o.orderId}-${idx}`}
-                      className="odd:bg-muted/20 hover:bg-muted/50 transition-colors"
-                    >
-                      <TableCell className="px-3 py-2 text-center text-muted-foreground tabular-nums whitespace-nowrap">
-                        {(modalPage - 1) * modalPageSize + idx + 1}
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-foreground whitespace-nowrap">
-                        <span className="block max-w-[240px] truncate">{o.fleetName}</span>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 font-medium text-foreground whitespace-nowrap">
-                        <span className="block max-w-[140px] truncate">{o.vehicleId}</span>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-foreground whitespace-nowrap">
-                        <span className="block max-w-[140px] truncate">{o.plateNumber}</span>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-foreground whitespace-nowrap">
-                        <span className="block max-w-[240px] truncate">{o.destination}</span>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-foreground whitespace-nowrap">
-                        <span className="block max-w-[180px] truncate">{o.driverName}</span>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="min-w-[200px]">
-                            <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                setModalOpen(false);
-                                navigate(o.link);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Detail Order
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                setModalOpen(false);
-                                navigate(`${basePrefix}/team/schedule-fleet/detail/${encodeURIComponent(o.orderId)}`);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Detail Jadwal
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                printSuratTugas(o);
-                              }}
-                            >
-                              <Printer className="h-4 w-4 mr-2" />
-                              Print Surat Tugas
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-5xl p-0 border-none bg-white overflow-hidden">
+          <div className="p-8 space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-2xl font-bold text-slate-900 truncate">Armada Terjadwal</h2>
+                  <p className="text-slate-500 text-sm truncate">{selectedLabel || '-'}</p>
+                </div>
+              </div>
+              <DialogClose className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400 shrink-0">
+                <X className="w-5 h-5" />
+              </DialogClose>
+            </div>
+
+            <div className="h-px bg-slate-100" />
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-slate-600">
+                {modalLoading ? 'Memuat data...' : `${modalRows.length} armada terjadwal`}
+              </div>
+            </div>
+
+            <div className="space-y-4 max-h-[58vh] overflow-y-auto pr-2">
+              <div className="w-full overflow-x-auto overflow-hidden rounded-2xl border border-slate-200">
+                <Table className="text-xs sm:text-sm table-fixed min-w-[940px]">
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="w-[64px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground text-center whitespace-nowrap">No.</TableHead>
+                      <TableHead className="w-[240px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Nama Armada</TableHead>
+                      <TableHead className="w-[140px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Kode Armada</TableHead>
+                      <TableHead className="w-[140px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Plat Nomor</TableHead>
+                      <TableHead className="w-[240px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Tujuan</TableHead>
+                      <TableHead className="w-[180px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">Driver</TableHead>
+                      <TableHead className="w-[88px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground text-right whitespace-nowrap">Action</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          {!modalLoading && modalRows.length > 0 ? (
-            <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
-              <div className="flex min-w-0 items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                <span>Rows</span>
-                <Select
-                  value={String(modalPageSize)}
-                  onValueChange={(v) => {
-                    setModalPageSize(Number(v));
-                    setModalPage(1);
-                  }}
-                >
-                  <SelectTrigger className="h-8 sm:h-9 w-[72px] sm:w-[92px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[10, 20, 50, 100].map((n) => (
-                      <SelectItem key={n} value={String(n)}>
-                        {n}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="hidden sm:inline">
-                  Page {Math.min(Math.max(1, modalPage), modalTotalPages)} of {modalTotalPages}
-                </span>
+                  </TableHeader>
+                  <TableBody>
+                    {modalLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                          Memuat...
+                        </TableCell>
+                      </TableRow>
+                    ) : modalRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                          Tidak ada armada terjadwal pada tanggal ini.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      modalPagedRows.map((o, idx) => (
+                        <TableRow
+                          key={`${o.vehicleId}-${o.orderId}-${idx}`}
+                          className="odd:bg-muted/20 hover:bg-muted/50 transition-colors"
+                        >
+                          <TableCell className="px-3 py-2 text-center text-muted-foreground tabular-nums whitespace-nowrap">
+                            {(modalPage - 1) * modalPageSize + idx + 1}
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-foreground whitespace-nowrap">
+                            <span className="block max-w-[240px] truncate">{o.fleetName}</span>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 font-medium text-foreground whitespace-nowrap">
+                            <span className="block max-w-[140px] truncate">{o.vehicleId}</span>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-foreground whitespace-nowrap">
+                            <span className="block max-w-[140px] truncate">{o.plateNumber}</span>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-foreground whitespace-nowrap">
+                            <span className="block max-w-[240px] truncate">{o.destination}</span>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-foreground whitespace-nowrap">
+                            <span className="block max-w-[180px] truncate">{o.driverName}</span>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-[200px]">
+                                <DropdownMenuItem
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    setModalOpen(false);
+                                    navigate(o.link);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Detail Order
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    setModalOpen(false);
+                                    navigate(`${basePrefix}/team/schedule-fleet/detail/${encodeURIComponent(o.orderId)}`);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Detail Jadwal
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    printSuratTugas(o);
+                                  }}
+                                >
+                                  <Printer className="h-4 w-4 mr-2" />
+                                  Print Surat Tugas
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
 
-              <Pagination currentPage={Math.min(Math.max(1, modalPage), modalTotalPages)} totalPages={modalTotalPages} onPageChange={setModalPage} compact className="sm:hidden" />
-              <Pagination currentPage={Math.min(Math.max(1, modalPage), modalTotalPages)} totalPages={modalTotalPages} onPageChange={setModalPage} className="hidden sm:flex" />
+              {!modalLoading && modalRows.length > 0 ? (
+                <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-1 pt-3">
+                  <div className="flex min-w-0 items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                    <span>Rows</span>
+                    <Select
+                      value={String(modalPageSize)}
+                      onValueChange={(v) => {
+                        setModalPageSize(Number(v));
+                        setModalPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-9 w-[92px] rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[10, 20, 50, 100].map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="hidden sm:inline">
+                      Page {Math.min(Math.max(1, modalPage), modalTotalPages)} of {modalTotalPages}
+                    </span>
+                  </div>
+
+                  <Pagination
+                    currentPage={Math.min(Math.max(1, modalPage), modalTotalPages)}
+                    totalPages={modalTotalPages}
+                    onPageChange={setModalPage}
+                    compact
+                    className="sm:hidden"
+                  />
+                  <Pagination
+                    currentPage={Math.min(Math.max(1, modalPage), modalTotalPages)}
+                    totalPages={modalTotalPages}
+                    onPageChange={setModalPage}
+                    className="hidden sm:flex"
+                  />
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

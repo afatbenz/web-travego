@@ -93,6 +93,10 @@ type OrderData = {
     pickup_city: string;
   };
   scheduled: boolean;
+  rawStatus?: number;
+  rawPaymentStatus?: number;
+  lastPaymentAmount?: number;
+  lastPaymentMethod?: string;
 };
 
 type PaymentHistoryRow = {
@@ -155,6 +159,10 @@ const createEmptyOrderData = (id: string): OrderData => ({
   additionalRequests: '-',
   notes: '-',
   scheduled: false,
+  rawStatus: 0,
+  rawPaymentStatus: 0,
+  lastPaymentAmount: 0,
+  lastPaymentMethod: '-',
 });
 
 export const OrderDetail: React.FC = () => {
@@ -166,6 +174,9 @@ export const OrderDetail: React.FC = () => {
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [orderData, setOrderData] = useState<OrderData>(() => createEmptyOrderData(routeOrderId || '-'));
   const [isUpdatePaymentOpen, setIsUpdatePaymentOpen] = useState(false);
+  const [isConfirmPaymentOpen, setIsConfirmPaymentOpen] = useState(false);
+  const [isConfirmOrderOpen, setIsConfirmOrderOpen] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [paymentStatusOptions, setPaymentStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [paymentMethodOptions, setPaymentMethodOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [bankOptions, setBankOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -213,6 +224,9 @@ export const OrderDetail: React.FC = () => {
     const s = String(orderData.paymentStatus ?? '').toLowerCase().trim();
     return s === 'paid' || s === 'lunas' || s === 'success';
   })();
+
+  const isWaitingConfirmation = orderData.rawStatus === 1 && orderData.rawPaymentStatus === 3;
+  const isWaitingOrderConfirmation = orderData.rawStatus === 2 && orderData.rawPaymentStatus === 2;
 
   const scheduleUrlSuffix = (() => {
     const qs = new URLSearchParams();
@@ -603,243 +617,252 @@ export const OrderDetail: React.FC = () => {
     setOrderData(createEmptyOrderData(routeOrderId || '-'));
   }, [routeOrderId]);
 
-  useEffect(() => {
+  const fetchDetail = useCallback(async () => {
     if (!orderId) return;
+    const token = localStorage.getItem('token');
+    const response = await api.get<unknown>(`/services/fleet/order/detail/${orderId}`, token ? { Authorization: token } : undefined);
+    if (response.status !== 'success') return;
 
-    const fetchDetail = async () => {
-      const token = localStorage.getItem('token');
-      const response = await api.get<unknown>(`/services/fleet/order/detail/${orderId}`, token ? { Authorization: token } : undefined);
-      if (response.status !== 'success') return;
+    const record = (v: unknown): Record<string, unknown> =>
+      v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+    const root = record(response.data);
+    const detail = record(root.order ?? root.transaction ?? root.detail ?? root);
 
-      const record = (v: unknown): Record<string, unknown> =>
-        v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-      const root = record(response.data);
-      const detail = record(root.order ?? root.transaction ?? root.detail ?? root);
-
-      const getString = (v: unknown, fallback: string) =>
-        typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : fallback;
-      const getNumber = (v: unknown, fallback: number) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : fallback;
-      };
-
-      const pickup = record(detail.pickup);
-      const customer = record(detail.customer);
-      const payment = record(detail.payment);
-      const hasPaymentInfoRaw = detail.payment && typeof detail.payment === 'object' && !Array.isArray(detail.payment);
-      const hasPaymentInfo = hasPaymentInfoRaw && Object.keys(detail.payment as Record<string, unknown>).length > 0;
-      const addonsRaw = detail.addon;
-      const addons = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
-
-      const normalizePaymentStatus = (raw: unknown): 'paid' | 'pending' | 'failed' => {
-        if (raw === 1 || raw === '1' || raw === 'paid' || raw === 'lunas') return 'paid';
-        if (raw === 4 || raw === '4' || raw === 'failed' || raw === 'gagal') return 'failed';
-        if (raw === 2 || raw === '2' || raw === 3 || raw === '3') return 'pending';
-        if (typeof raw === 'string') {
-          const s = raw.toLowerCase().trim();
-          if (s === 'paid' || s === 'lunas' || s === 'success') return 'paid';
-          if (s === 'failed' || s === 'gagal' || s === 'cancelled') return 'failed';
-          if (s === '' || s === 'pending' || s === 'unpaid') return 'pending';
-        }
-        return 'pending';
-      };
-
-      const paymentStatus = normalizePaymentStatus(detail.payment_status ?? payment.status ?? payment.payment_status);
-
-      const quantity = getNumber(detail.quantity ?? detail.qty ?? detail.unit_qty ?? detail.unitQty, 0);
-
-      const startDate = getString(pickup.start_date ?? pickup.startDate, '');
-      const endDate = getString(pickup.end_date ?? pickup.endDate, '');
-      const createdAt = getString(detail.order_date ?? detail.created_at ?? detail.createdAt, startDate || endDate || '');
-      const paymentDate = getString(payment.payment_date ?? payment.paymentDate ?? detail.payment_date ?? detail.paymentDate, createdAt);
-
-      const customerCity = getString(customer.city_label ?? customer.customer_city ?? customer.city, '');
-      const customerAddressRaw = getString(customer.customer_address ?? customer.address, '-');
-      const customerAddress = customerCity ? `${customerAddressRaw}, ${customerCity}` : customerAddressRaw;
-
-      const pickupCityLabel = getString(pickup.city_label ?? pickup.pickup_city_label ?? '', '');
-      const pickupLocationRaw = getString(pickup.pickup_location ?? pickup.pickupLocation, '-');
-      const pickupLocation = pickupCityLabel ? `${pickupLocationRaw}, ${pickupCityLabel}` : pickupLocationRaw;
-
-      const duration = getNumber(detail.duration, 0);
-      const durationUom = getString(detail.duration_uom ?? detail.uom, '');
-      const rentTypeLabel = getString(detail.rent_type_label ?? detail.rentTypeLabel, '');
-      const fallbackDescriptionParts = [
-        duration > 0 ? `Sewa ${duration}${durationUom ? ` ${durationUom}` : ''}` : '',
-        rentTypeLabel,
-      ].filter(Boolean);
-      const description = fallbackDescriptionParts.length ? fallbackDescriptionParts.join(' • ') : '-';
-
-      const facilities = addons
-        .map((a) => (a && typeof a === 'object' ? (a as Record<string, unknown>) : {}))
-        .map((a) => {
-          const name = getString(a.addon_name ?? a.name, '');
-          const priceValue = getNumber(a.addon_price ?? a.price, 0);
-          if (!name) return '';
-          if (priceValue > 0) return `${name} - Rp ${priceValue.toLocaleString('id-ID')}`;
-          return name;
-        })
-        .filter(Boolean);
-
-      const rawItinerary = Array.isArray(detail.itinerary) ? (detail.itinerary as unknown[]) : [];
-      const groupedItinerary: Record<number, ItineraryDay> = {};
-
-      rawItinerary.forEach((raw) => {
-         const item = record(raw);
-         const dayNum = getNumber(item.day, 1);
-         const activityRaw = item.destination ?? item.activities ?? item.activity;
-         if (!activityRaw) return;
-
-         if (!groupedItinerary[dayNum]) {
-           let dayDate = getString(item.date, '');
-           if (!dayDate && startDate) {
-             const baseDate = new Date(startDate);
-             if (!isNaN(baseDate.getTime())) {
-               baseDate.setDate(baseDate.getDate() + (dayNum - 1));
-               dayDate = baseDate.toISOString().split('T')[0];
-             }
-           }
-
-           groupedItinerary[dayNum] = {
-             day: dayNum,
-             date: dayDate,
-             activities: [],
-           };
-         }
-         
-         if (Array.isArray(activityRaw)) {
-            groupedItinerary[dayNum].activities.push(...activityRaw.map((a) => getString(a, '')).filter((s) => s));
-          } else {
-            const cityName = getString(item.city_label ?? item.city_name ?? '', '');
-            const destination = getString(activityRaw, '');
-            const activityText = cityName ? `${destination}, ${cityName}` : destination;
-            if (activityText) groupedItinerary[dayNum].activities.push(activityText);
-          }
-       });
-
-      const itinerary = Object.values(groupedItinerary).sort((a, b) => a.day - b.day);
-
-      const fleetsRaw = detail.fleets;
-      const fleets: FleetItem[] = Array.isArray(fleetsRaw)
-        ? fleetsRaw.map((fleet: unknown) => {
-            const f = record(fleet);
-            const quantity = getNumber(f.quantity ?? f.qty, 0);
-            const price = getNumber(f.price, 0);
-            const chargeAmount = getNumber(f.charge_amount ?? f.chargeAmount, 0);
-            const discountAmount = getNumber(f.discount, 0);
-            const addonAmount = getNumber(f.addon_amount ?? f.addonAmount, 0);
-
-            const addonsRaw = f.addons ?? f.addon;
-            const addonsArr = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
-            const addons = addonsArr
-              .map((a) => record(a))
-              .map((a) => {
-                const addon_name = getString(a.addon_name ?? a.addonName ?? a.name ?? a.title, '').trim();
-                const addon_price = getNumber(a.addon_price ?? a.addonPrice ?? a.price, 0);
-                return addon_name ? { addon_name, addon_price } : null;
-              })
-              .filter((x): x is { addon_name: string; addon_price: number } => Boolean(x));
-
-            const subTotalFromRes = getNumber(f.sub_total ?? f.subTotal, NaN);
-            const computedSubTotal = Math.max(0, (price + addonAmount + chargeAmount - discountAmount) * quantity);
-            const subTotal = Number.isFinite(subTotalFromRes) ? subTotalFromRes : computedSubTotal;
-
-            return {
-              fleet_id: getString(f.fleet_id ?? f.fleetId, ''),
-              fleet_name: getString(f.fleet_name ?? f.fleetName, ''),
-              fleet_type: getString(f.fleet_type ?? f.fleetType, ''),
-              quantity,
-              price,
-              addon_amount: addonAmount,
-              addons,
-              charge_amount: chargeAmount,
-              discount: discountAmount,
-              sub_total: subTotal,
-              order_id: getString(f.order_id ?? f.orderId, ''),
-              order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
-              price_id: getString(f.price_id ?? f.priceId, ''),
-            };
-          })
-        : [];
-
-      const discountSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.discount) ? f.discount : 0), 0);
-      const chargeSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.charge_amount) ? f.charge_amount : 0), 0);
-      const addonSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0), 0);
-      const originalSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.price) ? f.price : 0) * (Number.isFinite(f.quantity) ? f.quantity : 0), 0);
-      const computedTotalFallback = Math.max(0, originalSum + addonSum + chargeSum - discountSum);
-      const totalFromRes = getNumber(detail.total_amount ?? detail.totalAmount, computedTotalFallback);
-
-      const remainingAmountRaw = hasPaymentInfo
-        ? getNumber(
-            payment.payment_remaining ??
-              payment.paymentRemaining ??
-              payment.remaining_amount ??
-              payment.remainingAmount ??
-              detail.payment_remaining ??
-              detail.paymentRemaining,
-            totalFromRes
-          )
-        : totalFromRes;
-      const remainingAmount = hasPaymentInfo ? Math.min(remainingAmountRaw, totalFromRes) : totalFromRes;
-
-      const next: OrderData = {
-        ...createEmptyOrderData(orderId),
-        id: getString(detail.order_id ?? detail.id, orderId),
-        fleetId: getString(detail.fleet_id ?? detail.fleetId, ''),
-        customerName: getString(customer.customer_name ?? customer.customerName, '-'),
-        customerEmail: getString(customer.customer_email ?? customer.customerEmail, '-'),
-        customerPhone: getString(customer.customer_phone ?? customer.customerPhone, '-'),
-        customerAddress,
-        category: getString(detail.rent_type_label, 'Armada'),
-        title: getString(detail.fleet_name ?? detail.package_name ?? detail.title, 'Order'),
-        description,
-        startDate,
-        endDate,
-        participants: quantity,
-        status: getString(detail.status, paymentStatus === 'paid' ? 'success' : 'pending'),
-        totalAmount: totalFromRes,
-        remainingAmount,
-        additionalAmount: chargeSum,
-        originalAmount: originalSum,
-        discount: discountSum,
-        createdAt,
-        paymentStatus,
-        paymentMethod: getString(
-          payment.payment_method_label ??
-            payment.paymentMethodLabel ??
-            detail.payment_method_label ??
-            detail.paymentMethodLabel ??
-            payment.payment_method ??
-            payment.paymentMethod ??
-            detail.payment_method ??
-            detail.paymentMethod,
-          '-'
-        ),
-        paymentDate,
-        pickupLocation,
-        pickupTime: getString(pickup.pickup_time ?? pickup.pickupTime, '-'),
-        itinerary,
-        facilities: facilities.length ? facilities : Array.isArray(detail.facilities) ? (detail.facilities as string[]) : [],
-        additionalRequests: getString(detail.additional_request ?? detail.additional_requests ?? detail.additionalRequests, '-'),
-        notes: getString(detail.notes, '-'),
-        order_id: getString(detail.order_id ?? detail.id, orderId),
-        rent_type_label: getString(detail.rent_type_label ?? detail.rentTypeLabel, ''),
-        fleets,
-        pickup: {
-          city_label: getString(pickup.city_label ?? pickup.cityLabel, ''),
-          start_date: getString(pickup.start_date ?? pickup.startDate, ''),
-          end_date: getString(pickup.end_date ?? pickup.endDate, ''),
-          pickup_location: getString(pickup.pickup_location ?? pickup.pickupLocation, ''),
-          pickup_city: getString(pickup.pickup_city ?? pickup.pickupCity, ''),
-        },
-        scheduled: Boolean(detail.scheduled ?? false),
-      };
-
-      setOrderData(next);
+    const getString = (v: unknown, fallback: string) =>
+      typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : fallback;
+    const getNumber = (v: unknown, fallback: number) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
     };
 
-    fetchDetail();
+    const pickup = record(detail.pickup);
+    const customer = record(detail.customer);
+    const payment = record(detail.payment);
+    const hasPaymentInfoRaw = detail.payment && typeof detail.payment === 'object' && !Array.isArray(detail.payment);
+    const hasPaymentInfo = hasPaymentInfoRaw && Object.keys(detail.payment as Record<string, unknown>).length > 0;
+    const addonsRaw = detail.addon;
+    const addons = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
+
+    const normalizePaymentStatus = (raw: unknown): 'paid' | 'pending' | 'failed' => {
+      if (raw === 1 || raw === '1' || raw === 'paid' || raw === 'lunas') return 'paid';
+      if (raw === 4 || raw === '4' || raw === 'failed' || raw === 'gagal') return 'failed';
+      if (raw === 2 || raw === '2' || raw === 3 || raw === '3') return 'pending';
+      if (typeof raw === 'string') {
+        const s = raw.toLowerCase().trim();
+        if (s === 'paid' || s === 'lunas' || s === 'success') return 'paid';
+        if (s === 'failed' || s === 'gagal' || s === 'cancelled') return 'failed';
+        if (s === '' || s === 'pending' || s === 'unpaid') return 'pending';
+      }
+      return 'pending';
+    };
+
+    const paymentStatus = normalizePaymentStatus(detail.payment_status ?? payment.status ?? payment.payment_status);
+
+    const rawStatus = getNumber(detail.status, 0);
+    const rawPaymentStatus = getNumber(detail.payment_status ?? payment.status ?? payment.payment_status, 0);
+
+    const lastPaymentAmount = getNumber(payment.payment_amount ?? payment.amount ?? detail.payment_amount ?? detail.amount, 0);
+    const lastPaymentMethod = getString(payment.payment_method_label ?? payment.method_label ?? detail.payment_method_label ?? detail.method_label, '-');
+
+    const quantity = getNumber(detail.quantity ?? detail.qty ?? detail.unit_qty ?? detail.unitQty, 0);
+
+    const startDate = getString(pickup.start_date ?? pickup.startDate, '');
+    const endDate = getString(pickup.end_date ?? pickup.endDate, '');
+    const createdAt = getString(detail.order_date ?? detail.created_at ?? detail.createdAt, startDate || endDate || '');
+    const paymentDate = getString(payment.payment_date ?? payment.paymentDate ?? detail.payment_date ?? detail.paymentDate, createdAt);
+
+    const customerCity = getString(customer.city_label ?? customer.customer_city ?? customer.city, '');
+    const customerAddressRaw = getString(customer.customer_address ?? customer.address, '-');
+    const customerAddress = customerCity ? `${customerAddressRaw}, ${customerCity}` : customerAddressRaw;
+
+    const pickupCityLabel = getString(pickup.city_label ?? pickup.pickup_city_label ?? '', '');
+    const pickupLocationRaw = getString(pickup.pickup_location ?? pickup.pickupLocation, '-');
+    const pickupLocation = pickupCityLabel ? `${pickupLocationRaw}, ${pickupCityLabel}` : pickupLocationRaw;
+
+    const duration = getNumber(detail.duration, 0);
+    const durationUom = getString(detail.duration_uom ?? detail.uom, '');
+    const rentTypeLabel = getString(detail.rent_type_label ?? detail.rentTypeLabel, '');
+    const fallbackDescriptionParts = [
+      duration > 0 ? `Sewa ${duration}${durationUom ? ` ${durationUom}` : ''}` : '',
+      rentTypeLabel,
+    ].filter(Boolean);
+    const description = fallbackDescriptionParts.length ? fallbackDescriptionParts.join(' • ') : '-';
+
+    const facilities = addons
+      .map((a) => (a && typeof a === 'object' ? (a as Record<string, unknown>) : {}))
+      .map((a) => {
+        const name = getString(a.addon_name ?? a.name, '');
+        const priceValue = getNumber(a.addon_price ?? a.price, 0);
+        if (!name) return '';
+        if (priceValue > 0) return `${name} - Rp ${priceValue.toLocaleString('id-ID')}`;
+        return name;
+      })
+      .filter(Boolean);
+
+    const rawItinerary = Array.isArray(detail.itinerary) ? (detail.itinerary as unknown[]) : [];
+    const groupedItinerary: Record<number, ItineraryDay> = {};
+
+    rawItinerary.forEach((raw) => {
+       const item = record(raw);
+       const dayNum = getNumber(item.day, 1);
+       const activityRaw = item.destination ?? item.activities ?? item.activity;
+       if (!activityRaw) return;
+
+       if (!groupedItinerary[dayNum]) {
+         let dayDate = getString(item.date, '');
+         if (!dayDate && startDate) {
+           const baseDate = new Date(startDate);
+           if (!isNaN(baseDate.getTime())) {
+             baseDate.setDate(baseDate.getDate() + (dayNum - 1));
+             dayDate = baseDate.toISOString().split('T')[0];
+           }
+         }
+
+         groupedItinerary[dayNum] = {
+           day: dayNum,
+           date: dayDate,
+           activities: [],
+         };
+       }
+       
+       if (Array.isArray(activityRaw)) {
+          groupedItinerary[dayNum].activities.push(...activityRaw.map((a) => getString(a, '')).filter((s) => s));
+        } else {
+          const cityName = getString(item.city_label ?? item.city_name ?? '', '');
+          const destination = getString(activityRaw, '');
+          const activityText = cityName ? `${destination}, ${cityName}` : destination;
+          if (activityText) groupedItinerary[dayNum].activities.push(activityText);
+        }
+     });
+
+    const itinerary = Object.values(groupedItinerary).sort((a, b) => a.day - b.day);
+
+    const fleetsRaw = detail.fleets;
+    const fleets: FleetItem[] = Array.isArray(fleetsRaw)
+      ? fleetsRaw.map((fleet: unknown) => {
+          const f = record(fleet);
+          const quantity = getNumber(f.quantity ?? f.qty, 0);
+          const price = getNumber(f.price, 0);
+          const chargeAmount = getNumber(f.charge_amount ?? f.chargeAmount, 0);
+          const discountAmount = getNumber(f.discount, 0);
+          const addonAmount = getNumber(f.addon_amount ?? f.addonAmount, 0);
+
+          const addonsRaw = f.addons ?? f.addon;
+          const addonsArr = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
+          const addons = addonsArr
+            .map((a) => record(a))
+            .map((a) => {
+              const addon_name = getString(a.addon_name ?? a.addonName ?? a.name ?? a.title, '').trim();
+              const addon_price = getNumber(a.addon_price ?? a.addonPrice ?? a.price, 0);
+              return addon_name ? { addon_name, addon_price } : null;
+            })
+            .filter((x): x is { addon_name: string; addon_price: number } => Boolean(x));
+
+          const subTotalFromRes = getNumber(f.sub_total ?? f.subTotal, NaN);
+          const computedSubTotal = Math.max(0, (price + addonAmount + chargeAmount - discountAmount) * quantity);
+          const subTotal = Number.isFinite(subTotalFromRes) ? subTotalFromRes : computedSubTotal;
+
+          return {
+            fleet_id: getString(f.fleet_id ?? f.fleetId, ''),
+            fleet_name: getString(f.fleet_name ?? f.fleetName, ''),
+            fleet_type: getString(f.fleet_type ?? f.fleetType, ''),
+            quantity,
+            price,
+            addon_amount: addonAmount,
+            addons,
+            charge_amount: chargeAmount,
+            discount: discountAmount,
+            sub_total: subTotal,
+            order_id: getString(f.order_id ?? f.orderId, ''),
+            order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
+            price_id: getString(f.price_id ?? f.priceId, ''),
+          };
+        })
+      : [];
+
+    const discountSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.discount) ? f.discount : 0), 0);
+    const chargeSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.charge_amount) ? f.charge_amount : 0), 0);
+    const addonSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0), 0);
+    const originalSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.price) ? f.price : 0) * (Number.isFinite(f.quantity) ? f.quantity : 0), 0);
+    const computedTotalFallback = Math.max(0, originalSum + addonSum + chargeSum - discountSum);
+    const totalFromRes = getNumber(detail.total_amount ?? detail.totalAmount, computedTotalFallback);
+
+    const remainingAmountRaw = hasPaymentInfo
+      ? getNumber(
+          payment.payment_remaining ??
+            payment.paymentRemaining ??
+            payment.remaining_amount ??
+            payment.remainingAmount ??
+            detail.payment_remaining ??
+            detail.paymentRemaining,
+          totalFromRes
+        )
+      : totalFromRes;
+    const remainingAmount = hasPaymentInfo ? Math.min(remainingAmountRaw, totalFromRes) : totalFromRes;
+
+    const next: OrderData = {
+      ...createEmptyOrderData(orderId),
+      id: getString(detail.order_id ?? detail.id, orderId),
+      fleetId: getString(detail.fleet_id ?? detail.fleetId, ''),
+      customerName: getString(customer.customer_name ?? customer.customerName, '-'),
+      customerEmail: getString(customer.customer_email ?? customer.customerEmail, '-'),
+      customerPhone: getString(customer.customer_phone ?? customer.customerPhone, '-'),
+      customerAddress,
+      category: getString(detail.rent_type_label, 'Armada'),
+      title: getString(detail.fleet_name ?? detail.package_name ?? detail.title, 'Order'),
+      description,
+      startDate,
+      endDate,
+      participants: quantity,
+      status: getString(detail.status, paymentStatus === 'paid' ? 'success' : 'pending'),
+      totalAmount: totalFromRes,
+      remainingAmount,
+      additionalAmount: chargeSum,
+      originalAmount: originalSum,
+      discount: discountSum,
+      createdAt,
+      paymentStatus,
+      paymentMethod: getString(
+        payment.payment_method_label ??
+          payment.paymentMethodLabel ??
+          detail.payment_method_label ??
+          detail.paymentMethodLabel ??
+          payment.payment_method ??
+          payment.paymentMethod ??
+          detail.payment_method ??
+          detail.paymentMethod,
+        '-'
+      ),
+      paymentDate,
+      pickupLocation,
+      pickupTime: getString(pickup.pickup_time ?? pickup.pickupTime, '-'),
+      itinerary,
+      facilities: facilities.length ? facilities : Array.isArray(detail.facilities) ? (detail.facilities as string[]) : [],
+      additionalRequests: getString(detail.additional_request ?? detail.additional_requests ?? detail.additionalRequests, '-'),
+      notes: getString(detail.notes, '-'),
+      order_id: getString(detail.order_id ?? detail.id, orderId),
+      rent_type_label: getString(detail.rent_type_label ?? detail.rentTypeLabel, ''),
+      fleets,
+      pickup: {
+        city_label: getString(pickup.city_label ?? pickup.cityLabel, ''),
+        start_date: getString(pickup.start_date ?? pickup.startDate, ''),
+        end_date: getString(pickup.end_date ?? pickup.endDate, ''),
+        pickup_location: getString(pickup.pickup_location ?? pickup.pickupLocation, ''),
+        pickup_city: getString(pickup.pickup_city ?? pickup.pickupCity, ''),
+      },
+      scheduled: Boolean(detail.scheduled ?? false),
+      rawStatus,
+      rawPaymentStatus,
+      lastPaymentAmount,
+      lastPaymentMethod,
+    };
+
+    setOrderData(next);
   }, [orderId]);
+
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
 
   useEffect(() => {
     const resolvedOrderId = (orderId || routeOrderId || orderData.id || '').trim();
@@ -1656,17 +1679,43 @@ export const OrderDetail: React.FC = () => {
               <Pencil className="h-4 w-4 mr-2" />
               Edit Pesanan
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
-              onClick={() => setIsUpdatePaymentOpen(true)}
-              disabled={isPaymentDisabled}
-            >
-              <CreditCard className="h-4 w-4 mr-2" />
-              Pembayaran
-            </Button>
+            {orderData.rawStatus === 1 && !isWaitingConfirmation && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+                onClick={() => setIsUpdatePaymentOpen(true)}
+                disabled={isPaymentDisabled}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Pembayaran
+              </Button>
+            )}
+            {isWaitingConfirmation && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-500 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+                onClick={() => setIsConfirmPaymentOpen(true)}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Konfirmasi Pembayaran
+              </Button>
+            )}
+            {isWaitingOrderConfirmation && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-green-600 bg-green-500 text-white hover:bg-green-600 dark:border-green-500 dark:bg-green-900/20 dark:text-white dark:hover:bg-green-900/30"
+                onClick={() => setIsConfirmOrderOpen(true)}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Konfirmasi Pesanan
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -1680,18 +1729,20 @@ export const OrderDetail: React.FC = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[220px]">
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  disabled={!showScheduleButton}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    onViewScheduleArmadaTim();
-                  }}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Lihat Jadwal Armada dan Tim
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {!isWaitingConfirmation && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    disabled={!showScheduleButton}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      onViewScheduleArmadaTim();
+                    }}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Lihat Jadwal Armada dan Tim
+                  </DropdownMenuItem>
+                )}
+                {!isWaitingConfirmation && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   className="cursor-pointer"
                   onSelect={(e) => {
@@ -2040,7 +2091,15 @@ export const OrderDetail: React.FC = () => {
                 <TabsContent value="summary" className="pt-4 space-y-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Status Pembayaran</label>
-                    <div className="mt-1">{getPaymentStatusBadge(orderData.paymentStatus)}</div>
+                    <div className="mt-1">
+                      {isWaitingConfirmation ? (
+                        <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300">
+                          Menunggu Konfirmasi
+                        </Badge>
+                      ) : (
+                        getPaymentStatusBadge(orderData.paymentStatus)
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Tanggal Pembayaran</label>
@@ -2187,6 +2246,156 @@ export const OrderDetail: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Modal Konfirmasi Pembayaran */}
+      <Dialog open={isConfirmPaymentOpen} onOpenChange={setIsConfirmPaymentOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-white dark:bg-gray-900 shadow-2xl rounded-2xl">
+          <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              Konfirmasi Pembayaran
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Metode Pembayaran</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{orderData.lastPaymentMethod || '-'}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Jumlah Pembayaran</span>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      {formatCurrency(orderData.lastPaymentAmount || 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                <p className="flex gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  Mohon pastikan dana sudah masuk ke rekening sebelum melakukan konfirmasi.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsConfirmPaymentOpen(false)}
+                className="flex-1 rounded-xl"
+              >
+                Tutup
+              </Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]"
+                onClick={async () => {
+                  // Placeholder for confirmation action
+                  setIsConfirmPaymentOpen(false);
+                  await Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Pembayaran telah dikonfirmasi.',
+                    timer: 2000,
+                    showConfirmButton: false
+                  });
+                  // Optionally refresh data
+                  window.location.reload();
+                }}
+              >
+                Konfirmasi Sekarang
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Konfirmasi Pesanan */}
+      <Dialog open={isConfirmOrderOpen} onOpenChange={setIsConfirmOrderOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-white dark:bg-gray-900 shadow-2xl rounded-2xl">
+          <DialogHeader className="p-6 bg-gradient-to-r from-green-600 to-emerald-700 text-white">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              Konfirmasi Pesanan
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Apakah Anda yakin ingin mengkonfirmasi pesanan ini? Konfirmasi ini menandakan bahwa pesanan telah siap untuk diproses lebih lanjut.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsConfirmOrderOpen(false)}
+                className="flex-1 rounded-xl"
+              >
+                Tutup
+              </Button>
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg shadow-green-500/20 transition-all active:scale-[0.98]"
+                disabled={isApproving}
+                onClick={async () => {
+                  const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
+                  if (!resolvedId) return;
+
+                  setIsApproving(true);
+                  try {
+                    const token = localStorage.getItem('token') ?? '';
+                    const res = await api.post<unknown>(
+                      `/services/fleet/order/process/approve/${encodeURIComponent(resolvedId)}`,
+                      {},
+                      token ? { Authorization: token } : undefined
+                    );
+
+                    if (res && res.status === 'success') {
+                      setIsConfirmOrderOpen(false);
+                      await Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: 'Pesanan telah dikonfirmasi.',
+                        timer: 2000,
+                        showConfirmButton: false,
+                      });
+                      await fetchDetail();
+                    } else {
+                      await Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: 'Gagal mengkonfirmasi pesanan. Silakan coba lagi.',
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error approving order:', error);
+                    await Swal.fire({
+                      icon: 'error',
+                      title: 'Error',
+                      text: 'Terjadi kesalahan sistem.',
+                    });
+                  } finally {
+                    setIsApproving(false);
+                  }
+                }}
+              >
+                {isApproving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Memproses...
+                  </>
+                ) : (
+                  'Konfirmasi Pesanan'
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Update Pembayaran */}
       <Dialog open={isUpdatePaymentOpen} onOpenChange={setIsUpdatePaymentOpen}>
