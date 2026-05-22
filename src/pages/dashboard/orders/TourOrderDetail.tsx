@@ -5,10 +5,10 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, Ban, Calendar, CreditCard, Mail, MapPin, MoreHorizontal, Pencil, Phone, Printer, Users } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ArrowLeft, Ban, Calendar, ChevronRight, CreditCard, Mail, MapPin, MoreHorizontal, Pencil, Phone, Printer, Users } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { TourPackageOrderForm } from '@/pages/dashboard/orders/TourPackageOrderForm';
 
@@ -192,7 +192,6 @@ export const TourOrderDetail: React.FC = () => {
   const [rootDetail, setRootDetail] = useState<Record<string, unknown> | null>(null);
   const [packageItineraries, setPackageItineraries] = useState<PackageItinerary[]>([]);
   const [packageFacilities, setPackageFacilities] = useState<string[]>([]);
-  const [packageAddons, setPackageAddons] = useState<PackageAddon[]>([]);
   const [loadingPackage, setLoadingPackage] = useState(false);
   const [orderTab, setOrderTab] = useState<'overview' | 'itinerary' | 'addons' | 'facilities' | 'tour_guide'>('overview');
 
@@ -238,7 +237,6 @@ export const TourOrderDetail: React.FC = () => {
     const loadPackage = async () => {
       setPackageItineraries([]);
       setPackageFacilities([]);
-      setPackageAddons([]);
       const pkgId = tourPackageId.trim();
       if (!pkgId) return;
       setLoadingPackage(true);
@@ -247,7 +245,6 @@ export const TourOrderDetail: React.FC = () => {
         if (!active) return;
         setPackageItineraries(res.itineraries);
         setPackageFacilities(res.facilities);
-        setPackageAddons(res.addons);
       } finally {
         if (active) setLoadingPackage(false);
       }
@@ -270,6 +267,45 @@ export const TourOrderDetail: React.FC = () => {
     }
     return <Badge variant="secondary" className="rounded-full">{String(paymentStatusNum)}</Badge>;
   }, [paymentStatusNum]);
+
+  const paymentProgressPct = paymentStatusNum === 1 ? 100 : 0;
+
+  const customerInitials = useMemo(() => {
+    const raw = toStringSafe(customer.customer_name ?? customer.name).trim();
+    if (!raw || raw === '-' || raw.toLowerCase() === 'null') return 'CU';
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const second = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+    const out = `${first}${second}`.toUpperCase().trim();
+    return out || 'CU';
+  }, [customer]);
+
+  const orderTabsListRef = React.useRef<HTMLDivElement | null>(null);
+  const orderTabTriggerRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
+  const [orderTabIndicator, setOrderTabIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      const listEl = orderTabsListRef.current;
+      const activeEl = orderTabTriggerRefs.current[orderTab];
+      if (!listEl || !activeEl) {
+        setOrderTabIndicator((prev) => (prev.width === 0 ? prev : { left: 0, width: 0 }));
+        return;
+      }
+      const listRect = listEl.getBoundingClientRect();
+      const activeRect = activeEl.getBoundingClientRect();
+      const left = Math.max(0, activeRect.left - listRect.left);
+      const width = Math.max(0, activeRect.width);
+      setOrderTabIndicator({ left, width });
+    };
+
+    const raf = window.requestAnimationFrame(update);
+    window.addEventListener('resize', update);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', update);
+    };
+  }, [orderTab]);
 
   const initialValues = useMemo(() => {
     const addon_ids = addonsSelected.map((a) => a.addon_id).filter((x) => x);
@@ -500,16 +536,47 @@ export const TourOrderDetail: React.FC = () => {
   if (!orderId) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="!w-auto !h-auto p-2">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Detail Pesanan Paket Wisata</h1>
+        <div className="sticky top-4 z-20 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/70">
+          <div className="flex items-start gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="h-10 w-10 rounded-2xl border-slate-200 bg-white p-0 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePrefix}`)}
+                  className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  Dashboard
+                </button>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePrefix}/orders`)}
+                  className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  Pesanan
+                </button>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <span className="text-slate-600 dark:text-slate-300">Paket Wisata</span>
+              </div>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Detail Pesanan Paket Wisata
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Order ID tidak ditemukan
+              </p>
+            </div>
           </div>
         </div>
-        <Card>
-          <CardContent className="p-6">Order ID tidak ditemukan</CardContent>
+        <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <CardContent className="p-6 text-sm text-slate-600 dark:text-slate-300">Order ID tidak ditemukan</CardContent>
         </Card>
       </div>
     );
@@ -532,247 +599,404 @@ export const TourOrderDetail: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="!w-auto !h-auto p-2">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Detail Order {orderIdLabel}</h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-1">Informasi lengkap pesanan paket wisata</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {paymentBadge}
-          <Button
-            type="button"
-            variant="outline"
-            className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
-            onClick={onPrintInvoice}
-            disabled={loading}
-          >
-            <Printer className="h-4 w-4 mr-2" />
-            Print Invoice
-          </Button>
-          {paymentStatusNum !== 1 ? (
+      <div className="sticky top-4 z-20 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/70">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-4">
             <Button
-              type="button"
               variant="outline"
-              className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
-              onClick={onScheduleOrPayment}
-              disabled={loading}
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="h-10 w-10 rounded-2xl border-slate-200 bg-white p-0 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
             >
-              <CreditCard className="h-4 w-4 mr-2" />
-              Update Pembayaran
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-          ) : (
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePrefix}`)}
+                  className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  Dashboard
+                </button>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePrefix}/orders`)}
+                  className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  Pesanan
+                </button>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <span className="text-slate-600 dark:text-slate-300">Paket Wisata</span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Detail Pesanan
+                </h1>
+                <Badge className="rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                  {orderIdLabel}
+                </Badge>
+                {paymentBadge}
+              </div>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Informasi lengkap pesanan paket wisata
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
             <Button
               type="button"
               variant="outline"
-              className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+              size="sm"
+              className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+              onClick={() => setEditing(true)}
+              disabled={loading}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Pesanan
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
               onClick={onScheduleOrPayment}
               disabled={loading}
             >
-              <Calendar className="h-4 w-4 mr-2" />
+              {paymentStatusNum === 1 ? (
+                <Calendar className="h-4 w-4 mr-2" />
+              ) : (
+                <CreditCard className="h-4 w-4 mr-2" />
+              )}
               {scheduleLabel}
             </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[190px]">
-              <DropdownMenuItem className="cursor-pointer" onSelect={() => setEditing(true)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit Pesanan
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600" onSelect={onCancelOrder}>
-                <Ban className="mr-2 h-4 w-4" />
-                Batalkan Pesanan
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+                >
+                  More Action
+                  <MoreHorizontal className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[220px]">
+                <DropdownMenuItem className="cursor-pointer" onSelect={onPrintInvoice}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Invoice
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600" onSelect={onCancelOrder}>
+                  <Ban className="mr-2 h-4 w-4" />
+                  Batalkan Pesanan
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
       {loading ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Memuat...</CardTitle>
+        <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-slate-900 dark:text-white">Memuat...</CardTitle>
           </CardHeader>
           <CardContent className="p-6" />
         </Card>
       ) : editing ? (
         <TourPackageOrderForm mode="edit" orderId={orderId} readOnly={false} initialValues={initialValues} />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="h-5 w-5" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <Users className="h-5 w-5 text-[#295BFF]" />
                   <span>Informasi Customer</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Nama</div>
-                    <div className="text-gray-900 dark:text-white">{toStringSafe(customer.customer_name ?? customer.name) || '-'}</div>
+              <CardContent className="pt-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12 border border-slate-200 shadow-sm dark:border-slate-800">
+                      <AvatarFallback className="bg-[#295BFF]/10 text-[#295BFF] font-semibold">
+                        {customerInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="text-sm text-slate-500 dark:text-slate-400">Customer</div>
+                      <div className="truncate text-lg font-semibold text-slate-900 dark:text-white">
+                        {toStringSafe(customer.customer_name ?? customer.name) || '-'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                       <Phone className="h-4 w-4" />
                       Telepon
                     </div>
-                    <div className="text-gray-900 dark:text-white">{toStringSafe(customer.customer_phone ?? customer.phone) || '-'}</div>
+                    <div className="mt-2 text-sm font-medium text-slate-900 dark:text-white">
+                      {toStringSafe(customer.customer_phone ?? customer.phone) || '-'}
+                    </div>
                   </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <div className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                       <Mail className="h-4 w-4" />
                       Email
                     </div>
-                    <div className="text-gray-900 dark:text-white">{toStringSafe(customer.customer_email ?? customer.email) || '-'}</div>
+                    <div className="mt-2 break-words text-sm font-medium text-slate-900 dark:text-white">
+                      {toStringSafe(customer.customer_email ?? customer.email) || '-'}
+                    </div>
                   </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <div className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                  <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                    <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                       <MapPin className="h-4 w-4" />
                       Alamat
                     </div>
-                    <div className="text-gray-900 dark:text-white">{toStringSafe(customer.customer_address ?? customer.address) || '-'}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{toStringSafe(customer.customer_city ?? customer.city) || ''}</div>
+                    <div className="mt-2 text-sm font-medium text-slate-900 dark:text-white">
+                      {toStringSafe(customer.customer_address ?? customer.address) || '-'}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {toStringSafe(customer.customer_city ?? customer.city) || ''}
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Informasi Pesanan</CardTitle>
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-slate-900 dark:text-white">Informasi Pesanan</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="pt-4">
                 <Tabs value={orderTab} onValueChange={(v) => setOrderTab(v as typeof orderTab)}>
-                  <TabsList className="w-full justify-start">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="itinerary">Itinerary</TabsTrigger>
-                    <TabsTrigger value="addons">Addons</TabsTrigger>
-                    <TabsTrigger value="facilities">Fasilitas</TabsTrigger>
-                    <TabsTrigger value="tour_guide">Tour Guide</TabsTrigger>
-                  </TabsList>
+                  <div className="relative">
+                    <TabsList ref={orderTabsListRef} className="relative w-full justify-start gap-6 border-slate-200 dark:border-slate-800">
+                      <TabsTrigger
+                        value="overview"
+                        ref={(el) => {
+                          orderTabTriggerRefs.current.overview = el;
+                        }}
+                        className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                      >
+                        Overview
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="itinerary"
+                        ref={(el) => {
+                          orderTabTriggerRefs.current.itinerary = el;
+                        }}
+                        className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                      >
+                        Itinerary
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="addons"
+                        ref={(el) => {
+                          orderTabTriggerRefs.current.addons = el;
+                        }}
+                        className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                      >
+                        Addons
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="facilities"
+                        ref={(el) => {
+                          orderTabTriggerRefs.current.facilities = el;
+                        }}
+                        className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                      >
+                        Fasilitas
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="tour_guide"
+                        ref={(el) => {
+                          orderTabTriggerRefs.current.tour_guide = el;
+                        }}
+                        className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                      >
+                        Tour Guide
+                      </TabsTrigger>
+                    </TabsList>
+                    <div
+                      className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-[#295BFF] transition-all duration-300"
+                      style={{
+                        width: `${orderTabIndicator.width}px`,
+                        transform: `translateX(${orderTabIndicator.left}px)`,
+                      }}
+                    />
+                  </div>
 
-                  <div className="min-h-[420px] max-h-[620px] overflow-y-auto">
-                    <TabsContent value="overview" className="pt-4 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Order ID</div>
-                          <div className="text-gray-900 dark:text-white font-medium">{orderIdLabel}</div>
+                  <div key={orderTab} className="pt-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                    {orderTab === 'overview' ? (
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Order ID</div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{orderIdLabel}</div>
                         </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Paket Wisata</div>
-                          <div className="text-gray-900 dark:text-white">{toStringSafe(order.tour_package_name ?? order.package_name ?? order.packageName) || '-'}</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Paket Wisata</div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                            {toStringSafe(order.tour_package_name ?? order.package_name ?? order.packageName) || '-'}
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Wisata</div>
-                          <div className="text-gray-900 dark:text-white">{formatDate(startDate)} - {formatDate(endDate)}</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <Calendar className="h-4 w-4" />
+                            Tanggal Wisata
+                          </div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                            {formatDate(startDate)} - {formatDate(endDate)}
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Jumlah Peserta</div>
-                          <div className="text-gray-900 dark:text-white">{totalPax} pax</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Jumlah Peserta</div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{totalPax} pax</div>
                         </div>
-                        <div className="md:col-span-2">
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                        <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                             <MapPin className="h-4 w-4" />
                             Penjemputan
                           </div>
-                          <div className="text-gray-900 dark:text-white">{pickupAddress || '-'}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{pickupCityLabel || '-'}</div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{pickupAddress || '-'}</div>
+                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{pickupCityLabel || '-'}</div>
                         </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Member Pax</div>
-                          <div className="text-gray-900 dark:text-white">{memberPax}</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Member Pax</div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{memberPax}</div>
                         </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Official Pax</div>
-                          <div className="text-gray-900 dark:text-white">{officialPax}</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Official Pax</div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{officialPax}</div>
                         </div>
                       </div>
-                    </TabsContent>
+                    ) : null}
 
-                    <TabsContent value="itinerary" className="pt-4">
-                      {loadingPackage ? (
-                        <div className="py-8 text-center text-gray-500">Memuat itinerary...</div>
+                    {orderTab === 'itinerary' ? (
+                      loadingPackage ? (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                          Memuat itinerary...
+                        </div>
                       ) : packageItineraries.length === 0 ? (
-                        <div className="py-8 text-center text-gray-500">Itinerary tidak tersedia</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                          Itinerary tidak tersedia
+                        </div>
                       ) : (
-                        <div className="space-y-4">
+                        <div className="relative space-y-4">
+                          <div className="absolute left-[10px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-800" />
                           {packageItineraries.map((day) => (
-                            <div key={day.day} className="border-l-4 border-blue-500 pl-4">
-                              <div className="font-medium text-gray-900 dark:text-white mb-2">Hari {day.day}</div>
-                              <div className="space-y-2">
-                                {day.activities.map((a, idx) => (
-                                  <div key={idx} className="text-sm text-gray-700 dark:text-gray-300">
-                                    <span className="font-medium">{a.time ? a.time.slice(0, 5) : '-'}</span>
-                                    <span className="mx-2">•</span>
-                                    <span>{a.description || '-'}</span>
-                                    {a.location ? <span className="mx-2">•</span> : null}
-                                    {a.location ? <span>{a.location}</span> : null}
-                                    {a.city_name || a.city_id ? <span className="mx-2">•</span> : null}
-                                    {a.city_name ? <span>{a.city_name}</span> : a.city_id ? <span>City ID: {a.city_id}</span> : null}
+                            <div key={day.day} className="relative pl-7">
+                              <div className="absolute left-[6px] top-6 h-2.5 w-2.5 rounded-full bg-[#295BFF]" />
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Hari {day.day}</div>
+                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Timeline</div>
                                   </div>
-                                ))}
+                                  <Badge className="rounded-full border border-[#295BFF]/20 bg-[#295BFF]/10 text-[#295BFF] shadow-sm">
+                                    Itinerary
+                                  </Badge>
+                                </div>
+                                <div className="mt-4 space-y-2">
+                                  {day.activities.length === 0 ? (
+                                    <div className="text-sm text-slate-500 dark:text-slate-400">Aktivitas belum tersedia.</div>
+                                  ) : (
+                                    day.activities.map((a, idx) => (
+                                      <div key={idx} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-700 dark:text-slate-200">
+                                          <span className="font-semibold text-slate-900 dark:text-white">
+                                            {a.time ? a.time.slice(0, 5) : '-'}
+                                          </span>
+                                          <span className="text-slate-400">•</span>
+                                          <span className="font-medium">{a.description || '-'}</span>
+                                        </div>
+                                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                          {[a.location, a.city_name ? a.city_name : a.city_id ? `City ID: ${a.city_id}` : '']
+                                            .map((x) => String(x || '').trim())
+                                            .filter(Boolean)
+                                            .join(' • ')}
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
                               </div>
                             </div>
                           ))}
                         </div>
-                      )}
-                    </TabsContent>
+                      )
+                    ) : null}
 
-                    <TabsContent value="addons" className="pt-4">
-                      {addonsSelected.length === 0 ? (
-                        <div className="py-8 text-center text-gray-500">Addon tidak tersedia</div>
+                    {orderTab === 'addons' ? (
+                      addonsSelected.length === 0 ? (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                          Addon tidak tersedia
+                        </div>
                       ) : (
                         <div className="space-y-3">
                           {addonsSelected.map((a) => (
-                            <div key={a.addon_id || a.description} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 flex items-start justify-between gap-4">
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{a.description || '-'}</div>
-                                <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">{a.addon_id || '-'}</div>
+                            <div
+                              key={a.addon_id || a.description}
+                              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{a.description || '-'}</div>
+                                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{a.addon_id || '-'}</div>
+                                </div>
+                                <div className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(a.price)}</div>
                               </div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrency(a.price)}</div>
                             </div>
                           ))}
-                          <div className="flex items-center justify-between pt-2">
-                            <div className="text-sm text-gray-600 dark:text-gray-300">Total Addon</div>
-                            <div className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(addonsTotal)}</div>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                            <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                              <span>Total Addon</span>
+                              <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(addonsTotal)}</span>
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </TabsContent>
+                      )
+                    ) : null}
 
-                    <TabsContent value="facilities" className="pt-4">
-                      {loadingPackage ? (
-                        <div className="py-8 text-center text-gray-500">Memuat fasilitas...</div>
+                    {orderTab === 'facilities' ? (
+                      loadingPackage ? (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                          Memuat fasilitas...
+                        </div>
                       ) : packageFacilities.length === 0 ? (
-                        <div className="py-8 text-center text-gray-500">Fasilitas tidak tersedia</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                          Fasilitas tidak tersedia
+                        </div>
                       ) : (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                           {packageFacilities.map((f) => (
-                            <Badge key={f} variant="outline">{f}</Badge>
+                            <div
+                              key={f}
+                              className="group rounded-2xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200 dark:hover:bg-slate-950"
+                            >
+                              {f}
+                            </div>
                           ))}
                         </div>
-                      )}
-                    </TabsContent>
+                      )
+                    ) : null}
 
-                    <TabsContent value="tour_guide" className="pt-4 space-y-3">
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Tour guide</div>
-                      <div className="text-gray-900 dark:text-white">{toStringSafe(order.tour_guide ?? order.tourGuide ?? '') || '-'}</div>
-                    </TabsContent>
+                    {orderTab === 'tour_guide' ? (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Tour guide</div>
+                        <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                          {toStringSafe(order.tour_guide ?? order.tourGuide ?? '') || '-'}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </Tabs>
               </CardContent>
@@ -780,76 +1004,100 @@ export const TourOrderDetail: React.FC = () => {
           </div>
 
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <CreditCard className="h-5 w-5" />
-                  <span>Informasi Pembayaran</span>
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950 lg:sticky lg:top-24">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <CreditCard className="h-5 w-5 text-[#295BFF]" />
+                  <span>Pembayaran</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Status Pembayaran</div>
-                  <div className="mt-1">{paymentBadge}</div>
+              <CardContent className="pt-4">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Payment Status</div>
+                    <div>{paymentBadge}</div>
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span>Progress</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{paymentProgressPct}%</span>
+                    </div>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                      <div className="h-full rounded-full bg-[#295BFF] transition-all duration-300" style={{ width: `${paymentProgressPct}%` }} />
+                    </div>
+                  </div>
                 </div>
-                <Separator />
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Total Amount</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(totalAmount)}</span>
+
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span>Total Tagihan</span>
+                      <span className="text-base font-bold text-[#295BFF]">{formatCurrency(computedTotal)}</span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">Total Amount</div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(totalAmount)}</div>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">Addons</div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(addonsTotal)}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Addons</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(addonsTotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Biaya Tambahan</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(additionalAmount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Discount</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(discountAmount)}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Total Tagihan</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(computedTotal)}</span>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                    <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                      <span>Biaya Tambahan</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(additionalAmount)}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                      <span>Discount</span>
+                      <span className="font-medium text-red-600">-{formatCurrency(discountAmount)}</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Time Line Order</CardTitle>
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-slate-900 dark:text-white">Timeline Order</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className={cn('w-3 h-3 rounded-full', createdAt ? 'bg-blue-500' : 'bg-gray-300')} />
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">Order Dibuat</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-300">{formatDateTime(createdAt)}</div>
+              <CardContent className="pt-4">
+                <div className="relative space-y-4">
+                  <div className="absolute left-[11px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-800" />
+
+                  <div className="relative flex gap-3 pl-7">
+                    <div className={cn('absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full', createdAt ? 'bg-[#295BFF]' : 'bg-slate-300 dark:bg-slate-700')} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Order Dibuat</div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDateTime(createdAt)}</div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className={cn('w-3 h-3 rounded-full', paymentStatusNum === 1 ? 'bg-emerald-500' : 'bg-amber-500')} />
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">Pembayaran</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-300">{paymentStatusNum === 1 ? 'Lunas' : 'Belum Dibayar'}</div>
+
+                  <div className="relative flex gap-3 pl-7">
+                    <div className={cn('absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full', paymentStatusNum === 1 ? 'bg-emerald-500' : 'bg-amber-500')} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Pembayaran</div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{paymentStatusNum === 1 ? 'Lunas' : 'Belum Dibayar'}</div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className={cn('w-3 h-3 rounded-full', startDate ? 'bg-blue-500' : 'bg-gray-300')} />
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">Perjalanan Dimulai</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-300">{formatDate(startDate)}</div>
+
+                  <div className="relative flex gap-3 pl-7">
+                    <div className={cn('absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full', startDate ? 'bg-[#295BFF]' : 'bg-slate-300 dark:bg-slate-700')} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Perjalanan Dimulai</div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(startDate)}</div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className={cn('w-3 h-3 rounded-full', endDate ? 'bg-blue-500' : 'bg-gray-300')} />
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">Perjalanan Selesai</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-300">{formatDate(endDate)}</div>
+
+                  <div className="relative flex gap-3 pl-7">
+                    <div className={cn('absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full', endDate ? 'bg-[#295BFF]' : 'bg-slate-300 dark:bg-slate-700')} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Perjalanan Selesai</div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(endDate)}</div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
