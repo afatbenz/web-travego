@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer } from 'lucide-react';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight } from 'lucide-react';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
@@ -97,6 +97,7 @@ type OrderData = {
   rawPaymentStatus?: number;
   lastPaymentAmount?: number;
   lastPaymentMethod?: string;
+  duration?: string;
 };
 
 type PaymentHistoryRow = {
@@ -138,7 +139,8 @@ const createEmptyOrderData = (id: string): OrderData => ({
   customerAddress: '-',
   category: 'Armada',
   title: 'Order',
-  description: '-',
+  description: '',
+  duration: '-',
   startDate: '',
   endDate: '',
   participants: 0,
@@ -163,6 +165,16 @@ const createEmptyOrderData = (id: string): OrderData => ({
   rawPaymentStatus: 0,
   lastPaymentAmount: 0,
   lastPaymentMethod: '-',
+  order_id: '',
+  rent_type_label: '',
+  fleets: [],
+  pickup: {
+    city_label: '',
+    start_date: '',
+    end_date: '',
+    pickup_location: '',
+    pickup_city: ''
+  }
 });
 
 export const OrderDetail: React.FC = () => {
@@ -287,14 +299,6 @@ export const OrderDetail: React.FC = () => {
     }
     await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal membatalkan pesanan.' });
   };
-
-  const escapeHtml = (value: string) =>
-    String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
 
   const onPrintSuratPesanan = async () => {
     const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
@@ -1101,21 +1105,6 @@ export const OrderDetail: React.FC = () => {
     }
   };
 
-  const getOrderStatusBadge = (status: string) => {
-    switch (status) {
-      case 'success':
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">Selesai</Badge>;
-      case 'ongoing':
-        return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">Berlangsung</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">Menunggu</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300">Dibatalkan</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
   const getCategoryIcon = (category: string) => {
     return category === 'Paket Wisata' ? <Package className="h-5 w-5" /> : <Car className="h-5 w-5" />;
   };
@@ -1644,47 +1633,110 @@ export const OrderDetail: React.FC = () => {
     return Object.values(grouped).sort((a, b) => (a.lastTs || 0) - (b.lastTs || 0));
   })();
 
+  const customerInitials = (() => {
+    const raw = String(orderData.customerName ?? '').trim();
+    if (!raw || raw === '-' || raw.toLowerCase() === 'null') return 'CU';
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const second = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+    const out = `${first}${second}`.toUpperCase().trim();
+    return out || 'CU';
+  })();
+
+  const paidAmount = Math.max(0, Number(orderData.totalAmount || 0) - Number(orderData.remainingAmount || 0));
+  const paymentProgressPct =
+    Number(orderData.totalAmount || 0) > 0
+      ? Math.min(100, Math.max(0, Math.round((paidAmount / Number(orderData.totalAmount || 0)) * 100)))
+      : 0;
+
+  const orderTabsListRef = useRef<HTMLDivElement | null>(null);
+  const orderTabTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [orderTabIndicator, setOrderTabIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      const listEl = orderTabsListRef.current;
+      const activeEl = orderTabTriggerRefs.current[orderInfoTab];
+      if (!listEl || !activeEl) {
+        setOrderTabIndicator((prev) => (prev.width === 0 ? prev : { left: 0, width: 0 }));
+        return;
+      }
+      const listRect = listEl.getBoundingClientRect();
+      const activeRect = activeEl.getBoundingClientRect();
+      const left = Math.max(0, activeRect.left - listRect.left);
+      const width = Math.max(0, activeRect.width);
+      setOrderTabIndicator({ left, width });
+    };
+
+    const raf = window.requestAnimationFrame(update);
+    window.addEventListener('resize', update);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', update);
+    };
+  }, [orderInfoTab]);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(-1)}
-            className="!w-auto !h-auto p-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Detail Pesanan
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-1">
-              Informasi lengkap pesanan pelanggan
-            </p>
+      <div className="sticky top-4 z-20 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/70">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="h-10 w-10 rounded-2xl border-slate-200 bg-white p-0 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePrefix}`)}
+                  className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  Dashboard
+                </button>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePrefix}/orders`)}
+                  className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  Pesanan
+                </button>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <span className="text-slate-600 dark:text-slate-300">Detail</span>
+              </div>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Detail Pesanan
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Informasi lengkap pesanan pelanggan
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap items-center justify-end gap-2">
+
+          <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-200 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+              className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
               onClick={onEditOrder}
               disabled={isEditDisabled}
             >
               <Pencil className="h-4 w-4 mr-2" />
               Edit Pesanan
             </Button>
+
             {orderData.rawStatus === 1 && !isWaitingConfirmation && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+                className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
                 onClick={() => setIsUpdatePaymentOpen(true)}
                 disabled={isPaymentDisabled}
               >
@@ -1692,43 +1744,46 @@ export const OrderDetail: React.FC = () => {
                 Pembayaran
               </Button>
             )}
+
             {isWaitingConfirmation && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-500 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+                className="h-10 rounded-2xl border-[#295BFF]/40 bg-[#295BFF]/10 text-[#295BFF] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#295BFF]/15 hover:shadow-lg/10 dark:border-[#295BFF]/40 dark:bg-[#295BFF]/15 dark:text-[#7FA0FF]"
                 onClick={() => setIsConfirmPaymentOpen(true)}
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Konfirmasi Pembayaran
               </Button>
             )}
+
             {isWaitingOrderConfirmation && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-green-600 bg-green-500 text-white hover:bg-green-600 dark:border-green-500 dark:bg-green-900/20 dark:text-white dark:hover:bg-green-900/30"
+                className="h-10 rounded-2xl border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-lg/10 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200"
                 onClick={() => setIsConfirmOrderOpen(true)}
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Konfirmasi Pesanan
               </Button>
             )}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+                  className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
                 >
-                  Lainnya
+                  More Action
                   <MoreHorizontal className="h-4 w-4 ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[220px]">
+              <DropdownMenuContent align="end" className="min-w-[240px]">
                 {!isWaitingConfirmation && (
                   <DropdownMenuItem
                     className="cursor-pointer"
@@ -1781,464 +1836,594 @@ export const OrderDetail: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Customer Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <Users className="h-5 w-5 text-[#295BFF]" />
                 <span>Informasi Customer</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Nama Lengkap</label>
-                  <p className="text-gray-900 dark:text-white">{orderData.customerName}</p>
+            <CardContent className="pt-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12 border border-slate-200 shadow-sm dark:border-slate-800">
+                    <AvatarFallback className="bg-[#295BFF]/10 text-[#295BFF] font-semibold">
+                      {customerInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="text-sm text-slate-500 dark:text-slate-400">Customer</div>
+                    <div className="truncate text-lg font-semibold text-slate-900 dark:text-white">
+                      {orderData.customerName}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Email</label>
-                  <p className="text-gray-900 dark:text-white flex items-center space-x-2">
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                     <Mail className="h-4 w-4" />
-                    <span>{orderData.customerEmail}</span>
-                  </p>
+                    Email
+                  </div>
+                  <div className="mt-2 break-words text-sm font-medium text-slate-900 dark:text-white">
+                    {orderData.customerEmail}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Nomor Telepon</label>
-                  <p className="text-gray-900 dark:text-white flex items-center space-x-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                     <Phone className="h-4 w-4" />
-                    <span>{orderData.customerPhone}</span>
-                  </p>
+                    Nomor Telepon
+                  </div>
+                  <div className="mt-2 text-sm font-medium text-slate-900 dark:text-white">
+                    {orderData.customerPhone}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Alamat</label>
-                  <p className="text-gray-900 dark:text-white flex items-center space-x-2">
+                <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                     <MapPin className="h-4 w-4" />
-                    <span>{orderData.customerAddress}</span>
-                  </p>
+                    Alamat
+                  </div>
+                  <div className="mt-2 text-sm font-medium text-slate-900 dark:text-white">
+                    {orderData.customerAddress}
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Package Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                {getCategoryIcon(orderData.category)}
+          <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <span className="text-[#295BFF]">{getCategoryIcon(orderData.category)}</span>
                 <span>Informasi Pesanan</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="pt-4">
               <Tabs value={orderInfoTab} onValueChange={(v) => setOrderInfoTab(v as typeof orderInfoTab)}>
-                <TabsList className="w-full justify-start">
-                  <TabsTrigger
-                    value="overview"
-                  >
-                    Overview
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="itinerary"
-                  >
-                    Itinerary
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="facilities"
-                  >
-                    Fasilitas
-                  </TabsTrigger>
-                  {orderData.scheduled ? (
-                    <TabsTrigger value="schedule">Jadwal Perjalanan</TabsTrigger>
+                <div className="relative">
+                  <TabsList ref={orderTabsListRef} className="relative w-full justify-start gap-6 border-slate-200 dark:border-slate-800">
+                    <TabsTrigger
+                      value="overview"
+                      ref={(el) => {
+                        orderTabTriggerRefs.current.overview = el;
+                      }}
+                      className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                    >
+                      Overview
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="itinerary"
+                      ref={(el) => {
+                        orderTabTriggerRefs.current.itinerary = el;
+                      }}
+                      className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                    >
+                      Itinerary
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="facilities"
+                      ref={(el) => {
+                        orderTabTriggerRefs.current.facilities = el;
+                      }}
+                      className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                    >
+                      Fasilitas
+                    </TabsTrigger>
+                    {orderData.scheduled ? (
+                      <TabsTrigger
+                        value="schedule"
+                        ref={(el) => {
+                          orderTabTriggerRefs.current.schedule = el;
+                        }}
+                        className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                      >
+                        Jadwal Perjalanan
+                      </TabsTrigger>
+                    ) : null}
+                  </TabsList>
+                  <div
+                    className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-[#295BFF] transition-all duration-300"
+                    style={{
+                      width: `${orderTabIndicator.width}px`,
+                      transform: `translateX(${orderTabIndicator.left}px)`,
+                    }}
+                  />
+                </div>
+
+                <div key={orderInfoTab} className="pt-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                  {orderInfoTab === 'overview' ? (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Order ID</div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{orderData.order_id}</div>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Tipe Order</div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{orderData.rent_type_label}</div>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <Calendar className="h-4 w-4" />
+                            Jadwal Mulai
+                          </div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                            {orderData.pickup ? formatDateTime(orderData.pickup.start_date) : '-'}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <Calendar className="h-4 w-4" />
+                            Jadwal Selesai
+                          </div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                            {orderData.pickup ? formatDateTime(orderData.pickup.end_date) : '-'} ({orderData.duration || '-'} hari)
+                          </div>
+                        </div>
+                        <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <MapPin className="h-4 w-4" />
+                            Lokasi Penjemputan
+                          </div>
+                          <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                            {orderData.pickup ? `${orderData.pickup.pickup_location || ''}, ${orderData.pickup.city_label || ''}` : '-'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="text-sm font-semibold text-slate-900 dark:text-white">Detail Armada</div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 overflow-hidden dark:border-slate-800">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-slate-50 dark:bg-slate-900/50">
+                                <tr className="text-slate-600 dark:text-slate-300">
+                                  <th className="px-3 py-3 text-left font-semibold w-[52px]">No</th>
+                                  <th className="px-3 py-3 text-left font-semibold">Armada</th>
+                                  <th className="px-3 py-3 text-right font-semibold w-[110px]">Unit</th>
+                                  <th className="px-3 py-3 text-right font-semibold w-[160px]">Harga</th>
+                                  <th className="px-3 py-3 text-right font-semibold w-[170px]">Sub Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                {(orderData.fleets ?? []).map((fleet, index) => (
+                                  <tr
+                                    key={`${fleet.fleet_id || fleet.fleet_name}-${index}`}
+                                    className="bg-white transition-colors hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-900/40"
+                                  >
+                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{index + 1}</td>
+                                    <td className="px-3 py-3">
+                                      <div className="font-medium text-slate-900 dark:text-white">{fleet.fleet_name}</div>
+                                      {Array.isArray(fleet.addons) && fleet.addons.length > 0 ? (
+                                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                          {fleet.addons
+                                            .map((a) => `${a.addon_name}${a.addon_price > 0 ? ` (${formatCurrency(a.addon_price)})` : ''}`)
+                                            .join(' • ')}
+                                        </div>
+                                      ) : null}
+                                    </td>
+                                    <td className="px-3 py-3 text-right text-slate-700 dark:text-slate-200">
+                                      {fleet.quantity} unit
+                                    </td>
+                                    <td className="px-3 py-3 text-right text-slate-700 dark:text-slate-200">
+                                      <div>{formatCurrency(fleet.price || 0)}</div>
+                                      {Array.isArray(fleet.addons) && fleet.addons.length > 0 ? (
+                                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                          {formatCurrency(fleet.addon_amount || 0)}
+                                        </div>
+                                      ) : null}
+                                    </td>
+                                    <td className="px-3 py-3 text-right font-semibold text-slate-900 dark:text-white">
+                                      {formatCurrency(((fleet.price || 0) + (fleet.addon_amount || 0)) * (fleet.quantity || 0))}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Permintaan Khusus</div>
+                            <div className="mt-2 text-sm font-medium text-slate-900 dark:text-white">
+                              {orderData.additionalRequests || '-'}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                            <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                              <span>Diskon</span>
+                              <span className="font-medium text-red-600">-{formatCurrency(orderData.discount || 0)}</span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                              <span>Biaya Lain</span>
+                              <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(orderData.additionalAmount || 0)}</span>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900 dark:border-slate-800 dark:text-white">
+                              <span>Total</span>
+                              <span className="text-[#295BFF]">{formatCurrency(orderData.totalAmount || 0)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   ) : null}
-                </TabsList>
 
-                <div className="min-h-[420px] max-h-[620px] overflow-y-auto">
-                  <TabsContent value="overview" className="pt-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Order ID</label>
-                        <p className="text-gray-900 dark:text-white font-medium">{orderData.order_id}</p>
+                  {orderInfoTab === 'itinerary' ? (
+                    (orderData.itinerary ?? []).length === 0 ? (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                        Itinerary tidak tersedia
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tipe Order</label>
-                        <p className="text-gray-900 dark:text-white">{orderData.rent_type_label}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Mulai</label>
-                        <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>{orderData.pickup ? formatDateTime(orderData.pickup.start_date) : '-'}</span>
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Tanggal Selesai</label>
-                        <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>{orderData.pickup ? formatDateTime(orderData.pickup.end_date) : '-'} ({orderData.duration || '-'} hari)</span>
-                        </p>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Lokasi Penjemputan</label>
-                      <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                        <MapPin className="h-4 w-4" />
-                        <span>{orderData.pickup ? `${orderData.pickup.pickup_location || ''}, ${orderData.pickup.city_label || ''}` : '-'}</span>
-                      </p>
-                    </div>
-
-                    <Separator className="my-4" />
-
-                    {/* Fleet Table */}
-                    <div className="mt-6">
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-3 block">Detail Armada</label>
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse border border-gray-300 dark:border-gray-600">
-                          <thead>
-                            <tr className="bg-gray-100 dark:bg-gray-700">
-                              <th className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-center text-sm font-medium w-[52px]">No</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center text-sm font-medium">Armada</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-center text-sm font-medium w-[95px]">Jumlah Unit</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center text-sm font-medium w-[150px]">Harga</th>
-                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center text-sm font-medium w-[150px]">Sub Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {orderData.fleets && orderData.fleets.map((fleet, index) => (
-                              <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}>
-                                <td className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-sm text-center">{index + 1}</td>
-                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
-                                  <div className="text-sm">{fleet.fleet_name}</div>
-                                  {Array.isArray(fleet.addons) && fleet.addons.length > 0 ? (
-                                    <div className="text-xs opacity-70 mt-1">
-                                      {fleet.addons
-                                        .map((a) => `${a.addon_name}${a.addon_price > 0 ? ` (${formatCurrency(a.addon_price)})` : ''}`)
-                                        .join(' • ')}
-                                    </div>
-                                  ) : null}
-                                </td>
-                                <td className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-sm text-right whitespace-nowrap text-center">{fleet.quantity} unit</td>
-                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right">
-                                  <div>Rp {fleet.price.toLocaleString('id-ID')}</div>
-                                  {Array.isArray(fleet.addons) && fleet.addons.length > 0 ? (
-                                    <div className="text-xs opacity-70 mt-1">{formatCurrency(fleet.addon_amount || 0)}</div>
-                                  ) : null}
-                                </td>
-                                <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-right font-medium">
-                                  Rp {((fleet.price + (fleet.addon_amount || 0)) * fleet.quantity).toLocaleString('id-ID')}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="mt-3 space-y-1 max-w-sm ml-auto">
-                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-                          <span>Discount</span>
-                          <span>- {formatCurrency(orderData.discount || 0)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-                          <span>Biaya Lain</span>
-                          <span>{formatCurrency(orderData.additionalAmount || 0)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm font-semibold text-gray-900 dark:text-white pt-1">
-                          <span>Total</span>
-                          <span>{formatCurrency(orderData.totalAmount || 0)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Summary */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                      <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Permintaan Khusus</label>
-                        <p className="text-gray-900 dark:text-white flex items-center space-x-2">
-                          <span>{orderData.additionalRequests || '-'}</span>
-                        </p>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="itinerary" className="pt-4">
-                    {(orderData.itinerary ?? []).length === 0 ? (
-                      <div className="py-8 text-center text-gray-500">Itinerary tidak tersedia</div>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="relative space-y-4">
+                        <div className="absolute left-[10px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-800" />
                         {(orderData.itinerary ?? []).map((day, index) => {
                           const activities = Array.isArray(day.activities) ? day.activities : [];
                           return (
-                            <div key={index} className="border-l-4 border-blue-500 pl-4">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <h4 className="font-medium text-gray-900 dark:text-white">Hari {day.day}</h4>
-                                <span className="text-sm text-gray-600 dark:text-gray-300">({formatDate(day.date)})</span>
+                            <div key={index} className="relative pl-7">
+                              <div className="absolute left-[6px] top-6 h-2.5 w-2.5 rounded-full bg-[#295BFF]" />
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                                      Hari {day.day}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                      {formatDate(day.date)}
+                                    </div>
+                                  </div>
+                                  <Badge className="rounded-full border border-[#295BFF]/20 bg-[#295BFF]/10 text-[#295BFF] shadow-sm">
+                                    Timeline
+                                  </Badge>
+                                </div>
+
+                                <div className="mt-4 space-y-2">
+                                  {activities.length === 0 ? (
+                                    <div className="text-sm text-slate-500 dark:text-slate-400">Aktivitas belum tersedia.</div>
+                                  ) : (
+                                    activities.map((activity, actIndex) => (
+                                      <div key={actIndex} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
+                                        <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-slate-400" />
+                                        <span className="leading-relaxed">{activity}</span>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
                               </div>
-                              <ul className="space-y-1">
-                                {activities.map((activity, actIndex) => (
-                                  <li key={actIndex} className="text-sm text-gray-600 dark:text-gray-300 flex items-start space-x-2">
-                                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                                    <span>{activity}</span>
-                                  </li>
-                                ))}
-                              </ul>
                             </div>
                           );
                         })}
                       </div>
-                    )}
-                  </TabsContent>
+                    )
+                  ) : null}
 
-                  <TabsContent value="facilities" className="pt-4">
-                    {(orderData.facilities ?? []).length === 0 ? (
-                      <div className="py-8 text-center text-gray-500">Tidak ada fasilitas</div>
+                  {orderInfoTab === 'facilities' ? (
+                    (orderData.facilities ?? []).length === 0 ? (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                        Tidak ada fasilitas
+                      </div>
                     ) : (
-                      <ul className="space-y-2">
-                        {orderData.facilities?.map((facility, index) => (
-                          <li key={index} className="flex items-center space-x-2">
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                            <span className="text-gray-900 dark:text-white">{facility}</span>
-                          </li>
+                      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                        {(orderData.facilities ?? []).map((facility, index) => (
+                          <div
+                            key={`${facility}-${index}`}
+                            className="group flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200 dark:hover:bg-slate-950"
+                          >
+                            <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="line-clamp-2">{facility}</span>
+                          </div>
                         ))}
-                      </ul>
-                    )}
-                  </TabsContent>
+                      </div>
+                    )
+                  ) : null}
 
-                  {orderData.scheduled ? (
-                    <TabsContent value="schedule" className="pt-4 space-y-4">
+                  {orderInfoTab === 'schedule' && orderData.scheduled ? (
+                    <div className="space-y-4">
                       {loadingScheduleDetail ? (
-                        <div className="text-sm text-gray-600 dark:text-gray-300">Memuat jadwal...</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Memuat jadwal...</div>
                       ) : !scheduleDetail ? (
-                        <div className="text-sm text-gray-600 dark:text-gray-300">Jadwal tidak ditemukan.</div>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                          Jadwal tidak ditemukan.
+                        </div>
                       ) : (
                         <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Jadwal Keberangkatan</div>
+                              <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                                {formatDateTime(scheduleDetail.departureTime)}
+                              </div>
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Jadwal Kembali</div>
+                              <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                                {formatDateTime(scheduleDetail.arrivalTime)}
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jadwal Keberangkatan</label>
-                              <p className="text-gray-900 dark:text-white">{formatDateTime(scheduleDetail.departureTime)}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jadwal Kembali</label>
-                              <p className="text-gray-900 dark:text-white">{formatDateTime(scheduleDetail.arrivalTime)}</p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Armada & Petugas</label>
-                            {scheduleDetail.fleets.length === 0 ? (
-                              <div className="text-sm text-gray-600 dark:text-gray-300">Data armada tidak ditemukan.</div>
-                            ) : (
-                              <div className="space-y-2">
-                                {scheduleDetail.fleets.map((row, idx) => (
+                          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white">Armada & Petugas</div>
+                            <div className="mt-3 space-y-2">
+                              {scheduleDetail.fleets.length === 0 ? (
+                                <div className="text-sm text-slate-500 dark:text-slate-400">Data armada tidak ditemukan.</div>
+                              ) : (
+                                scheduleDetail.fleets.map((row, idx) => (
                                   <div
                                     key={`${row.unitId || row.fleetName || 'row'}-${idx}`}
-                                    className="rounded-lg border border-gray-200 dark:border-gray-800 p-3"
+                                    className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900/30 dark:hover:bg-slate-950"
                                   >
-                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
                                       Unit {idx + 1}{row.fleetName ? ` • ${row.fleetName}` : ''}
                                     </div>
-                                    <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                                       Unit ID: {row.unitId || '-'} • {row.plateNumber || '-'}
                                     </div>
                                     {row.driverNames.length > 0 ? (
-                                      <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                      <div className="mt-2 text-xs text-slate-600 dark:text-slate-300">
                                         Driver: {row.driverNames.join(', ')}
                                       </div>
                                     ) : null}
                                     {row.crewNames.length > 0 ? (
-                                      <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                                         Crew: {row.crewNames.join(', ')}
                                       </div>
                                     ) : null}
                                   </div>
-                                ))}
-                              </div>
-                            )}
+                                ))
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
-                    </TabsContent>
+                    </div>
                   ) : null}
-
                 </div>
               </Tabs>
             </CardContent>
           </Card>
-
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Payment Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CreditCard className="h-5 w-5" />
-                <span>Informasi Pembayaran</span>
+          <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950 lg:sticky lg:top-24">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <CreditCard className="h-5 w-5 text-[#295BFF]" />
+                <span>Pembayaran</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <Tabs value={paymentTab} onValueChange={(v) => setPaymentTab(v as typeof paymentTab)}>
-                <TabsList className="w-full justify-start">
-                  <TabsTrigger value="summary">Ringkasan</TabsTrigger>
-                  <TabsTrigger value="history">Riwayat</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="summary" className="pt-4 space-y-4">
+            <CardContent className="pt-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Payment Status</div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Status Pembayaran</label>
-                    <div className="mt-1">
-                      {isWaitingConfirmation ? (
-                        <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300">
-                          Menunggu Konfirmasi
-                        </Badge>
-                      ) : (
-                        getPaymentStatusBadge(orderData.paymentStatus)
-                      )}
-                    </div>
+                    {isWaitingConfirmation ? (
+                      <Badge className="rounded-full border border-orange-200 bg-orange-50 text-orange-700 shadow-sm dark:border-orange-900/40 dark:bg-orange-900/20 dark:text-orange-200">
+                        Menunggu Konfirmasi
+                      </Badge>
+                    ) : (
+                      getPaymentStatusBadge(orderData.paymentStatus)
+                    )}
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">Tanggal Pembayaran</label>
-                    <p className="text-gray-900 dark:text-white">{formatDate(orderData.paymentDate)}</p>
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>Progress</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200">{paymentProgressPct}%</span>
                   </div>
-                  <Separator />
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Harga Awal</span>
-                      <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(orderData.originalAmount)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Diskon</span>
-                      <span className="text-sm text-red-600">-{formatCurrency(orderData.discount)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Biaya Lain</span>
-                      <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(orderData.additionalAmount)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Total Addon</span>
-                      <span className="text-sm text-gray-900 dark:text-white">
-                        {formatCurrency(
-                          (orderData.fleets ?? []).reduce(
-                            (acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0),
-                            0
-                          )
-                        )}
-                      </span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-medium">
-                      <span className="text-gray-900 dark:text-white">Total</span>
-                      <span className="text-gray-900 dark:text-white">{formatCurrency(orderData.totalAmount)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Terbayar</span>
-                      <span className="text-sm text-gray-900 dark:text-white">
-                        {formatCurrency(Math.max(0, orderData.totalAmount - orderData.remainingAmount))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Sisa Tagihan</span>
-                      <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(orderData.remainingAmount)}</span>
-                    </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-[#295BFF] transition-all duration-300"
+                      style={{ width: `${paymentProgressPct}%` }}
+                    />
                   </div>
-                </TabsContent>
+                </div>
+                <div className="mt-4 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>Terakhir dibayar</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{formatDate(orderData.paymentDate)}</span>
+                </div>
+              </div>
 
-                <TabsContent value="history" className="pt-4 space-y-3">
-                  {loadingPaymentHistory ? (
-                    <div className="text-sm text-gray-600 dark:text-gray-300">Memuat riwayat...</div>
-                  ) : paymentHistory.length === 0 ? (
-                    <div className="text-sm text-gray-600 dark:text-gray-300">Belum ada riwayat pembayaran.</div>
-                  ) : (
-                    <div className="space-y-3">
-                      {paymentHistory.map((h) => (
-                        <div key={h.id} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 space-y-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">
-                              {h.payment_type_label || getPaymentTypeLabel(h.payment_type)}
-                            </div>
-                            <div className="text-sm text-gray-900 dark:text-white">{formatCurrency(h.payment_amount)}</div>
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">
-                            {(h.payment_method_label || getPaymentMethodLabel(h.payment_method))} • {formatDateTime(h.payment_date)}
-                          </div>
-                          {Number.isFinite(h.remaining_amount) && h.remaining_amount > 0 ? (
-                            <div className="text-xs text-gray-600 dark:text-gray-300">
-                              Sisa tagihan: {formatCurrency(h.remaining_amount)}
-                            </div>
-                          ) : null}
-                          {h.bank_name || h.bank_account ? (
-                            <div className="text-xs text-gray-600 dark:text-gray-300">
-                              {h.bank_name ? h.bank_name : '-'}{h.bank_account ? ` • ${h.bank_account}` : ''}
-                            </div>
-                          ) : null}
-                          {h.evidence_file ? (
-                            <div className="pt-1">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-8"
-                                onClick={() => window.open(toFileUrl(h.evidence_file), '_blank', 'noopener,noreferrer')}
-                              >
-                                Lihat Bukti
-                              </Button>
-                            </div>
-                          ) : null}
+              <div className="mt-4">
+                <Tabs value={paymentTab} onValueChange={(v) => setPaymentTab(v as typeof paymentTab)}>
+                  <TabsList className="w-full justify-start gap-6 border-slate-200 dark:border-slate-800">
+                    <TabsTrigger
+                      value="summary"
+                      className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                    >
+                      Ringkasan
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="history"
+                      className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
+                    >
+                      Riwayat
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="summary" className="pt-5">
+                    <div className="space-y-4">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span>Total</span>
+                          <span className="text-base font-bold text-[#295BFF]">{formatCurrency(orderData.totalAmount || 0)}</span>
                         </div>
-                      ))}
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">Terbayar</div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                              {formatCurrency(paidAmount)}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">Sisa Tagihan</div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                              {formatCurrency(orderData.remainingAmount || 0)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                        <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                          <span>Harga Awal</span>
+                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(orderData.originalAmount || 0)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                          <span>Diskon</span>
+                          <span className="font-medium text-red-600">-{formatCurrency(orderData.discount || 0)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                          <span>Biaya Lain</span>
+                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(orderData.additionalAmount || 0)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                          <span>Total Addon</span>
+                          <span className="font-medium text-slate-900 dark:text-white">
+                            {formatCurrency(
+                              (orderData.fleets ?? []).reduce(
+                                (acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0),
+                                0
+                              )
+                            )}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </TabsContent>
-              </Tabs>
+                  </TabsContent>
+
+                  <TabsContent value="history" className="pt-5">
+                    {loadingPaymentHistory ? (
+                      <div className="text-sm text-slate-500 dark:text-slate-400">Memuat riwayat...</div>
+                    ) : paymentHistory.length === 0 ? (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                        Belum ada riwayat pembayaran.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {paymentHistory.map((h) => (
+                          <div
+                            key={h.id}
+                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                                  {h.payment_type_label || getPaymentTypeLabel(h.payment_type)}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                  {(h.payment_method_label || getPaymentMethodLabel(h.payment_method))} • {formatDateTime(h.payment_date)}
+                                </div>
+                                {h.bank_name || h.bank_account ? (
+                                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    {h.bank_name ? h.bank_name : '-'}{h.bank_account ? ` • ${h.bank_account}` : ''}
+                                  </div>
+                                ) : null}
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-slate-900 dark:text-white">
+                                  {formatCurrency(h.payment_amount)}
+                                </div>
+                                {Number.isFinite(h.remaining_amount) && h.remaining_amount > 0 ? (
+                                  <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                    Sisa: {formatCurrency(h.remaining_amount)}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            {h.evidence_file ? (
+                              <div className="mt-3">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-9 rounded-2xl border-slate-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+                                  onClick={() => window.open(toFileUrl(h.evidence_file), '_blank', 'noopener,noreferrer')}
+                                >
+                                  Lihat Bukti
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Order Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Timeline Order</CardTitle>
+          <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-slate-900 dark:text-white">Timeline Order</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Order Dibuat</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{formatDate(orderData.createdAt)}</p>
+            <CardContent className="pt-4">
+              <div className="relative space-y-4">
+                <div className="absolute left-[11px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-800" />
+
+                <div className="relative flex gap-3 pl-7">
+                  <div className="absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Order Dibuat</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(orderData.createdAt)}</div>
                   </div>
                 </div>
+
                 {paymentTimelineItems.length > 0 ? (
-                  <div className="space-y-4">
-                    {paymentTimelineItems.map((p) => (
-                      <div key={p.label} className="flex items-center space-x-3">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {p.label} • {formatCurrency(p.totalAmount)}
-                          </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-300">{formatDateTime(p.lastDateRaw)}</p>
+                  paymentTimelineItems.map((p) => (
+                    <div key={p.label} className="relative flex gap-3 pl-7">
+                      <div className="absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                          {p.label} • {formatCurrency(p.totalAmount)}
                         </div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDateTime(p.lastDateRaw)}</div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 ) : null}
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Perjalanan Dimulai</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{formatDate(orderData.startDate)}</p>
+
+                <div className="relative flex gap-3 pl-7">
+                  <div className="absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full bg-[#295BFF]" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Perjalanan Dimulai</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(orderData.startDate)}</div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Perjalanan Selesai</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{formatDate(orderData.endDate)}</p>
+
+                <div className="relative flex gap-3 pl-7">
+                  <div className="absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Perjalanan Selesai</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(orderData.endDate)}</div>
                   </div>
                 </div>
               </div>

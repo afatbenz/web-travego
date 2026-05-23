@@ -1,11 +1,32 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Edit, Eye, MapPin } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  Edit,
+  Eye,
+  Image as ImageIcon,
+  Loader2,
+  MapPin,
+  Route,
+  Star,
+  Users,
+} from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
@@ -33,6 +54,10 @@ type UnitDetail = {
   thumbnail?: string;
   created_at?: string;
   pickup_points: string[];
+  owner_name?: string;
+  ownership_type?: string;
+  owner_contact?: string;
+  owner_email?: string;
 };
 
 const record = (v: unknown): Record<string, unknown> =>
@@ -112,6 +137,14 @@ export const FleetUnitDetail: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<UnitDetail | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'availability'>('overview');
+
+  const [showAdModal, setShowAdModal] = useState(false);
+  const [resolution, setResolution] = useState('1080x1080');
+  const [textMode, setTextMode] = useState<'manual' | 'availability'>('manual');
+  const [customText, setCustomText] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   const [orderRange, setOrderRange] = useState<DateRange | undefined>(() => {
     const to = startOfDay(new Date());
@@ -147,6 +180,10 @@ export const FleetUnitDetail: React.FC = () => {
         const transmission = getString(obj.transmission);
         const thumbnailRaw = getString(obj.thumbnail ?? obj.image ?? obj.photo);
         const created_at = getString(obj.created_at ?? obj.createdAt ?? obj.created_date ?? obj.createdDate);
+        const owner_name = getString(obj.owner_name ?? obj.ownerName ?? obj.owner ?? obj.pic_name ?? obj.picName);
+        const ownership_type = getString(obj.ownership_type ?? obj.ownershipType ?? obj.owner_type ?? obj.ownerType);
+        const owner_contact = getString(obj.owner_contact ?? obj.ownerContact ?? obj.phone ?? obj.contact ?? obj.pic_phone ?? obj.picPhone);
+        const owner_email = getString(obj.owner_email ?? obj.ownerEmail ?? obj.email ?? obj.pic_email ?? obj.picEmail);
         const pickupPointsRaw =
           obj.pickup_point ??
           obj.pickupPoint ??
@@ -179,6 +216,10 @@ export const FleetUnitDetail: React.FC = () => {
           thumbnail: thumbnailRaw ? toFileUrl(thumbnailRaw) : undefined,
           created_at: created_at || undefined,
           pickup_points,
+          owner_name: owner_name || undefined,
+          ownership_type: ownership_type || undefined,
+          owner_contact: owner_contact || undefined,
+          owner_email: owner_email || undefined,
         });
       } else {
         setDetail(null);
@@ -267,295 +308,705 @@ export const FleetUnitDetail: React.FC = () => {
         ? `${formatDdMmmYyFromDate(orderRange.from)} - ...`
         : '';
 
+  const unitCode = detail?.vehicle_id || unitIdParam || 'BB001';
+  const ownershipBadge = (() => {
+    const raw = (detail?.ownership_type ?? '').toLowerCase();
+    if (!raw) return { label: '-', tone: 'muted' as const };
+    if (raw.includes('own') || raw.includes('milik') || raw.includes('owned')) return { label: 'Owned', tone: 'blue' as const };
+    if (raw.includes('operasional') || raw.includes('koo') || raw.includes('kerjasama')) return { label: 'Kerjasama Operasional', tone: 'amber' as const };
+    return { label: detail?.ownership_type ?? '-', tone: 'muted' as const };
+  })();
+
+  const lastTripDate = (() => {
+    let best: Date | null = null;
+    for (const row of orderRows) {
+      const d1 = row.trip_end ? new Date(row.trip_end) : null;
+      const d2 = row.trip_start ? new Date(row.trip_start) : null;
+      const candidates = [d1, d2].filter((d): d is Date => !!d && !isNaN(d.getTime()));
+      for (const d of candidates) {
+        if (!best || d.getTime() > best.getTime()) best = d;
+      }
+    }
+    return best;
+  })();
+
+  const metrics = [
+    {
+      key: 'totalTrips',
+      label: 'Total Perjalanan',
+      value: String(orderRows.length),
+      icon: Route,
+    },
+    {
+      key: 'lastTrip',
+      label: 'Perjalanan Terakhir',
+      value: lastTripDate ? format(lastTripDate, 'dd MMM yyyy', { locale: idLocale }) : '-',
+      icon: Clock,
+    },
+    {
+      key: 'rating',
+      label: 'Rating Armada',
+      value: '4.8',
+      icon: Star,
+    },
+    {
+      key: 'capacity',
+      label: 'Kapasitas Kursi',
+      value: detail?.capacity ? String(detail.capacity) : '-',
+      icon: Users,
+    },
+  ] as const;
+
+  const availabilityDates = useMemo(() => {
+    const booked = new Set<string>();
+    for (const row of orderRows) {
+      const start = row.trip_start ? startOfDay(new Date(row.trip_start)) : null;
+      const endRaw = row.trip_end || row.trip_start;
+      const end = endRaw ? startOfDay(new Date(endRaw)) : null;
+      if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) continue;
+      const a = start.getTime() <= end.getTime() ? start : end;
+      const b = start.getTime() <= end.getTime() ? end : start;
+      const cursor = new Date(a);
+      while (cursor.getTime() <= b.getTime()) {
+        booked.add(toYmd(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    const result: Date[] = [];
+    const today = startOfDay(new Date());
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      if (!booked.has(toYmd(d))) result.push(d);
+    }
+    return result;
+  }, [orderRows]);
+
+  const handleReservasi = (date: Date) => {
+    const q = new URLSearchParams();
+    q.set('unit_id', detail?.unit_id || unitIdParam);
+    q.set('date', toYmd(date));
+    navigate(`${basePrefix}/orders/fleet/create?${q.toString()}`);
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setGeneratedImage(null);
+    try {
+      const token = localStorage.getItem('token') ?? '';
+      const headers = token ? { Authorization: token } : undefined;
+      const payload = {
+        thumbnail_url: detail?.thumbnail ?? '',
+        resolution,
+        text_mode: textMode,
+        text: textMode === 'manual' ? customText : '',
+        unit_id: detail?.unit_id ?? unitIdParam,
+      };
+
+      const res = await api.post<unknown>('/ai/image/generate', payload, headers);
+      if (res.status === 'success') {
+        const root = record(res.data);
+        const dataNode = root.data;
+        const dataObj = record(dataNode);
+        const url = getString(dataObj.url ?? dataObj.image_url ?? dataObj.result ?? root.url ?? root.image_url).trim();
+        if (url) {
+          setGeneratedImage(url);
+        } else if (detail?.thumbnail) {
+          setGeneratedImage(detail.thumbnail);
+        }
+      } else if (detail?.thumbnail) {
+        setGeneratedImage(detail.thumbnail);
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" size="icon" onClick={() => navigate(`${basePrefix}/fleet-units`)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Detail Unit Armada</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1 truncate">{detail?.vehicle_id || unitIdParam}</p>
+    <div className="bg-[#F5F7FB]">
+      <div className="space-y-5 p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <Button
+              variant="outline"
+              size="icon"
+              className="shrink-0 bg-white border-gray-200/70 hover:bg-white"
+              onClick={() => navigate(`${basePrefix}/fleet-units`)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Detail Unit Armada</h1>
+                <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  Aktif
+                </span>
+              </div>
+              <div className="mt-1 text-xs sm:text-sm text-gray-500">
+                <span className="text-gray-500">Unit Armada</span>
+                <span className="mx-2 text-gray-300">/</span>
+                <span className="text-gray-500">Detail Unit Armada</span>
+                <span className="mx-2 text-gray-300">/</span>
+                <span className="font-medium text-gray-700">{unitCode}</span>
+              </div>
+            </div>
+          </div>
+
+          {detail && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="bg-white border-gray-200/70 hover:bg-white" onClick={() => setShowAdModal(true)}>
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Generate Iklan
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-white border-gray-200/70 hover:bg-white"
+                onClick={() => navigate(`${basePrefix}/fleet-units/edit/${encodeURIComponent(detail.unit_id)}`)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            </div>
+          )}
         </div>
-        {detail && (
-          <Button variant="outline" onClick={() => navigate(`${basePrefix}/fleet-units/edit/${encodeURIComponent(detail.unit_id)}`)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-        )}
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Informasi Unit</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="overview">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger
-                value="overview"
-              >
-                Overview
-              </TabsTrigger>
-              <TabsTrigger
-                value="orders"
-              >
-                Riwayat Perjalanan
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview">
-              {loading ? (
-                <div className="animate-pulse mt-4 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="w-full max-w-[360px] mx-auto">
-                      <div className="w-full aspect-[4/3] bg-gray-200 dark:bg-gray-700 rounded-lg" />
-                    </div>
-                    <div className="space-y-3">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={`m-s-${i}`} className="space-y-2">
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28" />
-                          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="space-y-3">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={`r-s-${i}`} className="space-y-2">
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-28" />
-                          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                        </div>
-                      ))}
-                    </div>
+        <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow">
+          {loading ? (
+            <div className="animate-pulse grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="w-full aspect-[16/10] rounded-xl bg-gray-100" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={`main-s-${i}`} className="space-y-2">
+                    <div className="h-3 rounded bg-gray-100 w-28" />
+                    <div className="h-9 rounded bg-gray-100 w-full" />
                   </div>
-                  <div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-4" />
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from({ length: 10 }).map((_, i) => (
-                        <div key={`p2-s-${i}`} className="h-9 w-28 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : !detail ? (
-                <div className="py-10 text-center text-gray-500">Data unit tidak ditemukan</div>
-              ) : (
-                <div className="mt-4 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      {detail.thumbnail ? (
-                        <div className="w-full max-w-[360px] mx-auto rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                          <div className="w-full aspect-[4/3]">
-                            <img src={detail.thumbnail} alt={detail.vehicle_id || 'thumbnail'} className="w-full h-full object-cover" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-full max-w-[360px] mx-auto rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                          <div className="w-full aspect-[4/3] flex items-center justify-center text-sm text-gray-500">-</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-1">
-                        <div className="text-xs text-gray-600 dark:text-gray-300">Fleet Type</div>
-                        <div className="font-medium text-gray-900 dark:text-white">{detail.fleet_type || '-'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-gray-600 dark:text-gray-300">Vehicle ID</div>
-                        <div className="font-medium text-gray-900 dark:text-white">{detail.vehicle_id || '-'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-gray-600 dark:text-gray-300">Chassis</div>
-                        <div className="font-medium text-gray-900 dark:text-white">{detail.engine || '-'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-gray-600 dark:text-gray-300">Transmisi</div>
-                        <div className="font-medium text-gray-900 dark:text-white">{detail.transmission || '-'}</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-1">
-                        <div className="text-xs text-gray-600 dark:text-gray-300">Fleet Name</div>
-                        <div className="font-medium text-gray-900 dark:text-white">{detail.fleet_name || '-'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-gray-600 dark:text-gray-300">Plat Nomor</div>
-                        <div className="font-medium text-gray-900 dark:text-white">{detail.plate_number || '-'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-gray-600 dark:text-gray-300">Tahun Produksi</div>
-                        <div className="font-medium text-gray-900 dark:text-white">{detail.production_year || '-'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-gray-600 dark:text-gray-300">Tanggal Create</div>
-                        <div className="font-medium text-gray-900 dark:text-white">{formatDate(detail.created_at)}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {detail.pickup_points.length === 0 ? (
-                    <div className="text-sm text-gray-500">Tidak ada pickup points</div>
+                ))}
+              </div>
+            </div>
+          ) : !detail ? (
+            <div className="py-10 text-center text-sm text-gray-500">Data unit tidak ditemukan</div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="w-full">
+                <div className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-gray-200/70 bg-gray-50">
+                  {detail.thumbnail ? (
+                    <img src={detail.thumbnail} alt={detail.vehicle_id || 'thumbnail'} className="w-full h-full object-cover" />
                   ) : (
-                    <div>
-                      <div className="flex items-center justify-between gap-3 mb-4">
-                        <div className="text-sm text-gray-600 dark:text-gray-300">
-                          {detail.pickup_points.length} pickup point tersedia
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {detail.pickup_points.map((name, idx) => (
-                          <div
-                            key={`p-${idx}`}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                          >
-                            <MapPin className="h-4 w-4 text-gray-500" />
-                            <span className="text-sm font-medium">{name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">Tidak ada foto</div>
                   )}
                 </div>
-              )}
-            </TabsContent>
+              </div>
 
-            <TabsContent value="orders">
-              <div className="mt-4 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-end gap-3">
-                  <div className="w-full md:max-w-sm">
-                    <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">Tanggal Trip</div>
-                    <Popover
-                      open={orderPickerOpen}
-                      onOpenChange={(next) => {
-                        if (!next) {
-                          const r = orderRange;
-                          if (r?.from && !r?.to) {
-                            setOrderPickerOpen(true);
-                            return;
-                          }
-                        }
-                        setOrderPickerOpen(next);
-                      }}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start font-normal h-10">
-                          {orderRangeLabel || 'Pilih rentang tanggal'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="range"
-                          numberOfMonths={1}
-                          selected={orderRange}
-                          onSelect={(range) => {
-                            setOrderRange(range);
-                            if (range?.from && range?.to) {
-                              setOrderPickerOpen(false);
-                            } else {
-                              setOrderPickerOpen(true);
-                            }
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
+                {[
+                  { label: 'Tipe Armada', value: detail.fleet_name || '-' },
+                  { label: 'Plat Nomor', value: detail.plate_number || '-' },
+                  { label: 'Chassis', value: detail.engine || '-' },
+                  { label: 'Fleet Type', value: detail.fleet_type || '-' },
+                  { label: 'Transmisi', value: detail.transmission || '-' },
+                  { label: 'Tahun Produksi', value: detail.production_year ? String(detail.production_year) : '-' },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-xl border border-gray-200/60 bg-white px-4 py-3 hover:bg-gray-50 transition-colors">
+                    <div className="text-xs text-gray-500">{item.label}</div>
+                    <div className="mt-1 font-medium text-gray-900 truncate">{item.value}</div>
                   </div>
-                </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
-                <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100 dark:bg-gray-900">
-                      <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
-                        <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white">Order Id</th>
-                        <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white">Tanggal Trip</th>
-                        <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white">Pickup Point</th>
-                        <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white">Tujuan</th>
-                        <th className="py-3 px-4 font-semibold text-gray-900 dark:text-white text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800">
-                      {orderLoading ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                          <tr key={`o-s-${i}`} className="border-b border-gray-200 dark:border-gray-700 animate-pulse">
-                            {Array.from({ length: 5 }).map((__, j) => (
-                              <td key={`o-s-${i}-${j}`} className="py-3 px-4">
-                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                              </td>
-                            ))}
-                          </tr>
-                        ))
-                      ) : orderCurrent.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="py-10 text-center text-gray-500">
-                            Tidak ada data order
-                          </td>
-                        </tr>
-                      ) : (
-                        orderCurrent.map((row, idx) => (
-                          <tr key={`o-${row.order_id || idx}`} className="border-b border-gray-200 dark:border-gray-700">
-                            <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{row.order_id || '-'}</td>
-                            <td className="py-3 px-4 text-gray-700 dark:text-gray-200">
-                              {formatTripRange(row.trip_start, row.trip_end || row.trip_start)}
-                            </td>
-                            <td className="py-3 px-4 text-gray-700 dark:text-gray-200">{row.pickup_point || '-'}</td>
-                            <td className="py-3 px-4 text-gray-700 dark:text-gray-200">{row.destination || '-'}</td>
-                            <td className="py-3 px-4 text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="!w-auto !h-auto p-2"
-                                disabled={!row.order_id}
-                                onClick={() =>
-                                  row.order_id ? navigate(`${basePrefix}/orders/fleet/detail/${encodeURIComponent(row.order_id)}`) : undefined
-                                }
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    Menampilkan {orderRows.length === 0 ? 0 : orderPageStart + 1}-{Math.min(orderPageEnd, orderRows.length)} dari {orderRows.length}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {metrics.map((m) => {
+            const Icon = m.icon;
+            return (
+              <div
+                key={m.key}
+                className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1 min-w-0">
+                    <div className="text-xs text-gray-500">{m.label}</div>
+                    <div className="text-lg sm:text-xl font-semibold text-blue-600 truncate">{m.value}</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setOrderPage((p) => Math.max(1, p - 1))}
-                      disabled={orderPageSafe <= 1}
-                      className="bg-transparent hover:bg-transparent"
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Prev
-                    </Button>
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      {orderPageSafe} / {orderTotalPages}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setOrderPage((p) => Math.min(orderTotalPages, p + 1))}
-                      disabled={orderPageSafe >= orderTotalPages}
-                      className="bg-transparent hover:bg-transparent"
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
+                  <div className="shrink-0 h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
+                    <Icon className="h-5 w-5 text-blue-600" />
                   </div>
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-gray-900">Informasi Kepemilikan</div>
+              <span
+                className={[
+                  'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium',
+                  ownershipBadge.tone === 'blue' ? 'border-blue-200 bg-blue-50 text-blue-700' : '',
+                  ownershipBadge.tone === 'amber' ? 'border-amber-200 bg-amber-50 text-amber-800' : '',
+                  ownershipBadge.tone === 'muted' ? 'border-gray-200 bg-gray-50 text-gray-700' : '',
+                ].join(' ')}
+              >
+                {ownershipBadge.label}
+              </span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { label: 'Owner Name', value: detail?.owner_name || '-' },
+                { label: 'Kontak Owner', value: detail?.owner_contact || '-' },
+                { label: 'Email', value: detail?.owner_email || '-' },
+              ].map((item) => (
+                <div key={item.label} className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
+                  <div className="text-xs text-gray-500">{item.label}</div>
+                  <div className="mt-1 font-medium text-gray-900 truncate">{item.value}</div>
+                </div>
+              ))}
+              <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
+                <div className="text-xs text-gray-500">Jenis Kepemilikan</div>
+                <div className="mt-1 font-medium text-gray-900 truncate">{ownershipBadge.label}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow">
+            <div className="text-sm font-semibold text-gray-900">Pickup Points</div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(detail?.pickup_points ?? []).length === 0 ? (
+                <div className="text-sm text-gray-500">Tidak ada pickup points</div>
+              ) : (
+                (detail?.pickup_points ?? []).map((name, idx) => (
+                  <div
+                    key={`p-${idx}`}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200/70 bg-white text-gray-800 hover:bg-gray-50 transition-colors"
+                  >
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium">{name}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mt-3 text-xs text-gray-500">Total lokasi: {(detail?.pickup_points ?? []).length}</div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm hover:shadow-md transition-shadow">
+          <div className="px-4 sm:px-5 pt-4 sm:pt-5">
+            <div className="relative flex items-center gap-6 border-b border-gray-200/70">
+              {([
+                { key: 'overview', label: 'Overview' },
+                { key: 'orders', label: 'Riwayat Perjalanan' },
+                { key: 'availability', label: 'Ketersediaan' },
+              ] as const).map((t) => {
+                const isActive = activeTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setActiveTab(t.key)}
+                    className={[
+                      'relative py-3 text-sm font-medium transition-colors',
+                      isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700',
+                    ].join(' ')}
+                  >
+                    {t.label}
+                    {isActive && (
+                      <motion.div
+                        layoutId="fleet-unit-tab-underline"
+                        className="absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600"
+                        transition={{ duration: 0.2 }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="px-4 sm:px-5 pb-4 sm:pb-5">
+            <AnimatePresence mode="wait">
+              {activeTab === 'overview' ? (
+                <motion.div
+                  key="overview"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="pt-4"
+                >
+                  {loading ? (
+                    <div className="animate-pulse grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {Array.from({ length: 2 }).map((_, i) => (
+                        <div key={`ov-s-${i}`} className="rounded-2xl border border-gray-200/60 bg-white p-4">
+                          <div className="h-4 w-44 rounded bg-gray-100" />
+                          <div className="mt-4 space-y-3">
+                            {Array.from({ length: 6 }).map((__, j) => (
+                              <div key={`ov-s-${i}-${j}`} className="flex items-center justify-between gap-4">
+                                <div className="h-3 w-32 rounded bg-gray-100" />
+                                <div className="h-3 w-40 rounded bg-gray-100" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : !detail ? (
+                    <div className="py-10 text-center text-sm text-gray-500">Data unit tidak ditemukan</div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
+                        <div className="text-sm font-semibold text-gray-900">Informasi Teknis</div>
+                        <div className="mt-4 overflow-hidden rounded-xl border border-gray-200/60">
+                          <table className="w-full text-sm">
+                            <tbody className="divide-y divide-gray-200/60">
+                              {[
+                                { label: 'Fleet Type', value: detail.fleet_type || '-' },
+                                { label: 'Tipe Armada', value: detail.fleet_name || '-' },
+                                { label: 'Plat Nomor', value: detail.plate_number || '-' },
+                                { label: 'Chassis', value: detail.engine || '-' },
+                                { label: 'Transmisi', value: detail.transmission || '-' },
+                                { label: 'Tahun Produksi', value: detail.production_year ? String(detail.production_year) : '-' },
+                                { label: 'Kapasitas Kursi', value: detail.capacity ? String(detail.capacity) : '-' },
+                              ].map((row) => (
+                                <tr key={row.label} className="bg-white">
+                                  <td className="px-4 py-3 text-gray-500 w-1/2">{row.label}</td>
+                                  <td className="px-4 py-3 font-medium text-gray-900">{row.value}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
+                        <div className="text-sm font-semibold text-gray-900">Informasi Administratif</div>
+                        <div className="mt-4 overflow-hidden rounded-xl border border-gray-200/60">
+                          <table className="w-full text-sm">
+                            <tbody className="divide-y divide-gray-200/60">
+                              {[
+                                { label: 'Unit ID', value: detail.unit_id || '-' },
+                                { label: 'Vehicle ID', value: detail.vehicle_id || '-' },
+                                { label: 'Tanggal Dibuat', value: formatDate(detail.created_at) },
+                                { label: 'Owner Name', value: detail.owner_name || '-' },
+                                { label: 'Kontak Owner', value: detail.owner_contact || '-' },
+                                { label: 'Email', value: detail.owner_email || '-' },
+                              ].map((row) => (
+                                <tr key={row.label} className="bg-white">
+                                  <td className="px-4 py-3 text-gray-500 w-1/2">{row.label}</td>
+                                  <td className="px-4 py-3 font-medium text-gray-900">{row.value}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              ) : activeTab === 'orders' ? (
+                <motion.div
+                  key="orders"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="pt-4 space-y-4"
+                >
+                  <div className="flex flex-col md:flex-row md:items-end gap-3">
+                    <div className="w-full md:max-w-sm">
+                      <div className="text-xs text-gray-500 mb-1">Tanggal Trip</div>
+                      <Popover
+                        open={orderPickerOpen}
+                        onOpenChange={(next) => {
+                          if (!next) {
+                            const r = orderRange;
+                            if (r?.from && !r?.to) {
+                              setOrderPickerOpen(true);
+                              return;
+                            }
+                          }
+                          setOrderPickerOpen(next);
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start font-normal h-10 bg-white border-gray-200/70 hover:bg-white">
+                            <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
+                            {orderRangeLabel || 'Pilih rentang tanggal'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="range"
+                            numberOfMonths={1}
+                            selected={orderRange}
+                            onSelect={(range) => {
+                              setOrderRange(range);
+                              if (range?.from && range?.to) {
+                                setOrderPickerOpen(false);
+                              } else {
+                                setOrderPickerOpen(true);
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto border border-gray-200/70 rounded-2xl">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr className="border-b border-gray-200/70 text-left">
+                          <th className="py-3 px-4 font-semibold text-gray-900">Order Id</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900">Tanggal Trip</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900">Pickup Point</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900">Tujuan</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {orderLoading ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <tr key={`o-s-${i}`} className="border-b border-gray-200/60 animate-pulse">
+                              {Array.from({ length: 5 }).map((__, j) => (
+                                <td key={`o-s-${i}-${j}`} className="py-3 px-4">
+                                  <div className="h-4 bg-gray-100 rounded w-full" />
+                                </td>
+                              ))}
+                            </tr>
+                          ))
+                        ) : orderCurrent.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-10 text-center text-gray-500">
+                              Tidak ada data order
+                            </td>
+                          </tr>
+                        ) : (
+                          orderCurrent.map((row, idx) => (
+                            <tr key={`o-${row.order_id || idx}`} className="border-b border-gray-200/60 hover:bg-gray-50 transition-colors">
+                              <td className="py-3 px-4 font-medium text-gray-900">{row.order_id || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</td>
+                              <td className="py-3 px-4 text-gray-700">{row.pickup_point || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700">{row.destination || '-'}</td>
+                              <td className="py-3 px-4 text-right">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="!w-auto !h-auto p-2 bg-white border-gray-200/70 hover:bg-white"
+                                  disabled={!row.order_id}
+                                  onClick={() =>
+                                    row.order_id ? navigate(`${basePrefix}/orders/fleet/detail/${encodeURIComponent(row.order_id)}`) : undefined
+                                  }
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div className="text-sm text-gray-500">
+                      Menampilkan {orderRows.length === 0 ? 0 : orderPageStart + 1}-{Math.min(orderPageEnd, orderRows.length)} dari {orderRows.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOrderPage((p) => Math.max(1, p - 1))}
+                        disabled={orderPageSafe <= 1}
+                        className="bg-white border-gray-200/70 hover:bg-white"
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Prev
+                      </Button>
+                      <div className="text-sm text-gray-500">
+                        {orderPageSafe} / {orderTotalPages}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOrderPage((p) => Math.min(orderTotalPages, p + 1))}
+                        disabled={orderPageSafe >= orderTotalPages}
+                        className="bg-white border-gray-200/70 hover:bg-white"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="availability"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="pt-4"
+                >
+                  <div className="overflow-hidden rounded-2xl border border-gray-200/70">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50 hover:bg-gray-50">
+                          <TableHead className="px-4">Tanggal</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right pr-4">Aksi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {availabilityDates.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="py-10 text-center text-gray-500">
+                              Tidak ada tanggal tersedia
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          availabilityDates.map((date) => (
+                            <TableRow key={toYmd(date)} className="hover:bg-gray-50">
+                              <TableCell className="px-4 font-medium text-gray-900">
+                                {format(date, 'dd MMM yyyy', { locale: idLocale })}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                                  Tersedia
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right pr-4">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-white border-gray-200/70 hover:bg-white"
+                                  onClick={() => handleReservasi(date)}
+                                >
+                                  Reservasi Tanggal Ini
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        <Dialog
+          open={showAdModal}
+          onOpenChange={(open) => {
+            setShowAdModal(open);
+            if (!open) {
+              setIsGenerating(false);
+              setGeneratedImage(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Generate Iklan Armada</DialogTitle>
+              <DialogDescription>Buat gambar iklan dari thumbnail unit armada.</DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <div className="text-xs font-medium text-gray-700">Resolusi</div>
+                <Select value={resolution} onValueChange={setResolution}>
+                  <SelectTrigger className="border-gray-200/70">
+                    <SelectValue placeholder="Pilih resolusi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['1080x1080', '1080x1920', '1200x628'].map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="text-xs font-medium text-gray-700">Preview</div>
+                <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white">
+                  <div className="aspect-[16/10] w-full">
+                    {generatedImage || detail?.thumbnail ? (
+                      <img
+                        src={generatedImage || detail?.thumbnail}
+                        alt="preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-sm text-gray-500">Tidak ada gambar</div>
+                    )}
+                  </div>
+                  {isGenerating ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+                      <div className="grid place-items-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="text-xs font-medium text-gray-700">Mode Teks</div>
+                <RadioGroup value={textMode} onValueChange={(v) => setTextMode(v as 'manual' | 'availability')}>
+                  <label className="flex items-center gap-2 rounded-xl border border-gray-200/70 bg-white px-3 py-2">
+                    <RadioGroupItem value="manual" />
+                    <div className="text-sm text-gray-900">Tulis Sendiri</div>
+                  </label>
+                  <label className="flex items-center gap-2 rounded-xl border border-gray-200/70 bg-white px-3 py-2">
+                    <RadioGroupItem value="availability" />
+                    <div className="text-sm text-gray-900">Berdasarkan Ketersediaan</div>
+                  </label>
+                </RadioGroup>
+              </div>
+
+              {textMode === 'manual' ? (
+                <div className="grid gap-2">
+                  <div className="text-xs font-medium text-gray-700">Teks Iklan</div>
+                  <Textarea value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Tulis copy iklan..." />
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-gray-200/70 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                  Menggunakan data ketersediaan 30 hari ke depan.
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  variant="outline"
+                  className="bg-white border-gray-200/70 hover:bg-white"
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? 'Generating...' : 'Generate Gambar'}
+                </Button>
+
+                {generatedImage ? (
+                  <a href={generatedImage} download="iklan-armada.png">
+                    <Button variant="outline" className="bg-white border-gray-200/70 hover:bg-white" type="button">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };
