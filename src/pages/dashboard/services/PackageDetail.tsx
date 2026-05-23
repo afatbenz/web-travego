@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Calendar, ChevronRight, CreditCard, Edit, Image as ImageIcon, Info, MapPin, Package as PackageIcon, Tag, Trash2 } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ImagePopup } from '@/components/common/ImagePopup';
+import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
 type PackageActivity = {
@@ -36,6 +37,10 @@ type PackageDetailData = {
   package_id: string;
   package_name: string;
   package_type: string;
+  package_category?: string;
+  duration_days?: number;
+  created_at?: string;
+  updated_at?: string;
   package_description: string;
   status: 'active' | 'inactive';
   thumbnail: string;
@@ -50,6 +55,9 @@ type PackageDetailData = {
 export const PackageDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const packagesPath = `${basePrefix}/services/packages`;
   const [loading, setLoading] = useState(true);
   const [pkg, setPkg] = useState<PackageDetailData | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -72,11 +80,27 @@ export const PackageDetail: React.FC = () => {
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 
+  const formatDateTime = (value?: string) => {
+    const v = String(value ?? '').trim();
+    if (!v) return '-';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return v;
+    return d.toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
   const getStatusBadge = (status: 'active' | 'inactive') => {
     if (status === 'active') {
-      return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">Aktif</Badge>;
+      return (
+        <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200">
+          Aktif
+        </Badge>
+      );
     }
-    return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300">Tidak Aktif</Badge>;
+    return (
+      <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200">
+        Tidak Aktif
+      </Badge>
+    );
   };
 
   useEffect(() => {
@@ -106,6 +130,18 @@ export const PackageDetail: React.FC = () => {
       const package_name = String(metaRaw.package_name ?? metaRaw.name ?? '');
       const package_type_label = metaRaw.package_type_label;
       const package_type = typeof package_type_label === 'string' && package_type_label ? package_type_label : String(metaRaw.package_type ?? metaRaw.type ?? '');
+      const package_category = String(
+        metaRaw.package_category_label ??
+          metaRaw.category_label ??
+          metaRaw.package_category ??
+          metaRaw.category ??
+          ''
+      ).trim();
+      const durationRaw = metaRaw.duration_days ?? metaRaw.duration_day ?? metaRaw.duration ?? metaRaw.days ?? metaRaw.total_days;
+      const durationNum = typeof durationRaw === 'number' ? durationRaw : typeof durationRaw === 'string' ? Number(durationRaw) : NaN;
+      const duration_days = Number.isFinite(durationNum) && durationNum > 0 ? durationNum : undefined;
+      const created_at = String(metaRaw.created_at ?? metaRaw.createdAt ?? root.created_at ?? root.createdAt ?? '').trim() || undefined;
+      const updated_at = String(metaRaw.updated_at ?? metaRaw.updatedAt ?? root.updated_at ?? root.updatedAt ?? '').trim() || undefined;
       const package_description = String(metaRaw.package_description ?? metaRaw.description ?? '');
       const thumbnail = toFileUrl(String(metaRaw.thumbnail ?? ''));
       const status = normalizeStatus(metaRaw.status ?? metaRaw.active ?? root.status ?? root.active);
@@ -263,6 +299,10 @@ export const PackageDetail: React.FC = () => {
         package_id: String(metaRaw.package_id ?? metaRaw.id ?? packageIdParam),
         package_name,
         package_type,
+        package_category: package_category || undefined,
+        duration_days,
+        created_at,
+        updated_at,
         package_description,
         status,
         thumbnail,
@@ -279,9 +319,42 @@ export const PackageDetail: React.FC = () => {
   }, [id, reloadNonce]);
 
   const mainImages = useMemo(() => (pkg?.images?.length ? pkg.images : pkg?.thumbnail ? [pkg.thumbnail] : []), [pkg]);
+  const durationText = useMemo(() => {
+    if (!pkg) return '-';
+    const days = pkg.duration_days ?? (pkg.itineraries?.length ? pkg.itineraries.length : 0);
+    if (!days) return '-';
+    return `${days} hari`;
+  }, [pkg]);
 
-  if (loading) return <div>Memuat...</div>;
-  if (!pkg) return <div>Paket tidak ditemukan</div>;
+  const mainDestinationText = useMemo(() => {
+    if (!pkg) return '-';
+    const fromActivities = (pkg.itineraries ?? [])
+      .flatMap((d) => d.activities ?? [])
+      .map((a) => String(a.city_name ?? '').trim())
+      .filter(Boolean);
+    const fromPickup = (pkg.pickup_areas ?? []).map((p) => String(p.name ?? '').trim()).filter(Boolean);
+    const first = [...new Set([...fromActivities, ...fromPickup])][0];
+    return first || '-';
+  }, [pkg]);
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+          Memuat...
+        </div>
+      </div>
+    );
+  }
+  if (!pkg) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+          Paket tidak ditemukan
+        </div>
+      </div>
+    );
+  }
 
   const handleActivate = async () => {
     if (pkg.status === 'active') return;
@@ -290,7 +363,7 @@ export const PackageDetail: React.FC = () => {
       text: 'Paket akan diset menjadi aktif.',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
+      confirmButtonColor: '#295BFF',
       cancelButtonColor: '#d33',
       confirmButtonText: 'Ya, aktifkan',
       cancelButtonText: 'Batal',
@@ -313,7 +386,7 @@ export const PackageDetail: React.FC = () => {
       text: 'Paket akan diset menjadi tidak aktif.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
+      confirmButtonColor: '#295BFF',
       cancelButtonColor: '#d33',
       confirmButtonText: 'Ya, nonaktifkan',
       cancelButtonText: 'Batal',
@@ -335,7 +408,7 @@ export const PackageDetail: React.FC = () => {
       text: 'Data yang dihapus tidak dapat dikembalikan.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
+      confirmButtonColor: '#295BFF',
       cancelButtonColor: '#d33',
       confirmButtonText: 'Ya, hapus',
       cancelButtonText: 'Batal',
@@ -347,220 +420,451 @@ export const PackageDetail: React.FC = () => {
     const res = await api.post<unknown>('/services/tour-packages/delete', { package_id: pkg.package_id }, headers);
     if (res.status === 'success') {
       await Swal.fire({ icon: 'success', title: 'Terhapus', text: 'Paket berhasil dihapus.' });
-      navigate('/dashboard/partner/services/packages');
+      navigate(packagesPath);
     }
   };
 
+  const cardBaseClass =
+    'rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950';
+  const headerWrapClass =
+    'rounded-3xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/70 sm:p-5';
+  const actionButtonBase =
+    'h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900';
+
+  const maxThumbs = 6;
+  const thumbs = mainImages.slice(0, maxThumbs);
+  const remainingThumbs = Math.max(0, mainImages.length - thumbs.length);
+  const safeSelectedIndex = Math.min(Math.max(0, selectedImageIndex), Math.max(0, mainImages.length - 1));
+  const heroImage = mainImages[safeSelectedIndex] ?? mainImages[0];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="!w-auto !h-auto p-2">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{pkg.package_name}</h1>
-          {getStatusBadge(pkg.status)}
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6 animate-in fade-in-0 duration-300">
+      <div className={headerWrapClass}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-4 min-w-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="h-10 w-10 rounded-2xl border-slate-200 bg-white p-0 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+              title="Kembali"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => navigate(basePrefix)}
+                  className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  Dashboard
+                </button>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePrefix}/services/packages`)}
+                  className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  Paket
+                </button>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <span className="text-slate-600 dark:text-slate-300">Detail</span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  {pkg.package_name}
+                </h1>
+                {getStatusBadge(pkg.status)}
+              </div>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Informasi lengkap paket wisata dan detail itinerary
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(actionButtonBase, 'border-[#295BFF]/40 bg-[#295BFF]/10 text-[#295BFF] hover:bg-[#295BFF]/15 dark:border-[#295BFF]/40 dark:bg-[#295BFF]/15 dark:text-[#7FA0FF]')}
+              onClick={() => navigate(`${packagesPath}/edit/${encodeURIComponent(pkg.package_id)}`)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Paket
+            </Button>
+
+            {pkg.status === 'inactive' ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(actionButtonBase, 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200')}
+                onClick={handleActivate}
+              >
+                Aktifkan
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(actionButtonBase, 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200')}
+                onClick={handleInactive}
+              >
+                Nonaktifkan
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(actionButtonBase, 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200')}
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Hapus
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Informasi Paket {pkg.package_type ? `| ${pkg.package_type}` : ''}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {pkg.package_description && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Deskripsi</label>
-                    <div className="text-gray-900 dark:text-white" dangerouslySetInnerHTML={{ __html: pkg.package_description }} />
-                  </div>
-                )}
-
-                {pkg.facilities.length > 0 && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Fasilitas</label>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {pkg.facilities.map((f, i) => (
-                        <Badge key={i} variant="secondary">{f}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {pkg.pickup_areas.length > 0 && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Pickup Area</label>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {pkg.pickup_areas.map((p) => (
-                        <Badge key={`${p.id}-${p.name}`} variant="outline">{p.name || `City ID: ${p.id}`}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {pkg.itineraries.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Itinerary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {pkg.itineraries.map((day) => (
-                    <div key={day.day} className="border-l-4 border-blue-500 pl-4">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Hari {day.day}</h4>
-                      <div className="space-y-2">
-                        {day.activities?.map((a, idx) => (
-                          <div key={idx} className="text-sm text-gray-700 dark:text-gray-300">
-                            <span className="font-medium">{a.time ? a.time.slice(0, 5) : '-'}</span>
-                            <span className="mx-2">•</span>
-                            <span>{a.description || '-'}</span>
-                            {a.location ? <span className="mx-2">•</span> : null}
-                            {a.location ? <span>{a.location}</span> : null}
-                            {a.city_name || a.city_id ? <span className="mx-2">•</span> : null}
-                            {a.city_name ? <span>{a.city_name}</span> : a.city_id ? <span>City ID: {a.city_id}</span> : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {(pkg.pricing.length > 0 || pkg.addons.length > 0) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Harga</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {pkg.pricing.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {pkg.pricing.map((pr, i) => (
-                      <div key={i} className="border rounded-lg p-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{pr.min_pax} - {pr.max_pax} pax</p>
-                        <p className="mt-2 text-lg font-bold text-blue-600">
-                          {formatCurrency(pr.price)} <span className="text-sm font-medium text-blue-600">/pax</span>
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {pkg.addons.length > 0 && (
-                  <div className={pkg.pricing.length > 0 ? 'mt-6 pt-6 border-t' : ''}>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Addons</p>
-                    <div className="mt-3 space-y-2">
-                      {pkg.addons.map((a, i) => (
-                        <div key={i} className="flex items-start justify-between gap-4">
-                          <p className="text-sm text-gray-900 dark:text-white">{a.description}</p>
-                          <p className="text-sm font-medium text-blue-600">{formatCurrency(a.price)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           {mainImages.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Foto</CardTitle>
+            <Card className={cn(cardBaseClass, 'overflow-hidden')}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <ImageIcon className="h-5 w-5 text-[#295BFF]" />
+                  <span>Photo Gallery</span>
+                </CardTitle>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  Klik foto untuk melihat lebih besar
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 <div className="space-y-4">
                   <button
                     type="button"
-                    className="w-full"
+                    className="group w-full text-left"
                     onClick={() => {
-                      setSelectedImageIndex(0);
+                      setSelectedImageIndex(safeSelectedIndex);
                       setIsPopupOpen(true);
                     }}
                   >
-                    <img
-                      src={mainImages[0]}
-                      alt={pkg.package_name}
-                      className="w-full h-56 object-cover rounded-lg"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/600x400';
-                      }}
-                    />
+                    <div className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+                      <img
+                        src={heroImage}
+                        alt={pkg.package_name}
+                        className="h-64 w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/1200x800';
+                        }}
+                      />
+                    </div>
                   </button>
 
                   {mainImages.length > 1 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {mainImages.slice(0, 6).map((img, idx) => (
-                        <button
-                          key={img}
-                          type="button"
-                          onClick={() => {
-                            setSelectedImageIndex(idx);
-                            setIsPopupOpen(true);
-                          }}
-                        >
-                          <img
-                            src={img}
-                            alt={`img-${idx}`}
-                            className="w-full h-16 object-cover rounded-md"
-                          />
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                      {thumbs.map((img, idx) => {
+                        const isActive = idx === safeSelectedIndex;
+                        const isLastWithOverlay = idx === thumbs.length - 1 && remainingThumbs > 0;
+                        return (
+                          <button
+                            key={`${img}-${idx}`}
+                            type="button"
+                            className={cn(
+                              'group relative overflow-hidden rounded-xl border transition-all duration-300',
+                              isActive
+                                ? 'border-[#295BFF]/50 ring-2 ring-[#295BFF]/25'
+                                : 'border-slate-200 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800'
+                            )}
+                            onClick={() => {
+                              setSelectedImageIndex(idx);
+                              setIsPopupOpen(true);
+                            }}
+                          >
+                            <img
+                              src={img}
+                              alt={`thumb-${idx}`}
+                              className="h-16 w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x200';
+                              }}
+                            />
+                            {isLastWithOverlay && (
+                              <div className="absolute inset-0 grid place-items-center bg-slate-950/50 text-sm font-semibold text-white">
+                                +{remainingThumbs}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 justify-start">
-        <Button
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={() => navigate(`/dashboard/partner/services/packages/edit/${encodeURIComponent(pkg.package_id)}`)}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Paket
-        </Button>
-        {pkg.status === 'inactive' ? (
-          <Button
-            variant="outline"
-            className="border-green-600 text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
-            onClick={handleActivate}
-          >
-            Aktifkan Paket
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-            onClick={handleInactive}
-          >
-            Nonaktifkan Paket
-          </Button>
-        )}
-        <Button
-          className="bg-red-600 hover:bg-red-700 text-white"
-          onClick={handleDelete}
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Hapus Paket
-        </Button>
+          <Card className={cardBaseClass}>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <Info className="h-5 w-5 text-[#295BFF]" />
+                <span>Informasi Paket</span>
+              </CardTitle>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Ringkasan detail dan informasi penting paket
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
+                <div className="space-y-6">
+                  {pkg.package_description ? (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Deskripsi</div>
+                      <div
+                        className="prose prose-slate max-w-none text-slate-700 dark:prose-invert dark:text-slate-200"
+                        dangerouslySetInnerHTML={{ __html: pkg.package_description }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                      Tidak ada deskripsi.
+                    </div>
+                  )}
+
+                  {pkg.facilities.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Fasilitas</div>
+                      <div className="flex flex-wrap gap-2">
+                        {pkg.facilities.map((f, i) => (
+                          <Badge
+                            key={`${f}-${i}`}
+                            className="rounded-full border border-[#295BFF]/20 bg-[#295BFF]/10 text-[#295BFF] shadow-sm dark:border-[#295BFF]/30 dark:bg-[#295BFF]/15 dark:text-[#7FA0FF]"
+                          >
+                            {f}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {pkg.pickup_areas.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Pickup Area</div>
+                      <div className="flex flex-wrap gap-2">
+                        {pkg.pickup_areas.map((p) => (
+                          <span
+                            key={`${p.id}-${p.name}`}
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/60 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200 dark:hover:bg-slate-950"
+                          >
+                            <MapPin className="h-3.5 w-3.5 text-[#295BFF]" />
+                            {p.name || `City ID: ${p.id}`}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      <PackageIcon className="h-4 w-4" />
+                      Tipe Paket
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                      {pkg.package_type || '-'}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      <Calendar className="h-4 w-4" />
+                      Durasi
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                      {durationText}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      <Tag className="h-4 w-4" />
+                      Kategori
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                      {pkg.package_category || '-'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {pkg.itineraries.length > 0 && (
+            <Card className={cardBaseClass}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <Calendar className="h-5 w-5 text-[#295BFF]" />
+                  <span>Itinerary</span>
+                </CardTitle>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  Timeline aktivitas per hari
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="relative pl-8">
+                  <div className="absolute left-[11px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-800" />
+                  <div className="space-y-4">
+                    {pkg.itineraries.map((day) => (
+                      <div key={day.day} className="relative">
+                        <div className="absolute left-[6px] top-6 h-2.5 w-2.5 rounded-full bg-[#295BFF]" />
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <Badge className="rounded-full border border-[#295BFF]/20 bg-[#295BFF]/10 text-[#295BFF] shadow-sm dark:border-[#295BFF]/30 dark:bg-[#295BFF]/15 dark:text-[#7FA0FF]">
+                              Hari {day.day}
+                            </Badge>
+                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                              {day.activities?.length ?? 0} aktivitas
+                            </div>
+                          </div>
+
+                          <div className="mt-3 space-y-2">
+                            {(day.activities ?? []).map((a, idx) => (
+                              <div key={idx} className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                                      {a.time ? a.time.slice(0, 5) : '-'}
+                                    </span>
+                                    <span className="text-sm font-medium text-slate-900 dark:text-white">
+                                      {a.description || '-'}
+                                    </span>
+                                  </div>
+                                  {(a.location || a.city_name || a.city_id) && (
+                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                      {a.location ? <span>{a.location}</span> : null}
+                                      {a.location && (a.city_name || a.city_id) ? <span className="mx-2">•</span> : null}
+                                      {a.city_name ? <span>{a.city_name}</span> : a.city_id ? <span>City ID: {a.city_id}</span> : null}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {(pkg.pricing.length > 0 || pkg.addons.length > 0) && (
+            <Card className={cardBaseClass}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <CreditCard className="h-5 w-5 text-[#295BFF]" />
+                  <span>Harga</span>
+                </CardTitle>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  Harga per pax dan addons (jika tersedia)
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {pkg.pricing.length > 0 && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {pkg.pricing.map((pr, i) => (
+                      <div
+                        key={i}
+                        className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:border-slate-800 dark:bg-slate-900/30 dark:hover:bg-slate-950"
+                      >
+                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          {pr.min_pax} - {pr.max_pax} pax
+                        </div>
+                        <div className="mt-2 text-lg font-bold text-[#295BFF]">
+                          {formatCurrency(pr.price)} <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">/pax</span>
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Harga final dapat menyesuaikan jadwal & kebijakan paket
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {pkg.addons.length > 0 && (
+                  <div className={cn(pkg.pricing.length > 0 && 'mt-6 pt-6 border-t border-slate-200 dark:border-slate-800')}>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Addons</div>
+                    <div className="mt-3 space-y-2">
+                      {pkg.addons.map((a, i) => (
+                        <div key={i} className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                          <div className="text-sm text-slate-900 dark:text-white">{a.description}</div>
+                          <div className="shrink-0 text-sm font-semibold text-[#295BFF]">{formatCurrency(a.price)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <Card className={cn(cardBaseClass, 'hover:shadow-md lg:sticky lg:top-24')}>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <PackageIcon className="h-5 w-5 text-[#295BFF]" />
+                <span>Ringkasan</span>
+              </CardTitle>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Detail cepat paket
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tipe Perjalanan</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{pkg.package_type || '-'}</div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Durasi</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{durationText}</div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Destinasi Utama</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{mainDestinationText}</div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Status</div>
+                  <div className="mt-2">{getStatusBadge(pkg.status)}</div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Created At</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatDateTime(pkg.created_at)}</div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Updated At</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatDateTime(pkg.updated_at)}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <ImagePopup
         images={mainImages}
-        currentIndex={selectedImageIndex}
+        currentIndex={safeSelectedIndex}
         isOpen={isPopupOpen}
         onClose={() => setIsPopupOpen(false)}
         onImageChange={setSelectedImageIndex}

@@ -132,17 +132,15 @@ export const Sidebar: React.FC = () => {
         label: 'Finance',
         items: [
           { title: 'Pendapatan', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
-          { title: 'Pengeluaran Umum', icon: ShoppingBag, href: `${basePrefix}/finance/expenses` },
-          { title: 'Pengeluaran Armada', icon: Car, href: `${basePrefix}/finance/fleet-expenses` },
-          { title: 'Pengeluaran Operasional', icon: Settings, href: `${basePrefix}/finance/operational-expenses` }
+          { title: 'Pengeluaran Umum', icon: ShoppingBag, href: `${basePrefix}/finance/expenses` }
         ]
       },
       {
         label: 'Pelanggan',
         items: [
-          { title: 'Semua Pelanggan', icon: Users, href: `${basePrefix}/customers` },
-          { title: 'Pelanggan Terdaftar', icon: UserCheck, href: `${basePrefix}/customers/registered` },
-          { title: 'Hadiah Pelanggan', icon: Gift, href: `${basePrefix}/customers/rewards` }
+          { title: 'Daftar Pelanggan', icon: Users, href: `${basePrefix}/customers` },
+          // { title: 'Pelanggan Terdaftar', icon: UserCheck, href: `${basePrefix}/customers/registered` },
+          // { title: 'Hadiah Pelanggan', icon: Gift, href: `${basePrefix}/customers/rewards` }
         ]
       },
       {
