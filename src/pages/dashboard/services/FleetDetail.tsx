@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 import { api, toFileUrl } from '@/lib/api';
@@ -28,7 +28,7 @@ import {
   Square,
   Star,
   Trash2,
-  Users,
+  MessageCircleMore,
 } from 'lucide-react';
 import { ImagePopup } from '@/components/common/ImagePopup';
 import { format } from 'date-fns';
@@ -38,8 +38,10 @@ import Swal from 'sweetalert2';
 type FleetMeta = {
   fleet_id: string;
   fleet_type: string;
+  fleet_type_label: string;
   fleet_name: string;
   capacity: number;
+  capacities: string;
   engine: string;
   body: string;
   thumbnail: string;
@@ -49,6 +51,7 @@ type FleetMeta = {
   updated_at?: string;
   updated_by?: string;
   description?: string;
+  rating?: number;
 };
 
 type FleetPickup = { uuid: string; city_id: number; city_name: string };
@@ -66,6 +69,14 @@ type FleetUnitRow = {
   thumbnail?: string;
 };
 
+type FleetReview = {
+  star: number;
+  review: string;
+  customer_name: string;
+  created_at?: string;
+  order_id: string;
+};
+
 type FleetDetailData = {
   meta: FleetMeta;
   facilities: string[];
@@ -73,6 +84,7 @@ type FleetDetailData = {
   addon: unknown[];
   pricing: FleetPricing[];
   images: FleetImageItem[];
+  reviews: FleetReview[];
 };
 
 export const FleetDetail: React.FC = () => {
@@ -85,7 +97,7 @@ export const FleetDetail: React.FC = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'pricing'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'pricing' | 'review'>('info');
 
   const [unitsLoading, setUnitsLoading] = useState(false);
   const [units, setUnits] = useState<FleetUnitRow[]>([]);
@@ -128,14 +140,23 @@ export const FleetDetail: React.FC = () => {
       const token = localStorage.getItem('token') ?? '';
       const res = await api.post<unknown>('/services/fleet/detail', { fleet_id: id }, token ? { Authorization: token } : undefined);
       if (res.status === 'success') {
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const getString = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+        const getNumber = (v: unknown) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        };
+
         const payload = res.data as unknown;
-        const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+        const p = record(payload);
         const meta = p.meta as unknown;
         const facilities = p.facilities as unknown;
         const pickup = p.pickup as unknown;
         const addon = p.addon as unknown;
         const pricing = p.pricing as unknown;
         const images = p.images as unknown;
+        const reviewsNode = p.reviews ?? record(p.data).reviews ?? record(record(p.data).data).reviews;
 
         const activeRaw = (meta as { active?: unknown; status?: unknown })?.active ?? (meta as { status?: unknown })?.status;
         const active =
@@ -150,6 +171,7 @@ export const FleetDetail: React.FC = () => {
         const metaObj: FleetMeta = {
           fleet_id: typeof (meta as { fleet_id?: unknown })?.fleet_id === 'string' ? (meta as { fleet_id?: unknown }).fleet_id as string : '',
           fleet_type: typeof (meta as { fleet_type?: unknown })?.fleet_type === 'string' ? (meta as { fleet_type?: unknown }).fleet_type as string : '',
+          fleet_type_label: typeof (meta as { fleet_type_label?: unknown })?.fleet_type_label === 'string' ? (meta as { fleet_type_label?: unknown }).fleet_type_label as string : '',
           fleet_name: typeof (meta as { fleet_name?: unknown })?.fleet_name === 'string' ? (meta as { fleet_name?: unknown }).fleet_name as string : '',
           capacity: typeof (meta as { capacity?: unknown })?.capacity === 'number' ? (meta as { capacity?: unknown }).capacity as number : 0,
           engine: typeof (meta as { engine?: unknown })?.engine === 'string' ? (meta as { engine?: unknown }).engine as string : '',
@@ -161,6 +183,8 @@ export const FleetDetail: React.FC = () => {
           updated_at: typeof (meta as { updated_at?: unknown })?.updated_at === 'string' ? (meta as { updated_at?: unknown }).updated_at as string : '',
           updated_by: typeof (meta as { updated_by?: unknown })?.updated_by === 'string' ? (meta as { updated_by?: unknown }).updated_by as string : '',
           description: typeof (meta as { description?: unknown })?.description === 'string' ? (meta as { description?: unknown }).description as string : '',
+          rating: typeof (meta as { rating?: unknown })?.rating === 'number' ? (meta as { rating?: unknown }).rating as number : 0,
+          capacities: typeof (meta as { capacities?: unknown })?.capacities === 'string' ? (meta as { capacities?: unknown }).capacities as string : '',
         };
 
         const facilitiesArr = Array.isArray(facilities) ? (facilities as unknown[]).map((x) => (typeof x === 'string' ? x : '')).filter((x) => x) : [];
@@ -205,7 +229,29 @@ export const FleetDetail: React.FC = () => {
           })
           .filter((v): v is FleetImageItem => Boolean(v));
 
-        setFleet({ meta: metaObj, facilities: facilitiesArr, pickup: pickupArr, addon: Array.isArray(addon) ? addon : [], pricing: pricingArr, images: imagesArr });
+        const reviewsRaw = Array.isArray(reviewsNode) ? (reviewsNode as unknown[]) : [];
+        const reviewsArr = reviewsRaw
+          .map((x) => {
+            const obj = record(x);
+            const star = getNumber(obj.star ?? obj.rating ?? obj.stars);
+            const review = getString(obj.review ?? obj.comment ?? obj.text).trim();
+            const customer_name = getString(obj.customer_name ?? obj.customerName ?? obj.name).trim();
+            const created_at = getString(obj.created_at ?? obj.createdAt).trim();
+            const order_id = getString(obj.order_id ?? obj.orderId ?? obj.transaction_id ?? obj.transactionId).trim();
+            if (!review && !customer_name && !order_id) return null;
+            return { star, review, customer_name: customer_name || '-', created_at: created_at || undefined, order_id } satisfies FleetReview;
+          })
+          .filter((v): v is FleetReview => Boolean(v));
+
+        setFleet({
+          meta: metaObj,
+          facilities: facilitiesArr,
+          pickup: pickupArr,
+          addon: Array.isArray(addon) ? addon : [],
+          pricing: pricingArr,
+          images: imagesArr,
+          reviews: reviewsArr,
+        });
       }
       setLoading(false);
     };
@@ -267,7 +313,7 @@ export const FleetDetail: React.FC = () => {
               engine,
               capacity,
               ownership: ownership || undefined,
-              status: status || undefined,
+              status: status === '1' ? 'Available' : 'On Duty',
               thumbnail: thumbnail ? toFileUrl(thumbnail) : undefined,
             } satisfies FleetUnitRow;
           })
@@ -396,12 +442,16 @@ export const FleetDetail: React.FC = () => {
 
   const isActive = fleet.meta.active !== false;
   const fleetTitle = fleet.meta.fleet_name || 'Detail Armada';
+  const galleryPopupImages = [
+    fleet.meta.thumbnail,
+    ...fleet.images.map((x) => x.path_file),
+  ].filter((x, i, arr) => Boolean(x) && arr.indexOf(x) === i);
 
   const metrics = [
     { key: 'totalTrips', label: 'Total Perjalanan', value: '0', icon: Route },
     { key: 'lastTrip', label: 'Perjalanan Terakhir', value: '-', icon: Clock },
-    { key: 'rating', label: 'Rating', value: '4.8', icon: Star },
-    { key: 'capacity', label: 'Kapasitas Kursi', value: fleet.meta.capacity ? String(fleet.meta.capacity) : '-', icon: Users },
+    { key: 'rating', label: 'Rating', value: fleet.meta.rating ?? '0', icon: Star },
+    { key: 'review', label: 'Total Ulasan', value: fleet.reviews.length.toString() ?? '-', icon: MessageCircleMore },
   ] as const;
 
   const unitOwnership = (value?: string) => {
@@ -554,6 +604,7 @@ export const FleetDetail: React.FC = () => {
                     { key: 'info', label: 'Informasi Armada' },
                     { key: 'units', label: 'Armada' },
                     { key: 'pricing', label: 'Harga Sewa' },
+                    { key: 'review', label: 'Ulasan' },
                   ] as const).map((t) => {
                     const isTabActive = activeTab === t.key;
                     return (
@@ -591,20 +642,27 @@ export const FleetDetail: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {[
                           { label: 'Spesifikasi', value: [fleet.meta.body, fleet.meta.engine].filter(Boolean).join(' - ') || '-' },
-                          { label: 'Tipe', value: fleet.meta.fleet_type || '-' },
-                          { label: 'Kapasitas', value: fleet.meta.capacity ? `${fleet.meta.capacity} pax` : '-' },
-                          { label: 'Deskripsi', value: fleet.meta.description ? '' : '-' },
+                          { label: 'Tipe', value: fleet.meta.fleet_type_label || '-' },
                         ].map((item) => (
                           <div key={item.label} className="rounded-2xl border border-gray-200/60 bg-white px-4 py-3">
                             <div className="text-xs text-gray-500">{item.label}</div>
-                            {item.label === 'Deskripsi' && fleet.meta.description ? (
-                              <div className="mt-1 text-sm text-gray-900" dangerouslySetInnerHTML={{ __html: fleet.meta.description || '' }} />
-                            ) : (
-                              <div className="mt-1 font-medium text-gray-900">{item.value}</div>
-                            )}
+                            <div className="mt-1 font-medium text-gray-900">{item.value}</div>
                           </div>
                         ))}
                       </div>
+
+                      <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
+                        <div className="text-sm font-semibold text-gray-900">Deskripsi</div>
+                        {fleet.meta.description ? (
+                          <div
+                            className="mt-3 max-h-[500px] overflow-auto scroll-smooth pr-2 text-sm text-gray-900"
+                            dangerouslySetInnerHTML={{ __html: fleet.meta.description || '' }}
+                          />
+                        ) : (
+                          <div className="mt-3 text-sm text-gray-500">-</div>
+                        )}
+                      </div>
+
 
                       <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
                         <div className="text-sm font-semibold text-gray-900">Fasilitas</div>
@@ -714,7 +772,18 @@ export const FleetDetail: React.FC = () => {
                                 const st = unitStatus(u.status);
                                 return (
                                   <TableRow key={u.id} className="hover:bg-gray-50">
-                                    <TableCell className="px-4 font-medium text-gray-900">{u.vehicle_id || '-'}</TableCell>
+                                    <TableCell className="px-4 font-medium">
+                                      {u.vehicle_id ? (
+                                        <Link
+                                          to={`${basePrefix}/fleet-units/detail/${encodeURIComponent(u.id)}`}
+                                          className="text-blue-600 hover:underline"
+                                        >
+                                          {u.vehicle_id}
+                                        </Link>
+                                      ) : (
+                                        <span className="text-gray-900">-</span>
+                                      )}
+                                    </TableCell>
                                     <TableCell className="text-gray-700">{u.plate_number || '-'}</TableCell>
                                     <TableCell className="text-gray-700">{u.engine || '-'}</TableCell>
                                     <TableCell className="text-center text-gray-700">{u.capacity || '-'}</TableCell>
@@ -790,7 +859,16 @@ export const FleetDetail: React.FC = () => {
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="min-w-0">
-                                        <div className="font-semibold text-gray-900 truncate">{u.vehicle_id || '-'}</div>
+                                        {u.vehicle_id ? (
+                                          <Link
+                                            to={`${basePrefix}/fleet-units/detail/${encodeURIComponent(u.id)}`}
+                                            className="font-semibold text-gray-900 truncate hover:underline"
+                                          >
+                                            {u.vehicle_id}
+                                          </Link>
+                                        ) : (
+                                          <div className="font-semibold text-gray-900 truncate">-</div>
+                                        )}
                                         <div className="mt-0.5 text-xs text-gray-500 truncate">
                                           {u.plate_number || '-'} • {u.engine || '-'}
                                         </div>
@@ -835,7 +913,7 @@ export const FleetDetail: React.FC = () => {
                         )}
                       </div>
                     </motion.div>
-                  ) : (
+                  ) : activeTab === 'pricing' ? (
                     <motion.div
                       key="pricing"
                       initial={{ opacity: 0, y: 10 }}
@@ -867,6 +945,70 @@ export const FleetDetail: React.FC = () => {
                               ) : (
                                 <div className="mt-3 text-lg font-semibold text-blue-600">{formatCurrency(pr.price)}</div>
                               )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="review"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="pt-4 space-y-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                          <MessageCircleMore className="h-4 w-4 text-violet-600" />
+                          Ulasan
+                        </div>
+                        <div className="text-xs text-gray-500">{fleet.reviews.length} ulasan</div>
+                      </div>
+
+                      {fleet.reviews.length === 0 ? (
+                        <div className="rounded-2xl border border-gray-200/70 bg-white p-6 text-center text-sm text-gray-500">
+                          Belum ada ulasan
+                        </div>
+                      ) : (
+                        <div className="max-h-[800px] overflow-auto scroll-smooth space-y-3 pr-1">
+                          {fleet.reviews.map((r, idx) => (
+                            <div key={`${r.order_id || 'review'}-${idx}`} className="rounded-2xl border border-gray-200/70 bg-white p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-gray-900 truncate">{r.customer_name || '-'}</div>
+                                  <div className="mt-0.5 text-xs text-gray-500">
+                                    {r.created_at ? formatDate(r.created_at) : '-'}
+                                  </div>
+                                </div>
+                                <div className="shrink-0 flex items-center gap-1">
+                                  {Array.from({ length: 5 }).map((_, i) => {
+                                    const filled = i < Math.round(r.star || 0);
+                                    return (
+                                      <Star
+                                        key={i}
+                                        className={clsx('h-4 w-4', filled ? 'text-amber-500' : 'text-gray-300')}
+                                        fill={filled ? 'currentColor' : 'none'}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {r.review ? <div className="mt-3 text-sm text-gray-800 whitespace-pre-wrap">{r.review}</div> : null}
+
+                              {r.order_id ? (
+                                <div className="mt-3 text-xs text-gray-500">
+                                  Order ID:{' '}
+                                  <Link
+                                    to={`${basePrefix}/orders/fleet/detail/${encodeURIComponent(r.order_id)}`}
+                                    className="text-blue-600 hover:underline"
+                                  >
+                                    {r.order_id}
+                                  </Link>
+                                </div>
+                              ) : null}
                             </div>
                           ))}
                         </div>
@@ -916,7 +1058,8 @@ export const FleetDetail: React.FC = () => {
                         type="button"
                         className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-gray-200/70 bg-gray-50 hover:shadow-sm transition-shadow"
                         onClick={() => {
-                          setSelectedImageIndex(idx);
+                          const popupIndex = galleryPopupImages.indexOf(img.path_file);
+                          setSelectedImageIndex(popupIndex >= 0 ? popupIndex : 0);
                           setIsPopupOpen(true);
                         }}
                       >
@@ -935,7 +1078,7 @@ export const FleetDetail: React.FC = () => {
                     setSelectedImageIndex(0);
                     setIsPopupOpen(true);
                   }}
-                  disabled={fleet.images.length === 0}
+                  disabled={galleryPopupImages.length === 0}
                 >
                   Lihat semua galeri
                 </Button>
@@ -1166,7 +1309,7 @@ export const FleetDetail: React.FC = () => {
         </Dialog>
 
         <ImagePopup
-          images={fleet.images.map((x) => x.path_file)}
+          images={galleryPopupImages}
           currentIndex={selectedImageIndex}
           isOpen={isPopupOpen}
           onClose={() => setIsPopupOpen(false)}

@@ -257,7 +257,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     // Logic based on order status
     if (order.status === 2) {
       return (
-        <Badge className="rounded-full border-transparent bg-blue-500/50 px-3 py-1 font-medium text-amber-800 hover:bg-amber-500/10 dark:bg-amber-400/15 dark:text-amber-300">
+        <Badge className="rounded-full border-transparent bg-blue-500/50 px-3 py-1 font-medium text-white hover:text-white hover:bg-blue-700/50 dark:bg-blue-400/15 dark:text-white">
           <Clock className="mr-1.5 h-3.5 w-3.5" />
           Menunggu Konfirmasi
         </Badge>
