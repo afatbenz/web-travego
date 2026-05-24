@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Eye, Edit, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Star } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Switch } from '@/components/ui/switch';
@@ -51,6 +52,7 @@ export const ServicesArmada: React.FC = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
   const [armada, setArmada] = useState<Array<{
+    totalUlasan: ReactNode;
     id: string | number;
     name: string;
     type: string;
@@ -62,6 +64,8 @@ export const ServicesArmada: React.FC = () => {
     status: string;
     image?: string;
     description?: string;
+    rating?: number;
+    total_ulasan?: number;
   }>>([]);
   const [totalCount, setTotalCount] = useState(0);
 
@@ -97,6 +101,8 @@ export const ServicesArmada: React.FC = () => {
           const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? (idRaw as string | number) : i;
           const name = typeof x.name === 'string' ? x.name : (typeof x.fleet_name === 'string' ? x.fleet_name : '');
           const type = typeof x.type === 'string' ? x.type : (typeof x.fleet_type === 'string' ? x.fleet_type : '');
+          const rating = typeof x.rating === 'number' ? x.rating : 0;
+          const totalUlasan = typeof x.total_ulasan === 'number' ? x.total_ulasan : 0;
           const totalUnitVal = x.total_unit ?? x.totalUnit ?? x.total_unit ?? x.totalUnit;
           const totalUnitNum =
             typeof totalUnitVal === 'number'
@@ -111,7 +117,7 @@ export const ServicesArmada: React.FC = () => {
           const status = normalizeStatus(x.status ?? x.active);
           const image = typeof x.image === 'string' ? x.image : typeof x.thumbnail === 'string' ? x.thumbnail : undefined;
           const description = typeof x.description === 'string' ? x.description : '';
-          return { id, name, type, totalUnit, body, engines, capacities, active: status === 'active', status, image, description };
+          return { id, name, type, totalUnit, body, engines, capacities, active: status === 'active', status, image, description, rating, totalUlasan };
         });
         setArmada(mapped);
         setTotalCount(total);
@@ -224,8 +230,15 @@ export const ServicesArmada: React.FC = () => {
       render: (item) => <span className="text-sm text-foreground">{item.capacities} seat</span>
     },
     {
-      label: 'Status',
-      key: 'status',
+      label: 'Rating',
+      key: 'rating',
+      sortable: true,
+      width: 100,
+      render: (item) => <span className="text-sm text-foreground"><Star className={`inline-block ${(item.rating ?? 0) >= 1 ? 'text-orange-500' : 'text-gray-500'} w-4 h-4 mr-2`} /> {item.rating?.toFixed(1) ?? '0.0'} ({item.totalUlasan ?? 0})</span>
+    },
+    {
+      label: 'Published',
+      key: 'published',
       sortable: true,
       width: 80,
       render: (item) => (
