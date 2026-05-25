@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,7 +19,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { ArrowLeft, Check, ChevronsUpDown, Eye, Loader2, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BusFront, Check, ChevronsUpDown, Eye, Loader2, MapPinned, MessageSquareText, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
@@ -1280,10 +1280,12 @@ export const FleetOrderForm: React.FC = () => {
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Informasi Pesanan</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={ShoppingCart}
+            title="Informasi Pesanan"
+            subtitle="Lengkapi data customer, jadwal, dan lokasi penjemputan/pengantaran."
+          />
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Customer</label>
@@ -1372,9 +1374,11 @@ export const FleetOrderForm: React.FC = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Informasi Jenis Kendaraan</span>
+          <CardHeaderWithBadge
+            badgeIcon={BusFront}
+            title="Informasi Jenis Kendaraan"
+            subtitle="Pilih armada, harga, dan addon untuk pesanan."
+            actions={
               <Button
                 type="button"
                 variant="outline"
@@ -1403,9 +1407,9 @@ export const FleetOrderForm: React.FC = () => {
                 <Plus className="h-4 w-4" />
                 Tambah Armada
               </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            }
+          />
+          <CardContent className="pt-6">
             <div className="space-y-4">
               {armadaEntries.map((row, idx) => (
                 <div key={idx} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
@@ -1692,10 +1696,12 @@ export const FleetOrderForm: React.FC = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Itinerary</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={MapPinned}
+            title="Itinerary"
+            subtitle="Tambahkan lokasi tujuan per hari berdasarkan jadwal perjalanan."
+          />
+          <CardContent className="pt-6">
             {daysCount <= 0 ? (
               <div className="text-sm text-muted-foreground">Isi tanggal penjemputan dan pengantaran untuk membuat itinerary.</div>
             ) : (
@@ -1804,10 +1810,12 @@ export const FleetOrderForm: React.FC = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Permintaan Khusus</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={MessageSquareText}
+            title="Permintaan Khusus"
+            subtitle="Catatan tambahan untuk kebutuhan atau preferensi customer."
+          />
+          <CardContent className="pt-6">
             <Textarea
               value={specialRequest}
               onChange={(e) => setSpecialRequest(e.target.value)}

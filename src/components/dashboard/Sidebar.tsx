@@ -41,6 +41,10 @@ export const Sidebar: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const [orgName, setOrgName] = useState('');
+  const desktopNavRef = React.useRef<HTMLElement | null>(null);
+  const desktopActiveItemRef = React.useRef<HTMLAnchorElement | null>(null);
+  const mobileNavRef = React.useRef<HTMLElement | null>(null);
+  const mobileActiveItemRef = React.useRef<HTMLAnchorElement | null>(null);
 
   const decodeJwtPayload = React.useCallback((jwt: string) => {
     try {
@@ -92,6 +96,20 @@ export const Sidebar: React.FC = () => {
   React.useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  React.useEffect(() => {
+    const scrollIfNeeded = (container: HTMLElement | null, el: HTMLAnchorElement | null) => {
+      if (!container || !el) return;
+      const c = container.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      const isVisible = r.top >= c.top && r.bottom <= c.bottom;
+      if (isVisible) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    scrollIfNeeded(desktopNavRef.current, desktopActiveItemRef.current);
+    if (mobileOpen) scrollIfNeeded(mobileNavRef.current, mobileActiveItemRef.current);
+  }, [location.pathname, mobileOpen]);
 
   type IconType = React.ComponentType<{ className?: string }>;
   type NavItem = { title: string; href: string; icon: IconType };
@@ -176,11 +194,15 @@ export const Sidebar: React.FC = () => {
   const SidebarContent = ({
     collapsed: collapsedValue,
     headerRight,
-    onNavigate
+    onNavigate,
+    navRef,
+    activeItemRef
   }: {
     collapsed: boolean;
     headerRight: React.ReactNode;
     onNavigate?: () => void;
+    navRef: React.RefObject<HTMLElement | null>;
+    activeItemRef: React.RefObject<HTMLAnchorElement | null>;
   }) => {
     return (
       <>
@@ -216,7 +238,10 @@ export const Sidebar: React.FC = () => {
         </div>
 
         <TooltipProvider delayDuration={150}>
-          <nav className={cn('flex-1 overflow-y-auto sidebar-scroll', collapsedValue ? 'px-2 pb-3' : 'px-3 pb-3')}>
+          <nav
+            ref={navRef}
+            className={cn('flex-1 overflow-y-auto sidebar-scroll', collapsedValue ? 'px-2 pb-3' : 'px-3 pb-3')}
+          >
             {navSections.map((section, sectionIdx) => (
               <div key={section.label} className={cn(sectionIdx === 0 ? '' : collapsedValue ? 'mt-3' : 'mt-5')}>
                 {collapsedValue ? (
@@ -237,6 +262,13 @@ export const Sidebar: React.FC = () => {
                         key={item.href}
                         to={item.href}
                         onClick={onNavigate}
+                        ref={
+                          active
+                            ? (el) => {
+                                activeItemRef.current = el;
+                              }
+                            : undefined
+                        }
                         className={cn(
                           'group flex items-center gap-3 rounded-full transition-all duration-200',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-0',
@@ -334,6 +366,8 @@ export const Sidebar: React.FC = () => {
       >
         <SidebarContent
           collapsed={collapsed}
+          navRef={desktopNavRef}
+          activeItemRef={desktopActiveItemRef}
           headerRight={
             <Button
               variant="ghost"
@@ -375,6 +409,8 @@ export const Sidebar: React.FC = () => {
           <div className="flex h-full flex-col">
             <SidebarContent
               collapsed={false}
+              navRef={mobileNavRef}
+              activeItemRef={mobileActiveItemRef}
               onNavigate={() => setMobileOpen(false)}
               headerRight={
                 <Button

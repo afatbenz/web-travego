@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Eye } from 'lucide-react';
+import { Edit, Eye, LayoutList } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -210,10 +210,12 @@ const PartnerContent = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Page Sections</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardHeaderWithBadge
+          badgeIcon={LayoutList}
+          title="Page Sections"
+          subtitle="Kelola section landing page dan status aktifnya."
+        />
+        <CardContent className="pt-6">
           <Table>
             <TableHeader>
               <TableRow>

@@ -190,7 +190,7 @@ export const ServicesArmada: React.FC = () => {
           <div className="min-w-0">
             <Link
               to={`${basePrefix}/services/fleet/detail/${encodeURIComponent(String(item.id))}`}
-              className="font-semibold text-foreground hover:underline"
+              className="font-semibold text-foreground hover:no-underline hover:text-bold"
             >
               {item.name}
             </Link>

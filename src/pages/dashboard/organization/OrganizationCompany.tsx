@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { api } from '@/lib/api';
+import { Building2 } from 'lucide-react';
 
 type CompanyInfo = {
   organization_name: string;
@@ -162,10 +163,12 @@ export const OrganizationCompany: React.FC = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Informasi Organisasi</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardHeaderWithBadge
+          badgeIcon={Building2}
+          title="Informasi Organisasi"
+          subtitle="Ringkasan profil organisasi dan perusahaan (read-only)."
+        />
+        <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
             <div className="space-y-6">
               <div className="relative w-full">

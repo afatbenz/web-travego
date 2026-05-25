@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { AlertTriangle, ArrowLeft, ArrowRight, BadgeCheck, Building2, Calendar, Clock, CreditCard, Mail, MapPin, Package, Pencil, Phone, ReceiptText, User, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -409,22 +409,18 @@ export const CustomerDetail: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
         <div className="space-y-6">
           <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <CardHeader className="p-6 pb-4 mb-5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-11 w-11 rounded-2xl bg-blue-50 flex items-center justify-center text-[#295BFF]">
-                    <User className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <CardTitle className="text-lg text-slate-900">Informasi Pelanggan</CardTitle>
-                  </div>
-                </div>
+            <CardHeaderWithBadge
+              className="p-6 pb-4 mb-5"
+              badgeIcon={User}
+              title="Informasi Pelanggan"
+              subtitle="Data profil customer."
+              actions={
                 <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1 text-xs font-semibold shrink-0">
                   <BadgeCheck className="h-4 w-4" />
                   Aktif
                 </span>
-              </div>
-            </CardHeader>
+              }
+            />
 
             <CardContent className="p-6 pt-0">
               {loading ? (
@@ -528,17 +524,12 @@ export const CustomerDetail: React.FC = () => {
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <CardHeader className="p-6 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-2xl bg-blue-50 flex items-center justify-center text-[#295BFF]">
-                  <ReceiptText className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <CardTitle className="text-lg text-slate-900">Riwayat Pesanan</CardTitle>
-                  <div className="text-sm text-slate-500">Aktivitas transaksi terbaru pelanggan</div>
-                </div>
-              </div>
-            </CardHeader>
+            <CardHeaderWithBadge
+              className="p-6 pb-4"
+              badgeIcon={ReceiptText}
+              title="Riwayat Pesanan"
+              subtitle="Aktivitas transaksi terbaru pelanggan."
+            />
 
             <CardContent className="p-6 pt-0">
               {loadingOrders ? (

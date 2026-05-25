@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronsUpDown, Loader2, Save, Upload, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsUpDown, IdCard, Image, Loader2, Save, Upload, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api, deleteCommon, uploadCommon } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -377,10 +377,12 @@ export const TeamMemberCreate: React.FC = () => {
       <form onSubmit={onSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>Foto</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={Image}
+              title="Foto"
+              subtitle="Unggah foto karyawan untuk identitas profil."
+            />
+            <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
                   {photoPreview ? (
@@ -409,10 +411,12 @@ export const TeamMemberCreate: React.FC = () => {
           </Card>
 
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Informasi Karyawan</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={IdCard}
+              title="Informasi Karyawan"
+              subtitle="Lengkapi data identitas dan administrasi karyawan."
+            />
+            <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="name">

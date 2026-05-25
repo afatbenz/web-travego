@@ -5,178 +5,200 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 export const Team: React.FC = () => {
+  const members = [
+    {
+      name: 'Arif Setiawan',
+      role: 'Founder & CEO',
+      bio: 'Membangun Travego dari pengalaman langsung mengelola bisnis travel. Bertanggung jawab atas visi produk, pengembangan sistem, dan pertumbuhan bisnis.',
+      tags: ['Product', 'Bisnis travel', 'ERP system', 'Strategi'],
+      initials: 'AS',
+      photo:
+        'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      accentFrom: '#4F46E5',
+      accentTo: '#7C3AED',
+      avatarFrom: 'bg-indigo-100 text-indigo-700',
+      linkedInHref: '#',
+      whatsappHref: '#',
+    },
+    {
+      name: 'Tegar Mahendra',
+      role: 'Technical Lead',
+      bio: 'Memimpin pengembangan teknis platform, memastikan sistem berjalan stabil, aman, dan terus berkembang untuk kebutuhan operasional travel modern.',
+      tags: ['Engineering', 'Infrastructure', 'AI/ML'],
+      initials: 'TM',
+      photo:
+        'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      accentFrom: '#4F46E5',
+      accentTo: '#7C3AED',
+      avatarFrom: 'bg-violet-100 text-violet-700',
+      linkedInHref: '#',
+      whatsappHref: '#',
+    },
+  ] as const;
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#03102b] via-[#0a2458] to-[#040d22] px-4 pt-20 pb-12 sm:px-6 sm:pb-16 lg:px-8 xl:px-12 2xl:px-16">
+    <div className="min-h-screen bg-[#F5F7FB] text-[#111827]">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#071733] via-[#101a4f] to-[#1B0B3B] px-4 pt-24 pb-16 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-20 left-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
-          <div className="absolute right-0 top-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
-          <div className="absolute bottom-10 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-indigo-400/20 blur-3xl" />
+          <div className="absolute -top-24 left-[-6rem] h-[420px] w-[420px] rounded-full bg-[#4F46E5]/25 blur-3xl" />
+          <div className="absolute right-[-7rem] top-20 h-[480px] w-[480px] rounded-full bg-[#7C3AED]/20 blur-3xl" />
+          <div className="absolute bottom-[-10rem] left-1/2 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-indigo-400/15 blur-3xl" />
+          <svg
+            className="absolute inset-0 h-full w-full opacity-[0.22]"
+            viewBox="0 0 1200 520"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M40 370C190 240 300 260 410 300C552 352 630 200 780 210C940 220 1006 330 1160 250"
+              stroke="rgba(255,255,255,0.55)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeDasharray="2 10"
+            />
+            <path
+              d="M82 354C210 262 305 268 408 306C553 360 635 214 782 222C948 231 1010 334 1136 264"
+              stroke="rgba(79,70,229,0.55)"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray="1 14"
+            />
+            <path
+              d="M1030 270l18-10-6 20-12-10Z"
+              fill="rgba(255,255,255,0.75)"
+            />
+          </svg>
         </div>
 
-        <div className="relative mx-auto max-w-7xl text-center">
-          <h1 className="text-sm font-semibold tracking-wide text-blue-100/90 mt-8"></h1>
-          <div className="mt-4 flex justify-center">
-            <Badge className="rounded-xl border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-blue-100 shadow-sm backdrop-blur-md">
+        <div className="relative mx-auto max-w-6xl text-center">
+          <div className="flex justify-center">
+            <Badge className="rounded-2xl border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold text-white/90 shadow-sm backdrop-blur-md">
               Tim di balik Travego
             </Badge>
           </div>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Dibangun oleh praktisi, untuk pelaku travel
+          <h2 className="mt-6 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+            Dibangun oleh praktisi, untuk{' '}
+            <span className="bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] bg-clip-text text-transparent">
+              pelaku travel
+            </span>
           </h2>
-          <p className="mt-4 text-lg leading-relaxed text-blue-100/90">
-            Travego lahir untuk solusi nyata mengelola bisnis travel yang saling terintegrasi dan efisien.
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-blue-100/90 sm:text-lg">
+            Travego lahir untuk solusi nyata mengelola bisnis travel yang saling terintegrasi, efisien, dan siap scale.
           </p>
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-[-1px]">
+          <svg viewBox="0 0 1440 110" className="h-[110px] w-full" preserveAspectRatio="none" aria-hidden="true">
+            <path
+              fill="#F5F7FB"
+              d="M0,64L80,58.7C160,53,320,43,480,48C640,53,800,75,960,80C1120,85,1280,75,1360,69.3L1440,64L1440,110L1360,110C1280,110,1120,110,960,110C800,110,640,110,480,110C320,110,160,110,80,110L0,110Z"
+            />
+          </svg>
         </div>
       </section>
 
-      <section className="py-14 bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
-          <div className="mx-auto max-w-5xl grid grid-cols-1 md:grid-cols-[1.15fr_1fr] gap-6">
-            <Card className="rounded-2xl border-2 border-blue-600 bg-white dark:border-blue-400 dark:bg-gray-900">
-              <CardContent className="p-7">
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-200 flex items-center justify-center font-semibold">
-                    AS
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xl font-bold text-gray-900 dark:text-white">Arif Setiawan</div>
-                  </div>
-                </div>
+      <section className="py-14 sm:py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+            {members.map((m, idx) => (
+              <Card
+                key={m.name}
+                className={[
+                  'group relative overflow-hidden rounded-[28px] pb-0',
+                  'border border-white/50 bg-white/65 shadow-[0_1px_0_rgba(15,23,42,0.04),0_18px_50px_rgba(15,23,42,0.08)]',
+                  'backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_1px_0_rgba(15,23,42,0.05),0_26px_70px_rgba(15,23,42,0.14)]',
+                  'animate-in fade-in-0 slide-in-from-bottom-3 duration-500',
+                  idx === 0 ? 'lg:delay-75' : 'lg:delay-150',
+                ].join(' ')}
+              >
+                <CardContent className="p-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-[0.95fr_1.25fr]">
+                    <div className="relative overflow-hidden sm:min-h-[520px]">
+                      <div
+                        className="pointer-events-none absolute -left-12 top-8 h-40 w-40 rounded-full blur-3xl"
+                        style={{ background: `rgba(79,70,229,0.22)` }}
+                        aria-hidden="true"
+                      />
+                      <div
+                        className="pointer-events-none absolute -right-10 bottom-10 h-44 w-44 rounded-full blur-3xl"
+                        style={{ background: `rgba(124,58,237,0.18)` }}
+                        aria-hidden="true"
+                      />
 
-                <div className="mt-5 aspect-square w-full overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800">
-                  <img
-                    src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=900"
-                    alt="Arif Setiawan"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-
-                <p className="mt-4 text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Membangun Travego dari pengalaman langsung mengelola bisnis travel. Bertanggung jawab atas visi produk,
-                  pengembangan sistem, dan pertumbuhan bisnis.
-                </p>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {['Product', 'Bisnis travel', 'ERP system', 'Strategi'].map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-blue-600 dark:text-blue-400 font-medium">Founder &amp; CEO</div>
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button variant="outline" size="sm" className="rounded-xl">
-                      <Linkedin className="mr-2 h-4 w-4" />
-                      LinkedIn
-                    </Button>
-                    <Button variant="outline" size="sm" className="rounded-xl">
-                      <MessageCircle className="mr-2 h-4 w-4" />
-                      WhatsApp
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex flex-col gap-6">
-              <Card className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-                <CardContent className="p-7">
-                  <div className="flex items-start gap-4">
-                    <div className="h-12 w-12 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/20 dark:text-teal-200 flex items-center justify-center font-semibold">
-                      IS
+                      <div className="relative h-[320px] w-full sm:h-full">
+                        <img
+                          src={m.photo}
+                          alt={m.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-black/0" />
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-xl font-bold text-gray-900 dark:text-white">Intan Sari</div>
-                    </div>
-                  </div>
 
-                  <div className="mt-5 mx-auto aspect-square w-36 overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800 sm:w-40">
-                    <img
-                      src="https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=900"
-                      alt="Intan Sari"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
+                    <div className="p-7 sm:p-8">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="text-2xl font-extrabold tracking-tight text-[#111827]">
+                            {m.name}
+                          </div>
+                          <div
+                            className="mt-2 text-sm font-semibold"
+                            style={{
+                              backgroundImage: `linear-gradient(90deg, ${m.accentFrom}, ${m.accentTo})`,
+                              WebkitBackgroundClip: 'text',
+                              color: 'transparent',
+                            }}
+                          >
+                            {m.role}
+                          </div>
+                        </div>
+                        <div className={['h-11 w-11 rounded-2xl grid place-items-center font-bold', m.avatarFrom].join(' ')}>
+                          {m.initials}
+                        </div>
+                      </div>
 
-                  <p className="mt-4 text-gray-600 dark:text-gray-300 leading-relaxed">
-                    Mengelola operasional harian, hubungan pelanggan, dan memastikan setiap pengguna mendapat pengalaman terbaik.
-                  </p>
+                      <p className="mt-4 text-sm leading-relaxed text-slate-600 line-clamp-2">
+                        {m.bio}
+                      </p>
 
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {['Operasional', 'Customer success', 'Admin'].map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {m.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full border border-slate-200/80 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-white"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
 
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-gray-700 dark:text-gray-300 font-medium">Co-founder &amp; Operasional</div>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <Button variant="outline" size="sm" className="rounded-xl">
-                        <Linkedin className="mr-2 h-4 w-4" />
-                        LinkedIn
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-                <CardContent className="p-7">
-                  <div className="flex items-start gap-4">
-                    <div className="h-12 w-12 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-200 flex items-center justify-center font-semibold">
-                      TM
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-xl font-bold text-gray-900 dark:text-white">Tegar Mahendra</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 mx-auto aspect-square w-36 overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800 sm:w-40">
-                    <img
-                      src="https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=900"
-                      alt="Tegar Mahendra"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-
-                  <p className="mt-4 text-gray-600 dark:text-gray-300 leading-relaxed">
-                    Memimpin pengembangan teknis platform, memastikan sistem berjalan stabil dan terus berkembang.
-                  </p>
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {['Engineering', 'Infrastructure', 'AI/ML'].map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-gray-700 dark:text-gray-300 font-medium">Technical Lead</div>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <Button variant="outline" size="sm" className="rounded-xl">
-                        <Linkedin className="mr-2 h-4 w-4" />
-                        LinkedIn
-                      </Button>
+                      <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <a href={m.linkedInHref} className="w-full sm:w-auto">
+                          <Button
+                            variant="outline"
+                            className="h-11 w-full rounded-full border-slate-200 bg-white/70 px-5 shadow-sm transition-all duration-200 hover:bg-white hover:shadow-md"
+                          >
+                            <Linkedin className="mr-2 h-4 w-4" />
+                            LinkedIn
+                          </Button>
+                        </a>
+                        {m.whatsappHref ? (
+                          <a href={m.whatsappHref} className="w-full sm:w-auto">
+                            <Button
+                              variant="outline"
+                              className="h-11 w-full rounded-full border-slate-200 bg-white/70 px-5 shadow-sm transition-all duration-200 hover:bg-white hover:shadow-md"
+                            >
+                              <MessageCircle className="mr-2 h-4 w-4" />
+                              WhatsApp
+                            </Button>
+                          </a>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            ))}
           </div>
         </div>
       </section>

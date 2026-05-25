@@ -1,9 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, Upload, Loader2, Image as ImageIcon, Type, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  BadgeDollarSign,
+  CalendarDays,
+  ListChecks,
+  Loader2,
+  MapPinned,
+  PackagePlus,
+  Plus,
+  Save,
+  SlidersHorizontal,
+  Trash2,
+  Upload,
+  Image as ImageIcon,
+  Type,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { uploadCommon, deleteCommon, api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
@@ -730,10 +746,12 @@ export const PackageForm: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Informasi Dasar */}
           <Card>
-            <CardHeader>
-              <CardTitle>Informasi Dasar</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeaderWithBadge
+              badgeIcon={Type}
+              title="Informasi Dasar"
+              subtitle="Lengkapi informasi utama paket wisata."
+            />
+            <CardContent className="pt-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-2 space-y-2">
                   <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Judul Paket</label>
@@ -851,25 +869,29 @@ export const PackageForm: React.FC = () => {
           {/* Jadwal Trip - Only for Open Trip */}
           {formData.packageType === '2' && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Jadwal Trip</span>
+              <CardHeaderWithBadge
+                badgeIcon={CalendarDays}
+                title="Jadwal Trip"
+                subtitle="Atur jadwal keberangkatan untuk open trip."
+                actions={
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="bg-transparent hover:bg-transparent"
-                    onClick={() => setFormData(prev => ({
-                      ...prev,
-                      schedules: [...(prev.schedules || []), { start_date: '', end_date: '', uuid: undefined }]
-                    }))}
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        schedules: [...(prev.schedules || []), { start_date: '', end_date: '', uuid: undefined }],
+                      }))
+                    }
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Tambah Jadwal
                   </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                }
+              />
+              <CardContent className="pt-6 space-y-4">
                 {formData.schedules?.map((schedule, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative border-b pb-4 last:border-0">
                     <div className="space-y-2">
@@ -929,10 +951,12 @@ export const PackageForm: React.FC = () => {
 
           {/* Itinerary */}
           <Card>
-            <CardHeader>
-              <CardTitle>Itinerary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardHeaderWithBadge
+              badgeIcon={MapPinned}
+              title="Itinerary"
+              subtitle="Susun rute dan aktivitas perjalanan per hari."
+            />
+            <CardContent className="pt-6 space-y-6">
               {/* Area Penjemputan */}
               <div className="space-y-4 border-b pb-6">
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Area Penjemputan</label>
@@ -1170,10 +1194,12 @@ export const PackageForm: React.FC = () => {
 
           {/* Fasilitas */}
           <Card>
-            <CardHeader>
-              <CardTitle>Fasilitas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeaderWithBadge
+              badgeIcon={ListChecks}
+              title="Fasilitas"
+              subtitle="Daftar fasilitas atau benefit yang termasuk."
+            />
+            <CardContent className="pt-6 space-y-4">
               {formData.features.map((feature, index) => (
                 <div key={index} className="flex gap-2 items-center">
                   <Input 
@@ -1211,22 +1237,29 @@ export const PackageForm: React.FC = () => {
 
           {/* Harga Paket */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Harga Paket</span>
-                <Button 
+            <CardHeaderWithBadge
+              badgeIcon={BadgeDollarSign}
+              title="Harga Paket"
+              subtitle="Atur harga berdasarkan rentang jumlah pax."
+              actions={
+                <Button
                   type="button"
-                  variant="outline" 
-                  size="sm" 
+                  variant="outline"
+                  size="sm"
                   className="bg-transparent hover:bg-transparent"
-                  onClick={() => setFormData(prev => ({ ...prev, pricing: [...prev.pricing, { uuid: undefined, min_pax: 1, max_pax: 1, price: 0 }] }))}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      pricing: [...prev.pricing, { uuid: undefined, min_pax: 1, max_pax: 1, price: 0 }],
+                    }))
+                  }
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Tambah Harga
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              }
+            />
+            <CardContent className="pt-6 space-y-4">
               {formData.pricing.map((price, index) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1311,22 +1344,26 @@ export const PackageForm: React.FC = () => {
 
           {/* Addon */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Paket Addon</span>
-                <Button 
+            <CardHeaderWithBadge
+              badgeIcon={PackagePlus}
+              title="Paket Addon"
+              subtitle="Tambahkan item addon dan harga tambahan."
+              actions={
+                <Button
                   type="button"
-                  variant="outline" 
-                  size="sm" 
+                  variant="outline"
+                  size="sm"
                   className="bg-transparent hover:bg-transparent"
-                  onClick={() => setFormData(prev => ({ ...prev, addons: [...prev.addons, { uuid: undefined, description: '', price: 0 }] }))}
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, addons: [...prev.addons, { uuid: undefined, description: '', price: 0 }] }))
+                  }
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Tambah Addon
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              }
+            />
+            <CardContent className="pt-6 space-y-4">
               {formData.addons.map((addon, index) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1432,10 +1469,12 @@ export const PackageForm: React.FC = () => {
         <div className="space-y-6">
           {/* Thumbnail */}
           <Card>
-            <CardHeader>
-              <CardTitle>Thumbnail</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={ImageIcon}
+              title="Thumbnail"
+              subtitle="Unggah thumbnail sebagai gambar utama paket."
+            />
+            <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
                   {formData.thumbnail ? (
@@ -1470,10 +1509,17 @@ export const PackageForm: React.FC = () => {
 
           {/* Gallery */}
           <Card>
-            <CardHeader>
-              <CardTitle>Galeri ({galleryPreviews.length}/10)</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={Upload}
+              title="Galeri"
+              subtitle="Tambahkan foto tambahan untuk galeri paket."
+              actions={
+                <span className="rounded-full border border-gray-200/70 bg-white px-3 py-1 text-xs font-medium text-gray-700">
+                  {galleryPreviews.length}/10
+                </span>
+              }
+            />
+            <CardContent className="pt-6">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {galleryPreviews.map((item, index) => (
                   <div key={index} className="relative aspect-square rounded overflow-hidden group">
@@ -1517,10 +1563,12 @@ export const PackageForm: React.FC = () => {
 
           {/* Status */}
           <Card>
-            <CardHeader>
-              <CardTitle>Status Publikasi</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={SlidersHorizontal}
+              title="Status Publikasi"
+              subtitle="Atur apakah paket ditampilkan ke publik atau disimpan sebagai draft."
+            />
+            <CardContent className="pt-6">
               <Select 
                 value={formData.active ? 'true' : 'false'} 
                 onValueChange={(val) => setFormData(prev => ({ ...prev, active: val === 'true' }))}

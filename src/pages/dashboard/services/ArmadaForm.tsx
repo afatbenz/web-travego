@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon, BusFront, Tags, Layers, Package2, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { uploadCommon, deleteCommon, api, toFileUrl } from '@/lib/api';
@@ -785,25 +785,45 @@ export const ArmadaForm: React.FC = () => {
     };
   }, [cityQuery, showCityDropdown]);
 
+  const descriptionPlainText = String(formData.description || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const descriptionCharCount = descriptionPlainText.length;
+
+  const onCancel = () => {
+    navigate(`${basePrefix}/services/fleet`);
+  };
+
   return (
-    <div className="space-y-6 pb-20">
-      {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate('/dashboard/partner/services/fleet')}
-          className="!w-auto !h-auto p-2 bg-transparent hover:bg-transparent"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {isEdit ? 'Edit Armada' : 'Tambah Armada'}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
-            {isEdit ? 'Ubah informasi armada' : 'Tambahkan armada baru'}
-          </p>
+    <div className="space-y-6 pb-28">
+      <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={onCancel}
+              className="h-10 w-10 rounded-xl border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+            >
+              <ArrowLeft className="h-4 w-4 text-[#1E293B]" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-[#1E293B] tracking-tight">
+                {isEdit ? 'Edit Armada' : 'Tambah Armada'}
+              </h1>
+              <p className="mt-1 text-sm text-[#64748B]">
+                {isEdit ? 'Ubah informasi armada dan simpan perubahan.' : 'Lengkapi informasi armada untuk dipublikasikan.'}
+              </p>
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            <Badge variant="outline" className="border-[#E9EEF7] bg-white text-[#64748B]">
+              {isEdit ? 'Edit Mode' : 'Create Mode'}
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -814,31 +834,43 @@ export const ArmadaForm: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             
             {/* Basic Information - Full Width */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Informasi Dasar</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+              <CardHeaderWithBadge
+                badgeIcon={BusFront}
+                title="Informasi"
+                subtitle="Lengkapi informasi dan deskripsi armada."
+              />
+              <CardContent className="px-5 py-5">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-3">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    <label className="text-sm font-medium text-[#475569]">
                       Nama Armada *
                     </label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      placeholder="Masukkan nama armada"
-                      className={errors.name ? 'border-red-500' : ''}
-                    />
+                    <div className="relative mt-1">
+                      <Input
+                        value={formData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        placeholder="Masukkan nama armada"
+                        className={[
+                          'h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30',
+                          errors.name ? 'border-red-500' : '',
+                        ].join(' ')}
+                      />
+                    </div>
                     {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    <label className="text-sm font-medium text-[#475569]">
                       Jenis Armada *
                     </label>
                     <Select value={String(formData.type)} onValueChange={(value) => handleInputChange('type', value)}>
-                      <SelectTrigger className={errors.type ? 'border-red-500' : ''}>
+                      <SelectTrigger
+                        className={[
+                          'mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus:ring-2 focus:ring-[#4F6BFF]/30',
+                          errors.type ? 'border-red-500' : '',
+                        ].join(' ')}
+                      >
                         <SelectValue placeholder={loadingFleetTypes ? 'Memuat...' : 'Pilih jenis'} />
                       </SelectTrigger>
                       <SelectContent>
@@ -851,7 +883,7 @@ export const ArmadaForm: React.FC = () => {
                   </div>
 
                   <div className="relative">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    <label className="text-sm font-medium text-[#475569]">
                       Body
                     </label>
                     <Input
@@ -860,9 +892,10 @@ export const ArmadaForm: React.FC = () => {
                       placeholder="Contoh: Hiace, Elf, Bus Besar"
                       onFocus={() => { setShowBodyDropdown(true); fetchBody(''); }}
                       onBlur={() => { window.setTimeout(() => setShowBodyDropdown(false), 150); }}
+                      className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                     />
                     {showBodyDropdown && (
-                      <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
+                      <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-xl border border-[#E9EEF7] bg-white shadow-sm z-10">
                         {loadingBody ? (
                           <div className="p-2 text-sm text-gray-500">Memuat...</div>
                         ) : bodySuggestions.length === 0 ? (
@@ -872,7 +905,7 @@ export const ArmadaForm: React.FC = () => {
                             <button
                               key={`body-${name}-${idx}`}
                               type="button"
-                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
+                              className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-[#EEF3FF] text-[#1E293B]"
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => { handleInputChange('body', name); setBodyQuery(name); setShowBodyDropdown(false); }}
                             >
@@ -885,11 +918,16 @@ export const ArmadaForm: React.FC = () => {
                   </div>
 
                   <div className="relative">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    <label className="text-sm font-medium text-[#475569]">
                       Jenis Bahan Bakar *
                     </label>
                     <Select value={formData.fuel_type} onValueChange={(value) => handleInputChange('fuel_type', value)}>
-                      <SelectTrigger className={errors.fuel_type ? 'border-red-500' : ''}>
+                      <SelectTrigger
+                        className={[
+                          'mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus:ring-2 focus:ring-[#4F6BFF]/30',
+                          errors.fuel_type ? 'border-red-500' : '',
+                        ].join(' ')}
+                      >
                         <SelectValue placeholder={loadingFuelTypes ? 'Memuat...' : 'Pilih Bahan Bakar'} />
                       </SelectTrigger>
                       <SelectContent>
@@ -913,7 +951,7 @@ export const ArmadaForm: React.FC = () => {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    <label className="text-sm font-medium text-[#475569]">
                       Titik Jemput
                     </label>
                     <div className="space-y-2">
@@ -941,9 +979,10 @@ export const ArmadaForm: React.FC = () => {
                           onBlur={() => {
                             window.setTimeout(() => setShowCityDropdown(false), 150);
                           }}
+                          className="h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                         />
                         {showCityDropdown && (
-                          <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white z-10">
+                          <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-xl border border-[#E9EEF7] bg-white shadow-sm z-10">
                             {loadingCities ? (
                               <div className="p-2 text-sm text-gray-500">Memuat...</div>
                             ) : cities.length === 0 ? (
@@ -958,7 +997,7 @@ export const ArmadaForm: React.FC = () => {
                                 <button
                                   key={`${city.name}-${city.id}-${idx}`}
                                   type="button"
-                                  className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-gray-100 text-gray-900"
+                                  className="w-full text-left px-3 py-2 text-sm bg-white hover:bg-[#EEF3FF] text-[#1E293B]"
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => {
                                     const exists = formData.pickupPoints.some((p) => p.id === city.id);
@@ -978,7 +1017,7 @@ export const ArmadaForm: React.FC = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          className="bg-transparent hover:bg-transparent"
+                          className="h-11 rounded-xl border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
                           onClick={addPickupPoint}
                         >
                           <Plus className="h-4 w-4" />
@@ -987,7 +1026,7 @@ export const ArmadaForm: React.FC = () => {
                       {formData.pickupPoints.length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {formData.pickupPoints.map((point, index) => (
-                            <Badge key={index} variant="secondary" className="flex items-center space-x-1">
+                            <Badge key={index} variant="secondary" className="flex items-center gap-1 rounded-full bg-[#EEF3FF] text-[#1E293B]">
                               <span>{point.name}</span>
                               <X
                                 className="h-3 w-3 cursor-pointer"
@@ -1003,65 +1042,65 @@ export const ArmadaForm: React.FC = () => {
 
                 {/* Description - Full Width */}
                 <div className="mt-6">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  <label className="text-sm font-medium text-[#475569]">
                     Deskripsi *
                   </label>
-                  <div className="border rounded-md">
-                    <div className="flex items-center space-x-2 p-2 border-b bg-gray-50 dark:bg-gray-800">
+                  <div className={['mt-1 rounded-2xl border border-[#E9EEF7] bg-white overflow-hidden', errors.description ? 'border-red-500' : ''].join(' ')}>
+                    <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-2 border-b border-[#E9EEF7] bg-white/70 backdrop-blur">
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF]"
                         onClick={() => executeCommand('bold')}
                         title="Bold"
                       >
-                        <span className="font-bold text-gray-700 dark:text-gray-300">B</span>
+                        <span className="font-bold text-[#1E293B]">B</span>
                       </Button>
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF]"
                         onClick={() => executeCommand('italic')}
                         title="Italic"
                       >
-                        <span className="italic text-gray-700 dark:text-gray-300">I</span>
+                        <span className="italic text-[#1E293B]">I</span>
                       </Button>
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF]"
                         onClick={() => executeCommand('underline')}
                         title="Underline"
                       >
-                        <span className="underline text-gray-700 dark:text-gray-300">U</span>
+                        <span className="underline text-[#1E293B]">U</span>
                       </Button>
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF]"
                         onClick={() => executeCommand('insertUnorderedList')}
                         title="Bullet List"
                       >
-                        <span className="text-gray-700 dark:text-gray-300">•</span>
+                        <span className="text-[#1E293B]">•</span>
                       </Button>
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF]"
                         onClick={() => executeCommand('insertOrderedList')}
                         title="Numbered List"
                       >
-                        <span className="text-gray-700 dark:text-gray-300">1.</span>
+                        <span className="text-[#1E293B]">1.</span>
                       </Button>
-                      <div className="flex items-center space-x-1 ml-2">
-                        <Type className="h-4 w-4 text-gray-500" />
+                      <div className="flex items-center gap-1 ml-2">
+                        <Type className="h-4 w-4 text-[#64748B]" />
                         <Select onValueChange={changeFontSize}>
-                          <SelectTrigger className="h-8 w-20 text-xs">
+                          <SelectTrigger className="h-8 w-24 text-xs rounded-lg border-[#E9EEF7] bg-white">
                             <SelectValue placeholder="Size" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1073,18 +1112,21 @@ export const ArmadaForm: React.FC = () => {
                         </Select>
                       </div>
                     </div>
-                    <div
-                      ref={editorRef}
-                      contentEditable
-                      onInput={handleEditorChange}
-                      className={`min-h-[150px] p-3 border-0 resize-none focus:outline-none ${errors.description ? 'border-red-500' : ''}`}
-                      style={{ 
-                        minHeight: '150px',
-                        maxHeight: '300px',
-                        overflowY: 'auto'
-                      }}
-                      data-placeholder="Deskripsikan armada secara detail..."
-                    />
+                    <div className="relative">
+                      <div
+                        ref={editorRef}
+                        contentEditable
+                        onInput={handleEditorChange}
+                        className="min-h-[170px] max-h-[340px] overflow-y-auto scroll-smooth p-4 text-sm text-[#1E293B] focus:outline-none"
+                        data-placeholder="Deskripsikan armada secara detail..."
+                      />
+                      <div className="pointer-events-none absolute bottom-2 right-3 text-[11px] text-[#64748B]">
+                        {descriptionCharCount}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-[#64748B]">
+                    Tips: Tulis deskripsi singkat namun jelas, termasuk kapasitas, fasilitas, dan keunggulan armada.
                   </div>
                   {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
                 </div>
@@ -1092,17 +1134,14 @@ export const ArmadaForm: React.FC = () => {
             </Card>
 
             {/* Features - Full Width */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Fasilitas</span>
-                  <Button type="button" variant="outline" size="sm" className="bg-transparent hover:bg-transparent" onClick={addFeature}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Tambah Fasilitas
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+              <CardHeaderWithBadge
+                badgeIcon={Tags}
+                title="Fasilitas Armada"
+                subtitle="Fasilitas kabin dan pelayanan armada."
+              />
+              <div className="h-px bg-[#E9EEF7]" />
+              <CardContent className="px-5 py-5">
                 <div className="space-y-3">
                   {formData.features.map((feature, index) => (
                     <div key={index} className="flex items-center space-x-2">
@@ -1110,14 +1149,14 @@ export const ArmadaForm: React.FC = () => {
                         value={feature}
                         onChange={(e) => updateFeature(index, e.target.value)}
                         placeholder="Masukkan fasilitas"
-                        className="flex-1"
+                        className="flex-1 h-11 rounded-full border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                       />
                       {formData.features.length > 1 && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="bg-transparent hover:bg-transparent"
+                          className="rounded-full hover:bg-[#EEF3FF]"
                           onClick={() => removeFeature(index)}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
@@ -1130,22 +1169,32 @@ export const ArmadaForm: React.FC = () => {
             </Card>
 
             {/* Rental Prices - Full Width */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Harga Sewa</span>
-                  <Button type="button" variant="outline" size="sm" className="bg-transparent hover:bg-transparent" onClick={addRentalPrice}>
+            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+              <CardHeaderWithBadge
+                className="px-5 py-4"
+                badgeIcon={Layers}
+                title="Harga Sewa"
+                subtitle="Kelola durasi dan harga sewa untuk armada ini."
+                actions={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+                    onClick={addRentalPrice}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Tambah Durasi
                   </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                }
+              />
+              <div className="h-px bg-[#E9EEF7]" />
+              <CardContent className="px-5 py-5 space-y-4">
                 {formData.rentalPrices.map((price, index) => (
-                  <div key={index} className="border rounded-lg p-4">
+                  <div key={index} className="rounded-2xl border border-[#E9EEF7] bg-white p-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <label className="text-sm font-medium text-[#475569]">
                           Durasi
                         </label>
                         <div className="flex space-x-2">
@@ -1153,13 +1202,13 @@ export const ArmadaForm: React.FC = () => {
                             value={price.duration}
                             onChange={(e) => updateRentalPrice(index, 'duration', e.target.value)}
                             placeholder="1"
-                            className="flex-1"
+                            className="flex-1 mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                           />
                           <Select
                             value={price.unit || 'hari'}
                             onValueChange={(value) => updateRentalPrice(index, 'unit', value)}
                           >
-                            <SelectTrigger className="w-28">
+                            <SelectTrigger className="w-28 mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white">
                               <SelectValue placeholder="Satuan" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1172,14 +1221,14 @@ export const ArmadaForm: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <label className="text-sm font-medium text-[#475569]">
                           Jenis Sewa
                         </label>
                         <Select 
                           value={String(price.type)} 
                           onValueChange={(value) => updateRentalPrice(index, 'type', parseInt(value) || 0)}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white">
                             <SelectValue placeholder="Pilih jenis sewa" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1190,7 +1239,7 @@ export const ArmadaForm: React.FC = () => {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <label className="text-sm font-medium text-[#475569]">
                           Harga (Rp)
                         </label>
                         <div className="flex items-center space-x-2">
@@ -1199,14 +1248,14 @@ export const ArmadaForm: React.FC = () => {
                             value={price.price.toLocaleString()}
                             onChange={(e) => updateRentalPrice(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
                             placeholder="200,000"
-                            className="flex-1"
+                            className="flex-1 mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                           />
                           {formData.rentalPrices.length > 1 && (
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="bg-transparent hover:bg-transparent"
+                              className="mt-1 rounded-full hover:bg-[#EEF3FF]"
                               onClick={() => removeRentalPrice(index)}
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
@@ -1221,42 +1270,54 @@ export const ArmadaForm: React.FC = () => {
             </Card>
 
             {/* Addon Packages - Full Width */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Paket Addon</span>
-                  <Button type="button" variant="outline" size="sm" className="bg-transparent hover:bg-transparent" onClick={addAddon}>
+            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+              <CardHeaderWithBadge
+                className="px-5 py-4"
+                badgeIcon={Package2}
+                title="Paket Addon"
+                subtitle="Tambahkan layanan tambahan beserta harganya."
+                actions={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+                    onClick={addAddon}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Tambah Addon
                   </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                }
+              />
+              <div className="h-px bg-[#E9EEF7]" />
+              <CardContent className="px-5 py-5 space-y-4">
                 {formData.addons.map((addon, index) => (
-                  <div key={index} className="border rounded-lg p-4">
+                  <div key={index} className="rounded-2xl border border-[#E9EEF7] bg-white p-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <label className="text-sm font-medium text-[#475569]">
                           Nama Addon
                         </label>
                         <Input
                           value={addon.name}
                           onChange={(e) => updateAddon(index, 'name', e.target.value)}
                           placeholder="Contoh: Driver"
+                          className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <label className="text-sm font-medium text-[#475569]">
                           Deskripsi
                         </label>
                         <Input
                           value={addon.description}
                           onChange={(e) => updateAddon(index, 'description', e.target.value)}
                           placeholder="Contoh: Driver profesional"
+                          className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <label className="text-sm font-medium text-[#475569]">
                           Harga Tambahan (Rp)
                         </label>
                         <div className="flex items-center space-x-2">
@@ -1265,14 +1326,14 @@ export const ArmadaForm: React.FC = () => {
                             value={addon.price.toLocaleString()}
                             onChange={(e) => updateAddon(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
                             placeholder="100,000"
-                            className="flex-1"
+                            className="flex-1 mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                           />
                           {formData.addons.length > 1 && (
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="bg-transparent hover:bg-transparent"
+                              className="mt-1 rounded-full hover:bg-[#EEF3FF]"
                               onClick={() => removeAddon(index)}
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
@@ -1285,44 +1346,22 @@ export const ArmadaForm: React.FC = () => {
                 ))}
               </CardContent>
             </Card>
-
-            <div className="flex flex-col sm:flex-row gap-2 justify-start">
-              {isEdit && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                  onClick={handleInactive}
-                  disabled={saving || formData.status === 'inactive'}
-                >
-                  Nonaktifkan Armada
-                </Button>
-              )}
-              <Button
-                type="submit"
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={saving}
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Armada'}
-              </Button>
-            </div>
           </div>
 
           {/* Right Column: Images & Status */}
           <div className="space-y-6">
           {/* Thumbnail */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Thumbnail</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+            <CardHeaderWithBadge
+              className="px-5 py-4"
+              badgeIcon={ImageIcon}
+              title="Thumbnail"
+              subtitle="Unggah gambar utama untuk tampilan armada."
+            />
+            <div className="h-px bg-[#E9EEF7]" />
+            <CardContent className="px-5 py-5">
               <div className="space-y-4">
-                <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
+                <div className="relative rounded-2xl border-2 border-dashed border-[#E9EEF7] bg-white p-4 text-center transition-colors hover:bg-[#EEF3FF]/40">
                   {formData.thumbnail ? (
                     <div className="relative aspect-video w-full overflow-hidden rounded-lg">
                       <img src={formData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
@@ -1330,7 +1369,7 @@ export const ArmadaForm: React.FC = () => {
                         type="button"
                         variant="destructive"
                         size="icon"
-                        className="absolute top-2 right-2 h-8 w-8"
+                        className="absolute top-2 right-2 h-8 w-8 rounded-xl"
                         onClick={removeThumbnail}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1343,8 +1382,11 @@ export const ArmadaForm: React.FC = () => {
                     </div>
                   ) : (
                     <label className="cursor-pointer block p-8">
-                      <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-500">Klik untuk upload thumbnail (Wajib)</span>
+                      <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-[#EEF3FF] flex items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-[#4F6BFF]" />
+                      </div>
+                      <div className="text-sm font-medium text-[#1E293B]">Upload thumbnail</div>
+                      <div className="mt-1 text-xs text-[#64748B]">Drag & drop atau klik untuk memilih file (JPG/PNG)</div>
                       <input type="file" className="hidden" accept="image/*" onChange={handleThumbnailUpload} />
                     </label>
                   )}
@@ -1356,11 +1398,20 @@ export const ArmadaForm: React.FC = () => {
           </Card>
 
           {/* Gallery */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Galeri ({uploads.length}/10)</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+            <CardHeaderWithBadge
+              className="px-5 py-4"
+              badgeIcon={Upload}
+              title="Galeri"
+              subtitle="Kelola foto galeri untuk memperkaya tampilan armada."
+              actions={
+                <Badge variant="outline" className="border-[#E9EEF7] bg-white text-[#64748B]">
+                  {uploads.length}/10
+                </Badge>
+              }
+            />
+            <div className="h-px bg-[#E9EEF7]" />
+            <CardContent className="px-5 py-5">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {uploads.map((item, index) => (
                   <div key={index} className="relative aspect-square rounded overflow-hidden group">
@@ -1386,10 +1437,13 @@ export const ArmadaForm: React.FC = () => {
               </div>
               
               {uploads.length < 10 && (
-                <label className="flex items-center justify-center w-full p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50">
+                <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-[#E9EEF7] rounded-2xl cursor-pointer hover:bg-[#EEF3FF]/40 transition-colors">
                   <div className="flex flex-col items-center">
-                    <Upload className="h-6 w-6 text-gray-400 mb-1" />
-                    <span className="text-xs text-gray-500">Upload Foto</span>
+                    <div className="h-10 w-10 rounded-2xl bg-[#EEF3FF] flex items-center justify-center mb-2">
+                      <Upload className="h-5 w-5 text-[#4F6BFF]" />
+                    </div>
+                    <span className="text-sm font-medium text-[#1E293B]">Upload foto</span>
+                    <span className="mt-1 text-xs text-[#64748B]">Maks. 10 foto • JPG/PNG</span>
                   </div>
                   <input 
                     type="file" 
@@ -1404,13 +1458,17 @@ export const ArmadaForm: React.FC = () => {
           </Card>
 
             {/* Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Status Publikasi</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+              <CardHeaderWithBadge
+                className="px-5 py-4"
+                badgeIcon={SlidersHorizontal}
+                title="Status Publikasi"
+                subtitle="Atur visibilitas armada untuk publik maupun internal."
+              />
+              <div className="h-px bg-[#E9EEF7]" />
+              <CardContent className="px-5 py-5">
                 <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full h-11 rounded-xl border-[#E9EEF7] bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1418,12 +1476,54 @@ export const ArmadaForm: React.FC = () => {
                     <SelectItem value="inactive">Hanya Internal</SelectItem>
                   </SelectContent>
                 </Select>
+                <div className="mt-2 text-xs text-[#64748B]">
+                  Publish akan menampilkan armada ke publik. Hanya Internal untuk kebutuhan internal.
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
 
       </form>
+
+      <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-40">
+        <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70 px-3 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:justify-end">
+            {isEdit ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto rounded-full border-amber-200 bg-white text-amber-700 hover:bg-amber-50"
+                onClick={handleInactive}
+                disabled={saving || formData.status === 'inactive'}
+              >
+                Nonaktifkan Armada
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+              onClick={onCancel}
+              disabled={saving}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto rounded-full bg-gradient-to-r from-[#4F6BFF] to-[#295BFF] text-white shadow-[0_10px_24px_-14px_rgba(79,107,255,0.75)] hover:shadow-[0_16px_32px_-18px_rgba(79,107,255,0.9)] transition-all"
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Armada'}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

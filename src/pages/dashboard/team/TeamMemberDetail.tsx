@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, IdCard, Pencil, Trash2, UserRound } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api, toFileUrl } from '@/lib/api';
 import avatarFallback from '@/assets/general/avatar.svg';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 type EmployeeDetailData = {
@@ -197,10 +197,12 @@ export const TeamMemberDetail: React.FC = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Profil</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardHeaderWithBadge
+          badgeIcon={UserRound}
+          title="Profil"
+          subtitle="Ringkasan informasi karyawan."
+        />
+        <CardContent className="pt-6">
           {loading ? (
             <div className="animate-pulse flex items-center gap-4">
               <div className="h-16 w-16 rounded-full bg-gray-200 dark:bg-gray-700" />
@@ -236,10 +238,12 @@ export const TeamMemberDetail: React.FC = () => {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Informasi Karyawan</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardHeaderWithBadge
+          badgeIcon={IdCard}
+          title="Informasi Karyawan"
+          subtitle="Detail identitas dan data administrasi karyawan."
+        />
+        <CardContent className="pt-6">
           {loading ? (
             <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (

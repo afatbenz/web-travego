@@ -4,31 +4,42 @@ import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
 import {
   ArrowLeft,
   Ban,
+  Calendar as CalendarIcon,
+  CalendarDays,
   Check,
-  Clock,
+  CheckCircle2,
   Download,
   Edit,
   Eye,
+  FileText,
   Image as ImageIcon,
+  LayoutGrid,
   Loader2,
   MoreVertical,
   RectangleHorizontal,
   RectangleVertical,
-  Route,
   Sparkles,
   Square,
   Star,
+  Tag,
+  TrendingDown,
+  TrendingUp,
   Trash2,
   MessageCircleMore,
+  XCircle,
 } from 'lucide-react';
 import { ImagePopup } from '@/components/common/ImagePopup';
 import { format } from 'date-fns';
@@ -52,6 +63,7 @@ type FleetMeta = {
   updated_by?: string;
   description?: string;
   rating?: number;
+  total_ulasan?: number;
 };
 
 type FleetPickup = { uuid: string; city_id: number; city_name: string };
@@ -77,6 +89,18 @@ type FleetReview = {
   order_id: string;
 };
 
+type FleetScheduleAvailableUnit = {
+  vehicle_id: string;
+  plate_number: string;
+  capacity: number;
+};
+
+type FleetScheduleRow = {
+  date: string;
+  available: boolean;
+  available_units: FleetScheduleAvailableUnit[];
+};
+
 type FleetDetailData = {
   meta: FleetMeta;
   facilities: string[];
@@ -85,6 +109,13 @@ type FleetDetailData = {
   pricing: FleetPricing[];
   images: FleetImageItem[];
   reviews: FleetReview[];
+};
+
+type RevenueSummary = {
+  current: { totalBooking: number; totalRevenue: number };
+  previous?: { totalBooking: number; totalRevenue: number };
+  currentLabel: string;
+  previousLabel?: string;
 };
 
 export const FleetDetail: React.FC = () => {
@@ -97,7 +128,7 @@ export const FleetDetail: React.FC = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'pricing' | 'review'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'pricing' | 'schedule' | 'review'>('info');
 
   const [unitsLoading, setUnitsLoading] = useState(false);
   const [units, setUnits] = useState<FleetUnitRow[]>([]);
@@ -109,6 +140,56 @@ export const FleetDetail: React.FC = () => {
   const [customText, setCustomText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+
+  const startOfDay = (d: Date) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  };
+
+  const endOfDay = (d: Date) => {
+    const x = new Date(d);
+    x.setHours(23, 59, 59, 999);
+    return x;
+  };
+
+  const normalizeRange = (range: DateRange | undefined) => {
+    if (!range?.from) return { start: null as Date | null, end: null as Date | null };
+    const from = startOfDay(range.from);
+    const to = endOfDay(range.to ?? range.from);
+    return { start: from, end: to };
+  };
+
+  const toYmd = (d: Date | null) => {
+    if (!d || isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const formatDdMmmYyFromDate = (d: Date) => {
+    const formatted = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
+    return formatted.replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
+  };
+
+  const [scheduleRange, setScheduleRange] = useState<DateRange | undefined>(() => {
+    const from = startOfDay(new Date());
+    const to = new Date(from);
+    to.setDate(from.getDate() + 19);
+    return { from, to };
+  });
+  const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleRows, setScheduleRows] = useState<FleetScheduleRow[]>([]);
+  const [schedulePage, setSchedulePage] = useState(1);
+  const scheduleItemsPerPage = 10;
+  const [scheduleUnitsOpen, setScheduleUnitsOpen] = useState(false);
+  const [scheduleUnitsDate, setScheduleUnitsDate] = useState('');
+  const [scheduleUnits, setScheduleUnits] = useState<FleetScheduleAvailableUnit[]>([]);
+
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [revenueSummary, setRevenueSummary] = useState<RevenueSummary | null>(null);
 
   const filteredUnits = useMemo(() => {
     const q = unitSearch.trim().toLowerCase();
@@ -185,6 +266,12 @@ export const FleetDetail: React.FC = () => {
           description: typeof (meta as { description?: unknown })?.description === 'string' ? (meta as { description?: unknown }).description as string : '',
           rating: typeof (meta as { rating?: unknown })?.rating === 'number' ? (meta as { rating?: unknown }).rating as number : 0,
           capacities: typeof (meta as { capacities?: unknown })?.capacities === 'string' ? (meta as { capacities?: unknown }).capacities as string : '',
+          total_ulasan: getNumber(
+            (meta as Record<string, unknown>)?.total_ulasan ??
+              (meta as Record<string, unknown>)?.totalUlasan ??
+              (meta as Record<string, unknown>)?.total_reviews ??
+              (meta as Record<string, unknown>)?.totalReviews
+          ),
         };
 
         const facilitiesArr = Array.isArray(facilities) ? (facilities as unknown[]).map((x) => (typeof x === 'string' ? x : '')).filter((x) => x) : [];
@@ -244,7 +331,7 @@ export const FleetDetail: React.FC = () => {
           .filter((v): v is FleetReview => Boolean(v));
 
         setFleet({
-          meta: metaObj,
+          meta: { ...metaObj, total_ulasan: metaObj.total_ulasan || reviewsArr.length },
           facilities: facilitiesArr,
           pickup: pickupArr,
           addon: Array.isArray(addon) ? addon : [],
@@ -257,6 +344,147 @@ export const FleetDetail: React.FC = () => {
     };
     load();
   }, [id, reloadNonce]);
+
+  useEffect(() => {
+    const loadSchedule = async () => {
+      const fleetId = fleet?.meta?.fleet_id;
+      if (!fleetId) return;
+      const r = normalizeRange(scheduleRange);
+      if (!r.start || !r.end) return;
+      setSchedulePage(1);
+      setScheduleLoading(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const headers = token ? { Authorization: token } : undefined;
+        const payload = { fleet_id: fleetId, start_date: toYmd(r.start), end_date: toYmd(r.end) };
+        const res = await api.post<unknown>('/services/schedule/daily-availibility/fleet', payload, headers);
+        if (res.status === 'success') {
+          const record = (v: unknown): Record<string, unknown> =>
+            v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+          const getString = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+          const getNumber = (v: unknown) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+          };
+
+          const root = record(res.data as unknown);
+          const dataNode = root.data ?? root;
+          const dataObj = record(dataNode);
+          const deep = record(dataObj.data);
+          const schedulesNode =
+            (Array.isArray(dataObj.schedules) ? (dataObj.schedules as unknown[]) : undefined) ??
+            (Array.isArray(deep.schedules) ? (deep.schedules as unknown[]) : undefined) ??
+            [];
+
+          const mapped = schedulesNode
+            .map((raw) => {
+              const obj = record(raw);
+              const date = getString(obj.date ?? obj.schedule_date ?? obj.day ?? obj.start_date).trim();
+              const availableRaw = obj.available ?? obj.is_available ?? obj.status;
+              const available =
+                typeof availableRaw === 'boolean'
+                  ? availableRaw
+                  : availableRaw === 1 || availableRaw === '1'
+                    ? true
+                    : availableRaw === 0 || availableRaw === '0'
+                      ? false
+                      : Boolean(availableRaw);
+              const unitsNode = Array.isArray(obj.available_units) ? (obj.available_units as unknown[]) : [];
+              const available_units = unitsNode
+                .map((u) => {
+                  const uo = record(u);
+                  const vehicle_id = getString(uo.vehicle_id ?? uo.vehicleId ?? uo.id).trim();
+                  const plate_number = getString(uo.plate_number ?? uo.plateNumber ?? uo.plate).trim();
+                  const capacity = getNumber(uo.capacity ?? uo.seat ?? uo.seats);
+                  if (!vehicle_id && !plate_number) return null;
+                  return { vehicle_id: vehicle_id || '-', plate_number: plate_number || '-', capacity } satisfies FleetScheduleAvailableUnit;
+                })
+                .filter((v): v is FleetScheduleAvailableUnit => Boolean(v));
+              if (!date) return null;
+              return { date, available, available_units } satisfies FleetScheduleRow;
+            })
+            .filter((v): v is FleetScheduleRow => Boolean(v));
+
+          setScheduleRows(mapped);
+        } else {
+          setScheduleRows([]);
+        }
+      } finally {
+        setScheduleLoading(false);
+      }
+    };
+
+    loadSchedule();
+  }, [fleet?.meta?.fleet_id, scheduleRange]);
+
+  useEffect(() => {
+    const loadRevenue = async () => {
+      const fleetId = fleet?.meta?.fleet_id;
+      if (!fleetId) return;
+      setRevenueLoading(true);
+      try {
+        const now = new Date();
+        const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const currentLabel = format(currentMonthDate, 'MMMM yyyy', { locale: idLocale });
+        const previousLabel = format(prevMonthDate, 'MMMM yyyy', { locale: idLocale });
+        const token = localStorage.getItem('token') ?? '';
+        const headers = token ? { Authorization: token } : undefined;
+        const res = await api.post<unknown>('/services/fleet/revenue', { fleet_id: fleetId, period }, headers);
+        if (res.status !== 'success') {
+          setRevenueSummary(null);
+          return;
+        }
+
+        const record = (v: unknown): Record<string, unknown> =>
+          v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+        const getNumber = (v: unknown) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        const payload = res.data as unknown;
+        const root = record(payload);
+        const list = (Array.isArray(root.data) ? (root.data as unknown[]) : Array.isArray(payload) ? (payload as unknown[]) : []) as unknown[];
+        const first = list.length > 0 ? record(list[0]) : {};
+        const second = list.length > 1 ? record(list[1]) : null;
+        const current = {
+          totalBooking: getNumber(first.total_booking ?? first.totalBooking ?? first.booking_total ?? first.bookingTotal),
+          totalRevenue: getNumber(first.total_revenue ?? first.totalRevenue ?? first.revenue_total ?? first.revenueTotal),
+        };
+        const previous = second
+          ? {
+              totalBooking: getNumber(second.total_booking ?? second.totalBooking ?? second.booking_total ?? second.bookingTotal),
+              totalRevenue: getNumber(second.total_revenue ?? second.totalRevenue ?? second.revenue_total ?? second.revenueTotal),
+            }
+          : undefined;
+        setRevenueSummary({
+          current,
+          previous,
+          currentLabel,
+          previousLabel: previous ? previousLabel : undefined,
+        });
+      } finally {
+        setRevenueLoading(false);
+      }
+    };
+
+    loadRevenue();
+  }, [fleet?.meta?.fleet_id]);
+
+  const scheduleRangeLabel =
+    scheduleRange?.from && scheduleRange?.to
+      ? `${formatDdMmmYyFromDate(scheduleRange.from)} - ${formatDdMmmYyFromDate(scheduleRange.to)}`
+      : scheduleRange?.from
+        ? `${formatDdMmmYyFromDate(scheduleRange.from)} - ...`
+        : 'Pilih rentang tanggal';
+
+  const scheduleTotalPages = Math.max(1, Math.ceil(scheduleRows.length / scheduleItemsPerPage));
+  const schedulePageSafe = Math.min(schedulePage, scheduleTotalPages);
+  const schedulePageStart = (schedulePageSafe - 1) * scheduleItemsPerPage;
+  const schedulePageEnd = schedulePageStart + scheduleItemsPerPage;
+  const scheduleCurrent = scheduleRows.slice(schedulePageStart, schedulePageEnd);
 
   useEffect(() => {
     const loadUnits = async () => {
@@ -447,13 +675,6 @@ export const FleetDetail: React.FC = () => {
     ...fleet.images.map((x) => x.path_file),
   ].filter((x, i, arr) => Boolean(x) && arr.indexOf(x) === i);
 
-  const metrics = [
-    { key: 'totalTrips', label: 'Total Perjalanan', value: '0', icon: Route },
-    { key: 'lastTrip', label: 'Perjalanan Terakhir', value: '-', icon: Clock },
-    { key: 'rating', label: 'Rating', value: fleet.meta.rating ?? '0', icon: Star },
-    { key: 'review', label: 'Total Ulasan', value: fleet.reviews.length.toString() ?? '-', icon: MessageCircleMore },
-  ] as const;
-
   const unitOwnership = (value?: string) => {
     const raw = (value ?? '').toLowerCase();
     if (raw.includes('in-house') || raw.includes('owned') || raw.includes('milik')) return { label: 'In-House', tone: 'green' as const };
@@ -597,34 +818,139 @@ export const FleetDetail: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-500">Total Pesanan</div>
+                    <div className="mt-1 text-xs text-gray-400">{revenueSummary?.currentLabel || '-'}</div>
+                  </div>
+                  {!revenueLoading && revenueSummary?.previous && revenueSummary.previous.totalBooking > 0 ? (
+                    (() => {
+                      const cur = revenueSummary.current.totalBooking;
+                      const prev = revenueSummary.previous?.totalBooking ?? 0;
+                      const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
+                      const up = pct >= 0;
+                      const Icon = up ? TrendingUp : TrendingDown;
+                      return (
+                        <div
+                          className={clsx(
+                            'shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold',
+                            up ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {`${Math.abs(pct).toFixed(0)}%`}
+                        </div>
+                      );
+                    })()
+                  ) : null}
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-gray-900">
+                  {revenueLoading ? <Skeleton className="h-7 w-24" /> : String(revenueSummary?.current.totalBooking ?? 0)}
+                </div>
+                {!revenueLoading && revenueSummary?.previous ? (
+                  <div className="mt-2 text-xs text-gray-500">
+                    {(revenueSummary.previousLabel || '') + ':'} {String(revenueSummary.previous.totalBooking)} pesanan
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-500">Total Pendapatan</div>
+                    <div className="mt-1 text-xs text-gray-400">{revenueSummary?.currentLabel || '-'}</div>
+                  </div>
+                  {!revenueLoading && revenueSummary?.previous && revenueSummary.previous.totalRevenue > 0 ? (
+                    (() => {
+                      const cur = revenueSummary.current.totalRevenue;
+                      const prev = revenueSummary.previous?.totalRevenue ?? 0;
+                      const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
+                      const up = pct >= 0;
+                      const Icon = up ? TrendingUp : TrendingDown;
+                      return (
+                        <div
+                          className={clsx(
+                            'shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold',
+                            up ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {`${Math.abs(pct).toFixed(0)}%`}
+                        </div>
+                      );
+                    })()
+                  ) : null}
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-blue-600">
+                  {revenueLoading ? <Skeleton className="h-7 w-40" /> : formatCurrency(revenueSummary?.current.totalRevenue ?? 0)}
+                </div>
+                {!revenueLoading && revenueSummary?.previous ? (
+                  <div className="mt-2 text-xs text-gray-500">
+                    {(revenueSummary.previousLabel || '') + ':'} {formatCurrency(revenueSummary.previous.totalRevenue)}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-500">Ulasan</div>
+                    <div className="mt-1 text-xs text-gray-400">Sepanjang waktu</div>
+                    <div className="mt-2 text-2xl font-semibold text-gray-900">
+                      {Number(fleet.meta.rating ?? 0).toFixed(1)}
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">{Number(fleet.meta.total_ulasan ?? 0)} ulasan</div>
+                  </div>
+                  <div className="shrink-0 h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center">
+                    <Star className="h-5 w-5 text-amber-500" fill="currentColor" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm hover:shadow-md transition-shadow">
               <div className="px-4 sm:px-5 pt-4 sm:pt-5">
-                <div className="relative flex items-center gap-6 border-b border-gray-200/70">
-                  {([
-                    { key: 'info', label: 'Informasi Armada' },
-                    { key: 'units', label: 'Armada' },
-                    { key: 'pricing', label: 'Harga Sewa' },
-                    { key: 'review', label: 'Ulasan' },
-                  ] as const).map((t) => {
-                    const isTabActive = activeTab === t.key;
-                    return (
-                      <button
-                        key={t.key}
-                        type="button"
-                        onClick={() => setActiveTab(t.key)}
-                        className={clsx('relative py-3 text-sm font-medium transition-colors', isTabActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700')}
-                      >
-                        {t.label}
-                        {isTabActive ? (
-                          <motion.div
-                            layoutId="fleet-detail-tab-underline"
-                            className="absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600"
-                            transition={{ duration: 0.2 }}
-                          />
-                        ) : null}
-                      </button>
-                    );
-                  })}
+                <div className="border-b border-gray-200/70 pb-4">
+                  <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
+                    <div className="flex items-center gap-1.5 overflow-x-auto scroll-smooth">
+                      {([
+                        { key: 'info', label: 'Informasi Armada', icon: FileText },
+                        { key: 'units', label: 'Armada', icon: LayoutGrid },
+                        { key: 'pricing', label: 'Harga Sewa', icon: Tag },
+                        { key: 'schedule', label: 'Jadwal Armada', icon: CalendarDays },
+                        { key: 'review', label: 'Ulasan', icon: MessageCircleMore },
+                      ] as const).map((t) => {
+                        const isTabActive = activeTab === t.key;
+                        const Icon = t.icon;
+                        return (
+                          <button
+                            key={t.key}
+                            type="button"
+                            onClick={() => setActiveTab(t.key)}
+                            className={clsx(
+                              'relative isolate inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200',
+                              'outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BFF]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                              isTabActive
+                                ? 'text-white shadow-sm'
+                                : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] hover:-translate-y-[1px]'
+                            )}
+                          >
+                            {isTabActive ? (
+                              <motion.span
+                                layoutId="fleet-detail-active-pill"
+                                className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-[#4F6BFF] to-[#295BFF] shadow-[0_10px_24px_-14px_rgba(79,107,255,0.75)] ring-1 ring-white/30"
+                                transition={{ duration: 0.25 }}
+                              />
+                            ) : null}
+                            <Icon className={clsx('h-4 w-4', isTabActive ? 'text-white' : 'text-[#64748B]')} />
+                            <span className="whitespace-nowrap">{t.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -693,25 +1019,6 @@ export const FleetDetail: React.FC = () => {
                           )}
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {metrics.map((m) => {
-                          const Icon = m.icon;
-                          return (
-                            <div key={m.key} className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="space-y-1 min-w-0">
-                                  <div className="text-xs text-gray-500">{m.label}</div>
-                                  <div className="text-lg sm:text-xl font-semibold text-blue-600 truncate">{m.value}</div>
-                                </div>
-                                <div className="shrink-0 h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
-                                  <Icon className="h-5 w-5 text-blue-600" />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
                     </motion.div>
                   ) : activeTab === 'units' ? (
                     <motion.div
@@ -746,7 +1053,6 @@ export const FleetDetail: React.FC = () => {
                               <TableHead className="text-center">Capacity</TableHead>
                               <TableHead>Ownership</TableHead>
                               <TableHead>Status</TableHead>
-                              <TableHead className="text-right pr-4">Action</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -776,7 +1082,7 @@ export const FleetDetail: React.FC = () => {
                                       {u.vehicle_id ? (
                                         <Link
                                           to={`${basePrefix}/fleet-units/detail/${encodeURIComponent(u.id)}`}
-                                          className="text-blue-600 hover:underline"
+                                          className="text-blue-600 hover:no-underline hover:text-bold"
                                         >
                                           {u.vehicle_id}
                                         </Link>
@@ -803,19 +1109,7 @@ export const FleetDetail: React.FC = () => {
                                         {st.label}
                                       </span>
                                     </TableCell>
-                                    <TableCell className="text-right pr-4">
-                                      <div className="inline-flex items-center gap-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="bg-white border-gray-200/70 hover:bg-white"
-                                          onClick={() => navigate(`${basePrefix}/fleet-units/detail/${encodeURIComponent(u.id)}`)}
-                                        >
-                                          <Eye className="h-4 w-4 mr-2" />
-                                          Detail
-                                        </Button>
-                                      </div>
-                                    </TableCell>
+                                    
                                   </TableRow>
                                 );
                               })
@@ -950,6 +1244,178 @@ export const FleetDetail: React.FC = () => {
                         </div>
                       )}
                     </motion.div>
+                  ) : activeTab === 'schedule' ? (
+                    <motion.div
+                      key="schedule"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="pt-4 space-y-4"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-gray-900">Jadwal Armada</div>
+                          <div className="mt-1 text-xs text-gray-500">{scheduleRows.length} data</div>
+                        </div>
+                        <div className="w-full md:max-w-sm">
+                          <div className="text-xs text-gray-500 mb-1">Tanggal</div>
+                          <Popover
+                            open={schedulePickerOpen}
+                            onOpenChange={(next) => {
+                              if (!next) {
+                                const r = scheduleRange;
+                                if (r?.from && !r?.to) {
+                                  setSchedulePickerOpen(true);
+                                  return;
+                                }
+                              }
+                              setSchedulePickerOpen(next);
+                            }}
+                          >
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start font-normal h-10 bg-white border-gray-200/70 hover:bg-white">
+                                <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
+                                {scheduleRangeLabel}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end">
+                              <Calendar
+                                mode="range"
+                                numberOfMonths={1}
+                                selected={scheduleRange}
+                                onSelect={(range) => {
+                                  setScheduleRange(range);
+                                  if (range?.from && range?.to) {
+                                    setSchedulePickerOpen(false);
+                                  } else {
+                                    setSchedulePickerOpen(true);
+                                  }
+                                }}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+
+                      <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-gray-50 hover:bg-gray-50">
+                              <TableHead className="px-4 w-14">No</TableHead>
+                              <TableHead>Tanggal</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="text-center">Jumlah Unit</TableHead>
+                              <TableHead className="text-right pr-4">Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {scheduleLoading ? (
+                              Array.from({ length: 6 }).map((_, i) => (
+                                <TableRow key={`sch-s-${i}`}>
+                                  <TableCell className="px-4">
+                                    <Skeleton className="h-4 w-6" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-40" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-28" />
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Skeleton className="h-4 w-10 mx-auto" />
+                                  </TableCell>
+                                  <TableCell className="text-right pr-4">
+                                    <Skeleton className="h-9 w-10 ml-auto" />
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : scheduleCurrent.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="py-10 text-center text-gray-500">
+                                  Tidak ada jadwal
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              scheduleCurrent.map((row, idx) => {
+                                const d = row.date ? new Date(row.date) : null;
+                                const dateLabel =
+                                  d && !isNaN(d.getTime()) ? format(d, 'dd MMMM yyyy', { locale: idLocale }) : row.date || '-';
+                                const unitCount = row.available_units?.length ?? 0;
+                                return (
+                                  <TableRow key={`${row.date}-${idx}`} className="hover:bg-gray-50">
+                                    <TableCell className="px-4 text-gray-700">{schedulePageStart + idx + 1}</TableCell>
+                                    <TableCell className="font-medium text-gray-900">{dateLabel}</TableCell>
+                                    <TableCell>
+                                      {row.available ? (
+                                        <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 inline-flex items-center gap-1.5">
+                                          <CheckCircle2 className="h-4 w-4" />
+                                          Tersedia
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700 inline-flex items-center gap-1.5">
+                                          <XCircle className="h-4 w-4" />
+                                          Tidak Tersedia
+                                        </Badge>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-center text-gray-700">{unitCount} unit</TableCell>
+                                    <TableCell className="text-right pr-4">
+                                      {unitCount > 0 ? (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="bg-white border-gray-200/70 hover:bg-white"
+                                          onClick={() => {
+                                            setScheduleUnitsDate(dateLabel);
+                                            setScheduleUnits(row.available_units);
+                                            setScheduleUnitsOpen(true);
+                                          }}
+                                        >
+                                          <Eye className="h-4 w-4" />
+                                        </Button>
+                                      ) : (
+                                        <span className="text-sm text-gray-400">-</span>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div className="text-sm text-gray-500">
+                          Menampilkan {scheduleRows.length === 0 ? 0 : schedulePageStart + 1}-{Math.min(schedulePageEnd, scheduleRows.length)} dari {scheduleRows.length}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSchedulePage((p) => Math.max(1, p - 1))}
+                            disabled={schedulePageSafe <= 1}
+                            className="bg-white border-gray-200/70 hover:bg-white"
+                          >
+                            Prev
+                          </Button>
+                          <div className="text-sm text-gray-500">
+                            {schedulePageSafe} / {scheduleTotalPages}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSchedulePage((p) => Math.min(scheduleTotalPages, p + 1))}
+                            disabled={schedulePageSafe >= scheduleTotalPages}
+                            className="bg-white border-gray-200/70 hover:bg-white"
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    </motion.div>
                   ) : (
                     <motion.div
                       key="review"
@@ -964,7 +1430,13 @@ export const FleetDetail: React.FC = () => {
                           <MessageCircleMore className="h-4 w-4 text-violet-600" />
                           Ulasan
                         </div>
-                        <div className="text-xs text-gray-500">{fleet.reviews.length} ulasan</div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-xs text-gray-500">{fleet.reviews.length} ulasan</div>
+                          <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700">
+                            <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
+                            {Number(fleet.meta.rating ?? 0).toFixed(1)}
+                          </div>
+                        </div>
                       </div>
 
                       {fleet.reviews.length === 0 ? (
@@ -1003,7 +1475,7 @@ export const FleetDetail: React.FC = () => {
                                   Order ID:{' '}
                                   <Link
                                     to={`${basePrefix}/orders/fleet/detail/${encodeURIComponent(r.order_id)}`}
-                                    className="text-blue-600 hover:underline"
+                                    className="text-blue-600 hover:no-underline hover:text-bold"
                                   >
                                     {r.order_id}
                                   </Link>
@@ -1041,6 +1513,7 @@ export const FleetDetail: React.FC = () => {
           <div className="lg:col-span-1">
             <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow">
               <div className="text-sm font-semibold text-gray-900">Galeri</div>
+              <div className='border-gray-300 mb-5 border mt-2'></div>
               <div className="mt-4 space-y-4">
                 <div className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-gray-200/70 bg-gray-50">
                   {fleet.meta.thumbnail ? (
@@ -1073,7 +1546,7 @@ export const FleetDetail: React.FC = () => {
 
                 <Button
                   variant="outline"
-                  className="w-full bg-white border-gray-200/70 hover:bg-white"
+                  className="w-full bg-white border-gray-200/70 hover:border-gray-500"
                   onClick={() => {
                     setSelectedImageIndex(0);
                     setIsPopupOpen(true);
@@ -1086,6 +1559,58 @@ export const FleetDetail: React.FC = () => {
             </div>
           </div>
         </div>
+
+      <Dialog open={scheduleUnitsOpen} onOpenChange={setScheduleUnitsOpen}>
+        <DialogContent className="max-w-lg">
+          <AnimatePresence mode="wait">
+            {scheduleUnitsOpen ? (
+              <motion.div
+                key="schedule-units-modal"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <DialogHeader>
+                  <DialogTitle>Armada Yang Tersedia</DialogTitle>
+                  <DialogDescription>{scheduleUnitsDate}</DialogDescription>
+                </DialogHeader>
+
+                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200/70">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+                        <TableHead className="px-4 w-14">No</TableHead>
+                        <TableHead>Vehicle ID</TableHead>
+                        <TableHead>Plate Number</TableHead>
+                        <TableHead className="text-center">Capacity</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {scheduleUnits.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-10 text-center text-gray-500">
+                            Tidak ada unit tersedia
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        scheduleUnits.map((u, idx) => (
+                          <TableRow key={`${u.vehicle_id}-${idx}`} className="hover:bg-gray-50">
+                            <TableCell className="px-4 text-gray-700">{idx + 1}</TableCell>
+                            <TableCell className="font-medium text-gray-900">{u.vehicle_id || '-'}</TableCell>
+                            <TableCell className="text-gray-700">{u.plate_number || '-'}</TableCell>
+                            <TableCell className="text-center text-gray-700">{u.capacity ?? 0}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </DialogContent>
+      </Dialog>
 
         <Dialog
           open={showAdModal}

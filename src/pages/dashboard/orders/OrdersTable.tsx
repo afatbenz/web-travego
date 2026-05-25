@@ -546,7 +546,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             <Button
               type="button"
               variant="link"
-              className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+              className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-900 hover:no-underline hover:text-bold dark:text-blue-300 dark:hover:text-blue-200"
               onClick={() => goToOrder(row.orderId)}
             >
               {row.orderId}
@@ -599,7 +599,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         <Button
           type="button"
           variant="link"
-          className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+          className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-900 hover:no-underline hover:text-bold dark:text-blue-300 dark:hover:text-blue-200"
           onClick={() => goToOrder(row.orderId)}
         >
           {row.orderId}

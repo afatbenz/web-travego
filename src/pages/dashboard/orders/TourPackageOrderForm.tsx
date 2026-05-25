@@ -2,14 +2,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { ArrowLeft, Check, ChevronsUpDown, Eye, Loader2, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsUpDown, Eye, ListChecks, Loader2, MapPinned, MessageSquareText, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
@@ -1062,10 +1062,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Informasi Pesanan</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={ShoppingCart}
+            title="Informasi Pesanan"
+            subtitle="Lengkapi customer, paket, dan jadwal perjalanan."
+          />
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Customer</label>
@@ -1235,10 +1237,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {showPackageSpecialRequest ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Permintaan Khusus</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeaderWithBadge
+              badgeIcon={MessageSquareText}
+              title="Permintaan Khusus"
+              subtitle="Tambahkan addon dan catatan khusus untuk paket terpilih."
+            />
+            <CardContent className="pt-6 space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Addon</label>
                 <Popover>
@@ -1326,10 +1330,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {showPackageDetailItinerary ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Itinerary</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={MapPinned}
+              title="Itinerary"
+              subtitle="Rangkuman itinerary dari paket wisata."
+            />
+            <CardContent className="pt-6">
               <div className="space-y-4">
                 {packageItineraries.map((day) => (
                   <div key={day.day} className="border-l-4 border-blue-500 pl-4">
@@ -1356,10 +1362,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {showPackageFacilities ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Fasilitas</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={ListChecks}
+              title="Fasilitas"
+              subtitle="Fasilitas yang termasuk dalam paket."
+            />
+            <CardContent className="pt-6">
               <div className="flex flex-wrap gap-2">
                 {packageFacilities.map((f) => (
                   <Badge key={f} variant="outline">
@@ -1373,9 +1381,11 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {isCustomPackage ? (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Itinerary</span>
+            <CardHeaderWithBadge
+              badgeIcon={MapPinned}
+              title="Itinerary"
+              subtitle="Susun tujuan perjalanan untuk paket custom."
+              actions={
                 <Button
                   type="button"
                   variant="outline"
@@ -1386,9 +1396,9 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                   <Plus className="h-4 w-4" />
                   Tambah Tujuan
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              }
+            />
+            <CardContent className="pt-6 space-y-3">
               {itinerary.map((row, idx) => (
                 <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-3">
                   <div className="md:col-span-6 space-y-2">
@@ -1434,10 +1444,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {isCustomPackage ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Permintaan Khusus</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={MessageSquareText}
+              title="Permintaan Khusus"
+              subtitle="Catatan tambahan untuk kebutuhan perjalanan."
+            />
+            <CardContent className="pt-6">
               <Textarea
                 value={specialRequest}
                 onChange={(e) => setSpecialRequest(e.target.value)}

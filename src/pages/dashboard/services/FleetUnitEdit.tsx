@@ -1,11 +1,28 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronsUpDown, Loader2, Save } from 'lucide-react';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Building2,
+  Calendar,
+  Check,
+  ChevronsUpDown,
+  Cpu,
+  Gauge,
+  Handshake,
+  Hash,
+  IdCard,
+  Loader2,
+  Phone,
+  Save,
+  Settings2,
+  UserRound,
+} from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -51,6 +68,34 @@ const record = (v: unknown): Record<string, unknown> =>
 const getString = (v: unknown): string =>
   typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '';
 
+const normalizeOwnershipType = (raw: string) => {
+  const key = raw.toLowerCase();
+  if (key.includes('operasional') || key.includes('kerjasama') || key.includes('partner')) return 'Kerjasama Operasional';
+  if (key.includes('milik') || key.includes('own') || key.includes('owned') || key.includes('in-house')) return 'Milik Sendiri';
+  return raw || 'Milik Sendiri';
+};
+
+type PartnerOption = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
+const normalizePartnershipOptions = (payload: unknown): PartnerOption[] => {
+  const root = record(payload);
+  const raw = Array.isArray(payload) ? (payload as unknown[]) : (Array.isArray(root.data) ? (root.data as unknown[]) : []);
+  return raw
+    .map((x) => record(x))
+    .map((it) => {
+      const id = getString(it.partner_id ?? it.id).trim();
+      const name = getString(it.partner_name ?? it.name ?? it.partner).trim();
+      const phone = getString(it.partner_phone ?? it.phone).trim();
+      if (!id || !name) return null;
+      return { id, name, phone };
+    })
+    .filter((x): x is PartnerOption => x !== null);
+};
+
 export const FleetUnitEdit: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,6 +111,11 @@ export const FleetUnitEdit: React.FC = () => {
 
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [partnerPickerOpen, setPartnerPickerOpen] = useState(false);
+  const [partnerQuery, setPartnerQuery] = useState('');
+  const [partnerLoading, setPartnerLoading] = useState(false);
+  const [partnerOptions, setPartnerOptions] = useState<PartnerOption[]>([]);
+  const partnerReqSeq = useRef(0);
 
   const [formData, setFormData] = useState({
     unit_id: '',
@@ -73,9 +123,14 @@ export const FleetUnitEdit: React.FC = () => {
     vehicle_id: '',
     plate_number: '',
     engine: '',
+    transmission: '',
     capacity: '',
     production_year: '',
-    transmission: '',
+    ownership_type: 'Milik Sendiri',
+    owner_name: '',
+    owner_contact: '',
+    owner_email: '',
+    partner_choice_id: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -87,6 +142,7 @@ export const FleetUnitEdit: React.FC = () => {
   const submitReady = useMemo(() => {
     const capacity = Number(formData.capacity);
     const year = Number(formData.production_year);
+    const needsPartnerInfo = formData.ownership_type === 'Kerjasama Operasional';
     return (
       Boolean(formData.unit_id) &&
       Boolean(formData.fleet_id) &&
@@ -97,7 +153,9 @@ export const FleetUnitEdit: React.FC = () => {
       Number.isFinite(capacity) &&
       capacity > 0 &&
       Number.isFinite(year) &&
-      year > 0
+      year > 0 &&
+      (!needsPartnerInfo ||
+        (Boolean(formData.owner_name.trim()) && Boolean(formData.owner_contact.trim()) && Boolean(formData.owner_email.trim())))
     );
   }, [formData]);
 
@@ -155,6 +213,32 @@ export const FleetUnitEdit: React.FC = () => {
   }, [formData.transmission, transmissionOptions]);
 
   useEffect(() => {
+    if (!partnerPickerOpen) return;
+    const query = partnerQuery.trim();
+    if (query.length < 3) {
+      setPartnerLoading(false);
+      setPartnerOptions([]);
+      return;
+    }
+
+    const currentSeq = ++partnerReqSeq.current;
+    const run = async () => {
+      setPartnerLoading(true);
+      const token = localStorage.getItem('token') ?? '';
+      const qs = new URLSearchParams();
+      qs.set('q', query);
+      const res = await api.get<unknown>(`/services/partnership/operations?${qs.toString()}`, token ? { Authorization: token } : undefined);
+      if (partnerReqSeq.current !== currentSeq) return;
+      if (res.status === 'success') setPartnerOptions(normalizePartnershipOptions(res.data));
+      else setPartnerOptions([]);
+      setPartnerLoading(false);
+    };
+
+    const t = window.setTimeout(() => void run(), 250);
+    return () => window.clearTimeout(t);
+  }, [partnerPickerOpen, partnerQuery]);
+
+  useEffect(() => {
     const loadDetail = async () => {
       const unitId = decodeURIComponent(unitIdParam);
       if (!unitId) return;
@@ -172,6 +256,11 @@ export const FleetUnitEdit: React.FC = () => {
         const capacity = getString(obj.capacity);
         const production_year = getString(obj.production_year ?? obj.productionYear ?? obj.year);
         const transmission = getString(obj.transmission);
+        const ownership_type = normalizeOwnershipType(getString(obj.ownership_type ?? obj.ownershipType ?? obj.owner_type ?? obj.ownerType));
+        const owner_name = getString(obj.owner_name ?? obj.ownerName ?? obj.owner ?? obj.pic_name ?? obj.picName);
+        const owner_contact = getString(obj.owner_contact ?? obj.ownerContact ?? obj.phone ?? obj.contact ?? obj.pic_phone ?? obj.picPhone);
+        const owner_email = getString(obj.owner_email ?? obj.ownerEmail ?? obj.email ?? obj.pic_email ?? obj.picEmail);
+        const partner_choice_id = getString(obj.partner_id ?? obj.partnerId);
 
         setFormData({
           unit_id,
@@ -179,9 +268,14 @@ export const FleetUnitEdit: React.FC = () => {
           vehicle_id,
           plate_number,
           engine,
+          transmission,
           capacity,
           production_year,
-          transmission,
+          ownership_type,
+          owner_name,
+          owner_contact,
+          owner_email,
+          partner_choice_id,
         });
       }
       setLoadingDetail(false);
@@ -206,6 +300,11 @@ export const FleetUnitEdit: React.FC = () => {
     if (!Number.isFinite(capacity) || capacity <= 0) next.capacity = 'Capacity harus berupa angka > 0';
     const year = Number(formData.production_year);
     if (!Number.isFinite(year) || year <= 0) next.production_year = 'Production year harus berupa angka valid';
+    if (formData.ownership_type === 'Kerjasama Operasional') {
+      if (!formData.owner_name.trim()) next.owner_name = 'Nama perusahaan wajib diisi';
+      if (!formData.owner_contact.trim()) next.owner_contact = 'Kontak perusahaan wajib diisi';
+      if (!formData.owner_email.trim()) next.owner_email = 'Owner perusahaan wajib diisi';
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -217,6 +316,9 @@ export const FleetUnitEdit: React.FC = () => {
 
     setSaving(true);
     const token = localStorage.getItem('token') ?? '';
+    const needsPartnerInfo = formData.ownership_type === 'Kerjasama Operasional';
+    const choiceId = String(formData.partner_choice_id ?? '').trim();
+    const isApiPartner = Boolean(choiceId) && !choiceId.startsWith('manual:');
     const payload = {
       unit_id: formData.unit_id,
       fleet_id: formData.fleet_id,
@@ -226,6 +328,11 @@ export const FleetUnitEdit: React.FC = () => {
       capacity: Number(formData.capacity),
       production_year: Number(formData.production_year),
       transmission: formData.transmission.trim(),
+      ownership_type: formData.ownership_type,
+      owner_name: needsPartnerInfo ? formData.owner_name.trim() : '',
+      owner_contact: needsPartnerInfo ? formData.owner_contact.trim() : '',
+      owner_email: needsPartnerInfo ? formData.owner_email.trim() : '',
+      ...(needsPartnerInfo ? (isApiPartner ? { partner_id: choiceId } : { partner_name: formData.owner_name.trim(), partner_phone: formData.owner_contact.trim() }) : {}),
     };
 
     try {
@@ -252,168 +359,499 @@ export const FleetUnitEdit: React.FC = () => {
       </div>
 
       <form onSubmit={onSubmit} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Informasi Unit</CardTitle>
+        <Card className="rounded-[28px] border border-gray-200/70 bg-white shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
+          <CardHeader className="pb-0">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                <BadgeCheck className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-xl font-semibold text-gray-900">Informasi Unit Armada</CardTitle>
+                <p className="mt-1 text-sm text-gray-600">Lengkapi detail unit armada beserta status kepemilikannya.</p>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {loadingDetail ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse">
-                {Array.from({ length: 7 }).map((_, i) => (
-                  <div key={`s-${i}`} className="space-y-2">
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32" />
-                    <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+              <div className="animate-pulse space-y-8">
+                <div className="space-y-3">
+                  <div className="h-4 w-40 rounded bg-gray-200" />
+                  <div className="h-3 w-64 rounded bg-gray-200" />
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={`s-f-${i}`} className="h-12 rounded-[18px] bg-gray-200" />
+                    ))}
+                    <div className="h-12 rounded-[18px] bg-gray-200 md:col-span-2" />
                   </div>
-                ))}
+                </div>
+                <div className="h-px w-full bg-gray-200/70" />
+                <div className="space-y-3">
+                  <div className="h-4 w-44 rounded bg-gray-200" />
+                  <div className="h-3 w-72 rounded bg-gray-200" />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="h-16 rounded-[22px] bg-gray-200" />
+                    <div className="h-16 rounded-[22px] bg-gray-200" />
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jenis Armada *</label>
-                  <Popover open={fleetPickerOpen} onOpenChange={setFleetPickerOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={fleetPickerOpen}
-                        className={cn(
-                          'w-full justify-between',
-                          !formData.fleet_id && 'text-muted-foreground',
-                          errors.fleet_id && 'border-red-500'
-                        )}
-                        disabled={loadingFleetOptions}
-                      >
-                        {loadingFleetOptions ? 'Memuat...' : selectedFleetLabel || 'Pilih jenis armada'}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Cari jenis armada..." />
-                        <CommandList>
-                          <CommandEmpty>Tidak ada hasil.</CommandEmpty>
-                          <CommandGroup>
-                            {fleetOptions.map((o) => (
-                              <CommandItem
-                                key={o.id}
-                                value={`${o.label} ${o.id}`}
-                                onSelect={() => {
-                                  setField('fleet_id', o.id);
-                                  setFleetPickerOpen(false);
-                                }}
-                              >
-                                <Check className={cn('mr-2 h-4 w-4', formData.fleet_id === o.id ? 'opacity-100' : 'opacity-0')} />
+              <div className="space-y-8">
+                <div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">Detail Unit</div>
+                      <div className="mt-0.5 text-sm text-gray-500">Informasi identitas dan spesifikasi unit.</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Jenis Armada *</label>
+                      <Popover open={fleetPickerOpen} onOpenChange={setFleetPickerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={fleetPickerOpen}
+                            className={cn(
+                              'h-12 w-full justify-between rounded-[18px] border-gray-200/70 bg-white px-4 font-normal text-gray-900 shadow-sm hover:bg-white focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                              !formData.fleet_id && 'text-gray-500',
+                              errors.fleet_id && 'border-red-500'
+                            )}
+                            disabled={loadingFleetOptions}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Hash className="h-4 w-4 text-blue-700" />
+                              <span className="truncate">
+                                {loadingFleetOptions ? 'Memuat...' : selectedFleetLabel || 'Pilih jenis armada'}
+                              </span>
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Cari jenis armada..." />
+                            <CommandList>
+                              <CommandEmpty>Tidak ada hasil.</CommandEmpty>
+                              <CommandGroup>
+                                {fleetOptions.map((o) => (
+                                  <CommandItem
+                                    key={o.id}
+                                    value={`${o.label} ${o.id}`}
+                                    onSelect={() => {
+                                      setField('fleet_id', o.id);
+                                      setFleetPickerOpen(false);
+                                    }}
+                                  >
+                                    <Check className={cn('mr-2 h-4 w-4', formData.fleet_id === o.id ? 'opacity-100' : 'opacity-0')} />
+                                    {o.label}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      {errors.fleet_id && <p className="text-sm text-red-500">{errors.fleet_id}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Vehicle ID *</label>
+                      <div className="relative">
+                        <IdCard className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                        <Input
+                          value={formData.vehicle_id}
+                          onChange={(e) => setField('vehicle_id', e.target.value)}
+                          placeholder="Contoh: UNIT-001"
+                          className={cn(
+                            'h-12 rounded-[18px] border-gray-200/70 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                            errors.vehicle_id && 'border-red-500'
+                          )}
+                        />
+                      </div>
+                      {errors.vehicle_id && <p className="text-sm text-red-500">{errors.vehicle_id}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Plate Number *</label>
+                      <div className="relative">
+                        <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                        <Input
+                          value={formData.plate_number}
+                          onChange={(e) => setField('plate_number', e.target.value)}
+                          placeholder="Contoh: B 1234 ABC"
+                          className={cn(
+                            'h-12 rounded-[18px] border-gray-200/70 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                            errors.plate_number && 'border-red-500'
+                          )}
+                        />
+                      </div>
+                      {errors.plate_number && <p className="text-sm text-red-500">{errors.plate_number}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Engine *</label>
+                      <div className="relative">
+                        <Cpu className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                        <Input
+                          value={formData.engine}
+                          onChange={(e) => setField('engine', e.target.value)}
+                          placeholder="Contoh: 2.5L Diesel"
+                          className={cn(
+                            'h-12 rounded-[18px] border-gray-200/70 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                            errors.engine && 'border-red-500'
+                          )}
+                        />
+                      </div>
+                      {errors.engine && <p className="text-sm text-red-500">{errors.engine}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Transmission *</label>
+                      <div className="relative">
+                        <Settings2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                        <Select value={formData.transmission} onValueChange={(v) => setField('transmission', v)}>
+                          <SelectTrigger
+                            className={cn(
+                              'h-12 rounded-[18px] border-gray-200/70 bg-white pl-10 shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0',
+                              errors.transmission && 'border-red-500'
+                            )}
+                          >
+                            <SelectValue placeholder={loadingTransmissionOptions ? 'Memuat...' : 'Pilih transmisi'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {transmissionOptions.map((o) => (
+                              <SelectItem key={o.id} value={o.id}>
                                 {o.label}
-                              </CommandItem>
+                              </SelectItem>
                             ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  {errors.fleet_id && <p className="text-sm text-red-500">{errors.fleet_id}</p>}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {errors.transmission && <p className="text-sm text-red-500">{errors.transmission}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Capacity *</label>
+                      <div className="relative">
+                        <Gauge className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          value={formData.capacity}
+                          onChange={(e) => setField('capacity', e.target.value)}
+                          placeholder="Contoh: 14"
+                          className={cn(
+                            'h-12 rounded-[18px] border-gray-200/70 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                            errors.capacity && 'border-red-500'
+                          )}
+                          style={{ colorScheme: 'light' }}
+                        />
+                      </div>
+                      {errors.capacity && <p className="text-sm text-red-500">{errors.capacity}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Production Year *</label>
+                      <div className="relative">
+                        <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={1900}
+                          max={new Date().getFullYear() + 1}
+                          value={formData.production_year}
+                          onChange={(e) => setField('production_year', e.target.value)}
+                          placeholder="Contoh: 2022"
+                          className={cn(
+                            'h-12 rounded-[18px] border-gray-200/70 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                            errors.production_year && 'border-red-500'
+                          )}
+                          style={{ colorScheme: 'light' }}
+                        />
+                      </div>
+                      {errors.production_year && <p className="text-sm text-red-500">{errors.production_year}</p>}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Vehicle ID (Nomor Unit) *</label>
-                  <Input
-                    value={formData.vehicle_id}
-                    onChange={(e) => setField('vehicle_id', e.target.value)}
-                    placeholder="Contoh: UNIT-001"
-                    className={errors.vehicle_id ? 'border-red-500' : ''}
-                  />
-                  {errors.vehicle_id && <p className="text-sm text-red-500">{errors.vehicle_id}</p>}
-                </div>
+                <div className="h-px bg-gray-200/70" />
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Plate Number *</label>
-                  <Input
-                    value={formData.plate_number}
-                    onChange={(e) => setField('plate_number', e.target.value)}
-                    placeholder="Contoh: B 1234 ABC"
-                    className={errors.plate_number ? 'border-red-500' : ''}
-                  />
-                  {errors.plate_number && <p className="text-sm text-red-500">{errors.plate_number}</p>}
-                </div>
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">Status Kepemilikan</div>
+                  <div className="mt-0.5 text-sm text-gray-500">Pilih tipe kepemilikan untuk menentukan kebutuhan data tambahan.</div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Engine *</label>
-                  <Input
-                    value={formData.engine}
-                    onChange={(e) => setField('engine', e.target.value)}
-                    placeholder="Contoh: D4BB-123"
-                    className={errors.engine ? 'border-red-500' : ''}
-                  />
-                  {errors.engine && <p className="text-sm text-red-500">{errors.engine}</p>}
-                </div>
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {(
+                      [
+                        {
+                          key: 'Milik Sendiri',
+                          icon: BadgeCheck,
+                          title: 'Milik Sendiri',
+                          desc: 'Unit dimiliki dan dikelola internal.',
+                        },
+                        {
+                          key: 'Kerjasama Operasional',
+                          icon: Handshake,
+                          title: 'Kerjasama Operasional',
+                          desc: 'Unit dikelola bersama mitra perusahaan.',
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const active = formData.ownership_type === opt.key;
+                      const Icon = opt.icon;
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              ownership_type: opt.key,
+                              ...(opt.key === 'Milik Sendiri'
+                                ? { owner_name: '', owner_contact: '', owner_email: '' }
+                                : { owner_name: prev.owner_name, owner_contact: prev.owner_contact, owner_email: prev.owner_email }),
+                            }));
+                            setErrors((prev) => ({
+                              ...prev,
+                              owner_name: '',
+                              owner_contact: '',
+                              owner_email: '',
+                            }));
+                          }}
+                          className={cn(
+                            'group relative flex w-full items-start gap-3 rounded-[22px] border p-4 text-left shadow-sm transition-all',
+                            active
+                              ? 'border-blue-300/70 bg-blue-50/60 shadow-[0_0_0_4px_rgba(59,130,246,0.08)]'
+                              : 'border-gray-200/70 bg-white hover:border-blue-200/70 hover:shadow-[0_0_0_4px_rgba(59,130,246,0.05)]'
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'flex h-10 w-10 items-center justify-center rounded-2xl ring-1 transition-colors',
+                              active ? 'bg-blue-100 text-blue-700 ring-blue-200/60' : 'bg-gray-50 text-gray-600 ring-gray-200/60'
+                            )}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-semibold text-gray-900">{opt.title}</div>
+                              <span
+                                className={cn(
+                                  'flex h-5 w-5 items-center justify-center rounded-full border transition-colors',
+                                  active ? 'border-blue-500 bg-blue-600' : 'border-gray-300 bg-white'
+                                )}
+                              >
+                                <span className={cn('h-2 w-2 rounded-full', active ? 'bg-white' : 'bg-transparent')} />
+                              </span>
+                            </div>
+                            <div className="mt-1 text-sm text-gray-600">{opt.desc}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Capacity *</label>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    value={formData.capacity}
-                    onChange={(e) => setField('capacity', e.target.value)}
-                    placeholder="Contoh: 14"
-                    className={errors.capacity ? 'border-red-500' : ''}
-                    style={{ colorScheme: 'light' }}
-                  />
-                  {errors.capacity && <p className="text-sm text-red-500">{errors.capacity}</p>}
-                </div>
+                  <div
+                    className={cn(
+                      'mt-4 overflow-hidden transition-all duration-300 ease-out',
+                      formData.ownership_type === 'Kerjasama Operasional'
+                        ? 'max-h-[520px] translate-y-0 opacity-100'
+                        : 'max-h-0 -translate-y-1 opacity-0 pointer-events-none'
+                    )}
+                    aria-hidden={formData.ownership_type !== 'Kerjasama Operasional'}
+                  >
+                    <div className="rounded-[22px] border border-blue-200/60 bg-blue-50/60 p-4 shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/70 text-blue-700 ring-1 ring-blue-200/60">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-gray-900">Informasi Perusahaan Mitra</div>
+                          <div className="mt-0.5 text-sm text-gray-600">Data ini membantu validasi dan administrasi unit kerjasama.</div>
+                        </div>
+                      </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Production Year *</label>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={1900}
-                    max={new Date().getFullYear() + 1}
-                    value={formData.production_year}
-                    onChange={(e) => setField('production_year', e.target.value)}
-                    placeholder="Contoh: 2022"
-                    className={errors.production_year ? 'border-red-500' : ''}
-                    style={{ colorScheme: 'light' }}
-                  />
-                  {errors.production_year && <p className="text-sm text-red-500">{errors.production_year}</p>}
-                </div>
+                      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">Nama Perusahaan *</label>
+                          <Popover
+                            open={partnerPickerOpen}
+                            onOpenChange={(open) => {
+                              setPartnerPickerOpen(open);
+                              setPartnerQuery(open ? formData.owner_name : '');
+                              if (!open) {
+                                setPartnerLoading(false);
+                                setPartnerOptions([]);
+                              }
+                            }}
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={partnerPickerOpen}
+                                className={cn(
+                                  'h-12 w-full justify-between rounded-[18px] border-blue-200/60 bg-white px-4 font-normal text-gray-900 shadow-sm hover:bg-white focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                                  !formData.owner_name.trim() && 'text-gray-500',
+                                  errors.owner_name && 'border-red-500'
+                                )}
+                              >
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <Building2 className="h-4 w-4 shrink-0 text-blue-700" />
+                                  <span className="truncate">
+                                    {formData.owner_name.trim() ? formData.owner_name : 'Ketik min. 3 karakter untuk cari partner'}
+                                  </span>
+                                </span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl"
+                              align="start"
+                            >
+                              <Command shouldFilter={false} className="rounded-xl">
+                                <CommandInput
+                                  placeholder="Cari partner..."
+                                  value={partnerQuery}
+                                  onValueChange={(v) => {
+                                    setPartnerQuery(v);
+                                    setFormData((prev) => ({ ...prev, owner_name: v, partner_choice_id: '' }));
+                                    if (errors.owner_name) setErrors((prev) => ({ ...prev, owner_name: '' }));
+                                  }}
+                                />
+                                <CommandList>
+                                  <CommandEmpty>
+                                    {partnerQuery.trim().length < 3
+                                      ? 'Ketik minimal 3 karakter untuk mencari partner.'
+                                      : partnerLoading
+                                        ? 'Memuat...'
+                                        : 'Tidak ada hasil.'}
+                                  </CommandEmpty>
+                                  <CommandGroup heading="Partner">
+                                    {partnerOptions.map((o) => (
+                                      <CommandItem
+                                        key={o.id}
+                                        value={`${o.name} ${o.phone} ${o.id}`}
+                                        className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900"
+                                        onSelect={() => {
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            owner_name: o.name,
+                                            owner_contact: o.phone || prev.owner_contact,
+                                            partner_choice_id: o.id,
+                                          }));
+                                          setPartnerQuery(o.name);
+                                          setPartnerPickerOpen(false);
+                                          if (errors.owner_name || errors.owner_contact) {
+                                            setErrors((prev) => ({ ...prev, owner_name: '', owner_contact: '' }));
+                                          }
+                                        }}
+                                      >
+                                        <Check className={cn('mr-2 h-4 w-4', formData.partner_choice_id === o.id ? 'opacity-100' : 'opacity-0')} />
+                                        <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                                          <div className="min-w-0">
+                                            <div className="truncate text-sm font-medium text-gray-900">{o.name}</div>
+                                            <div className="truncate text-xs text-gray-500">Direktori partner</div>
+                                          </div>
+                                          <div className="flex shrink-0 items-center gap-2">
+                                            <span className="rounded-full border border-gray-200/70 bg-white px-2 py-0.5 text-xs text-gray-700">
+                                              {o.phone || '-'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          {errors.owner_name && <p className="text-sm text-red-500">{errors.owner_name}</p>}
+                        </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Transmission *</label>
-                  <Select value={formData.transmission} onValueChange={(v) => setField('transmission', v)}>
-                    <SelectTrigger className={errors.transmission ? 'border-red-500' : ''}>
-                      <SelectValue placeholder={loadingTransmissionOptions ? 'Memuat...' : 'Pilih transmisi'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {transmissionOptions.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.transmission && <p className="text-sm text-red-500">{errors.transmission}</p>}
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">Kontak Perusahaan *</label>
+                          <div className="relative">
+                            <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                            <Input
+                              value={formData.owner_contact}
+                              onChange={(e) => setField('owner_contact', e.target.value)}
+                              placeholder="Contoh: 0812-3456-7890"
+                              className={cn(
+                                'h-12 rounded-[18px] border-blue-200/60 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                                errors.owner_contact && 'border-red-500'
+                              )}
+                            />
+                          </div>
+                          {errors.owner_contact && <p className="text-sm text-red-500">{errors.owner_contact}</p>}
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium text-gray-700">Owner Perusahaan *</label>
+                          <div className="relative">
+                            <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                            <Input
+                              value={formData.owner_email}
+                              onChange={(e) => setField('owner_email', e.target.value)}
+                              placeholder="Contoh: Budi Santoso"
+                              className={cn(
+                                'h-12 rounded-[18px] border-blue-200/60 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                                errors.owner_email && 'border-red-500'
+                              )}
+                            />
+                          </div>
+                          {errors.owner_email && <p className="text-sm text-red-500">{errors.owner_email}</p>}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-white/60 px-4 py-3 text-sm text-gray-700">
+                        <span className="inline-flex items-center gap-2">
+                          <UserRound className="h-4 w-4 text-blue-700" />
+                          Data kemitraan diperlukan untuk verifikasi, penagihan, dan audit operasional.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
-          <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={saving || loadingDetail || !submitReady}>
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Simpan Perubahan
-              </>
-            )}
-          </Button>
+        <div className="sticky bottom-4 z-10 flex justify-end">
+          <div className="flex items-center gap-3 rounded-[22px] border border-gray-200/60 bg-white/80 px-3 py-3 shadow-sm backdrop-blur">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-full border-gray-200/70 bg-transparent px-5 hover:bg-gray-50"
+              onClick={() => navigate(`${basePrefix}/fleet-units`)}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              className="h-11 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 px-6 text-white shadow-sm hover:from-blue-700 hover:to-blue-600"
+              disabled={saving || loadingDetail || !submitReady}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Simpan Perubahan
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </form>
     </div>
