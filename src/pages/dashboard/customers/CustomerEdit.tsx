@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Popover,
@@ -17,7 +17,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { Calendar as CalendarIcon, ArrowLeft, Check, ChevronsUpDown, Loader2, Save } from 'lucide-react';
+import { Calendar as CalendarIcon, ArrowLeft, Check, ChevronsUpDown, Loader2, Save, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 import { Calendar } from '@/components/ui/calendar';
@@ -251,10 +251,12 @@ export const CustomerEdit: React.FC = () => {
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Detail Customer</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={UserRound}
+            title="Detail Customer"
+            subtitle="Perbarui informasi customer agar data tetap akurat."
+          />
+          <CardContent className="pt-6">
             {loading ? (
               <div className="text-sm text-gray-600 dark:text-gray-300">Memuat...</div>
             ) : (

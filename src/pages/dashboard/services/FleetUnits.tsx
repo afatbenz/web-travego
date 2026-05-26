@@ -101,7 +101,7 @@ export const FleetUnits: React.FC = () => {
       render: (unit) => (
         <Link
           to={`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(unit.id))}`}
-          className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+          className="font-medium text-blue-600 hover:no-underline hover:text-bold dark:text-blue-400"
         >
           {unit.vehicle_id}
         </Link>

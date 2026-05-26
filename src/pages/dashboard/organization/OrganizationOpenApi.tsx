@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
+import { Globe, KeyRound } from 'lucide-react';
 
 export const OrganizationOpenApi: React.FC = () => {
   const [apiToken, setApiToken] = useState('');
@@ -57,10 +58,12 @@ export const OrganizationOpenApi: React.FC = () => {
       </div>
       
       <Card>
-        <CardHeader>
-          <CardTitle>API Key</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardHeaderWithBadge
+          badgeIcon={KeyRound}
+          title="API Key"
+          subtitle="Gunakan API key untuk mengakses endpoint Open API organisasi."
+        />
+        <CardContent className="pt-6">
           <div className="space-y-4">
             <div className="p-4 border rounded-lg">
               <div className="mb-4">
@@ -83,10 +86,12 @@ export const OrganizationOpenApi: React.FC = () => {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Whitelist Domain URL</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardHeaderWithBadge
+          badgeIcon={Globe}
+          title="Whitelist Domain URL"
+          subtitle="Atur domain yang diizinkan mengakses API ini (CORS whitelist)."
+        />
+        <CardContent className="pt-6">
           <div className="space-y-4">
             <div className="p-4 border rounded-lg">
               <div className="mb-4">

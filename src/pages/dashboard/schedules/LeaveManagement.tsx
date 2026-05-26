@@ -265,7 +265,7 @@ export const LeaveManagement: React.FC = () => {
                 ) : null}
               </div>
               <div className="min-w-0">
-                <Link to={href} className="font-medium text-blue-700 hover:underline dark:text-blue-300 truncate block">
+                <Link to={href} className="font-medium text-blue-700 hover:no-underline text-bold dark:text-blue-300 truncate block">
                   {row.employeeName || '-'}
                 </Link>
                 <div className="text-xs text-muted-foreground truncate">{row.employeeNip || '-'}</div>

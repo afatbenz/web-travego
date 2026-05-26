@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,11 +19,25 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { ArrowLeft, Check, ChevronsUpDown, Eye, Loader2, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BusFront, Check, ChevronsUpDown, Eye, Loader2, MapPinned, MessageSquareText, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
 type Option = { id: string; label: string; raw?: Record<string, unknown> };
+
+const formFieldClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectTriggerClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formComboboxTriggerClass =
+  'h-12 w-full justify-between rounded-[18px] border-blue-200/60 bg-white px-4 font-normal text-gray-900 shadow-sm hover:bg-white focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formPopoverContentClass =
+  'w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+const formCommandItemClass =
+  'rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900 dark:data-[selected=true]:bg-slate-900';
+const formSelectContentClass = 'rounded-xl border border-gray-200/70 bg-white p-1 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+const formSelectItemClass =
+  'rounded-lg data-[highlighted]:bg-blue-50 data-[highlighted]:text-gray-900 data-[state=checked]:bg-blue-50 dark:data-[highlighted]:bg-slate-900 dark:data-[state=checked]:bg-slate-900';
 
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -165,15 +179,15 @@ const AsyncCombobox: React.FC<{
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('w-full justify-between h-12', !value && 'text-muted-foreground')}
+          className={cn(formComboboxTriggerClass, !value && 'text-muted-foreground')}
           disabled={disabled}
         >
           {value ? value.label : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+      <PopoverContent className={formPopoverContentClass} align="start">
+        <Command className="rounded-xl">
           <CommandInput
             placeholder="Ketik untuk mencari..."
             value={query}
@@ -197,6 +211,7 @@ const AsyncCombobox: React.FC<{
                 <CommandItem
                   key={opt.id}
                   value={opt.label}
+                  className={formCommandItemClass}
                   onSelect={() => {
                     onChange(opt);
                     setOpen(false);
@@ -350,6 +365,7 @@ export const FleetOrderForm: React.FC = () => {
   const [pickupCity, setPickupCity] = useState<Option | null>(null);
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   const [specialRequest, setSpecialRequest] = useState('');
+  const [specialRequestMode, setSpecialRequestMode] = useState<'none' | 'note'>('none');
   const [customerOptions, setCustomerOptions] = useState<Option[]>([]);
   const [fleetOptions, setFleetOptions] = useState<Option[]>([]);
 
@@ -642,9 +658,11 @@ export const FleetOrderForm: React.FC = () => {
         setPickupAt(pickupDate ? toDatetimeLocal(pickupDate) : pickupRaw.replace(' ', 'T').slice(0, 16));
         setDropoffAt(dropoffDate ? toDatetimeLocal(dropoffDate) : dropoffRaw.replace(' ', 'T').slice(0, 16));
 
-        setSpecialRequest(
-          toStringSafe(detail.additional_request ?? detail.additional_requests ?? detail.additionalRequest ?? detail.additionalRequests).trim()
-        );
+        const additionalRequest = toStringSafe(
+          detail.additional_request ?? detail.additional_requests ?? detail.additionalRequest ?? detail.additionalRequests
+        ).trim();
+        setSpecialRequest(additionalRequest);
+        setSpecialRequestMode(additionalRequest ? 'note' : 'none');
 
         const fleetsRaw = Array.isArray(detail.fleets) ? (detail.fleets as unknown[]) : Array.isArray(root.fleets) ? (root.fleets as unknown[]) : [];
         const baseEntries: ArmadaEntry[] =
@@ -1280,10 +1298,12 @@ export const FleetOrderForm: React.FC = () => {
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Informasi Pesanan</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={ShoppingCart}
+            title="Informasi Pesanan"
+            subtitle="Lengkapi data customer, jadwal, dan lokasi penjemputan/pengantaran."
+          />
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Customer</label>
@@ -1304,13 +1324,13 @@ export const FleetOrderForm: React.FC = () => {
                   onValueChange={(v) => setRentType(v)}
                   disabled={saving || loadingDetail}
                 >
-                  <SelectTrigger className="h-12">
+                  <SelectTrigger className={formSelectTriggerClass}>
                     <SelectValue placeholder="Pilih jenis sewa" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Citytour (Dalam Kota)</SelectItem>
-                    <SelectItem value="2">Overland (Luar Kota)</SelectItem>
-                    <SelectItem value="3">Citytour Pickup / Drop only</SelectItem>
+                  <SelectContent className={formSelectContentClass}>
+                    <SelectItem value="1" className={formSelectItemClass}>Citytour (Dalam Kota)</SelectItem>
+                    <SelectItem value="2" className={formSelectItemClass}>Overland (Luar Kota)</SelectItem>
+                    <SelectItem value="3" className={formSelectItemClass}>Citytour Pickup / Drop only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1330,7 +1350,7 @@ export const FleetOrderForm: React.FC = () => {
                       if (d1 && d2 && d1.getTime() < d2.getTime()) setDropoffAt(next);
                     }
                   }}
-                  className="h-12"
+                  className={formFieldClass}
                   disabled={saving || loadingDetail}
                 />
               </div>
@@ -1341,7 +1361,7 @@ export const FleetOrderForm: React.FC = () => {
                   value={dropoffAt}
                   min={dropoffMin}
                   onChange={(e) => setDropoffAt(e.target.value)}
-                  className="h-12"
+                  className={formFieldClass}
                   disabled={saving || loadingDetail}
                 />
               </div>
@@ -1351,7 +1371,7 @@ export const FleetOrderForm: React.FC = () => {
                 <Input
                   value={pickupAddress}
                   onChange={(e) => setPickupAddress(e.target.value)}
-                  className="h-12"
+                  className={formFieldClass}
                   placeholder="Alamat penjemputan"
                   disabled={saving || loadingDetail}
                 />
@@ -1372,9 +1392,11 @@ export const FleetOrderForm: React.FC = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Informasi Jenis Kendaraan</span>
+          <CardHeaderWithBadge
+            badgeIcon={BusFront}
+            title="Informasi Jenis Kendaraan"
+            subtitle="Pilih armada, harga, dan addon untuk pesanan."
+            actions={
               <Button
                 type="button"
                 variant="outline"
@@ -1403,9 +1425,9 @@ export const FleetOrderForm: React.FC = () => {
                 <Plus className="h-4 w-4" />
                 Tambah Armada
               </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            }
+          />
+          <CardContent className="pt-6">
             <div className="space-y-4">
               {armadaEntries.map((row, idx) => (
                 <div key={idx} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4">
@@ -1488,7 +1510,7 @@ export const FleetOrderForm: React.FC = () => {
                         }
                         disabled={!row.armada_id || row.loading_prices || saving || loadingDetail}
                       >
-                        <SelectTrigger className="h-12">
+                        <SelectTrigger className={formSelectTriggerClass}>
                           <SelectValue
                             placeholder={
                               !row.armada_id
@@ -1499,9 +1521,9 @@ export const FleetOrderForm: React.FC = () => {
                             }
                           />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className={formSelectContentClass}>
                           {row.fleet_prices.map((p) => (
-                            <SelectItem key={p.price_id} value={p.price_id}>
+                            <SelectItem key={p.price_id} value={p.price_id} className={formSelectItemClass}>
                               {p.price_id === '0' ? 'Belum ada harga' : `${p.duration} hari ${formatRupiahFromNumber(p.price)}`}
                             </SelectItem>
                           ))}
@@ -1519,7 +1541,7 @@ export const FleetOrderForm: React.FC = () => {
                             prev.map((r, i) => (i === idx ? { ...r, qty: e.target.value.replace(/[^0-9]/g, '') } : r))
                           )
                         }
-                        className="h-12"
+                        className={formFieldClass}
                         placeholder="1"
                         disabled={saving || loadingDetail}
                       />
@@ -1535,7 +1557,7 @@ export const FleetOrderForm: React.FC = () => {
                             prev.map((r, i) => (i === idx ? { ...r, biaya_lain: e.target.value.replace(/[^0-9]/g, '') } : r))
                           )
                         }
-                        className="h-12"
+                        className={formFieldClass}
                         placeholder="Rp 0"
                         disabled={saving || loadingDetail}
                       />
@@ -1550,7 +1572,7 @@ export const FleetOrderForm: React.FC = () => {
                             prev.map((r, i) => (i === idx ? { ...r, discount: e.target.value.replace(/[^0-9]/g, '') } : r))
                           )
                         }
-                        className="h-12"
+                        className={formFieldClass}
                         placeholder="Rp 0"
                         disabled={saving || loadingDetail}
                       />
@@ -1583,7 +1605,7 @@ export const FleetOrderForm: React.FC = () => {
                             }}
                             disabled={!row.armada_id || row.loading_addons || saving || loadingDetail}
                           >
-                            <SelectTrigger className="h-12">
+                            <SelectTrigger className={formSelectTriggerClass}>
                               <SelectValue
                                 placeholder={
                                   !row.armada_id
@@ -1594,11 +1616,11 @@ export const FleetOrderForm: React.FC = () => {
                                 }
                               />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className={formSelectContentClass}>
                               {row.addon_options
                                 .filter((o) => !(row.addon_ids ?? []).includes(o.id))
                                 .map((a) => (
-                                  <SelectItem key={a.id} value={a.id}>
+                                  <SelectItem key={a.id} value={a.id} className={formSelectItemClass}>
                                     {a.label}
                                   </SelectItem>
                                 ))}
@@ -1692,10 +1714,12 @@ export const FleetOrderForm: React.FC = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Itinerary</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={MapPinned}
+            title="Itinerary"
+            subtitle="Tambahkan lokasi tujuan per hari berdasarkan jadwal perjalanan."
+          />
+          <CardContent className="pt-6">
             {daysCount <= 0 ? (
               <div className="text-sm text-muted-foreground">Isi tanggal penjemputan dan pengantaran untuk membuat itinerary.</div>
             ) : (
@@ -1769,7 +1793,7 @@ export const FleetOrderForm: React.FC = () => {
                                   )
                                 )
                               }
-                              className="h-12"
+                              className={formFieldClass}
                               placeholder="Contoh: Malioboro / Pantai / dll"
                               disabled={saving || loadingDetail}
                             />
@@ -1804,17 +1828,90 @@ export const FleetOrderForm: React.FC = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Permintaan Khusus</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={specialRequest}
-              onChange={(e) => setSpecialRequest(e.target.value)}
-              placeholder="Contoh: Unit warna putih, supir tidak merokok, dll"
-              className="min-h-[100px]"
-              disabled={saving || loadingDetail}
-            />
+          <CardHeaderWithBadge
+            badgeIcon={MessageSquareText}
+            title="Permintaan Khusus"
+            subtitle="Catatan tambahan untuk kebutuhan atau preferensi customer."
+          />
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSpecialRequestMode('none');
+                    if (specialRequest) setSpecialRequest('');
+                  }}
+                  disabled={saving || loadingDetail}
+                  className={cn(
+                    'group w-full rounded-[18px] border px-4 py-3 text-left shadow-sm transition-all duration-200',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                    specialRequestMode === 'none'
+                      ? 'border-blue-500/40 bg-blue-50 ring-1 ring-blue-100'
+                      : 'border-gray-200/70 bg-white hover:border-blue-200 hover:bg-blue-50/40'
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        'mt-0.5 grid h-9 w-9 place-items-center rounded-2xl ring-1 transition-colors',
+                        specialRequestMode === 'none'
+                          ? 'bg-white text-blue-700 ring-blue-100'
+                          : 'bg-gray-50 text-gray-600 ring-gray-200/70 group-hover:bg-white group-hover:text-blue-700 group-hover:ring-blue-100'
+                      )}
+                    >
+                      <X className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-gray-900">Tanpa Catatan</div>
+                      <div className="mt-0.5 text-xs text-gray-600">Tidak ada permintaan tambahan untuk pesanan ini.</div>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSpecialRequestMode('note')}
+                  disabled={saving || loadingDetail}
+                  className={cn(
+                    'group w-full rounded-[18px] border px-4 py-3 text-left shadow-sm transition-all duration-200',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
+                    specialRequestMode === 'note'
+                      ? 'border-blue-500/40 bg-blue-50 ring-1 ring-blue-100'
+                      : 'border-gray-200/70 bg-white hover:border-blue-200 hover:bg-blue-50/40'
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        'mt-0.5 grid h-9 w-9 place-items-center rounded-2xl ring-1 transition-colors',
+                        specialRequestMode === 'note'
+                          ? 'bg-white text-blue-700 ring-blue-100'
+                          : 'bg-gray-50 text-gray-600 ring-gray-200/70 group-hover:bg-white group-hover:text-blue-700 group-hover:ring-blue-100'
+                      )}
+                    >
+                      <MessageSquareText className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-gray-900">Tambahkan Catatan</div>
+                      <div className="mt-0.5 text-xs text-gray-600">Tulis detail kebutuhan, preferensi, atau instruksi khusus.</div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {specialRequestMode === 'note' ? (
+                <div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                  <Textarea
+                    value={specialRequest}
+                    onChange={(e) => setSpecialRequest(e.target.value)}
+                    placeholder="Contoh: Unit warna putih, supir tidak merokok, dll"
+                    className="min-h-[120px] rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0"
+                    disabled={saving || loadingDetail}
+                  />
+                </div>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
 

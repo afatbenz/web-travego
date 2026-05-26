@@ -1,12 +1,41 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, Upload, Loader2, Image as ImageIcon, Type, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  BadgeDollarSign,
+  CalendarDays,
+  ListChecks,
+  Loader2,
+  MapPinned,
+  PackagePlus,
+  Plus,
+  Save,
+  SlidersHorizontal,
+  Trash2,
+  Upload,
+  Image as ImageIcon,
+  Type,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { uploadCommon, deleteCommon, api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
+
+const formFieldClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectTriggerClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectTriggerSmClass =
+  'h-8 w-20 rounded-[14px] border-blue-200/60 bg-white text-xs shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectContentClass =
+  'rounded-xl border border-gray-200/70 bg-white p-1 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+const formSelectItemClass =
+  'rounded-lg data-[highlighted]:bg-blue-50 data-[highlighted]:text-gray-900 data-[state=checked]:bg-blue-50 dark:data-[highlighted]:bg-slate-900 dark:data-[state=checked]:bg-slate-900';
+const formDropdownClass = 'absolute z-20 w-full mt-1 rounded-xl border border-gray-200/70 bg-white shadow-xl max-h-60 overflow-auto';
+const formDropdownItemClass = 'px-3 py-2 text-sm rounded-lg hover:bg-blue-50 cursor-pointer transition-colors';
 
 // Interface for API response/request
 interface TourPackage {
@@ -730,10 +759,12 @@ export const PackageForm: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Informasi Dasar */}
           <Card>
-            <CardHeader>
-              <CardTitle>Informasi Dasar</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeaderWithBadge
+              badgeIcon={Type}
+              title="Informasi Dasar"
+              subtitle="Lengkapi informasi utama paket wisata."
+            />
+            <CardContent className="pt-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-2 space-y-2">
                   <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Judul Paket</label>
@@ -741,6 +772,7 @@ export const PackageForm: React.FC = () => {
                     value={formData.title} 
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Contoh: Paket Wisata Bali 3H2M"
+                    className={formFieldClass}
                   />
                   {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
                 </div>
@@ -751,12 +783,12 @@ export const PackageForm: React.FC = () => {
                     value={formData.packageType} 
                     onValueChange={(val) => setFormData(prev => ({ ...prev, packageType: val }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={formSelectTriggerClass}>
                       <SelectValue placeholder="Pilih jenis paket" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Private Trip</SelectItem>
-                      <SelectItem value="2">Open Trip</SelectItem>
+                    <SelectContent className={formSelectContentClass}>
+                      <SelectItem value="1" className={formSelectItemClass}>Private Trip</SelectItem>
+                      <SelectItem value="2" className={formSelectItemClass}>Open Trip</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -819,14 +851,14 @@ export const PackageForm: React.FC = () => {
                     <div className="flex items-center space-x-1 ml-2">
                       <Type className="h-4 w-4 text-gray-500" />
                       <Select onValueChange={changeFontSize}>
-                        <SelectTrigger className="h-8 w-20 text-xs">
+                        <SelectTrigger className={formSelectTriggerSmClass}>
                           <SelectValue placeholder="Size" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">Small</SelectItem>
-                          <SelectItem value="3">Normal</SelectItem>
-                          <SelectItem value="5">Large</SelectItem>
-                          <SelectItem value="7">X-Large</SelectItem>
+                        <SelectContent className={formSelectContentClass}>
+                          <SelectItem value="1" className={formSelectItemClass}>Small</SelectItem>
+                          <SelectItem value="3" className={formSelectItemClass}>Normal</SelectItem>
+                          <SelectItem value="5" className={formSelectItemClass}>Large</SelectItem>
+                          <SelectItem value="7" className={formSelectItemClass}>X-Large</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -851,25 +883,29 @@ export const PackageForm: React.FC = () => {
           {/* Jadwal Trip - Only for Open Trip */}
           {formData.packageType === '2' && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Jadwal Trip</span>
+              <CardHeaderWithBadge
+                badgeIcon={CalendarDays}
+                title="Jadwal Trip"
+                subtitle="Atur jadwal keberangkatan untuk open trip."
+                actions={
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="bg-transparent hover:bg-transparent"
-                    onClick={() => setFormData(prev => ({
-                      ...prev,
-                      schedules: [...(prev.schedules || []), { start_date: '', end_date: '', uuid: undefined }]
-                    }))}
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        schedules: [...(prev.schedules || []), { start_date: '', end_date: '', uuid: undefined }],
+                      }))
+                    }
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Tambah Jadwal
                   </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                }
+              />
+              <CardContent className="pt-6 space-y-4">
                 {formData.schedules?.map((schedule, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative border-b pb-4 last:border-0">
                     <div className="space-y-2">
@@ -888,6 +924,7 @@ export const PackageForm: React.FC = () => {
                           newSchedules[index].start_date = e.target.value;
                           setFormData(prev => ({ ...prev, schedules: newSchedules }));
                         }}
+                        className={formFieldClass}
                       />
                     </div>
                     <div className="space-y-2">
@@ -918,6 +955,7 @@ export const PackageForm: React.FC = () => {
                           newSchedules[index].end_date = e.target.value;
                           setFormData(prev => ({ ...prev, schedules: newSchedules }));
                         }}
+                        className={formFieldClass}
                       />
                     </div>
                   </div>
@@ -929,10 +967,12 @@ export const PackageForm: React.FC = () => {
 
           {/* Itinerary */}
           <Card>
-            <CardHeader>
-              <CardTitle>Itinerary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardHeaderWithBadge
+              badgeIcon={MapPinned}
+              title="Itinerary"
+              subtitle="Susun rute dan aktivitas perjalanan per hari."
+            />
+            <CardContent className="pt-6 space-y-6">
               {/* Area Penjemputan */}
               <div className="space-y-4 border-b pb-6">
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Area Penjemputan</label>
@@ -966,6 +1006,7 @@ export const PackageForm: React.FC = () => {
                       if (pickupQuery) fetchCities(pickupQuery);
                     }}
                     placeholder="Cari area penjemputan..."
+                    className={formFieldClass}
                   />
                   
                   {showPickupDropdown && (
@@ -974,7 +1015,7 @@ export const PackageForm: React.FC = () => {
                         className="fixed inset-0 z-10" 
                         onClick={() => setShowPickupDropdown(false)}
                       />
-                      <div className="absolute z-20 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className={formDropdownClass}>
                         {loadingCities ? (
                           <div className="p-2 text-center text-sm text-gray-500">Loading...</div>
                         ) : cities.length > 0 ? (
@@ -984,7 +1025,7 @@ export const PackageForm: React.FC = () => {
                              return (
                               <div
                                 key={city.id}
-                                className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
+                                className={formDropdownItemClass}
                                 onClick={() => {
                                   setFormData(prev => ({
                                     ...prev,
@@ -1038,6 +1079,7 @@ export const PackageForm: React.FC = () => {
                               setFormData(prev => ({ ...prev, itinerary: newItinerary }));
                             }}
                             placeholder="Kegiatan..."
+                            className={formFieldClass}
                           />
                         </div>
 
@@ -1049,7 +1091,7 @@ export const PackageForm: React.FC = () => {
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Input
-                              className={`relative ${activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex ? 'z-50' : ''}`}
+                              className={`relative ${formFieldClass} ${activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex ? 'z-50' : ''}`}
                               value={
                                 activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex
                                   ? cityQuery
@@ -1074,14 +1116,14 @@ export const PackageForm: React.FC = () => {
                                   className="fixed inset-0 z-40" 
                                   onClick={() => setActiveCityDropdown(null)}
                                 />
-                                <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                                <div className={formDropdownClass.replace('z-20', 'z-50')}>
                                   {loadingCities ? (
                                     <div className="p-2 text-center text-sm text-gray-500">Loading...</div>
                                   ) : cities.length > 0 ? (
                                     cities.map((city) => (
                                       <div
                                         key={city.id}
-                                        className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
+                                        className={formDropdownItemClass}
                                         onClick={() => {
                                           const newItinerary = [...formData.itinerary];
                                           newItinerary[dayIndex].activities[actIndex].city = city;
@@ -1113,6 +1155,7 @@ export const PackageForm: React.FC = () => {
                               setFormData(prev => ({ ...prev, itinerary: newItinerary }));
                             }}
                             placeholder="Lokasi spesifik..."
+                            className={formFieldClass}
                           />
                         </div>
 
@@ -1170,10 +1213,12 @@ export const PackageForm: React.FC = () => {
 
           {/* Fasilitas */}
           <Card>
-            <CardHeader>
-              <CardTitle>Fasilitas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeaderWithBadge
+              badgeIcon={ListChecks}
+              title="Fasilitas"
+              subtitle="Daftar fasilitas atau benefit yang termasuk."
+            />
+            <CardContent className="pt-6 space-y-4">
               {formData.features.map((feature, index) => (
                 <div key={index} className="flex gap-2 items-center">
                   <Input 
@@ -1184,7 +1229,7 @@ export const PackageForm: React.FC = () => {
                       setFormData(prev => ({ ...prev, features: newFeatures }));
                     }}
                     placeholder="Contoh: Hotel Bintang 4"
-                    className="flex-1"
+                    className={`flex-1 ${formFieldClass}`}
                   />
                   <Button 
                     variant="ghost" 
@@ -1211,22 +1256,29 @@ export const PackageForm: React.FC = () => {
 
           {/* Harga Paket */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Harga Paket</span>
-                <Button 
+            <CardHeaderWithBadge
+              badgeIcon={BadgeDollarSign}
+              title="Harga Paket"
+              subtitle="Atur harga berdasarkan rentang jumlah pax."
+              actions={
+                <Button
                   type="button"
-                  variant="outline" 
-                  size="sm" 
+                  variant="outline"
+                  size="sm"
                   className="bg-transparent hover:bg-transparent"
-                  onClick={() => setFormData(prev => ({ ...prev, pricing: [...prev.pricing, { uuid: undefined, min_pax: 1, max_pax: 1, price: 0 }] }))}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      pricing: [...prev.pricing, { uuid: undefined, min_pax: 1, max_pax: 1, price: 0 }],
+                    }))
+                  }
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Tambah Harga
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              }
+            />
+            <CardContent className="pt-6 space-y-4">
               {formData.pricing.map((price, index) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1244,6 +1296,7 @@ export const PackageForm: React.FC = () => {
                           setFormData(prev => ({ ...prev, pricing: newPricing }));
                         }}
                         placeholder="Min Pax"
+                        className={formFieldClass}
                       />
                     </div>
                     <div>
@@ -1260,6 +1313,7 @@ export const PackageForm: React.FC = () => {
                           setFormData(prev => ({ ...prev, pricing: newPricing }));
                         }}
                         placeholder="Max Pax"
+                        className={formFieldClass}
                       />
                     </div>
                     <div>
@@ -1276,7 +1330,7 @@ export const PackageForm: React.FC = () => {
                             setFormData(prev => ({ ...prev, pricing: newPricing }));
                           }}
                           placeholder="0"
-                          className="flex-1"
+                          className={`flex-1 ${formFieldClass}`}
                         />
                         <Button 
                           type="button"
@@ -1311,22 +1365,26 @@ export const PackageForm: React.FC = () => {
 
           {/* Addon */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Paket Addon</span>
-                <Button 
+            <CardHeaderWithBadge
+              badgeIcon={PackagePlus}
+              title="Paket Addon"
+              subtitle="Tambahkan item addon dan harga tambahan."
+              actions={
+                <Button
                   type="button"
-                  variant="outline" 
-                  size="sm" 
+                  variant="outline"
+                  size="sm"
                   className="bg-transparent hover:bg-transparent"
-                  onClick={() => setFormData(prev => ({ ...prev, addons: [...prev.addons, { uuid: undefined, description: '', price: 0 }] }))}
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, addons: [...prev.addons, { uuid: undefined, description: '', price: 0 }] }))
+                  }
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Tambah Addon
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              }
+            />
+            <CardContent className="pt-6 space-y-4">
               {formData.addons.map((addon, index) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1342,6 +1400,7 @@ export const PackageForm: React.FC = () => {
                           setFormData(prev => ({ ...prev, addons: newAddons }));
                         }}
                         placeholder="Contoh: Bed tambahan untuk 1 orang"
+                        className={formFieldClass}
                       />
                     </div>
                     <div>
@@ -1358,7 +1417,7 @@ export const PackageForm: React.FC = () => {
                             setFormData(prev => ({ ...prev, addons: newAddons }));
                           }}
                           placeholder="0"
-                          className="flex-1"
+                          className={`flex-1 ${formFieldClass}`}
                         />
                         <Button 
                           type="button"
@@ -1432,10 +1491,12 @@ export const PackageForm: React.FC = () => {
         <div className="space-y-6">
           {/* Thumbnail */}
           <Card>
-            <CardHeader>
-              <CardTitle>Thumbnail</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={ImageIcon}
+              title="Thumbnail"
+              subtitle="Unggah thumbnail sebagai gambar utama paket."
+            />
+            <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
                   {formData.thumbnail ? (
@@ -1470,10 +1531,17 @@ export const PackageForm: React.FC = () => {
 
           {/* Gallery */}
           <Card>
-            <CardHeader>
-              <CardTitle>Galeri ({galleryPreviews.length}/10)</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={Upload}
+              title="Galeri"
+              subtitle="Tambahkan foto tambahan untuk galeri paket."
+              actions={
+                <span className="rounded-full border border-gray-200/70 bg-white px-3 py-1 text-xs font-medium text-gray-700">
+                  {galleryPreviews.length}/10
+                </span>
+              }
+            />
+            <CardContent className="pt-6">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {galleryPreviews.map((item, index) => (
                   <div key={index} className="relative aspect-square rounded overflow-hidden group">
@@ -1517,20 +1585,22 @@ export const PackageForm: React.FC = () => {
 
           {/* Status */}
           <Card>
-            <CardHeader>
-              <CardTitle>Status Publikasi</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={SlidersHorizontal}
+              title="Status Publikasi"
+              subtitle="Atur apakah paket ditampilkan ke publik atau disimpan sebagai draft."
+            />
+            <CardContent className="pt-6">
               <Select 
                 value={formData.active ? 'true' : 'false'} 
                 onValueChange={(val) => setFormData(prev => ({ ...prev, active: val === 'true' }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className={formSelectTriggerClass}>
                   <SelectValue placeholder="Pilih status" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Publikasi (Aktif)</SelectItem>
-                  <SelectItem value="false">Draft (Tidak Aktif)</SelectItem>
+                <SelectContent className={formSelectContentClass}>
+                  <SelectItem value="true" className={formSelectItemClass}>Publikasi (Aktif)</SelectItem>
+                  <SelectItem value="false" className={formSelectItemClass}>Draft (Tidak Aktif)</SelectItem>
                 </SelectContent>
               </Select>
             </CardContent>

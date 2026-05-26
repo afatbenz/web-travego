@@ -98,6 +98,9 @@ import { OrganizationDivision } from '@/pages/dashboard/organization/Organizatio
 import { PartnerProfile } from '@/pages/dashboard/partner/Profile';
 import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
 import { PartnerChangePassword } from '@/pages/dashboard/partner/ChangePassword';
+import { PartnerInquiry } from '@/pages/dashboard/partner/Inquiry';
+import { PartnerOperations } from '@/pages/dashboard/partner/PartnerOperations';
+import { PartnerOperationDetail } from '@/pages/dashboard/partner/PartnerOperationDetail';
 import PartnerContent from '@/pages/dashboard/partner/content/Content';
 import ContentMenu from '@/pages/dashboard/partner/content/ContentMenu';
 import {
@@ -130,6 +133,7 @@ import { FleetUnits } from '@/pages/dashboard/services/FleetUnits';
 import { FleetUnitCreate } from '@/pages/dashboard/services/FleetUnitCreate';
 import { FleetUnitDetail } from '@/pages/dashboard/services/FleetUnitDetail';
 import { FleetUnitEdit } from '@/pages/dashboard/services/FleetUnitEdit';
+import { PartnerDetail } from '@/pages/dashboard/partners/PartnerDetail';
 import { PackageForm } from '@/pages/dashboard/services/PackageForm';
 import { CreateArmada } from '@/pages/dashboard/services/CreateArmada';
 import { EditArmada } from '@/pages/dashboard/services/EditArmada';
@@ -838,6 +842,11 @@ function App() {
               <FleetUnitDetail />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/partners/detail/:partner_id" element={
+            <DashboardLayout>
+              <PartnerDetail />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/partner/fleet-units/edit/:unit_id" element={
             <DashboardLayout>
               <FleetUnitEdit />
@@ -851,6 +860,11 @@ function App() {
           <Route path="/dashboard/fleet-units/detail/:unit_id" element={
             <DashboardLayout>
               <FleetUnitDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partners/detail/:partner_id" element={
+            <DashboardLayout>
+              <PartnerDetail />
             </DashboardLayout>
           } />
           <Route path="/dashboard/fleet-units/edit/:unit_id" element={
@@ -926,6 +940,36 @@ function App() {
           <Route path="/dashboard/team/schedule-fleet/detail/:order_id" element={
             <DashboardLayout>
               <ScheduleFleetDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/inquiry" element={
+            <DashboardLayout>
+              <PartnerInquiry />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/inquiry" element={
+            <DashboardLayout>
+              <PartnerInquiry />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/partner-operations" element={
+            <DashboardLayout>
+              <PartnerOperations />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner-operations" element={
+            <DashboardLayout>
+              <PartnerOperations />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/partner-operations/detail/:partner_id" element={
+            <DashboardLayout>
+              <PartnerOperationDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner-operations/detail/:partner_id" element={
+            <DashboardLayout>
+              <PartnerOperationDetail />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/profile" element={

@@ -4,18 +4,26 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
+  CalendarDays,
   Download,
   Edit,
   Eye,
+  FileText,
   Image as ImageIcon,
   Loader2,
   MapPin,
+  MessageCircleMore,
   Route,
   Star,
+  TrendingDown,
+  TrendingUp,
   Users,
+  XCircle,
+  Wallet,
 } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -34,10 +42,10 @@ import { id as idLocale } from 'date-fns/locale';
 
 type OrderHistoryRow = {
   order_id: string;
-  trip_start: string;
-  trip_end: string;
-  pickup_point: string;
-  destination: string;
+  start_date: string;
+  end_date: string;
+  pickup_city_label: string;
+  destination_city_label: string;
 };
 
 type UnitDetail = {
@@ -55,9 +63,31 @@ type UnitDetail = {
   created_at?: string;
   pickup_points: string[];
   owner_name?: string;
-  ownership_type?: string;
+  ownership_type?: number;
+  partner_id?: string;
+  partner_name?: string;
+  partner_phone?: string;
   owner_contact?: string;
   owner_email?: string;
+};
+
+type UnitReview = {
+  customer_name: string;
+  star: number;
+  created_at?: string;
+  review: string;
+};
+
+type AvailabilityRow = {
+  date: string;
+  available: boolean;
+};
+
+type RevenueSummary = {
+  current: { totalBooking: number; totalRevenue: number };
+  previous?: { totalBooking: number; totalRevenue: number };
+  currentLabel: string;
+  previousLabel?: string;
 };
 
 const record = (v: unknown): Record<string, unknown> =>
@@ -69,6 +99,23 @@ const getString = (v: unknown): string =>
 const getNumber = (v: unknown): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+};
+
+const formatRupiahFromNumber = (amount: number): string => {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return 'Rp 0';
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n);
+};
+
+const formatNumberId = (value: number): string => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('id-ID');
 };
 
 const formatDate = (value?: string) => {
@@ -137,7 +184,7 @@ export const FleetUnitDetail: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<UnitDetail | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'availability'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'reviews'>('overview');
 
   const [showAdModal, setShowAdModal] = useState(false);
   const [resolution, setResolution] = useState('1080x1080');
@@ -146,17 +193,32 @@ export const FleetUnitDetail: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
-  const [orderRange, setOrderRange] = useState<DateRange | undefined>(() => {
-    const to = startOfDay(new Date());
-    const from = new Date(to);
-    from.setDate(from.getDate() - 90);
-    return { from, to };
-  });
+  const [orderRange, setOrderRange] = useState<DateRange | undefined>(undefined);
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderRows, setOrderRows] = useState<OrderHistoryRow[]>([]);
+  const [totalSchedule, setTotalSchedule] = useState(0);
+  const [latestScheduleEndDate, setLatestScheduleEndDate] = useState<string>('');
+  const [upcomingScheduleStartDate, setUpcomingScheduleStartDate] = useState<string>('');
+  const [reviews, setReviews] = useState<UnitReview[]>([]);
+  const [rating, setRating] = useState<number>(0);
   const [orderPage, setOrderPage] = useState(1);
   const orderItemsPerPage = 10;
+
+  const [availabilityRange, setAvailabilityRange] = useState<DateRange | undefined>(() => {
+    const from = startOfDay(new Date());
+    const to = new Date(from);
+    to.setDate(from.getDate() + 20);
+    return { from, to };
+  });
+  const [availabilityPickerOpen, setAvailabilityPickerOpen] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityRows, setAvailabilityRows] = useState<AvailabilityRow[]>([]);
+  const [availabilityPage, setAvailabilityPage] = useState(1);
+  const availabilityItemsPerPage = 5;
+
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [revenueSummary, setRevenueSummary] = useState<RevenueSummary | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -181,9 +243,16 @@ export const FleetUnitDetail: React.FC = () => {
         const thumbnailRaw = getString(obj.thumbnail ?? obj.image ?? obj.photo);
         const created_at = getString(obj.created_at ?? obj.createdAt ?? obj.created_date ?? obj.createdDate);
         const owner_name = getString(obj.owner_name ?? obj.ownerName ?? obj.owner ?? obj.pic_name ?? obj.picName);
-        const ownership_type = getString(obj.ownership_type ?? obj.ownershipType ?? obj.owner_type ?? obj.ownerType);
+        const ownershipTypeRaw = obj.ownership_type ?? obj.ownershipType ?? obj.owner_type ?? obj.ownerType;
+        const ownership_type = getNumber(ownershipTypeRaw);
         const owner_contact = getString(obj.owner_contact ?? obj.ownerContact ?? obj.phone ?? obj.contact ?? obj.pic_phone ?? obj.picPhone);
         const owner_email = getString(obj.owner_email ?? obj.ownerEmail ?? obj.email ?? obj.pic_email ?? obj.picEmail);
+
+        const ownershipInfo = record(obj.ownership_information ?? obj.ownershipInformation);
+        const partner_id = getString(ownershipInfo.partner_id ?? ownershipInfo.partnerId ?? ownershipInfo.id).trim();
+        const partner_name = getString(ownershipInfo.partner_name ?? ownershipInfo.partnerName ?? ownershipInfo.name).trim();
+        const partner_phone = getString(ownershipInfo.partner_phone ?? ownershipInfo.partnerPhone ?? ownershipInfo.phone).trim();
+
         const pickupPointsRaw =
           obj.pickup_point ??
           obj.pickupPoint ??
@@ -217,7 +286,10 @@ export const FleetUnitDetail: React.FC = () => {
           created_at: created_at || undefined,
           pickup_points,
           owner_name: owner_name || undefined,
-          ownership_type: ownership_type || undefined,
+          ownership_type: Number.isFinite(ownership_type) ? ownership_type : undefined,
+          partner_id: partner_id || undefined,
+          partner_name: partner_name || undefined,
+          partner_phone: partner_phone || undefined,
           owner_contact: owner_contact || undefined,
           owner_email: owner_email || undefined,
         });
@@ -231,61 +303,169 @@ export const FleetUnitDetail: React.FC = () => {
   }, [unitIdParam]);
 
   useEffect(() => {
+    const loadRevenue = async () => {
+      const unitId = decodeURIComponent(unitIdParam);
+      if (!unitId) return;
+      setRevenueLoading(true);
+      try {
+        const now = new Date();
+        const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const token = localStorage.getItem('token') ?? '';
+        const headers = token ? { Authorization: token } : undefined;
+        const res = await api.post<unknown>('/services/fleet-units/revenue', { unit_id: unitId, period }, headers);
+        if (res.status !== 'success') {
+          setRevenueSummary(null);
+          return;
+        }
+        const payload = res.data as unknown;
+        const root = record(payload);
+        const arr: unknown[] =
+          (Array.isArray(payload) ? (payload as unknown[]) : undefined) ??
+          (Array.isArray(root.data) ? (root.data as unknown[]) : undefined) ??
+          (Array.isArray(root.items) ? (root.items as unknown[]) : undefined) ??
+          [];
+        const list = arr.map((x) => record(x));
+        const first = list.length > 0 ? record(list[0]) : {};
+        const second = list.length > 1 ? record(list[1]) : null;
+
+        const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const currentLabel = format(currentMonthDate, 'MMMM yyyy', { locale: idLocale });
+        const previousLabel = format(prevMonthDate, 'MMMM yyyy', { locale: idLocale });
+
+        const current = {
+          totalBooking: getNumber(first.total_booking ?? first.totalBooking ?? first.booking ?? first.bookings),
+          totalRevenue: getNumber(first.total_revenue ?? first.totalRevenue ?? first.revenue),
+        };
+
+        let previous: RevenueSummary['previous'] =
+          second
+            ? {
+                totalBooking: getNumber(second.total_booking ?? second.totalBooking ?? second.booking ?? second.bookings),
+                totalRevenue: getNumber(second.total_revenue ?? second.totalRevenue ?? second.revenue),
+              }
+            : undefined;
+
+        if (!previous) {
+          const prevPeriod = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+          const prevRes = await api.post<unknown>('/services/fleet-units/revenue', { unit_id: unitId, period: prevPeriod }, headers);
+          if (prevRes.status === 'success') {
+            const prevPayload = prevRes.data as unknown;
+            const prevRoot = record(prevPayload);
+            const prevArr: unknown[] =
+              (Array.isArray(prevPayload) ? (prevPayload as unknown[]) : undefined) ??
+              (Array.isArray(prevRoot.data) ? (prevRoot.data as unknown[]) : undefined) ??
+              (Array.isArray(prevRoot.items) ? (prevRoot.items as unknown[]) : undefined) ??
+              [];
+            const prevFirst = prevArr.length > 0 ? record(prevArr[0]) : {};
+            previous = {
+              totalBooking: getNumber(prevFirst.total_booking ?? prevFirst.totalBooking ?? prevFirst.booking ?? prevFirst.bookings),
+              totalRevenue: getNumber(prevFirst.total_revenue ?? prevFirst.totalRevenue ?? prevFirst.revenue),
+            };
+          }
+        }
+
+        setRevenueSummary({
+          current,
+          previous,
+          currentLabel,
+          previousLabel: previous ? previousLabel : undefined,
+        });
+      } finally {
+        setRevenueLoading(false);
+      }
+    };
+    loadRevenue();
+  }, [unitIdParam]);
+
+  useEffect(() => {
     const loadHistory = async () => {
       const unitId = decodeURIComponent(unitIdParam);
       if (!unitId) return;
-      if (!orderRange?.from || !orderRange?.to) return;
       setOrderLoading(true);
       try {
         const token = localStorage.getItem('token') ?? '';
-        const range = normalizeRange(orderRange);
-        if (!range.start || !range.end) return;
-        const payload = { unit_id: unitId, start_date: toYmd(range.start), end_date: toYmd(range.end) };
+        const payload = { unit_id: unitId, start_date: '2026-01-01', end_date: new Date().toISOString().split('T')[0] };
         const res = await api.post<unknown>('/fleet-units/order/history', payload, token ? { Authorization: token } : undefined);
         if (res.status === 'success') {
           const payload = res.data as unknown;
           const root = record(payload);
-          const dataNode = root.data;
+          const dataNode = root.data ?? root;
           const dataObj = record(dataNode);
+          const deepDataObj = record(dataObj.data);
+
+          const total_schedule = getNumber(
+            dataObj.total_schedule ?? deepDataObj.total_schedule ?? dataObj.totalSchedule ?? deepDataObj.totalSchedule ?? dataObj.total ?? deepDataObj.total
+          );
+          console.log(total_schedule);
+          console.log(dataObj.history);
+          const latestObj = record(dataObj.latest_schedule ?? deepDataObj.latest_schedule ?? dataObj.latestSchedule ?? deepDataObj.latestSchedule);
+          const upcomingObj = record(dataObj.upcoming_schedule ?? deepDataObj.upcoming_schedule ?? dataObj.upcomingSchedule ?? deepDataObj.upcomingSchedule);
+          const latestEndDate = getString(latestObj.end_date ?? latestObj.endDate ?? latestObj.trip_end ?? latestObj.tripEnd).trim();
+          const upcomingStartDate = getString(upcomingObj.start_date ?? upcomingObj.startDate ?? upcomingObj.trip_start ?? upcomingObj.tripStart).trim();
+
+          const reviewsNode = (Array.isArray(dataObj.reviews) ? dataObj.reviews : undefined) ?? (Array.isArray(deepDataObj.reviews) ? deepDataObj.reviews : undefined) ?? [];
+          const mappedReviews = (reviewsNode as unknown[])
+            .map((raw) => {
+              const obj = record(raw);
+              const customer_name = getString(obj.customer_name ?? obj.customerName ?? obj.name).trim();
+              const star = getNumber(obj.star ?? obj.rating ?? obj.stars);
+              const created_at = getString(obj.created_at ?? obj.createdAt).trim();
+              const review = getString(obj.review ?? obj.comment ?? obj.text).trim();
+              if (!customer_name && !review && !created_at) return null;
+              return { customer_name: customer_name || '-', star, created_at: created_at || undefined, review };
+            })
+            .filter((v): v is UnitReview => Boolean(v));
+
+          setTotalSchedule(total_schedule);
+          setLatestScheduleEndDate(latestEndDate);
+          setUpcomingScheduleStartDate(upcomingStartDate);
+          setReviews(mappedReviews);
+          setRating(getNumber(dataObj.rating ?? deepDataObj.rating ?? dataObj.ratings ?? deepDataObj.ratings));
+
           const itemsNode =
-            (Array.isArray(dataNode) ? dataNode : undefined) ??
-            (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
             (Array.isArray(dataObj.history) ? dataObj.history : undefined) ??
-            (Array.isArray(dataObj.orders) ? dataObj.orders : undefined) ??
-            (Array.isArray(root.items) ? root.items : undefined) ??
-            (Array.isArray(root.history) ? root.history : undefined) ??
-            (Array.isArray(root.orders) ? root.orders : undefined) ??
-            (Array.isArray(payload) ? payload : undefined) ??
+            (Array.isArray(deepDataObj.history) ? deepDataObj.history : undefined) ??
             [];
 
           const mapped = (itemsNode as unknown[]).map((raw) => {
             const obj = record(raw);
             const order_id = getString(obj.order_id ?? obj.orderId ?? obj.id ?? obj.transaction_id ?? obj.transactionId).trim();
             const trip_start = getString(
-              obj.trip_start ?? obj.tripStart ?? obj.trip_date ?? obj.tripDate ?? obj.start_date ?? obj.startDate ?? obj.date
+              obj.start_date ?? obj.startDate ?? obj.trip_start ?? obj.tripStart ?? obj.trip_date ?? obj.tripDate ?? obj.date
             ).trim();
-            const trip_end = getString(obj.trip_end ?? obj.tripEnd ?? obj.end_date ?? obj.endDate).trim();
-            const pickupRaw = obj.pickup_point ?? obj.pickupPoint ?? obj.pickup_location ?? obj.pickupLocation ?? obj.pickup;
-            const pickup_point =
-              typeof pickupRaw === 'string' || typeof pickupRaw === 'number'
-                ? getString(pickupRaw).trim()
-                : pickupRaw && typeof pickupRaw === 'object'
-                  ? toPickupLabel(pickupRaw).title
-                  : '';
-            const destRaw = obj.destination ?? obj.tujuan ?? obj.dropoff ?? obj.dropoff_location ?? obj.dropoffLocation ?? obj.to;
+            const trip_end = getString(obj.end_date ?? obj.endDate ?? obj.trip_end ?? obj.tripEnd ?? obj.end).trim();
+
+            const pickupCityLabel = getString(obj.pickup_city_label ?? obj.pickupCityLabel ?? obj.pickup_city_name ?? obj.pickupCityName).trim();
+            const pickup_point = pickupCityLabel || '-';
+            const driver_name = getString(obj.driver_name ?? obj.driverName ?? obj.driver).trim();
+
+            const destinationsRaw = obj.destination_city;
             const destination =
-              typeof destRaw === 'string' || typeof destRaw === 'number'
-                ? getString(destRaw).trim()
-                : destRaw && typeof destRaw === 'object'
-                  ? toPickupLabel(destRaw).title
+              typeof destinationsRaw === 'string' || typeof destinationsRaw === 'number'
+                ? getString(destinationsRaw).trim()
+                : Array.isArray(destinationsRaw)
+                  ? (destinationsRaw as unknown[])
+                      .map((x) => {
+                        if (typeof x === 'string') return x.trim();
+                        if (typeof x === 'number') return String(x).trim();
+                        if (x && typeof x === 'object') return toPickupLabel(x).title.trim();
+                        return '';
+                      })
+                      .filter((x) => x)
+                      .join(', ')
                   : '';
-            return { order_id, trip_start, trip_end, pickup_point, destination };
+            return { order_id, trip_start, trip_end, pickup_point, driver_name: driver_name || '-', destination: destination || '-' };
           });
 
           setOrderRows(mapped);
           setOrderPage(1);
         } else {
           setOrderRows([]);
+          setTotalSchedule(0);
+          setLatestScheduleEndDate('');
+          setUpcomingScheduleStartDate('');
+          setReviews([]);
         }
       } finally {
         setOrderLoading(false);
@@ -293,100 +473,150 @@ export const FleetUnitDetail: React.FC = () => {
     };
 
     loadHistory();
-  }, [orderRange, unitIdParam]);
+  }, [unitIdParam]);
 
-  const orderTotalPages = Math.max(1, Math.ceil(orderRows.length / orderItemsPerPage));
+  useEffect(() => {
+    const loadAvailability = async () => {
+      const unitId = decodeURIComponent(unitIdParam);
+      if (!unitId) return;
+      const r = normalizeRange(availabilityRange);
+      if (!r.start || !r.end) return;
+      setAvailabilityLoading(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const headers = token ? { Authorization: token } : undefined;
+        const payload = { unit_id: unitId, start_date: toYmd(r.start), end_date: toYmd(r.end) };
+        const res = await api.post<unknown>('/services/schedule/daily-availibility/fleet-unit', payload, headers);
+        if (res.status === 'success') {
+          const root = record(res.data as unknown);
+          const dataNode = root.data ?? root;
+          const dataObj = record(dataNode);
+          const arr =
+            (Array.isArray(dataNode) ? (dataNode as unknown[]) : undefined) ??
+            (Array.isArray(dataObj.data) ? (dataObj.data as unknown[]) : undefined) ??
+            [];
+          const mapped = arr
+            .map((raw) => {
+              const obj = record(raw);
+              const date = getString(obj.date ?? obj.schedule_date ?? obj.day ?? obj.start_date).trim();
+              const availableRaw = obj.available ?? obj.is_available ?? obj.status;
+              const available =
+                typeof availableRaw === 'boolean'
+                  ? availableRaw
+                  : availableRaw === 1 || availableRaw === '1'
+                    ? true
+                    : availableRaw === 0 || availableRaw === '0'
+                      ? false
+                      : Boolean(availableRaw);
+              if (!date) return null;
+              return { date, available } satisfies AvailabilityRow;
+            })
+            .filter((v): v is AvailabilityRow => Boolean(v));
+          setAvailabilityRows(mapped);
+        } else {
+          setAvailabilityRows([]);
+        }
+      } finally {
+        setAvailabilityLoading(false);
+      }
+    };
+
+    loadAvailability();
+  }, [availabilityRange, unitIdParam]);
+
+  const filteredOrderRows = useMemo(() => {
+    const range = normalizeRange(orderRange);
+    if (!range.start || !range.end) return orderRows;
+    const start = range.start.getTime();
+    const end = range.end.getTime();
+    return orderRows.filter((r) => {
+      const ds = r.trip_start ? new Date(r.trip_start) : null;
+      if (!ds || isNaN(ds.getTime())) return false;
+      const t = ds.getTime();
+      return t >= start && t <= end;
+    });
+  }, [orderRange, orderRows]);
+
+  const orderTotalPages = Math.max(1, Math.ceil(filteredOrderRows.length / orderItemsPerPage));
   const orderPageSafe = Math.min(orderPage, orderTotalPages);
   const orderPageStart = (orderPageSafe - 1) * orderItemsPerPage;
   const orderPageEnd = orderPageStart + orderItemsPerPage;
-  const orderCurrent = orderRows.slice(orderPageStart, orderPageEnd);
+  const orderCurrent = filteredOrderRows.slice(orderPageStart, orderPageEnd);
 
   const orderRangeLabel =
     orderRange?.from && orderRange?.to
       ? `${formatDdMmmYyFromDate(orderRange.from)} - ${formatDdMmmYyFromDate(orderRange.to)}`
       : orderRange?.from
         ? `${formatDdMmmYyFromDate(orderRange.from)} - ...`
-        : '';
+        : 'Semua Periode';
+
+  const availabilityRangeLabel =
+    availabilityRange?.from && availabilityRange?.to
+      ? `${formatDdMmmYyFromDate(availabilityRange.from)} - ${formatDdMmmYyFromDate(availabilityRange.to)}`
+      : availabilityRange?.from
+        ? `${formatDdMmmYyFromDate(availabilityRange.from)} - ...`
+        : 'Pilih rentang tanggal';
+
+  const availabilityTotalPages = Math.max(1, Math.ceil(availabilityRows.length / availabilityItemsPerPage));
+  const availabilityPageSafe = Math.min(availabilityPage, availabilityTotalPages);
+  const availabilityPageStart = (availabilityPageSafe - 1) * availabilityItemsPerPage;
+  const availabilityPageEnd = availabilityPageStart + availabilityItemsPerPage;
+  const availabilityCurrent = availabilityRows.slice(availabilityPageStart, availabilityPageEnd);
 
   const unitCode = detail?.vehicle_id || unitIdParam || 'BB001';
   const ownershipBadge = (() => {
-    const raw = (detail?.ownership_type ?? '').toLowerCase();
-    if (!raw) return { label: '-', tone: 'muted' as const };
-    if (raw.includes('own') || raw.includes('milik') || raw.includes('owned')) return { label: 'Owned', tone: 'blue' as const };
-    if (raw.includes('operasional') || raw.includes('koo') || raw.includes('kerjasama')) return { label: 'Kerjasama Operasional', tone: 'amber' as const };
-    return { label: detail?.ownership_type ?? '-', tone: 'muted' as const };
-  })();
-
-  const lastTripDate = (() => {
-    let best: Date | null = null;
-    for (const row of orderRows) {
-      const d1 = row.trip_end ? new Date(row.trip_end) : null;
-      const d2 = row.trip_start ? new Date(row.trip_start) : null;
-      const candidates = [d1, d2].filter((d): d is Date => !!d && !isNaN(d.getTime()));
-      for (const d of candidates) {
-        if (!best || d.getTime() > best.getTime()) best = d;
-      }
-    }
-    return best;
+    const t = Number(detail?.ownership_type);
+    if (t === 0) return { label: 'Owned', tone: 'blue' as const };
+    if (t === 1) return { label: 'Kerjasama Operasional', tone: 'amber' as const };
+    return { label: '-', tone: 'muted' as const };
   })();
 
   const metrics = [
     {
-      key: 'totalTrips',
-      label: 'Total Perjalanan',
-      value: String(orderRows.length),
-      icon: Route,
-    },
-    {
       key: 'lastTrip',
-      label: 'Perjalanan Terakhir',
-      value: lastTripDate ? format(lastTripDate, 'dd MMM yyyy', { locale: idLocale }) : '-',
+      label: 'Perjalanan Sebelumnya',
+      value: latestScheduleEndDate ? formatTripDate(latestScheduleEndDate) : '-',
       icon: Clock,
     },
     {
-      key: 'rating',
-      label: 'Rating Armada',
-      value: '4.8',
-      icon: Star,
-    },
-    {
-      key: 'capacity',
-      label: 'Kapasitas Kursi',
-      value: detail?.capacity ? String(detail.capacity) : '-',
-      icon: Users,
+      key: 'nextTrip',
+      label: 'Perjalanan Selanjutnya',
+      value: upcomingScheduleStartDate ? formatTripDate(upcomingScheduleStartDate) : '-',
+      icon: CalendarDays,
     },
   ] as const;
 
-  const availabilityDates = useMemo(() => {
-    const booked = new Set<string>();
-    for (const row of orderRows) {
-      const start = row.trip_start ? startOfDay(new Date(row.trip_start)) : null;
-      const endRaw = row.trip_end || row.trip_start;
-      const end = endRaw ? startOfDay(new Date(endRaw)) : null;
-      if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) continue;
-      const a = start.getTime() <= end.getTime() ? start : end;
-      const b = start.getTime() <= end.getTime() ? end : start;
-      const cursor = new Date(a);
-      while (cursor.getTime() <= b.getTime()) {
-        booked.add(toYmd(cursor));
-        cursor.setDate(cursor.getDate() + 1);
-      }
-    }
+  const bookingTrend = useMemo(() => {
+    const current = revenueSummary?.current.totalBooking ?? 0;
+    const previous = revenueSummary?.previous?.totalBooking;
+    if (previous === undefined) return null;
+    const delta = current - previous;
+    const percent = previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
+    return { delta, percent, up: delta >= 0, current, previous };
+  }, [revenueSummary]);
 
-    const result: Date[] = [];
-    const today = startOfDay(new Date());
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      if (!booked.has(toYmd(d))) result.push(d);
-    }
-    return result;
-  }, [orderRows]);
+  const revenueTrend = useMemo(() => {
+    const current = revenueSummary?.current.totalRevenue ?? 0;
+    const previous = revenueSummary?.previous?.totalRevenue;
+    if (previous === undefined) return null;
+    const delta = current - previous;
+    const percent = previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
+    return { delta, percent, up: delta >= 0, current, previous };
+  }, [revenueSummary]);
 
   const handleReservasi = (date: Date) => {
+    const ymd = toYmd(date);
+    if (!ymd) return;
     const q = new URLSearchParams();
     q.set('unit_id', detail?.unit_id || unitIdParam);
-    q.set('date', toYmd(date));
+    q.set('date', ymd);
+    navigate(`${basePrefix}/orders/fleet/create?${q.toString()}`);
+  };
+
+  const handleReservasiYmd = (dateYmd: string) => {
+    const q = new URLSearchParams();
+    q.set('unit_id', detail?.unit_id || unitIdParam);
+    q.set('date', dateYmd);
     navigate(`${basePrefix}/orders/fleet/create?${q.toString()}`);
   };
 
@@ -471,159 +701,207 @@ export const FleetUnitDetail: React.FC = () => {
           )}
         </div>
 
-        <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow">
-          {loading ? (
-            <div className="animate-pulse grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className="w-full aspect-[16/10] rounded-xl bg-gray-100" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={`main-s-${i}`} className="space-y-2">
-                    <div className="h-3 rounded bg-gray-100 w-28" />
-                    <div className="h-9 rounded bg-gray-100 w-full" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : !detail ? (
-            <div className="py-10 text-center text-sm text-gray-500">Data unit tidak ditemukan</div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className="w-full">
-                <div className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-gray-200/70 bg-gray-50">
-                  {detail.thumbnail ? (
-                    <img src={detail.thumbnail} alt={detail.vehicle_id || 'thumbnail'} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">Tidak ada foto</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
-                {[
-                  { label: 'Tipe Armada', value: detail.fleet_name || '-' },
-                  { label: 'Plat Nomor', value: detail.plate_number || '-' },
-                  { label: 'Chassis', value: detail.engine || '-' },
-                  { label: 'Fleet Type', value: detail.fleet_type || '-' },
-                  { label: 'Transmisi', value: detail.transmission || '-' },
-                  { label: 'Tahun Produksi', value: detail.production_year ? String(detail.production_year) : '-' },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-xl border border-gray-200/60 bg-white px-4 py-3 hover:bg-gray-50 transition-colors">
-                    <div className="text-xs text-gray-500">{item.label}</div>
-                    <div className="mt-1 font-medium text-gray-900 truncate">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {metrics.map((m) => {
-            const Icon = m.icon;
-            return (
-              <div
-                key={m.key}
-                className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1 min-w-0">
-                    <div className="text-xs text-gray-500">{m.label}</div>
-                    <div className="text-lg sm:text-xl font-semibold text-blue-600 truncate">{m.value}</div>
-                  </div>
-                  <div className="shrink-0 h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-gray-900">Informasi Kepemilikan</div>
-              <span
-                className={[
-                  'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium',
-                  ownershipBadge.tone === 'blue' ? 'border-blue-200 bg-blue-50 text-blue-700' : '',
-                  ownershipBadge.tone === 'amber' ? 'border-amber-200 bg-amber-50 text-amber-800' : '',
-                  ownershipBadge.tone === 'muted' ? 'border-gray-200 bg-gray-50 text-gray-700' : '',
-                ].join(' ')}
-              >
-                {ownershipBadge.label}
-              </span>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                { label: 'Owner Name', value: detail?.owner_name || '-' },
-                { label: 'Kontak Owner', value: detail?.owner_contact || '-' },
-                { label: 'Email', value: detail?.owner_email || '-' },
-              ].map((item) => (
-                <div key={item.label} className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
-                  <div className="text-xs text-gray-500">{item.label}</div>
-                  <div className="mt-1 font-medium text-gray-900 truncate">{item.value}</div>
-                </div>
-              ))}
-              <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
-                <div className="text-xs text-gray-500">Jenis Kepemilikan</div>
-                <div className="mt-1 font-medium text-gray-900 truncate">{ownershipBadge.label}</div>
+            {loading ? (
+              <div className="animate-pulse w-full aspect-[16/10] rounded-xl bg-gray-100" />
+            ) : (
+              <div className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-gray-200/70 bg-gray-50">
+                {detail?.thumbnail ? (
+                  <img src={detail.thumbnail} alt={detail.vehicle_id || 'thumbnail'} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">Tidak ada foto</div>
+                )}
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow">
-            <div className="text-sm font-semibold text-gray-900">Pickup Points</div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {(detail?.pickup_points ?? []).length === 0 ? (
-                <div className="text-sm text-gray-500">Tidak ada pickup points</div>
-              ) : (
-                (detail?.pickup_points ?? []).map((name, idx) => (
-                  <div
-                    key={`p-${idx}`}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200/70 bg-white text-gray-800 hover:bg-gray-50 transition-colors"
-                  >
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium">{name}</span>
+          <div className="rounded-2xl p-4 sm:p-5">
+            {loading ? (
+              <div className="animate-pulse space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={`main-s-${i}`} className="space-y-2">
+                      <div className="h-3 rounded bg-gray-100 w-28" />
+                      <div className="h-9 rounded bg-gray-100 w-full" />
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={`stat-s-${i}`} className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-2 min-w-0 flex-1">
+                          <div className="h-3 rounded bg-gray-100 w-24" />
+                          <div className="h-5 rounded bg-gray-100 w-20" />
+                        </div>
+                        <div className="h-10 w-10 rounded-full bg-gray-100" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : !detail ? (
+              <div className="py-10 text-center text-sm text-gray-500">Data unit tidak ditemukan</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-white" />
+                    <div className="relative">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-gray-600">Total Pesanan</div>
+                          <div className="mt-1 text-xs text-gray-500">{revenueSummary?.currentLabel ?? 'Periode saat ini'}</div>
+                          <div className="mt-2 text-2xl font-semibold text-gray-900">
+                            {revenueLoading ? (
+                              <span className="inline-flex items-center text-sm text-gray-500">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Memuat...
+                              </span>
+                            ) : (
+                              formatNumberId(revenueSummary?.current.totalBooking ?? 0)
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 h-10 w-10 rounded-full bg-blue-100/70 flex items-center justify-center">
+                          <Route className="h-5 w-5 text-blue-700" />
+                        </div>
+                      </div>
+
+                      {bookingTrend ? (
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="text-xs text-gray-500 min-w-0">
+                            <span className="truncate">vs {revenueSummary?.previousLabel ?? 'Periode sebelumnya'}</span>
+                            <span className="mx-1.5 text-gray-300">•</span>
+                            <span className="font-medium text-gray-700">{formatNumberId(bookingTrend.previous)}</span>
+                          </div>
+                          <div
+                            className={[
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+                              bookingTrend.up ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+                            ].join(' ')}
+                          >
+                            {bookingTrend.up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                            {`${bookingTrend.up ? '+' : ''}${bookingTrend.percent.toFixed(1)}%`}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-xs text-gray-400">Data periode sebelumnya tidak tersedia</div>
+                      )}
+                    </div>
                   </div>
-                ))
-              )}
-            </div>
-            <div className="mt-3 text-xs text-gray-500">Total lokasi: {(detail?.pickup_points ?? []).length}</div>
+
+                  <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-white" />
+                    <div className="relative">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-gray-600">Total Pendapatan</div>
+                          <div className="mt-1 text-xs text-gray-500">{revenueSummary?.currentLabel ?? 'Periode saat ini'}</div>
+                          <div className="mt-2 text-2xl font-semibold text-gray-900">
+                            {revenueLoading ? (
+                              <span className="inline-flex items-center text-sm text-gray-500">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Memuat...
+                              </span>
+                            ) : (
+                              formatRupiahFromNumber(revenueSummary?.current.totalRevenue ?? 0)
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 h-10 w-10 rounded-full bg-emerald-100/70 flex items-center justify-center">
+                          <Wallet className="h-5 w-5 text-emerald-700" />
+                        </div>
+                      </div>
+
+                      {revenueTrend ? (
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="text-xs text-gray-500 min-w-0">
+                            <span className="truncate">vs {revenueSummary?.previousLabel ?? 'Periode sebelumnya'}</span>
+                            <span className="mx-1.5 text-gray-300">•</span>
+                            <span className="font-medium text-gray-700">{formatRupiahFromNumber(revenueTrend.previous)}</span>
+                          </div>
+                          <div
+                            className={[
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+                              revenueTrend.up ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+                            ].join(' ')}
+                          >
+                            {revenueTrend.up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                            {`${revenueTrend.up ? '+' : ''}${revenueTrend.percent.toFixed(1)}%`}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-xs text-gray-400">Data periode sebelumnya tidak tersedia</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {metrics.map((m) => {
+                    const Icon = m.icon;
+                    return (
+                      <div key={m.key} className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 min-w-0">
+                            <div className="text-xs text-gray-500">{m.label}</div>
+                            <div className="text-lg font-semibold text-blue-600 truncate">{m.value}</div>
+                          </div>
+                          <div className="shrink-0 h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
+                            <Icon className="h-5 w-5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="mt-3 text-xs text-gray-400">Berdasarkan jadwal armada</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm hover:shadow-md transition-shadow">
           <div className="px-4 sm:px-5 pt-4 sm:pt-5">
-            <div className="relative flex items-center gap-6 border-b border-gray-200/70">
-              {([
-                { key: 'overview', label: 'Overview' },
-                { key: 'orders', label: 'Riwayat Perjalanan' },
-                { key: 'availability', label: 'Ketersediaan' },
-              ] as const).map((t) => {
-                const isActive = activeTab === t.key;
-                return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => setActiveTab(t.key)}
-                    className={[
-                      'relative py-3 text-sm font-medium transition-colors',
-                      isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700',
-                    ].join(' ')}
-                  >
-                    {t.label}
-                    {isActive && (
-                      <motion.div
-                        layoutId="fleet-unit-tab-underline"
-                        className="absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600"
-                        transition={{ duration: 0.2 }}
-                      />
-                    )}
-                  </button>
-                );
-              })}
+            <div className="border-b border-gray-200/70 pb-4">
+              <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
+                <div className="flex items-center gap-1.5 overflow-x-auto scroll-smooth">
+                  {([
+                    { key: 'overview', label: 'Overview', icon: FileText },
+                    { key: 'orders', label: 'Riwayat Perjalanan', icon: Clock },
+                    { key: 'reviews', label: 'Ulasan', icon: MessageCircleMore },
+                  ] as const).map((t) => {
+                    const isTabActive = activeTab === t.key;
+                    const Icon = t.icon;
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setActiveTab(t.key)}
+                        className={[
+                          'relative isolate inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200',
+                          'outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BFF]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                          isTabActive
+                            ? 'text-white shadow-sm'
+                            : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] hover:-translate-y-[1px]',
+                        ].join(' ')}
+                      >
+                        {isTabActive ? (
+                          <motion.span
+                            layoutId="fleet-unit-active-pill"
+                            className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-[#4F6BFF] to-[#295BFF] shadow-[0_10px_24px_-14px_rgba(79,107,255,0.75)] ring-1 ring-white/30"
+                            transition={{ duration: 0.25 }}
+                          />
+                        ) : null}
+                        <Icon className={['h-4 w-4', isTabActive ? 'text-white' : 'text-[#64748B]'].join(' ')} />
+                        <span className="whitespace-nowrap">{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -666,7 +944,6 @@ export const FleetUnitDetail: React.FC = () => {
                               {[
                                 { label: 'Fleet Type', value: detail.fleet_type || '-' },
                                 { label: 'Tipe Armada', value: detail.fleet_name || '-' },
-                                { label: 'Plat Nomor', value: detail.plate_number || '-' },
                                 { label: 'Chassis', value: detail.engine || '-' },
                                 { label: 'Transmisi', value: detail.transmission || '-' },
                                 { label: 'Tahun Produksi', value: detail.production_year ? String(detail.production_year) : '-' },
@@ -687,14 +964,39 @@ export const FleetUnitDetail: React.FC = () => {
                         <div className="mt-4 overflow-hidden rounded-xl border border-gray-200/60">
                           <table className="w-full text-sm">
                             <tbody className="divide-y divide-gray-200/60">
-                              {[
-                                { label: 'Unit ID', value: detail.unit_id || '-' },
-                                { label: 'Vehicle ID', value: detail.vehicle_id || '-' },
-                                { label: 'Tanggal Dibuat', value: formatDate(detail.created_at) },
-                                { label: 'Owner Name', value: detail.owner_name || '-' },
-                                { label: 'Kontak Owner', value: detail.owner_contact || '-' },
-                                { label: 'Email', value: detail.owner_email || '-' },
-                              ].map((row) => (
+                              {(() => {
+                                const isKo = Number(detail.ownership_type ?? 0) === 1;
+                                const ownerLabel = isKo ? (detail.partner_name || '-') : (detail.owner_name || '-');
+                                const ownerValue = isKo && detail.partner_id ? (
+                                  <button
+                                    type="button"
+                                    className="text-blue-600 hover:no-underline text-bold"
+                                    onClick={() =>
+                                      navigate(
+                                        `${basePrefix}/partners/detail/${encodeURIComponent(String(detail.partner_id ?? ''))}`,
+                                        { state: { partner_id: detail.partner_id, partner_name: detail.partner_name, partner_phone: detail.partner_phone } }
+                                      )
+                                    }
+                                  >
+                                    {ownerLabel}
+                                  </button>
+                                ) : (
+                                  ownerLabel
+                                );
+
+                                const rows = [
+                                  { label: 'Plat Nomor', value: detail.plate_number || '-' },
+                                  { label: 'Vehicle ID', value: detail.vehicle_id || '-' },
+                                  { label: 'Tanggal Dibuat', value: formatDate(detail.created_at) },
+                                  { label: 'Owner Name', value: ownerValue },
+                                ] as Array<{ label: string; value: React.ReactNode }>;
+
+                                if (isKo) {
+                                  rows.push({ label: 'Kontak Owner', value: detail.partner_phone || '-' });
+                                }
+
+                                return rows;
+                              })().map((row) => (
                                 <tr key={row.label} className="bg-white">
                                   <td className="px-4 py-3 text-gray-500 w-1/2">{row.label}</td>
                                   <td className="px-4 py-3 font-medium text-gray-900">{row.value}</td>
@@ -766,6 +1068,7 @@ export const FleetUnitDetail: React.FC = () => {
                           <th className="py-3 px-4 font-semibold text-gray-900">Tanggal Trip</th>
                           <th className="py-3 px-4 font-semibold text-gray-900">Pickup Point</th>
                           <th className="py-3 px-4 font-semibold text-gray-900">Tujuan</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900">Pengemudi</th>
                           <th className="py-3 px-4 font-semibold text-gray-900 text-right">Action</th>
                         </tr>
                       </thead>
@@ -773,7 +1076,7 @@ export const FleetUnitDetail: React.FC = () => {
                         {orderLoading ? (
                           Array.from({ length: 5 }).map((_, i) => (
                             <tr key={`o-s-${i}`} className="border-b border-gray-200/60 animate-pulse">
-                              {Array.from({ length: 5 }).map((__, j) => (
+                              {Array.from({ length: 6 }).map((__, j) => (
                                 <td key={`o-s-${i}-${j}`} className="py-3 px-4">
                                   <div className="h-4 bg-gray-100 rounded w-full" />
                                 </td>
@@ -782,7 +1085,7 @@ export const FleetUnitDetail: React.FC = () => {
                           ))
                         ) : orderCurrent.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="py-10 text-center text-gray-500">
+                            <td colSpan={6} className="py-10 text-center text-gray-500">
                               Tidak ada data order
                             </td>
                           </tr>
@@ -793,17 +1096,18 @@ export const FleetUnitDetail: React.FC = () => {
                               <td className="py-3 px-4 text-gray-700">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</td>
                               <td className="py-3 px-4 text-gray-700">{row.pickup_point || '-'}</td>
                               <td className="py-3 px-4 text-gray-700">{row.destination || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700">{row.driver_name || '-'}</td>
                               <td className="py-3 px-4 text-right">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="!w-auto !h-auto p-2 bg-white border-gray-200/70 hover:bg-white"
+                                  className="!w-auto !h-auto p-2 bg-blue-400 hover:bg-blue-500 border-gray-200/70 transition-transform duration-300 text-white"
                                   disabled={!row.order_id}
                                   onClick={() =>
                                     row.order_id ? navigate(`${basePrefix}/orders/fleet/detail/${encodeURIComponent(row.order_id)}`) : undefined
                                   }
                                 >
-                                  <Eye className="h-4 w-4" />
+                                  <Eye className="h-4 w-4 mr-5 " /> Lihat Pesanan
                                 </Button>
                               </td>
                             </tr>
@@ -815,7 +1119,7 @@ export const FleetUnitDetail: React.FC = () => {
 
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="text-sm text-gray-500">
-                      Menampilkan {orderRows.length === 0 ? 0 : orderPageStart + 1}-{Math.min(orderPageEnd, orderRows.length)} dari {orderRows.length}
+                      Menampilkan {filteredOrderRows.length === 0 ? 0 : orderPageStart + 1}-{Math.min(orderPageEnd, filteredOrderRows.length)} dari {filteredOrderRows.length}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -846,59 +1150,225 @@ export const FleetUnitDetail: React.FC = () => {
                 </motion.div>
               ) : (
                 <motion.div
-                  key="availability"
+                  key="reviews"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="pt-4"
+                  className="pt-4 space-y-4"
                 >
-                  <div className="overflow-hidden rounded-2xl border border-gray-200/70">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50 hover:bg-gray-50">
-                          <TableHead className="px-4">Tanggal</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right pr-4">Aksi</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {availabilityDates.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={3} className="py-10 text-center text-gray-500">
-                              Tidak ada tanggal tersedia
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                      <MessageCircleMore className="h-4 w-4 text-violet-600" />
+                      Ulasan
+                    </div>
+                    <div className="text-xs text-gray-500">{reviews.length} ulasan</div>
+                  </div>
+
+                  {reviews.length === 0 ? (
+                    <div className="rounded-2xl border border-gray-200/70 bg-white p-6 text-center text-sm text-gray-500">
+                      Belum ada ulasan
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[800px] overflow-auto scroll-smooth pr-1">
+                      {reviews.map((r, idx) => (
+                        <div key={`${r.customer_name}-${idx}`} className="rounded-2xl border border-gray-200/70 bg-white p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-gray-900 truncate">{r.customer_name || '-'}</div>
+                              <div className="mt-0.5 text-xs text-gray-500">{r.created_at ? formatDate(r.created_at) : '-'}</div>
+                            </div>
+                            <div className="shrink-0 flex items-center gap-1">
+                              {Array.from({ length: 5 }).map((_, i) => {
+                                const filled = i < Math.round(r.star || 0);
+                                return (
+                                  <Star
+                                    key={i}
+                                    className={['h-4 w-4', filled ? 'text-amber-500' : 'text-gray-300'].join(' ')}
+                                    fill={filled ? 'currentColor' : 'none'}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {r.review ? <div className="mt-3 text-sm text-gray-800 whitespace-pre-wrap">{r.review}</div> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+            <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow h-full min-h-[420px] flex flex-col">
+              <div className="text-sm font-semibold text-gray-900">Jadwal Armada</div>
+
+              <div className="mt-4 w-full max-w-sm">
+                <div className="text-xs text-gray-500 mb-1">Tanggal</div>
+                <Popover
+                  open={availabilityPickerOpen}
+                  onOpenChange={(next) => {
+                    if (!next) {
+                      const r = availabilityRange;
+                      if (r?.from && !r?.to) {
+                        setAvailabilityPickerOpen(true);
+                        return;
+                      }
+                    }
+                    setAvailabilityPickerOpen(next);
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start font-normal h-10 bg-white border-gray-200/70 hover:bg-white">
+                      <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
+                      {availabilityRangeLabel}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      numberOfMonths={1}
+                      selected={availabilityRange}
+                      onSelect={(range) => {
+                        setAvailabilityRange(range);
+                        setAvailabilityPage(1);
+                        if (range?.from && range?.to) {
+                          setAvailabilityPickerOpen(false);
+                        } else {
+                          setAvailabilityPickerOpen(true);
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200/70 bg-white flex-1 flex flex-col">
+                <div className="flex-1 overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+                        <TableHead className="px-4">Tanggal</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right pr-4">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {availabilityLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <TableRow key={`a-s-${i}`}>
+                            <TableCell className="px-4">
+                              <Skeleton className="h-4 w-36" />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton className="h-4 w-28" />
+                            </TableCell>
+                            <TableCell className="text-right pr-4">
+                              <Skeleton className="h-9 w-40 ml-auto" />
                             </TableCell>
                           </TableRow>
-                        ) : (
-                          availabilityDates.map((date) => (
-                            <TableRow key={toYmd(date)} className="hover:bg-gray-50">
-                              <TableCell className="px-4 font-medium text-gray-900">
-                                {format(date, 'dd MMM yyyy', { locale: idLocale })}
-                              </TableCell>
+                        ))
+                      ) : availabilityCurrent.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="py-10 text-center text-gray-500">
+                            Tidak ada data ketersediaan
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        availabilityCurrent.map((row, idx) => {
+                          const d = row.date ? new Date(row.date) : null;
+                          const dateLabel = d && !isNaN(d.getTime()) ? format(d, 'dd MMMM yyyy', { locale: idLocale }) : row.date || '-';
+                          const dateYmd = d && !isNaN(d.getTime()) ? toYmd(startOfDay(d)) : row.date;
+                          return (
+                            <TableRow key={`${row.date}-${idx}`} className="hover:bg-gray-50">
+                              <TableCell className="px-4 font-medium text-gray-900">{dateLabel}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
-                                  Tersedia
-                                </Badge>
+                                {row.available ? (
+                                  <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 inline-flex items-center gap-1.5">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    Tersedia
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700 inline-flex items-center gap-1.5">
+                                    <XCircle className="h-4 w-4" />
+                                    Tidak Tersedia
+                                  </Badge>
+                                )}
                               </TableCell>
                               <TableCell className="text-right pr-4">
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   className="bg-white border-gray-200/70 hover:bg-white"
-                                  onClick={() => handleReservasi(date)}
+                                  disabled={!row.available || !dateYmd}
+                                  onClick={() => (dateYmd ? handleReservasiYmd(dateYmd) : undefined)}
                                 >
-                                  Reservasi Tanggal Ini
+                                  Reservasi Sekarang
                                 </Button>
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="px-4 py-3 border-t border-gray-200/70 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="text-sm text-gray-500">
+                    Menampilkan {availabilityRows.length === 0 ? 0 : availabilityPageStart + 1}-{Math.min(availabilityPageEnd, availabilityRows.length)} dari {availabilityRows.length}
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAvailabilityPage((p) => Math.max(1, p - 1))}
+                      disabled={availabilityPageSafe <= 1}
+                      className="bg-white border-gray-200/70 hover:bg-white"
+                    >
+                      Prev
+                    </Button>
+                    <div className="text-sm text-gray-500">
+                      {availabilityPageSafe} / {availabilityTotalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAvailabilityPage((p) => Math.min(availabilityTotalPages, p + 1))}
+                      disabled={availabilityPageSafe >= availabilityTotalPages}
+                      className="bg-white border-gray-200/70 hover:bg-white"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow h-full min-h-[420px] flex flex-col">
+              <div className="text-sm font-semibold text-gray-900">Pickup Points</div>
+              <div className="mt-4 flex flex-wrap gap-2 flex-1 content-start">
+                {(detail?.pickup_points ?? []).length === 0 ? (
+                  <div className="text-sm text-gray-500">Tidak ada pickup points</div>
+                ) : (
+                  (detail?.pickup_points ?? []).map((name, idx) => (
+                    <div
+                      key={`p-${idx}`}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200/70 bg-white text-gray-800 hover:bg-gray-50 transition-colors"
+                    >
+                      <MapPin className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium">{name}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="mt-3 text-xs text-gray-500">Total lokasi: {(detail?.pickup_points ?? []).length}</div>
+            </div>
           </div>
         </div>
 

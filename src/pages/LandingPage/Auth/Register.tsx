@@ -308,7 +308,7 @@ export const Register: React.FC = () => {
               Saya menyetujui{' '}
               <Link
                 to="/terms"
-                className="text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
                 onClick={(e) => {
                   e.preventDefault();
                   setPolicyType('terms');
@@ -320,7 +320,7 @@ export const Register: React.FC = () => {
               {' '}serta{' '}
               <Link
                 to="/privacy"
-                className="text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
                 onClick={(e) => {
                   e.preventDefault();
                   setPolicyType('privacy');
@@ -353,7 +353,7 @@ export const Register: React.FC = () => {
                   e.preventDefault();
                   navigateWithTransition('/auth/login', 'right');
                 }}
-                className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                className="font-medium text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
               >
                 Masuk di sini
               </Link>

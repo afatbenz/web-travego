@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronsUpDown, Loader2, Save, Upload, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsUpDown, IdCard, Image, Loader2, Save, Upload, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api, deleteCommon, toFileUrl, uploadCommon } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +14,22 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 type Option = { id: string; label: string; raw?: Record<string, unknown> };
+
+const formFieldClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectTriggerClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectContentClass = 'rounded-xl border border-gray-200/70 bg-white p-1 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+const formSelectItemClass =
+  'rounded-lg data-[highlighted]:bg-blue-50 data-[highlighted]:text-gray-900 data-[state=checked]:bg-blue-50 dark:data-[highlighted]:bg-slate-900 dark:data-[state=checked]:bg-slate-900';
+const formComboboxTriggerClass =
+  'h-12 w-full justify-between rounded-[18px] border-blue-200/60 bg-white px-4 font-normal text-gray-900 shadow-sm hover:bg-white focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formPopoverContentClass =
+  'w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+const formCommandItemClass =
+  'rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900 dark:data-[selected=true]:bg-slate-900';
+const formTextareaClass =
+  'min-h-[120px] rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
 
 const toRecord = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -119,15 +135,15 @@ const AsyncCombobox: React.FC<{
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('w-full justify-between h-12', !value && 'text-muted-foreground')}
+          className={cn(formComboboxTriggerClass, !value && 'text-muted-foreground')}
           disabled={disabled}
         >
           {value ? value.label : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+      <PopoverContent className={formPopoverContentClass} align="start">
+        <Command className="rounded-xl">
           <CommandInput placeholder="Ketik untuk mencari..." value={query} onValueChange={setQuery} />
           <CommandList>
             {loading ? (
@@ -145,6 +161,7 @@ const AsyncCombobox: React.FC<{
                 <CommandItem
                   key={opt.id}
                   value={opt.label}
+                  className={formCommandItemClass}
                   onSelect={() => {
                     onChange(opt);
                     setOpen(false);
@@ -464,12 +481,14 @@ export const TeamMemberEdit: React.FC = () => {
       </div>
 
       <form onSubmit={onSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>Foto</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <Card className="lg:col-span-1 h-fit">
+            <CardHeaderWithBadge
+              badgeIcon={Image}
+              title="Foto"
+              subtitle="Perbarui foto karyawan untuk identitas profil."
+            />
+            <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
                   {photoPreview ? (
@@ -498,10 +517,12 @@ export const TeamMemberEdit: React.FC = () => {
           </Card>
 
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Informasi Karyawan</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={IdCard}
+              title="Informasi Karyawan"
+              subtitle="Perbarui data identitas dan administrasi karyawan."
+            />
+            <CardContent className="pt-6">
               {loadingDetail ? (
                 <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 gap-4">
                   {Array.from({ length: 10 }).map((_, i) => (
@@ -515,19 +536,19 @@ export const TeamMemberEdit: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="name">Nama Karyawan</Label>
-                    <Input id="name" className="h-12" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama karyawan" />
+                    <Input id="name" className={formFieldClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama karyawan" />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="nip">NIP (ID Karyawan)</Label>
-                    <Input id="nip" className="h-12" value={nip} onChange={(e) => setNip(e.target.value)} placeholder="NIP / ID Karyawan" />
+                    <Input id="nip" className={formFieldClass} value={nip} onChange={(e) => setNip(e.target.value)} placeholder="NIP / ID Karyawan" />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="nik">NIK</Label>
                     <Input
                       id="nik"
-                      className="h-12"
+                      className={formFieldClass}
                       value={nik}
                       inputMode="numeric"
                       pattern="[0-9]*"
@@ -538,14 +559,14 @@ export const TeamMemberEdit: React.FC = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="dob">Tanggal Lahir</Label>
-                    <Input id="dob" type="date" className="h-12" value={dob} onChange={(e) => setDob(e.target.value)} />
+                    <Input id="dob" type="date" className={formFieldClass} value={dob} onChange={(e) => setDob(e.target.value)} />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="phone">Nomor Telepon</Label>
                     <Input
                       id="phone"
-                      className="h-12"
+                      className={formFieldClass}
                       value={phone}
                       inputMode="numeric"
                       pattern="[0-9]*"
@@ -556,12 +577,12 @@ export const TeamMemberEdit: React.FC = () => {
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" className="h-12" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@domain.com" />
+                    <Input id="email" className={formFieldClass} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@domain.com" />
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="address">Alamat</Label>
-                    <Textarea id="address" rows={4} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Alamat lengkap" />
+                    <Textarea id="address" rows={4} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Alamat lengkap" className={formTextareaClass} />
                   </div>
 
                   <div className="space-y-2">
@@ -572,12 +593,12 @@ export const TeamMemberEdit: React.FC = () => {
                   <div className="space-y-2">
                     <Label>Role</Label>
                     <Select value={roleId} onValueChange={setRoleId} disabled={loadingRoles}>
-                      <SelectTrigger className="h-12">
+                      <SelectTrigger className={formSelectTriggerClass}>
                         <SelectValue placeholder={loadingRoles ? 'Memuat role...' : 'Pilih role'} />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className={formSelectContentClass}>
                         {roleOptions.map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
+                          <SelectItem key={r.id} value={r.id} className={formSelectItemClass}>
                             {r.label}
                           </SelectItem>
                         ))}
@@ -587,18 +608,18 @@ export const TeamMemberEdit: React.FC = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="joinDate">Tanggal Bergabung</Label>
-                    <Input id="joinDate" type="date" className="h-12" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} />
+                    <Input id="joinDate" type="date" className={formFieldClass} value={joinDate} onChange={(e) => setJoinDate(e.target.value)} />
                   </div>
 
                   <div className="space-y-2">
                     <Label>Status Kontrak</Label>
                     <Select value={contractTypeId} onValueChange={setContractTypeId} disabled={loadingContractTypes}>
-                      <SelectTrigger className="h-12">
+                      <SelectTrigger className={formSelectTriggerClass}>
                         <SelectValue placeholder={loadingContractTypes ? 'Memuat status...' : 'Pilih status kontrak'} />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className={formSelectContentClass}>
                         {contractTypeOptions.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
+                          <SelectItem key={c.id} value={c.id} className={formSelectItemClass}>
                             {c.label}
                           </SelectItem>
                         ))}

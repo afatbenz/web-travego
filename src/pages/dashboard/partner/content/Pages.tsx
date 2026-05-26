@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import GenericContentPage from './GenericContentPage';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Users } from 'lucide-react';
 
 export const GeneralContent = () => (
   <GenericContentPage 
@@ -122,10 +123,12 @@ export const TeamContent: React.FC = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Daftar Anggota Tim</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardHeaderWithBadge
+          badgeIcon={Users}
+          title="Daftar Anggota Tim"
+          subtitle="Ringkasan anggota tim yang terdaftar pada organisasi."
+        />
+        <CardContent className="pt-6">
           {members.length === 0 ? (
             <div className="text-center py-8 text-gray-500">Belum ada anggota tim.</div>
           ) : (

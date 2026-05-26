@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight } from 'lucide-react';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -69,6 +69,7 @@ type OrderData = {
   status: string;
   totalAmount: number;
   remainingAmount: number;
+  paidAmount: number;
   additionalAmount: number;
   originalAmount: number;
   discount: number;
@@ -147,6 +148,7 @@ const createEmptyOrderData = (id: string): OrderData => ({
   status: 'pending',
   totalAmount: 0,
   remainingAmount: 0,
+  paidAmount: 0,
   additionalAmount: 0,
   originalAmount: 0,
   discount: 0,
@@ -622,9 +624,10 @@ export const OrderDetail: React.FC = () => {
   }, [routeOrderId]);
 
   const fetchDetail = useCallback(async () => {
-    if (!orderId) return;
+    const resolvedOrderId = (orderId || routeOrderId || '').trim();
+    if (!resolvedOrderId) return;
     const token = localStorage.getItem('token');
-    const response = await api.get<unknown>(`/services/fleet/order/detail/${orderId}`, token ? { Authorization: token } : undefined);
+    const response = await api.get<unknown>(`/services/fleet/order/detail/${encodeURIComponent(resolvedOrderId)}`, token ? { Authorization: token } : undefined);
     if (response.status !== 'success') return;
 
     const record = (v: unknown): Record<string, unknown> =>
@@ -641,9 +644,9 @@ export const OrderDetail: React.FC = () => {
 
     const pickup = record(detail.pickup);
     const customer = record(detail.customer);
+    const paymentSummary = record(detail.payment_summary ?? detail.paymentSummary);
     const payment = record(detail.payment);
-    const hasPaymentInfoRaw = detail.payment && typeof detail.payment === 'object' && !Array.isArray(detail.payment);
-    const hasPaymentInfo = hasPaymentInfoRaw && Object.keys(detail.payment as Record<string, unknown>).length > 0;
+    const hasPaymentInfo = Object.keys(paymentSummary).length > 0;
     const addonsRaw = detail.addon;
     const addons = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
 
@@ -660,10 +663,15 @@ export const OrderDetail: React.FC = () => {
       return 'pending';
     };
 
-    const paymentStatus = normalizePaymentStatus(detail.payment_status ?? payment.status ?? payment.payment_status);
+    const paymentStatus = normalizePaymentStatus(
+      detail.payment_status ?? payment.status ?? payment.payment_status ?? paymentSummary.status ?? paymentSummary.payment_status
+    );
 
     const rawStatus = getNumber(detail.status, 0);
-    const rawPaymentStatus = getNumber(detail.payment_status ?? payment.status ?? payment.payment_status, 0);
+    const rawPaymentStatus = getNumber(
+      detail.payment_status ?? payment.status ?? payment.payment_status ?? paymentSummary.status ?? paymentSummary.payment_status,
+      0
+    );
 
     const lastPaymentAmount = getNumber(payment.payment_amount ?? payment.amount ?? detail.payment_amount ?? detail.amount, 0);
     const lastPaymentMethod = getString(payment.payment_method_label ?? payment.method_label ?? detail.payment_method_label ?? detail.method_label, '-');
@@ -673,7 +681,15 @@ export const OrderDetail: React.FC = () => {
     const startDate = getString(pickup.start_date ?? pickup.startDate, '');
     const endDate = getString(pickup.end_date ?? pickup.endDate, '');
     const createdAt = getString(detail.order_date ?? detail.created_at ?? detail.createdAt, startDate || endDate || '');
-    const paymentDate = getString(payment.payment_date ?? payment.paymentDate ?? detail.payment_date ?? detail.paymentDate, createdAt);
+    const paymentDate = getString(
+      payment.payment_date ??
+        payment.paymentDate ??
+        paymentSummary.payment_date ??
+        paymentSummary.paymentDate ??
+        detail.payment_date ??
+        detail.paymentDate,
+      createdAt
+    );
 
     const customerCity = getString(customer.city_label ?? customer.customer_city ?? customer.city, '');
     const customerAddressRaw = getString(customer.customer_address ?? customer.address, '-');
@@ -683,11 +699,10 @@ export const OrderDetail: React.FC = () => {
     const pickupLocationRaw = getString(pickup.pickup_location ?? pickup.pickupLocation, '-');
     const pickupLocation = pickupCityLabel ? `${pickupLocationRaw}, ${pickupCityLabel}` : pickupLocationRaw;
 
-    const duration = getNumber(detail.duration, 0);
+    const duration = detail.duration;
     const durationUom = getString(detail.duration_uom ?? detail.uom, '');
     const rentTypeLabel = getString(detail.rent_type_label ?? detail.rentTypeLabel, '');
     const fallbackDescriptionParts = [
-      duration > 0 ? `Sewa ${duration}${durationUom ? ` ${durationUom}` : ''}` : '',
       rentTypeLabel,
     ].filter(Boolean);
     const description = fallbackDescriptionParts.length ? fallbackDescriptionParts.join(' • ') : '-';
@@ -774,6 +789,7 @@ export const OrderDetail: React.FC = () => {
             price,
             addon_amount: addonAmount,
             addons,
+            duration,
             charge_amount: chargeAmount,
             discount: discountAmount,
             sub_total: subTotal,
@@ -793,16 +809,27 @@ export const OrderDetail: React.FC = () => {
 
     const remainingAmountRaw = hasPaymentInfo
       ? getNumber(
-          payment.payment_remaining ??
-            payment.paymentRemaining ??
-            payment.remaining_amount ??
-            payment.remainingAmount ??
+          paymentSummary.payment_remaining ??
+            paymentSummary.paymentRemaining ??
+            paymentSummary.remaining_amount ??
+            paymentSummary.remainingAmount ??
             detail.payment_remaining ??
             detail.paymentRemaining,
           totalFromRes
         )
       : totalFromRes;
     const remainingAmount = hasPaymentInfo ? Math.min(remainingAmountRaw, totalFromRes) : totalFromRes;
+
+    const paidAmountFromRes = hasPaymentInfo
+      ? getNumber(
+          paymentSummary.paid_amount ??
+            paymentSummary.paidAmount ??
+            detail.paid_amount ??
+            detail.paidAmount,
+          Math.max(0, totalFromRes - remainingAmount)
+        )
+      : Math.max(0, totalFromRes - remainingAmount);
+    const paidAmount = Math.max(0, Math.min(paidAmountFromRes, totalFromRes));
 
     const next: OrderData = {
       ...createEmptyOrderData(orderId),
@@ -821,6 +848,7 @@ export const OrderDetail: React.FC = () => {
       status: getString(detail.status, paymentStatus === 'paid' ? 'success' : 'pending'),
       totalAmount: totalFromRes,
       remainingAmount,
+      paidAmount,
       additionalAmount: chargeSum,
       originalAmount: originalSum,
       discount: discountSum,
@@ -856,13 +884,14 @@ export const OrderDetail: React.FC = () => {
       },
       scheduled: Boolean(detail.scheduled ?? false),
       rawStatus,
+      duration,
       rawPaymentStatus,
       lastPaymentAmount,
       lastPaymentMethod,
     };
 
     setOrderData(next);
-  }, [orderId]);
+  }, [orderId, routeOrderId]);
 
   useEffect(() => {
     fetchDetail();
@@ -1095,7 +1124,7 @@ export const OrderDetail: React.FC = () => {
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
       case 'paid':
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">Lunas</Badge>;
+        return <Badge className="bg-green-100 text-bold text-green-800 dark:bg-green-900/20 dark:text-green-300">Lunas</Badge>;
       case 'pending':
         return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">Pending</Badge>;
       case 'failed':
@@ -1435,83 +1464,9 @@ export const OrderDetail: React.FC = () => {
         }
       }
 
-      let refreshedPaymentDate = '';
-      let refreshedRemainingAmount: number | null = null;
-      let refreshedPaymentMethodLabel = paymentMethodLabel;
-      let refreshedPaymentStatus: string | null = null;
-
-      const detailRes = await api.get<unknown>(
-        `/services/fleet/order/detail/${encodeURIComponent(resolvedOrderId)}`,
-        token ? { Authorization: token } : undefined
-      );
-      if (detailRes.status === 'success') {
-        const root = record(detailRes.data);
-        const detail = record(root.order ?? root.transaction ?? root.detail ?? root);
-        const paymentObj = record(detail.payment);
-        const hasPaymentInfoRaw = detail.payment && typeof detail.payment === 'object' && !Array.isArray(detail.payment);
-        const hasPaymentInfo = hasPaymentInfoRaw && Object.keys(detail.payment as Record<string, unknown>).length > 0;
-
-        const totalFromRes = getNumberSafe(detail.total_amount ?? detail.totalAmount, orderData.totalAmount);
-        const remaining = hasPaymentInfo
-          ? getNumberSafe(
-              paymentObj.payment_remaining ??
-                paymentObj.paymentRemaining ??
-                paymentObj.remaining_amount ??
-                paymentObj.remainingAmount ??
-                detail.payment_remaining ??
-                detail.paymentRemaining,
-              totalFromRes
-            )
-          : totalFromRes;
-
-        refreshedRemainingAmount = remaining;
-        refreshedPaymentMethodLabel = getStringSafe(
-          paymentObj.payment_method_label ??
-            paymentObj.paymentMethodLabel ??
-            detail.payment_method_label ??
-            detail.paymentMethodLabel,
-          refreshedPaymentMethodLabel
-        );
-        refreshedPaymentDate = getStringSafe(paymentObj.payment_date ?? paymentObj.paymentDate ?? detail.payment_date ?? detail.paymentDate, '');
-        refreshedPaymentStatus = getStringSafe(detail.payment_status ?? paymentObj.status ?? paymentObj.payment_status, '');
-      }
-
-      const history = await fetchPaymentHistory(resolvedOrderId);
-      let latestHistoryDate = '';
-      let latestHistoryRemaining: number | null = null;
-      if (history.length > 0) {
-        const sorted = [...history].sort((a, b) => {
-          const ta = new Date(a.payment_date).getTime();
-          const tb = new Date(b.payment_date).getTime();
-          return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
-        });
-        latestHistoryDate = sorted[0]?.payment_date ?? '';
-        latestHistoryRemaining = Number.isFinite(sorted[0]?.remaining_amount) ? sorted[0]!.remaining_amount : null;
-      }
-
-      const nextRemainingAmount =
-        typeof refreshedRemainingAmount === 'number'
-          ? refreshedRemainingAmount
-          : typeof latestHistoryRemaining === 'number'
-            ? latestHistoryRemaining
-            : orderData.remainingAmount;
-
-      const nextPaymentDate = refreshedPaymentDate || latestHistoryDate || orderData.paymentDate;
-      const nextPaymentMethod = refreshedPaymentMethodLabel || paymentMethodLabel;
-      const nextPaymentStatus =
-        typeof refreshedPaymentStatus === 'string' && refreshedPaymentStatus
-          ? refreshedPaymentStatus
-          : nextRemainingAmount <= 0
-            ? 'paid'
-            : 'pending';
-
-      setOrderData((prev) => ({
-        ...prev,
-        paymentMethod: nextPaymentMethod,
-        paymentStatus: nextPaymentStatus,
-        paymentDate: nextPaymentDate,
-        remainingAmount: nextRemainingAmount,
-      }));
+      await fetchDetail();
+      fetchedPaymentHistoryFor.current = '';
+      await fetchPaymentHistory(resolvedOrderId);
 
       await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pembayaran berhasil diperbarui.' });
       setIsUpdatePaymentOpen(false);
@@ -1643,12 +1598,17 @@ export const OrderDetail: React.FC = () => {
     return out || 'CU';
   })();
 
-  const paidAmount = Math.max(0, Number(orderData.totalAmount || 0) - Number(orderData.remainingAmount || 0));
+  const totalAmount = Math.max(0, Number(orderData.totalAmount || 0));
+  const remainingAmount = Math.max(0, Number(orderData.remainingAmount || 0));
+  const paidAmount = (() => {
+    const fromRes = Number(orderData.paidAmount || 0);
+    if (Number.isFinite(fromRes) && fromRes > 0) return Math.max(0, Math.min(fromRes, totalAmount));
+    return Math.max(0, totalAmount - remainingAmount);
+  })();
   const paymentProgressPct =
-    Number(orderData.totalAmount || 0) > 0
-      ? Math.min(100, Math.max(0, Math.round((paidAmount / Number(orderData.totalAmount || 0)) * 100)))
+    totalAmount > 0
+      ? Math.min(100, Math.max(0, Math.round((paidAmount / totalAmount) * 100)))
       : 0;
-
   const orderTabsListRef = useRef<HTMLDivElement | null>(null);
   const orderTabTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [orderTabIndicator, setOrderTabIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
@@ -1839,12 +1799,12 @@ export const OrderDetail: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                <Users className="h-5 w-5 text-[#295BFF]" />
-                <span>Informasi Customer</span>
-              </CardTitle>
-            </CardHeader>
+            <CardHeaderWithBadge
+              className="pb-2"
+              badgeIcon={Users}
+              title="Informasi Customer"
+              subtitle="Ringkasan data customer untuk pesanan ini."
+            />
             <CardContent className="pt-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
@@ -1895,12 +1855,12 @@ export const OrderDetail: React.FC = () => {
           </Card>
 
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                <span className="text-[#295BFF]">{getCategoryIcon(orderData.category)}</span>
-                <span>Informasi Pesanan</span>
-              </CardTitle>
-            </CardHeader>
+            <CardHeaderWithBadge
+              className="pb-2"
+              badgeIcon={<span className="text-[#295BFF]">{getCategoryIcon(orderData.category)}</span>}
+              title="Informasi Pesanan"
+              subtitle="Detail pesanan, itinerary, fasilitas, dan jadwal perjalanan."
+            />
             <CardContent className="pt-4">
               <Tabs value={orderInfoTab} onValueChange={(v) => setOrderInfoTab(v as typeof orderInfoTab)}>
                 <div className="relative">
@@ -1980,7 +1940,7 @@ export const OrderDetail: React.FC = () => {
                             Jadwal Selesai
                           </div>
                           <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                            {orderData.pickup ? formatDateTime(orderData.pickup.end_date) : '-'} ({orderData.duration || '-'} hari)
+                            {orderData.pickup ? formatDateTime(orderData.pickup.end_date) : '-'} ({orderData.duration || '-'})
                           </div>
                         </div>
                         <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
@@ -2212,12 +2172,12 @@ export const OrderDetail: React.FC = () => {
 
         <div className="space-y-6">
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950 lg:sticky lg:top-24">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                <CreditCard className="h-5 w-5 text-[#295BFF]" />
-                <span>Pembayaran</span>
-              </CardTitle>
-            </CardHeader>
+            <CardHeaderWithBadge
+              className="pb-2"
+              badgeIcon={CreditCard}
+              title="Pembayaran"
+              subtitle="Pantau status pembayaran dan riwayat transaksi."
+            />
             <CardContent className="pt-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
                 <div className="flex items-center justify-between gap-3">
@@ -2382,9 +2342,12 @@ export const OrderDetail: React.FC = () => {
           </Card>
 
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-slate-900 dark:text-white">Timeline Order</CardTitle>
-            </CardHeader>
+            <CardHeaderWithBadge
+              className="pb-2"
+              badgeIcon={Calendar}
+              title="Timeline Order"
+              subtitle="Urutan aktivitas dan milestone pesanan."
+            />
             <CardContent className="pt-4">
               <div className="relative space-y-4">
                 <div className="absolute left-[11px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-800" />

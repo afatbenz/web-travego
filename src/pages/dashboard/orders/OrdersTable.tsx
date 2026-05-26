@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Clock, DollarSign, Download, Eye, Filter, MoreHorizontal, Plus, ShoppingBag, XCircle } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
@@ -64,6 +64,26 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       setInitializedDefaultRange(true);
     }
   }, [initializedDefaultRange]);
+
+  const formatDdMmmmYyyyFromDate = (d: Date) => {
+    const formatted = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    return formatted.replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
+  };
+
+  const summaryPeriodLabel = useMemo(() => {
+    const labelFrom = (range: DateRange | undefined) => {
+      const r = normalizeRange(range);
+      if (!r.start || !r.end) return '';
+      const s = formatDdMmmmYyyyFromDate(r.start);
+      const e = formatDdMmmmYyyyFromDate(r.end);
+      return s === e ? s : `${s} - ${e}`;
+    };
+
+    const a = labelFrom(orderPeriod);
+    const b = labelFrom(orderDate);
+    if (a && b) return a === b ? a : `${a} • ${b}`;
+    return a || b || '-';
+  }, [orderPeriod, orderDate]);
 
   const formatDdMmmYy = (value: string) => {
     if (!value) return '-';
@@ -546,7 +566,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             <Button
               type="button"
               variant="link"
-              className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+              className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-900 hover:no-underline hover:text-bold dark:text-blue-300 dark:hover:text-blue-200"
               onClick={() => goToOrder(row.orderId)}
             >
               {row.orderId}
@@ -599,7 +619,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         <Button
           type="button"
           variant="link"
-          className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+          className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-900 hover:no-underline hover:text-bold dark:text-blue-300 dark:hover:text-blue-200"
           onClick={() => goToOrder(row.orderId)}
         >
           {row.orderId}
@@ -685,8 +705,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                 <ShoppingBag className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">Order</div>
+                <div className="text-[11px] font-medium text-muted-foreground">Jumlah Pesanan</div>
               </div>
+              <div className="text-[11px] text-muted-foreground">{summaryPeriodLabel}</div>
               {loading ? (
                 <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
               ) : (
@@ -703,8 +724,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
                 <Clock className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">Pending</div>
+                <div className="text-[11px] font-medium text-muted-foreground">Pesanan dalam proses</div>
               </div>
+              <div className="text-[11px] text-muted-foreground">{summaryPeriodLabel}</div>
               {loading ? (
                 <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
               ) : (
@@ -721,8 +743,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">Selesai</div>
+                <div className="text-[11px] font-medium text-muted-foreground">Pesanan Selesai</div>
               </div>
+              <div className="text-[11px] text-muted-foreground">{summaryPeriodLabel}</div>
               {loading ? (
                 <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
               ) : (
@@ -739,8 +762,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
                 <DollarSign className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">Revenue</div>
+                <div className="text-[11px] font-medium text-muted-foreground">Total Pendapatan</div>
               </div>
+              <div className="text-[11px] text-muted-foreground">{summaryPeriodLabel}</div>
               {loading ? (
                 <div className="mt-1 h-6 w-28 rounded bg-muted animate-pulse" />
               ) : (

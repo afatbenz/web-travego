@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Popover,
@@ -17,7 +17,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { Calendar as CalendarIcon, ArrowLeft, Check, ChevronsUpDown, Loader2, Save } from 'lucide-react';
+import { Calendar as CalendarIcon, ArrowLeft, Check, ChevronsUpDown, Loader2, Save, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 import { Calendar } from '@/components/ui/calendar';
@@ -211,10 +211,12 @@ export const CustomerCreate: React.FC = () => {
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Informasi Customer</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={UserRound}
+            title="Informasi Customer"
+            subtitle="Lengkapi data customer untuk membuat profil baru."
+          />
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Nama Pelanggan</label>

@@ -2,18 +2,34 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { ArrowLeft, Check, ChevronsUpDown, Eye, Loader2, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsUpDown, Eye, ListChecks, Loader2, MapPinned, MessageSquareText, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
 type Option = { id: string; label: string; raw?: Record<string, unknown> };
+
+const formFieldClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectTriggerClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formComboboxTriggerClass =
+  'h-12 w-full justify-between rounded-[18px] border-blue-200/60 bg-white px-4 font-normal text-gray-900 shadow-sm hover:bg-white focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formPopoverContentClass =
+  'w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+const formCommandItemClass =
+  'rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900 dark:data-[selected=true]:bg-slate-900';
+const formSelectContentClass = 'rounded-xl border border-gray-200/70 bg-white p-1 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+const formSelectItemClass =
+  'rounded-lg data-[highlighted]:bg-blue-50 data-[highlighted]:text-gray-900 data-[state=checked]:bg-blue-50 dark:data-[highlighted]:bg-slate-900 dark:data-[state=checked]:bg-slate-900';
+const formTextareaClass =
+  'min-h-[120px] rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
 
 type PackageActivity = {
   time: string;
@@ -317,15 +333,15 @@ const AsyncCombobox: React.FC<{
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('w-full justify-between h-12', !value && 'text-muted-foreground')}
+          className={cn(formComboboxTriggerClass, !value && 'text-muted-foreground')}
           disabled={disabled}
         >
           {value ? value.label : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+      <PopoverContent className={formPopoverContentClass} align="start">
+        <Command className="rounded-xl">
           <CommandInput placeholder="Ketik untuk mencari..." value={query} onValueChange={setQuery} />
           <CommandList>
             {loading ? (
@@ -343,6 +359,7 @@ const AsyncCombobox: React.FC<{
                 <CommandItem
                   key={opt.id}
                   value={opt.label}
+                  className={formCommandItemClass}
                   onSelect={() => {
                     onChange(opt);
                     setOpen(false);
@@ -392,15 +409,15 @@ const PackageCombobox: React.FC<{
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('w-full justify-between h-12', !value && !customValue && 'text-muted-foreground')}
+          className={cn(formComboboxTriggerClass, !value && !customValue && 'text-muted-foreground')}
           disabled={disabled}
         >
           {display}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+      <PopoverContent className={formPopoverContentClass} align="start">
+        <Command className="rounded-xl">
           <CommandInput placeholder="Cari paket wisata..." value={query} onValueChange={setQuery} />
           <CommandList>
             <CommandEmpty>Tidak ada data</CommandEmpty>
@@ -408,6 +425,7 @@ const PackageCombobox: React.FC<{
               {query.trim() ? (
                 <CommandItem
                   value={`__custom__:${query.trim()}`}
+                  className={formCommandItemClass}
                   onSelect={() => {
                     const v = query.trim();
                     onValueChange(null);
@@ -422,6 +440,7 @@ const PackageCombobox: React.FC<{
                 <CommandItem
                   key={opt.id}
                   value={opt.label}
+                  className={formCommandItemClass}
                   onSelect={() => {
                     onValueChange(opt);
                     onCustomValueChange('');
@@ -435,6 +454,7 @@ const PackageCombobox: React.FC<{
               {value || customValue ? (
                 <CommandItem
                   value="__clear__"
+                  className={formCommandItemClass}
                   onSelect={() => {
                     onValueChange(null);
                     onCustomValueChange('');
@@ -1062,10 +1082,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Informasi Pesanan</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardHeaderWithBadge
+            badgeIcon={ShoppingCart}
+            title="Informasi Pesanan"
+            subtitle="Lengkapi customer, paket, dan jadwal perjalanan."
+          />
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Customer</label>
@@ -1091,7 +1113,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                         if (!isNaN(s.getTime()) && !isNaN(eD.getTime()) && eD.getTime() < s.getTime()) setEndDate(v);
                       }
                     }}
-                    className="h-12"
+                    className={formFieldClass}
                     disabled={disabled}
                   />
                 </div>
@@ -1121,7 +1143,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                     value={endDate}
                     min={startDate || undefined}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="h-12"
+                    className={formFieldClass}
                     disabled={disabled}
                   />
                 </div>
@@ -1132,7 +1154,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                 <Input
                   value={pickupAddress}
                   onChange={(e) => setPickupAddress(e.target.value)}
-                  className="h-12"
+                  className={formFieldClass}
                   placeholder="Alamat penjemputan"
                   disabled={disabled}
                 />
@@ -1145,7 +1167,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                       step={1}
                       value={pax}
                       onChange={(e) => setPax(e.target.value)}
-                      className="h-12"
+                      className={formFieldClass}
                       disabled={disabled}
                     />
                   </div>
@@ -1157,7 +1179,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                       step={1}
                       value={committeeCount}
                       onChange={(e) => setCommitteeCount(e.target.value)}
-                      className="h-12"
+                      className={formFieldClass}
                       disabled={disabled}
                     />
                   </div>
@@ -1166,7 +1188,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                     <Input
                       value={formatRupiahFromDigits(discountAmount)}
                       onChange={(e) => setDiscountAmount(e.target.value)}
-                      className="h-12"
+                      className={formFieldClass}
                       placeholder="Rp 0"
                       disabled={disabled}
                       inputMode="numeric"
@@ -1177,7 +1199,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                     <Input
                       value={formatRupiahFromDigits(additionalAmount)}
                       onChange={(e) => setAdditionalAmount(e.target.value)}
-                      className="h-12"
+                      className={formFieldClass}
                       placeholder="Rp 0"
                       disabled={disabled}
                       inputMode="numeric"
@@ -1202,7 +1224,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                     onValueChange={(v) => setPricingKey(v)}
                     disabled={disabled || !selectedPackage || !showPricingSelect}
                   >
-                    <SelectTrigger className="h-12">
+                    <SelectTrigger className={formSelectTriggerClass}>
                       <SelectValue
                         placeholder={
                           !selectedPackage
@@ -1215,9 +1237,9 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                         }
                       />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className={formSelectContentClass}>
                       {packagePricing.map((p) => (
-                        <SelectItem key={p.price_id} value={p.price_id}>
+                        <SelectItem key={p.price_id} value={p.price_id} className={formSelectItemClass}>
                           {p.min_pax} - {p.max_pax} pax • {formatCurrency(p.price)} /pax
                         </SelectItem>
                       ))}
@@ -1235,10 +1257,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {showPackageSpecialRequest ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Permintaan Khusus</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeaderWithBadge
+              badgeIcon={MessageSquareText}
+              title="Permintaan Khusus"
+              subtitle="Tambahkan addon dan catatan khusus untuk paket terpilih."
+            />
+            <CardContent className="pt-6 space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Addon</label>
                 <Popover>
@@ -1246,15 +1270,15 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                     <Button
                       type="button"
                       variant="outline"
-                      className={cn('w-full justify-between h-12', availableAddons.length === 0 && 'text-muted-foreground')}
+                      className={cn(formComboboxTriggerClass, availableAddons.length === 0 && 'text-muted-foreground')}
                       disabled={disabled || !selectedPackage || availableAddons.length === 0}
                     >
                       {availableAddons.length === 0 ? 'Tidak ada addon' : 'Tambah addon'}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
+                  <PopoverContent className={formPopoverContentClass} align="start">
+                    <Command className="rounded-xl">
                       <CommandInput placeholder="Cari addon..." />
                       <CommandList>
                         <CommandEmpty>Tidak ada data</CommandEmpty>
@@ -1265,6 +1289,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                               <CommandItem
                                 key={key}
                                 value={a.description}
+                                className={formCommandItemClass}
                                 onSelect={() => {
                                   setSelectedAddons((prev) => [...prev, a]);
                                 }}
@@ -1317,7 +1342,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                   onChange={(e) => setSpecialRequest(e.target.value)}
                   placeholder="Contoh: membutuhkan kursi bayi, meeting point khusus, dll"
                   disabled={disabled}
-                  className="min-h-[120px]"
+                  className={formTextareaClass}
                 />
               </div>
             </CardContent>
@@ -1326,10 +1351,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {showPackageDetailItinerary ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Itinerary</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={MapPinned}
+              title="Itinerary"
+              subtitle="Rangkuman itinerary dari paket wisata."
+            />
+            <CardContent className="pt-6">
               <div className="space-y-4">
                 {packageItineraries.map((day) => (
                   <div key={day.day} className="border-l-4 border-blue-500 pl-4">
@@ -1356,10 +1383,12 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {showPackageFacilities ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Fasilitas</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={ListChecks}
+              title="Fasilitas"
+              subtitle="Fasilitas yang termasuk dalam paket."
+            />
+            <CardContent className="pt-6">
               <div className="flex flex-wrap gap-2">
                 {packageFacilities.map((f) => (
                   <Badge key={f} variant="outline">
@@ -1373,9 +1402,11 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {isCustomPackage ? (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Itinerary</span>
+            <CardHeaderWithBadge
+              badgeIcon={MapPinned}
+              title="Itinerary"
+              subtitle="Susun tujuan perjalanan untuk paket custom."
+              actions={
                 <Button
                   type="button"
                   variant="outline"
@@ -1386,9 +1417,9 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                   <Plus className="h-4 w-4" />
                   Tambah Tujuan
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              }
+            />
+            <CardContent className="pt-6 space-y-3">
               {itinerary.map((row, idx) => (
                 <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-3">
                   <div className="md:col-span-6 space-y-2">
@@ -1398,7 +1429,7 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
                       onChange={(e) =>
                         setItinerary((prev) => prev.map((r) => (r.id === row.id ? { ...r, destination: e.target.value } : r)))
                       }
-                      className="h-12"
+                      className={formFieldClass}
                       placeholder="Contoh: Pantai Kuta"
                       disabled={disabled}
                     />
@@ -1434,16 +1465,18 @@ export const TourPackageOrderForm: React.FC<TourPackageOrderFormProps> = ({
 
         {isCustomPackage ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Permintaan Khusus</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardHeaderWithBadge
+              badgeIcon={MessageSquareText}
+              title="Permintaan Khusus"
+              subtitle="Catatan tambahan untuk kebutuhan perjalanan."
+            />
+            <CardContent className="pt-6">
               <Textarea
                 value={specialRequest}
                 onChange={(e) => setSpecialRequest(e.target.value)}
                 placeholder="Contoh: membutuhkan kursi bayi, meeting point khusus, dll"
                 disabled={disabled}
-                className="min-h-[120px]"
+                className={formTextareaClass}
               />
             </CardContent>
           </Card>

@@ -90,7 +90,7 @@ export const ForgotPassword: React.FC = () => {
         <div className="text-center">
           <Link
             to="/auth/login"
-            className="inline-flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            className="inline-flex items-center text-sm text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Kembali ke Login
@@ -102,7 +102,7 @@ export const ForgotPassword: React.FC = () => {
             Belum punya akun?{' '}
             <Link
               to="/auth/register"
-              className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              className="font-medium text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
             >
               Daftar sekarang
             </Link>
