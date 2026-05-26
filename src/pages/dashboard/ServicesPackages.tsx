@@ -217,7 +217,7 @@ export const ServicesPackages: React.FC = () => {
             >
               <Link
                 to={`${basePrefix}/services/packages/detail/${encodeURIComponent(String(pkg.package_id))}`}
-                className="hover:underline"
+                className="hover:no-underline hover:text-bold"
               >
                 <span className="md:hidden">{truncateWithDots(pkg.package_name, 35)}</span>
                 <span className="hidden md:inline">{truncateWithDots(pkg.package_name, 50)}</span>

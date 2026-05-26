@@ -210,7 +210,7 @@ export const Login: React.FC = () => {
                 Ingat saya
               </label>
             </div>
-            <Link to="/auth/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            <Link to="/auth/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:no-underline text-bold">
               Lupa password?
             </Link>
           </div>
@@ -235,7 +235,7 @@ export const Login: React.FC = () => {
                   e.preventDefault();
                   navigateWithTransition('/auth/register', 'left');
                 }}
-                className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                className="font-medium text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
               >
                 Daftar sekarang
               </Link>

@@ -1124,7 +1124,7 @@ export const OrderDetail: React.FC = () => {
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
       case 'paid':
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">Lunas</Badge>;
+        return <Badge className="bg-green-100 text-bold text-green-800 dark:bg-green-900/20 dark:text-green-300">Lunas</Badge>;
       case 'pending':
         return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">Pending</Badge>;
       case 'failed':

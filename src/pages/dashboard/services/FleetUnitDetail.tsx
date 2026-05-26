@@ -19,8 +19,11 @@ import {
   MessageCircleMore,
   Route,
   Star,
+  TrendingDown,
+  TrendingUp,
   Users,
   XCircle,
+  Wallet,
 } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -60,7 +63,10 @@ type UnitDetail = {
   created_at?: string;
   pickup_points: string[];
   owner_name?: string;
-  ownership_type?: string;
+  ownership_type?: number;
+  partner_id?: string;
+  partner_name?: string;
+  partner_phone?: string;
   owner_contact?: string;
   owner_email?: string;
 };
@@ -77,6 +83,13 @@ type AvailabilityRow = {
   available: boolean;
 };
 
+type RevenueSummary = {
+  current: { totalBooking: number; totalRevenue: number };
+  previous?: { totalBooking: number; totalRevenue: number };
+  currentLabel: string;
+  previousLabel?: string;
+};
+
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 
@@ -86,6 +99,23 @@ const getString = (v: unknown): string =>
 const getNumber = (v: unknown): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+};
+
+const formatRupiahFromNumber = (amount: number): string => {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return 'Rp 0';
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n);
+};
+
+const formatNumberId = (value: number): string => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('id-ID');
 };
 
 const formatDate = (value?: string) => {
@@ -187,6 +217,9 @@ export const FleetUnitDetail: React.FC = () => {
   const [availabilityPage, setAvailabilityPage] = useState(1);
   const availabilityItemsPerPage = 5;
 
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [revenueSummary, setRevenueSummary] = useState<RevenueSummary | null>(null);
+
   useEffect(() => {
     const load = async () => {
       const unitId = decodeURIComponent(unitIdParam);
@@ -210,9 +243,16 @@ export const FleetUnitDetail: React.FC = () => {
         const thumbnailRaw = getString(obj.thumbnail ?? obj.image ?? obj.photo);
         const created_at = getString(obj.created_at ?? obj.createdAt ?? obj.created_date ?? obj.createdDate);
         const owner_name = getString(obj.owner_name ?? obj.ownerName ?? obj.owner ?? obj.pic_name ?? obj.picName);
-        const ownership_type = getString(obj.ownership_type ?? obj.ownershipType ?? obj.owner_type ?? obj.ownerType);
+        const ownershipTypeRaw = obj.ownership_type ?? obj.ownershipType ?? obj.owner_type ?? obj.ownerType;
+        const ownership_type = getNumber(ownershipTypeRaw);
         const owner_contact = getString(obj.owner_contact ?? obj.ownerContact ?? obj.phone ?? obj.contact ?? obj.pic_phone ?? obj.picPhone);
         const owner_email = getString(obj.owner_email ?? obj.ownerEmail ?? obj.email ?? obj.pic_email ?? obj.picEmail);
+
+        const ownershipInfo = record(obj.ownership_information ?? obj.ownershipInformation);
+        const partner_id = getString(ownershipInfo.partner_id ?? ownershipInfo.partnerId ?? ownershipInfo.id).trim();
+        const partner_name = getString(ownershipInfo.partner_name ?? ownershipInfo.partnerName ?? ownershipInfo.name).trim();
+        const partner_phone = getString(ownershipInfo.partner_phone ?? ownershipInfo.partnerPhone ?? ownershipInfo.phone).trim();
+
         const pickupPointsRaw =
           obj.pickup_point ??
           obj.pickupPoint ??
@@ -246,7 +286,10 @@ export const FleetUnitDetail: React.FC = () => {
           created_at: created_at || undefined,
           pickup_points,
           owner_name: owner_name || undefined,
-          ownership_type: ownership_type || undefined,
+          ownership_type: Number.isFinite(ownership_type) ? ownership_type : undefined,
+          partner_id: partner_id || undefined,
+          partner_name: partner_name || undefined,
+          partner_phone: partner_phone || undefined,
           owner_contact: owner_contact || undefined,
           owner_email: owner_email || undefined,
         });
@@ -257,6 +300,82 @@ export const FleetUnitDetail: React.FC = () => {
     };
 
     load();
+  }, [unitIdParam]);
+
+  useEffect(() => {
+    const loadRevenue = async () => {
+      const unitId = decodeURIComponent(unitIdParam);
+      if (!unitId) return;
+      setRevenueLoading(true);
+      try {
+        const now = new Date();
+        const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const token = localStorage.getItem('token') ?? '';
+        const headers = token ? { Authorization: token } : undefined;
+        const res = await api.post<unknown>('/services/fleet-units/revenue', { unit_id: unitId, period }, headers);
+        if (res.status !== 'success') {
+          setRevenueSummary(null);
+          return;
+        }
+        const payload = res.data as unknown;
+        const root = record(payload);
+        const arr: unknown[] =
+          (Array.isArray(payload) ? (payload as unknown[]) : undefined) ??
+          (Array.isArray(root.data) ? (root.data as unknown[]) : undefined) ??
+          (Array.isArray(root.items) ? (root.items as unknown[]) : undefined) ??
+          [];
+        const list = arr.map((x) => record(x));
+        const first = list.length > 0 ? record(list[0]) : {};
+        const second = list.length > 1 ? record(list[1]) : null;
+
+        const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const currentLabel = format(currentMonthDate, 'MMMM yyyy', { locale: idLocale });
+        const previousLabel = format(prevMonthDate, 'MMMM yyyy', { locale: idLocale });
+
+        const current = {
+          totalBooking: getNumber(first.total_booking ?? first.totalBooking ?? first.booking ?? first.bookings),
+          totalRevenue: getNumber(first.total_revenue ?? first.totalRevenue ?? first.revenue),
+        };
+
+        let previous: RevenueSummary['previous'] =
+          second
+            ? {
+                totalBooking: getNumber(second.total_booking ?? second.totalBooking ?? second.booking ?? second.bookings),
+                totalRevenue: getNumber(second.total_revenue ?? second.totalRevenue ?? second.revenue),
+              }
+            : undefined;
+
+        if (!previous) {
+          const prevPeriod = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+          const prevRes = await api.post<unknown>('/services/fleet-units/revenue', { unit_id: unitId, period: prevPeriod }, headers);
+          if (prevRes.status === 'success') {
+            const prevPayload = prevRes.data as unknown;
+            const prevRoot = record(prevPayload);
+            const prevArr: unknown[] =
+              (Array.isArray(prevPayload) ? (prevPayload as unknown[]) : undefined) ??
+              (Array.isArray(prevRoot.data) ? (prevRoot.data as unknown[]) : undefined) ??
+              (Array.isArray(prevRoot.items) ? (prevRoot.items as unknown[]) : undefined) ??
+              [];
+            const prevFirst = prevArr.length > 0 ? record(prevArr[0]) : {};
+            previous = {
+              totalBooking: getNumber(prevFirst.total_booking ?? prevFirst.totalBooking ?? prevFirst.booking ?? prevFirst.bookings),
+              totalRevenue: getNumber(prevFirst.total_revenue ?? prevFirst.totalRevenue ?? prevFirst.revenue),
+            };
+          }
+        }
+
+        setRevenueSummary({
+          current,
+          previous,
+          currentLabel,
+          previousLabel: previous ? previousLabel : undefined,
+        });
+      } finally {
+        setRevenueLoading(false);
+      }
+    };
+    loadRevenue();
   }, [unitIdParam]);
 
   useEffect(() => {
@@ -376,8 +495,8 @@ export const FleetUnitDetail: React.FC = () => {
             (Array.isArray(dataNode) ? (dataNode as unknown[]) : undefined) ??
             (Array.isArray(dataObj.data) ? (dataObj.data as unknown[]) : undefined) ??
             [];
-            console.log({arr, res: res.data})
-          const mapped = res.data.map((raw) => {
+          const mapped = arr
+            .map((raw) => {
               const obj = record(raw);
               const date = getString(obj.date ?? obj.schedule_date ?? obj.day ?? obj.start_date).trim();
               const availableRaw = obj.available ?? obj.is_available ?? obj.status;
@@ -446,20 +565,13 @@ export const FleetUnitDetail: React.FC = () => {
 
   const unitCode = detail?.vehicle_id || unitIdParam || 'BB001';
   const ownershipBadge = (() => {
-    const raw = (detail?.ownership_type ?? '').toLowerCase();
-    if (!raw) return { label: '-', tone: 'muted' as const };
-    if (raw.includes('own') || raw.includes('milik') || raw.includes('owned')) return { label: 'Owned', tone: 'blue' as const };
-    if (raw.includes('operasional') || raw.includes('koo') || raw.includes('kerjasama')) return { label: 'Kerjasama Operasional', tone: 'amber' as const };
-    return { label: detail?.ownership_type ?? '-', tone: 'muted' as const };
+    const t = Number(detail?.ownership_type);
+    if (t === 0) return { label: 'Owned', tone: 'blue' as const };
+    if (t === 1) return { label: 'Kerjasama Operasional', tone: 'amber' as const };
+    return { label: '-', tone: 'muted' as const };
   })();
 
   const metrics = [
-    {
-      key: 'totalTrips',
-      label: 'Total Perjalanan',
-      value: String(totalSchedule),
-      icon: Route,
-    },
     {
       key: 'lastTrip',
       label: 'Perjalanan Sebelumnya',
@@ -472,25 +584,25 @@ export const FleetUnitDetail: React.FC = () => {
       value: upcomingScheduleStartDate ? formatTripDate(upcomingScheduleStartDate) : '-',
       icon: CalendarDays,
     },
-    {
-      key: 'totalReviews',
-      label: 'Total Ulasan',
-      value: String(reviews.length),
-      icon: MessageCircleMore,
-    },
-    {
-      key: 'rating',
-      label: 'Rating Armada',
-      value: rating ? String(rating) : '-',
-      icon: Star,
-    },
-    {
-      key: 'capacity',
-      label: 'Kapasitas Kursi',
-      value: detail?.capacity ? String(detail.capacity) : '-',
-      icon: Users,
-    },
   ] as const;
+
+  const bookingTrend = useMemo(() => {
+    const current = revenueSummary?.current.totalBooking ?? 0;
+    const previous = revenueSummary?.previous?.totalBooking;
+    if (previous === undefined) return null;
+    const delta = current - previous;
+    const percent = previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
+    return { delta, percent, up: delta >= 0, current, previous };
+  }, [revenueSummary]);
+
+  const revenueTrend = useMemo(() => {
+    const current = revenueSummary?.current.totalRevenue ?? 0;
+    const previous = revenueSummary?.previous?.totalRevenue;
+    if (previous === undefined) return null;
+    const delta = current - previous;
+    const percent = previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
+    return { delta, percent, up: delta >= 0, current, previous };
+  }, [revenueSummary]);
 
   const handleReservasi = (date: Date) => {
     const ymd = toYmd(date);
@@ -633,6 +745,100 @@ export const FleetUnitDetail: React.FC = () => {
               <div className="py-10 text-center text-sm text-gray-500">Data unit tidak ditemukan</div>
             ) : (
               <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-white" />
+                    <div className="relative">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-gray-600">Total Pesanan</div>
+                          <div className="mt-1 text-xs text-gray-500">{revenueSummary?.currentLabel ?? 'Periode saat ini'}</div>
+                          <div className="mt-2 text-2xl font-semibold text-gray-900">
+                            {revenueLoading ? (
+                              <span className="inline-flex items-center text-sm text-gray-500">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Memuat...
+                              </span>
+                            ) : (
+                              formatNumberId(revenueSummary?.current.totalBooking ?? 0)
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 h-10 w-10 rounded-full bg-blue-100/70 flex items-center justify-center">
+                          <Route className="h-5 w-5 text-blue-700" />
+                        </div>
+                      </div>
+
+                      {bookingTrend ? (
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="text-xs text-gray-500 min-w-0">
+                            <span className="truncate">vs {revenueSummary?.previousLabel ?? 'Periode sebelumnya'}</span>
+                            <span className="mx-1.5 text-gray-300">•</span>
+                            <span className="font-medium text-gray-700">{formatNumberId(bookingTrend.previous)}</span>
+                          </div>
+                          <div
+                            className={[
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+                              bookingTrend.up ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+                            ].join(' ')}
+                          >
+                            {bookingTrend.up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                            {`${bookingTrend.up ? '+' : ''}${bookingTrend.percent.toFixed(1)}%`}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-xs text-gray-400">Data periode sebelumnya tidak tersedia</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-white" />
+                    <div className="relative">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-gray-600">Total Pendapatan</div>
+                          <div className="mt-1 text-xs text-gray-500">{revenueSummary?.currentLabel ?? 'Periode saat ini'}</div>
+                          <div className="mt-2 text-2xl font-semibold text-gray-900">
+                            {revenueLoading ? (
+                              <span className="inline-flex items-center text-sm text-gray-500">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Memuat...
+                              </span>
+                            ) : (
+                              formatRupiahFromNumber(revenueSummary?.current.totalRevenue ?? 0)
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 h-10 w-10 rounded-full bg-emerald-100/70 flex items-center justify-center">
+                          <Wallet className="h-5 w-5 text-emerald-700" />
+                        </div>
+                      </div>
+
+                      {revenueTrend ? (
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="text-xs text-gray-500 min-w-0">
+                            <span className="truncate">vs {revenueSummary?.previousLabel ?? 'Periode sebelumnya'}</span>
+                            <span className="mx-1.5 text-gray-300">•</span>
+                            <span className="font-medium text-gray-700">{formatRupiahFromNumber(revenueTrend.previous)}</span>
+                          </div>
+                          <div
+                            className={[
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+                              revenueTrend.up ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+                            ].join(' ')}
+                          >
+                            {revenueTrend.up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                            {`${revenueTrend.up ? '+' : ''}${revenueTrend.percent.toFixed(1)}%`}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-xs text-gray-400">Data periode sebelumnya tidak tersedia</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   {metrics.map((m) => {
                     const Icon = m.icon;
@@ -647,6 +853,7 @@ export const FleetUnitDetail: React.FC = () => {
                             <Icon className="h-5 w-5 text-blue-600" />
                           </div>
                         </div>
+                        <div className="mt-3 text-xs text-gray-400">Berdasarkan jadwal armada</div>
                       </div>
                     );
                   })}
@@ -737,7 +944,6 @@ export const FleetUnitDetail: React.FC = () => {
                               {[
                                 { label: 'Fleet Type', value: detail.fleet_type || '-' },
                                 { label: 'Tipe Armada', value: detail.fleet_name || '-' },
-                                { label: 'Plat Nomor', value: detail.plate_number || '-' },
                                 { label: 'Chassis', value: detail.engine || '-' },
                                 { label: 'Transmisi', value: detail.transmission || '-' },
                                 { label: 'Tahun Produksi', value: detail.production_year ? String(detail.production_year) : '-' },
@@ -758,14 +964,39 @@ export const FleetUnitDetail: React.FC = () => {
                         <div className="mt-4 overflow-hidden rounded-xl border border-gray-200/60">
                           <table className="w-full text-sm">
                             <tbody className="divide-y divide-gray-200/60">
-                              {[
-                                { label: 'Unit ID', value: detail.unit_id || '-' },
-                                { label: 'Vehicle ID', value: detail.vehicle_id || '-' },
-                                { label: 'Tanggal Dibuat', value: formatDate(detail.created_at) },
-                                { label: 'Owner Name', value: detail.owner_name || '-' },
-                                { label: 'Kontak Owner', value: detail.owner_contact || '-' },
-                                { label: 'Email', value: detail.owner_email || '-' },
-                              ].map((row) => (
+                              {(() => {
+                                const isKo = Number(detail.ownership_type ?? 0) === 1;
+                                const ownerLabel = isKo ? (detail.partner_name || '-') : (detail.owner_name || '-');
+                                const ownerValue = isKo && detail.partner_id ? (
+                                  <button
+                                    type="button"
+                                    className="text-blue-600 hover:no-underline text-bold"
+                                    onClick={() =>
+                                      navigate(
+                                        `${basePrefix}/partners/detail/${encodeURIComponent(String(detail.partner_id ?? ''))}`,
+                                        { state: { partner_id: detail.partner_id, partner_name: detail.partner_name, partner_phone: detail.partner_phone } }
+                                      )
+                                    }
+                                  >
+                                    {ownerLabel}
+                                  </button>
+                                ) : (
+                                  ownerLabel
+                                );
+
+                                const rows = [
+                                  { label: 'Plat Nomor', value: detail.plate_number || '-' },
+                                  { label: 'Vehicle ID', value: detail.vehicle_id || '-' },
+                                  { label: 'Tanggal Dibuat', value: formatDate(detail.created_at) },
+                                  { label: 'Owner Name', value: ownerValue },
+                                ] as Array<{ label: string; value: React.ReactNode }>;
+
+                                if (isKo) {
+                                  rows.push({ label: 'Kontak Owner', value: detail.partner_phone || '-' });
+                                }
+
+                                return rows;
+                              })().map((row) => (
                                 <tr key={row.label} className="bg-white">
                                   <td className="px-4 py-3 text-gray-500 w-1/2">{row.label}</td>
                                   <td className="px-4 py-3 font-medium text-gray-900">{row.value}</td>

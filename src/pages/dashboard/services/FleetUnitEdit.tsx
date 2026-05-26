@@ -70,10 +70,26 @@ const getString = (v: unknown): string =>
 
 const normalizeOwnershipType = (raw: string) => {
   const key = raw.toLowerCase();
+  if (key === '1') return 'Kerjasama Operasional';
+  if (key === '0') return 'Milik Sendiri';
   if (key.includes('operasional') || key.includes('kerjasama') || key.includes('partner')) return 'Kerjasama Operasional';
   if (key.includes('milik') || key.includes('own') || key.includes('owned') || key.includes('in-house')) return 'Milik Sendiri';
   return raw || 'Milik Sendiri';
 };
+
+const normalizePhone62 = (raw: string): string => {
+  const digits = String(raw ?? '').replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  if (digits === '6') return '62';
+  if (digits.startsWith('62')) return digits;
+  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+  if (digits.startsWith('8')) return `62${digits}`;
+  if (digits.startsWith('6')) return `62${digits.slice(1)}`;
+  return `62${digits}`;
+};
+
+const ownershipTypeToNumber = (value: string): 0 | 1 =>
+  value === 'Kerjasama Operasional' ? 1 : 0;
 
 type PartnerOption = {
   id: string;
@@ -285,7 +301,8 @@ export const FleetUnitEdit: React.FC = () => {
   }, [unitIdParam]);
 
   const setField = (key: keyof typeof formData, value: string) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    const nextValue = key === 'owner_contact' ? normalizePhone62(value) : value;
+    setFormData((prev) => ({ ...prev, [key]: nextValue }));
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: '' }));
   };
 
@@ -328,7 +345,7 @@ export const FleetUnitEdit: React.FC = () => {
       capacity: Number(formData.capacity),
       production_year: Number(formData.production_year),
       transmission: formData.transmission.trim(),
-      ownership_type: formData.ownership_type,
+      ownership_type: ownershipTypeToNumber(formData.ownership_type),
       owner_name: needsPartnerInfo ? formData.owner_name.trim() : '',
       owner_contact: needsPartnerInfo ? formData.owner_contact.trim() : '',
       owner_email: needsPartnerInfo ? formData.owner_email.trim() : '',
@@ -733,6 +750,22 @@ export const FleetUnitEdit: React.FC = () => {
                                         ? 'Memuat...'
                                         : 'Tidak ada hasil.'}
                                   </CommandEmpty>
+                                  {partnerQuery.trim() ? (
+                                    <CommandGroup heading="Teks">
+                                      <CommandItem
+                                        value={`__custom__:${partnerQuery.trim()}`}
+                                        className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900"
+                                        onSelect={() => {
+                                          const v = partnerQuery.trim();
+                                          setFormData((prev) => ({ ...prev, owner_name: v, partner_choice_id: '' }));
+                                          setPartnerPickerOpen(false);
+                                          if (errors.owner_name) setErrors((prev) => ({ ...prev, owner_name: '' }));
+                                        }}
+                                      >
+                                        Gunakan: {partnerQuery.trim()}
+                                      </CommandItem>
+                                    </CommandGroup>
+                                  ) : null}
                                   <CommandGroup heading="Partner">
                                     {partnerOptions.map((o) => (
                                       <CommandItem
@@ -743,7 +776,7 @@ export const FleetUnitEdit: React.FC = () => {
                                           setFormData((prev) => ({
                                             ...prev,
                                             owner_name: o.name,
-                                            owner_contact: o.phone || prev.owner_contact,
+                                            owner_contact: normalizePhone62(o.phone || prev.owner_contact),
                                             partner_choice_id: o.id,
                                           }));
                                           setPartnerQuery(o.name);
@@ -782,7 +815,9 @@ export const FleetUnitEdit: React.FC = () => {
                             <Input
                               value={formData.owner_contact}
                               onChange={(e) => setField('owner_contact', e.target.value)}
-                              placeholder="Contoh: 0812-3456-7890"
+                              placeholder="Contoh: 62xxxxxxxxxxx"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               className={cn(
                                 'h-12 rounded-[18px] border-blue-200/60 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
                                 errors.owner_contact && 'border-red-500'

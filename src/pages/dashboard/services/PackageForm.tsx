@@ -24,6 +24,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { uploadCommon, deleteCommon, api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
 
+const formFieldClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectTriggerClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectTriggerSmClass =
+  'h-8 w-20 rounded-[14px] border-blue-200/60 bg-white text-xs shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+const formSelectContentClass =
+  'rounded-xl border border-gray-200/70 bg-white p-1 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+const formSelectItemClass =
+  'rounded-lg data-[highlighted]:bg-blue-50 data-[highlighted]:text-gray-900 data-[state=checked]:bg-blue-50 dark:data-[highlighted]:bg-slate-900 dark:data-[state=checked]:bg-slate-900';
+const formDropdownClass = 'absolute z-20 w-full mt-1 rounded-xl border border-gray-200/70 bg-white shadow-xl max-h-60 overflow-auto';
+const formDropdownItemClass = 'px-3 py-2 text-sm rounded-lg hover:bg-blue-50 cursor-pointer transition-colors';
+
 // Interface for API response/request
 interface TourPackage {
   id?: number;
@@ -759,6 +772,7 @@ export const PackageForm: React.FC = () => {
                     value={formData.title} 
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Contoh: Paket Wisata Bali 3H2M"
+                    className={formFieldClass}
                   />
                   {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
                 </div>
@@ -769,12 +783,12 @@ export const PackageForm: React.FC = () => {
                     value={formData.packageType} 
                     onValueChange={(val) => setFormData(prev => ({ ...prev, packageType: val }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={formSelectTriggerClass}>
                       <SelectValue placeholder="Pilih jenis paket" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Private Trip</SelectItem>
-                      <SelectItem value="2">Open Trip</SelectItem>
+                    <SelectContent className={formSelectContentClass}>
+                      <SelectItem value="1" className={formSelectItemClass}>Private Trip</SelectItem>
+                      <SelectItem value="2" className={formSelectItemClass}>Open Trip</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -837,14 +851,14 @@ export const PackageForm: React.FC = () => {
                     <div className="flex items-center space-x-1 ml-2">
                       <Type className="h-4 w-4 text-gray-500" />
                       <Select onValueChange={changeFontSize}>
-                        <SelectTrigger className="h-8 w-20 text-xs">
+                        <SelectTrigger className={formSelectTriggerSmClass}>
                           <SelectValue placeholder="Size" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">Small</SelectItem>
-                          <SelectItem value="3">Normal</SelectItem>
-                          <SelectItem value="5">Large</SelectItem>
-                          <SelectItem value="7">X-Large</SelectItem>
+                        <SelectContent className={formSelectContentClass}>
+                          <SelectItem value="1" className={formSelectItemClass}>Small</SelectItem>
+                          <SelectItem value="3" className={formSelectItemClass}>Normal</SelectItem>
+                          <SelectItem value="5" className={formSelectItemClass}>Large</SelectItem>
+                          <SelectItem value="7" className={formSelectItemClass}>X-Large</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -910,6 +924,7 @@ export const PackageForm: React.FC = () => {
                           newSchedules[index].start_date = e.target.value;
                           setFormData(prev => ({ ...prev, schedules: newSchedules }));
                         }}
+                        className={formFieldClass}
                       />
                     </div>
                     <div className="space-y-2">
@@ -940,6 +955,7 @@ export const PackageForm: React.FC = () => {
                           newSchedules[index].end_date = e.target.value;
                           setFormData(prev => ({ ...prev, schedules: newSchedules }));
                         }}
+                        className={formFieldClass}
                       />
                     </div>
                   </div>
@@ -990,6 +1006,7 @@ export const PackageForm: React.FC = () => {
                       if (pickupQuery) fetchCities(pickupQuery);
                     }}
                     placeholder="Cari area penjemputan..."
+                    className={formFieldClass}
                   />
                   
                   {showPickupDropdown && (
@@ -998,7 +1015,7 @@ export const PackageForm: React.FC = () => {
                         className="fixed inset-0 z-10" 
                         onClick={() => setShowPickupDropdown(false)}
                       />
-                      <div className="absolute z-20 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className={formDropdownClass}>
                         {loadingCities ? (
                           <div className="p-2 text-center text-sm text-gray-500">Loading...</div>
                         ) : cities.length > 0 ? (
@@ -1008,7 +1025,7 @@ export const PackageForm: React.FC = () => {
                              return (
                               <div
                                 key={city.id}
-                                className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
+                                className={formDropdownItemClass}
                                 onClick={() => {
                                   setFormData(prev => ({
                                     ...prev,
@@ -1062,6 +1079,7 @@ export const PackageForm: React.FC = () => {
                               setFormData(prev => ({ ...prev, itinerary: newItinerary }));
                             }}
                             placeholder="Kegiatan..."
+                            className={formFieldClass}
                           />
                         </div>
 
@@ -1073,7 +1091,7 @@ export const PackageForm: React.FC = () => {
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Input
-                              className={`relative ${activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex ? 'z-50' : ''}`}
+                              className={`relative ${formFieldClass} ${activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex ? 'z-50' : ''}`}
                               value={
                                 activeCityDropdown?.dayIndex === dayIndex && activeCityDropdown?.activityIndex === actIndex
                                   ? cityQuery
@@ -1098,14 +1116,14 @@ export const PackageForm: React.FC = () => {
                                   className="fixed inset-0 z-40" 
                                   onClick={() => setActiveCityDropdown(null)}
                                 />
-                                <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                                <div className={formDropdownClass.replace('z-20', 'z-50')}>
                                   {loadingCities ? (
                                     <div className="p-2 text-center text-sm text-gray-500">Loading...</div>
                                   ) : cities.length > 0 ? (
                                     cities.map((city) => (
                                       <div
                                         key={city.id}
-                                        className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
+                                        className={formDropdownItemClass}
                                         onClick={() => {
                                           const newItinerary = [...formData.itinerary];
                                           newItinerary[dayIndex].activities[actIndex].city = city;
@@ -1137,6 +1155,7 @@ export const PackageForm: React.FC = () => {
                               setFormData(prev => ({ ...prev, itinerary: newItinerary }));
                             }}
                             placeholder="Lokasi spesifik..."
+                            className={formFieldClass}
                           />
                         </div>
 
@@ -1210,7 +1229,7 @@ export const PackageForm: React.FC = () => {
                       setFormData(prev => ({ ...prev, features: newFeatures }));
                     }}
                     placeholder="Contoh: Hotel Bintang 4"
-                    className="flex-1"
+                    className={`flex-1 ${formFieldClass}`}
                   />
                   <Button 
                     variant="ghost" 
@@ -1277,6 +1296,7 @@ export const PackageForm: React.FC = () => {
                           setFormData(prev => ({ ...prev, pricing: newPricing }));
                         }}
                         placeholder="Min Pax"
+                        className={formFieldClass}
                       />
                     </div>
                     <div>
@@ -1293,6 +1313,7 @@ export const PackageForm: React.FC = () => {
                           setFormData(prev => ({ ...prev, pricing: newPricing }));
                         }}
                         placeholder="Max Pax"
+                        className={formFieldClass}
                       />
                     </div>
                     <div>
@@ -1309,7 +1330,7 @@ export const PackageForm: React.FC = () => {
                             setFormData(prev => ({ ...prev, pricing: newPricing }));
                           }}
                           placeholder="0"
-                          className="flex-1"
+                          className={`flex-1 ${formFieldClass}`}
                         />
                         <Button 
                           type="button"
@@ -1379,6 +1400,7 @@ export const PackageForm: React.FC = () => {
                           setFormData(prev => ({ ...prev, addons: newAddons }));
                         }}
                         placeholder="Contoh: Bed tambahan untuk 1 orang"
+                        className={formFieldClass}
                       />
                     </div>
                     <div>
@@ -1395,7 +1417,7 @@ export const PackageForm: React.FC = () => {
                             setFormData(prev => ({ ...prev, addons: newAddons }));
                           }}
                           placeholder="0"
-                          className="flex-1"
+                          className={`flex-1 ${formFieldClass}`}
                         />
                         <Button 
                           type="button"
@@ -1573,12 +1595,12 @@ export const PackageForm: React.FC = () => {
                 value={formData.active ? 'true' : 'false'} 
                 onValueChange={(val) => setFormData(prev => ({ ...prev, active: val === 'true' }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className={formSelectTriggerClass}>
                   <SelectValue placeholder="Pilih status" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Publikasi (Aktif)</SelectItem>
-                  <SelectItem value="false">Draft (Tidak Aktif)</SelectItem>
+                <SelectContent className={formSelectContentClass}>
+                  <SelectItem value="true" className={formSelectItemClass}>Publikasi (Aktif)</SelectItem>
+                  <SelectItem value="false" className={formSelectItemClass}>Draft (Tidak Aktif)</SelectItem>
                 </SelectContent>
               </Select>
             </CardContent>

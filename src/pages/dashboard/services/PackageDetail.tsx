@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Calendar, ChevronRight, CreditCard, Edit, Image as ImageIcon, Info, MapPin, Package as PackageIcon, Tag, Trash2 } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ImagePopup } from '@/components/common/ImagePopup';
 import { cn } from '@/lib/utils';
@@ -472,7 +472,7 @@ export const PackageDetail: React.FC = () => {
                 <span className="text-slate-600 dark:text-slate-300">Detail</span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-2xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {pkg.package_name}
                 </h1>
                 {getStatusBadge(pkg.status)}
@@ -535,15 +535,12 @@ export const PackageDetail: React.FC = () => {
         <div className="space-y-6">
           {mainImages.length > 0 && (
             <Card className={cn(cardBaseClass, 'overflow-hidden')}>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <ImageIcon className="h-5 w-5 text-[#295BFF]" />
-                  <span>Photo Gallery</span>
-                </CardTitle>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  Klik foto untuk melihat lebih besar
-                </div>
-              </CardHeader>
+              <CardHeaderWithBadge
+                className="pb-2"
+                badgeIcon={ImageIcon}
+                title="Photo Gallery"
+                subtitle="Klik foto untuk melihat lebih besar."
+              />
               <CardContent className="pt-4">
                 <div className="space-y-4">
                   <button
@@ -610,15 +607,12 @@ export const PackageDetail: React.FC = () => {
           )}
 
           <Card className={cardBaseClass}>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                <Info className="h-5 w-5 text-[#295BFF]" />
-                <span>Informasi Paket</span>
-              </CardTitle>
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Ringkasan detail dan informasi penting paket
-              </div>
-            </CardHeader>
+            <CardHeaderWithBadge
+              className="pb-2"
+              badgeIcon={Info}
+              title="Informasi Paket"
+              subtitle="Ringkasan detail dan informasi penting paket."
+            />
             <CardContent className="pt-4">
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
                 <div className="space-y-6">
@@ -705,15 +699,12 @@ export const PackageDetail: React.FC = () => {
 
           {pkg.itineraries.length > 0 && (
             <Card className={cardBaseClass}>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <Calendar className="h-5 w-5 text-[#295BFF]" />
-                  <span>Itinerary</span>
-                </CardTitle>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  Timeline aktivitas per hari
-                </div>
-              </CardHeader>
+              <CardHeaderWithBadge
+                className="pb-2"
+                badgeIcon={Calendar}
+                title="Itinerary"
+                subtitle="Timeline aktivitas per hari."
+              />
               <CardContent className="pt-4">
                 <div className="relative pl-8">
                   <div className="absolute left-[11px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-800" />
@@ -765,15 +756,12 @@ export const PackageDetail: React.FC = () => {
 
           {(pkg.pricing.length > 0 || pkg.addons.length > 0) && (
             <Card className={cardBaseClass}>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <CreditCard className="h-5 w-5 text-[#295BFF]" />
-                  <span>Harga</span>
-                </CardTitle>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  Harga per pax dan addons (jika tersedia)
-                </div>
-              </CardHeader>
+              <CardHeaderWithBadge
+                className="pb-2"
+                badgeIcon={CreditCard}
+                title="Harga"
+                subtitle="Harga per pax dan addons (jika tersedia)."
+              />
               <CardContent className="pt-4">
                 {pkg.pricing.length > 0 && (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -816,15 +804,12 @@ export const PackageDetail: React.FC = () => {
 
         <div className="space-y-6">
           <Card className={cn(cardBaseClass, 'hover:shadow-md lg:sticky lg:top-24')}>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                <PackageIcon className="h-5 w-5 text-[#295BFF]" />
-                <span>Ringkasan</span>
-              </CardTitle>
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Detail cepat paket
-              </div>
-            </CardHeader>
+            <CardHeaderWithBadge
+              className="pb-2"
+              badgeIcon={PackageIcon}
+              title="Ringkasan"
+              subtitle="Detail cepat paket."
+            />
             <CardContent className="pt-4">
               <div className="space-y-3">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">

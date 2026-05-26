@@ -23,7 +23,13 @@ import {
   Ticket,
   PlusCircle,
   Menu,
-  X
+  X,
+  Handshake,
+  Mails,
+  SlidersHorizontal,
+  Building2,
+  CalendarCheck,
+  HandCoinsIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -141,7 +147,7 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Jadwal',
         items: [
-          { title: 'Jadwal Armada', icon: Car, href: `${basePrefix}/schedules/fleet-management` },
+          { title: 'Jadwal Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-management` },
           { title: 'Jadwal Tim', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
           { title: 'Manajemen Cuti', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
         ]
@@ -149,7 +155,7 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Finance',
         items: [
-          { title: 'Pendapatan', icon: DollarSign, href: `${basePrefix}/finance/revenue` },
+          { title: 'Pendapatan', icon: HandCoinsIcon, href: `${basePrefix}/finance/revenue` },
           { title: 'Pengeluaran Umum', icon: ShoppingBag, href: `${basePrefix}/finance/expenses` }
         ]
       },
@@ -157,15 +163,14 @@ export const Sidebar: React.FC = () => {
         label: 'CRM',
         items: [
           { title: 'Daftar Pelanggan', icon: Users, href: `${basePrefix}/customers` },
-          { title: 'Pesan Masuk', icon: Users, href: `${basePrefix}/inquiry` },
-          // { title: 'Pelanggan Terdaftar', icon: UserCheck, href: `${basePrefix}/customers/registered` },
-          // { title: 'Hadiah Pelanggan', icon: Gift, href: `${basePrefix}/customers/rewards` }
+          { title: 'Pesan Masuk', icon: Mails, href: `${basePrefix}/inquiry` },
+          { title: 'Mitra Operasional', icon: Handshake, href: `${basePrefix}/partner-operations` },
         ]
       },
       {
         label: 'Organisasi',
         items: [
-          { title: 'Perusahaan Saya', icon: FileText, href: `${basePrefix}/organization/company` },
+          { title: 'Perusahaan Saya', icon: Building2, href: `${basePrefix}/organization/company` },
           { title: 'Anggota Tim', icon: Users, href: `${basePrefix}/organization/team-members` },
           { title: 'Peran', icon: Shield, href: `${basePrefix}/organization/roles` },
           { title: 'Divisi', icon: Package, href: `${basePrefix}/organization/division` }
@@ -181,10 +186,10 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Pengaturan',
         items: [
-          { title: 'Organisasi', icon: FileText, href: `${basePrefix}/organization/settings` },
+          { title: 'Organisasi', icon: Building2, href: `${basePrefix}/organization/settings` },
           { title: 'Pengguna', icon: User, href: `${basePrefix}/organization/users` },
           { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
-          { title: 'Manajemen Konten', icon: FileText, href: `${basePrefix}/content` }
+          { title: 'Manajemen Konten', icon: SlidersHorizontal, href: `${basePrefix}/content` }
         ]
       }
     ],

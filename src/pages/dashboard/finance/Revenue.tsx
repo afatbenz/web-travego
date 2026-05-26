@@ -95,7 +95,7 @@ export const Revenue: React.FC = () => {
     if (!v) return <Badge variant="outline">-</Badge>;
     if (['paid', 'lunas', 'success', 'completed', 'selesai'].some((x) => v.includes(x))) {
       return (
-        <Badge className="rounded-full border-transparent bg-transparent px-3 py-1 font-medium text-emerald-700 hover:bg-gray-200/10 dark:bg-emerald-400/15 dark:text-emerald-300 dark:hover:bg-emerald-400/15">
+        <Badge className="rounded-full text-bold border-transparent bg-transparent px-3 py-1 font-medium text-emerald-700 hover:bg-gray-200/10 dark:bg-emerald-400/15 dark:text-emerald-300 dark:hover:bg-emerald-400/15">
           Lunas
         </Badge>
       );
@@ -1127,7 +1127,6 @@ export const Revenue: React.FC = () => {
                   <div className="text-blue-600">
                     <Info className="w-4 h-4" />
                   </div>
-                  <p className="text-xs text-blue-700 font-medium">Pastikan nominal dan tanggal sesuai dengan data transaksi.</p>
                 </div>
 
                 <div className="flex items-center gap-3 w-full md:w-auto">
@@ -1142,7 +1141,7 @@ export const Revenue: React.FC = () => {
                   <button
                     type="submit"
                     disabled={manualSubmitting}
-                    className="flex-1 md:flex-none h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_25px_rgba(37,99,235,0.3)] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                    className="flex-1 md:flex-none h-10 px-5 rounded-lg text-md bg-blue-500 text-white font-normal flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_25px_rgba(37,99,235,0.3)] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
                   >
                     {manualSubmitting ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

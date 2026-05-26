@@ -18,6 +18,7 @@ import {
   Save,
   Settings2,
   Trash2,
+  Armchair,
   BusFront
 } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -65,6 +66,20 @@ const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 
 const getString = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
+const normalizePhone62 = (raw: string): string => {
+  const digits = String(raw ?? '').replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  if (digits === '6') return '62';
+  if (digits.startsWith('62')) return digits;
+  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+  if (digits.startsWith('8')) return `62${digits}`;
+  if (digits.startsWith('6')) return `62${digits.slice(1)}`;
+  return `62${digits}`;
+};
+
+const ownershipTypeToNumber = (value: UnitDraft['ownership_type']): 0 | 1 =>
+  value === 'Kerjasama Operasional' ? 1 : 0;
 
 const normalizePartnershipOptions = (payload: unknown): PartnerOption[] => {
   const root = record(payload);
@@ -171,7 +186,6 @@ export const FleetUnitCreate: React.FC = () => {
       if (u.ownership_type === 'Kerjasama Operasional') {
         if (!u.owner_name.trim()) return false;
         if (!u.owner_contact.trim()) return false;
-        if (!u.owner_email.trim()) return false;
       }
     }
     return true;
@@ -263,7 +277,8 @@ export const FleetUnitCreate: React.FC = () => {
   };
 
   const setUnitField = (index: number, key: keyof UnitDraft, value: string) => {
-    setUnits((prev) => prev.map((u, i) => (i === index ? { ...u, [key]: value } : u)));
+    const nextValue = key === 'owner_contact' ? normalizePhone62(value) : value;
+    setUnits((prev) => prev.map((u, i) => (i === index ? { ...u, [key]: nextValue } : u)));
     const errKey = `units.${index}.${key}`;
     if (errors[errKey]) setErrors((prev) => ({ ...prev, [errKey]: '' }));
   };
@@ -328,7 +343,6 @@ export const FleetUnitCreate: React.FC = () => {
       if (u.ownership_type === 'Kerjasama Operasional') {
         if (!u.owner_name.trim()) next[`units.${idx}.owner_name`] = 'Nama perusahaan wajib diisi';
         if (!u.owner_contact.trim()) next[`units.${idx}.owner_contact`] = 'Kontak perusahaan wajib diisi';
-        if (!u.owner_email.trim()) next[`units.${idx}.owner_email`] = 'Owner perusahaan wajib diisi';
       }
     });
 
@@ -339,7 +353,14 @@ export const FleetUnitCreate: React.FC = () => {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
-    if (!validate()) return;
+    if (!validate()) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Validasi',
+        text: 'Periksa kembali field yang wajib diisi.',
+      });
+      return;
+    }
 
     setSaving(true);
     const token = localStorage.getItem('token') ?? '';
@@ -354,7 +375,7 @@ export const FleetUnitCreate: React.FC = () => {
           capacity: Number(u.capacity),
           production_year: Number(u.production_year),
           transmission: u.transmission,
-          ownership_type: u.ownership_type,
+          ownership_type: ownershipTypeToNumber(u.ownership_type),
           owner_name: u.ownership_type === 'Kerjasama Operasional' ? u.owner_name.trim() : '',
           owner_contact: u.ownership_type === 'Kerjasama Operasional' ? u.owner_contact.trim() : '',
           owner_email: u.ownership_type === 'Kerjasama Operasional' ? u.owner_email.trim() : '',
@@ -581,7 +602,7 @@ export const FleetUnitCreate: React.FC = () => {
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">Capacity *</label>
                       <div className="relative">
-                        <Gauge className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
+                        <Armchair className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                         <Input
                           type="number"
                           inputMode="numeric"
@@ -792,6 +813,28 @@ export const FleetUnitCreate: React.FC = () => {
                                         ? 'Memuat...'
                                         : 'Tidak ada hasil.'}
                                   </CommandEmpty>
+                                  {partnerQuery.trim() ? (
+                                    <CommandGroup heading="Teks">
+                                      <CommandItem
+                                        value={`__custom__:${partnerQuery.trim()}`}
+                                        className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900"
+                                        onSelect={() => {
+                                          const v = partnerQuery.trim();
+                                          setUnits((prev) =>
+                                            prev.map((u, i) =>
+                                              i !== idx ? u : { ...u, owner_name: v, partner_choice_id: undefined }
+                                            )
+                                          );
+                                          setPartnerPickerOpen(false);
+                                          setPartnerPickerUnitIndex(null);
+                                          const nameKey = `units.${idx}.owner_name`;
+                                          if (errors[nameKey]) setErrors((prev) => ({ ...prev, [nameKey]: '' }));
+                                        }}
+                                      >
+                                        Gunakan: {partnerQuery.trim()}
+                                      </CommandItem>
+                                    </CommandGroup>
+                                  ) : null}
                                   <CommandGroup heading="Partner">
                                     {mergedPartnerOptions.map((o) => (
                                       <CommandItem
@@ -806,7 +849,7 @@ export const FleetUnitCreate: React.FC = () => {
                                                 : {
                                                     ...u,
                                                     owner_name: o.name,
-                                                    owner_contact: o.phone || u.owner_contact,
+                                                    owner_contact: normalizePhone62(o.phone || u.owner_contact),
                                                     partner_choice_id: o.id,
                                                   }
                                             )
@@ -862,7 +905,9 @@ export const FleetUnitCreate: React.FC = () => {
                             <Input
                               value={unit.owner_contact}
                               onChange={(e) => setUnitField(idx, 'owner_contact', e.target.value)}
-                              placeholder="Contoh: 0812-3456-7890"
+                              placeholder="Contoh: 62xxxxxxxxxxx"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               className={cn(
                                 'h-12 rounded-[18px] border-blue-200/60 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
                                 errors[`units.${idx}.owner_contact`] && 'border-red-500'
@@ -890,19 +935,19 @@ export const FleetUnitCreate: React.FC = () => {
         ))}
 
         <div className="sticky bottom-4 z-10 flex justify-end">
-          <div className="flex items-center gap-3 rounded-[22px] border border-gray-200/60 bg-white/80 px-3 py-3 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-3  px-3 py-3">
             <Button
               type="button"
               variant="outline"
-              className="h-11 rounded-full border-gray-200/70 bg-transparent px-5 hover:bg-gray-50"
+              className="h-11 rounded-full border-gray-200/70 bg-white px-5 hover:bg-gray-50"
               onClick={() => navigate(`${basePrefix}/fleet-units`)}
             >
               Batal
             </Button>
             <Button
               type="submit"
-              className="h-11 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 px-6 text-white shadow-sm hover:from-blue-700 hover:to-blue-600"
-              disabled={saving || !submitReady}
+              className="h-11 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 text-white shadow-sm hover:from-blue-700 hover:to-blue-600"
+              disabled={saving}
             >
               {saving ? (
                 <>
