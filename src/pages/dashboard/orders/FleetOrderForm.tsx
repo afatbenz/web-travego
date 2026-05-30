@@ -576,6 +576,38 @@ export const FleetOrderForm: React.FC = () => {
     [token]
   );
 
+  const parseAddonsFromResponse = useCallback((addonsRaw: unknown): Option[] => {
+    const items = Array.isArray(addonsRaw) ? addonsRaw : [];
+    return items
+      .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
+      .filter((it): it is Record<string, unknown> => Boolean(it))
+      .map((it) => {
+        const idRaw = it.addon_id ?? it.addonId ?? it.uuid ?? it.id;
+        const nameRaw = it.addon_name ?? it.addonName ?? it.name ?? it.title ?? it.label;
+        const descRaw = it.addon_desc;
+        const priceRaw = it.price ?? it.addon_price ?? it.addonPrice ?? it.amount ?? it.value ?? 0;
+        const price = toNumberSafe(priceRaw);
+        const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+        const baseLabel = typeof nameRaw === 'string' ? nameRaw : id;
+        const label = baseLabel ? (price > 0 ? `${baseLabel} - ${descRaw} (${formatRupiahFromNumber(price)})` : baseLabel) : id;
+        return id && label ? { id, label, raw: it } : null;
+      })
+      .filter((o): o is Option => Boolean(o));
+  }, []);
+
+  const parseAddonIdsFromResponse = useCallback((addonsRaw: unknown): string[] => {
+    if (!Array.isArray(addonsRaw)) return [];
+    return addonsRaw
+      .map((x) => {
+        if (x && typeof x === 'object') {
+          const obj = x as Record<string, unknown>;
+          return toStringSafe(obj.addon_id ?? obj.id ?? obj.uuid ?? '');
+        }
+        return toStringSafe(x).trim();
+      })
+      .filter((x) => x);
+  }, []);
+
   useEffect(() => {
     const updateAllPrices = async () => {
       const newEntries = await Promise.all(
@@ -670,10 +702,25 @@ export const FleetOrderForm: React.FC = () => {
             ? fleetsRaw.map((raw) => {
                 const f = record(raw);
                 const armada_id = toStringSafe(f.fleet_id ?? f.fleetId ?? f.armada_id ?? f.armadaId).trim();
-                const addonsRaw = f.addons ?? f.addon_ids ?? f.addonIds ?? f.addon_id ?? f.addonId ?? f.addon_uuid ?? f.addonUuid;
+                const order_item_id = toStringSafe(f.order_item_id ?? f.orderItemId).trim();
+                const addonsRaw = f.addons ?? f.addon_ids ?? f.addonIds ?? f.addon_id ?? f.addonId ?? f.addon_uuid ?? f.addonUuid ?? detail.addons ?? detail.addon;
                 const parsedAddonIds = Array.isArray(addonsRaw)
                   ? (addonsRaw as unknown[])
-                      .map((x) => toStringSafe(x).trim())
+                      .filter((x) => {
+                        if (x && typeof x === 'object') {
+                          const obj = x as Record<string, unknown>;
+                          const addonOrderItemId = toStringSafe(obj.order_item_id ?? obj.orderItemId).trim();
+                          if (order_item_id && addonOrderItemId && addonOrderItemId !== order_item_id) return false;
+                        }
+                        return true;
+                      })
+                      .map((x) => {
+                        if (x && typeof x === 'object') {
+                          const obj = x as Record<string, unknown>;
+                          return toStringSafe(obj.addon_id ?? obj.id ?? obj.uuid ?? '');
+                        }
+                        return toStringSafe(x).trim();
+                      })
                       .filter((x) => x)
                   : typeof addonsRaw === 'string'
                     ? addonsRaw
@@ -688,7 +735,6 @@ export const FleetOrderForm: React.FC = () => {
                 const qty = String(toNumberSafe(f.quantity ?? f.qty ?? f.fleet_qty ?? f.fleetQty) || 0);
                 const biaya_lain = String(toNumberSafe(f.charge_amount ?? f.chargeAmount ?? f.biaya_lain ?? f.biayaLain) || 0);
                 const discount = String(toNumberSafe(f.discount ?? f.discount_amount ?? f.discountAmount) || 0);
-                const order_item_id = toStringSafe(f.order_item_id ?? f.orderItemId).trim();
                 return {
                   armada_id,
                   addon_ids,
@@ -708,10 +754,16 @@ export const FleetOrderForm: React.FC = () => {
                 {
                   armada_id: toStringSafe(detail.fleet_id ?? detail.fleetId).trim(),
                   addon_ids: (() => {
-                    const addonsRaw = detail.addons ?? detail.addon_ids ?? detail.addonIds ?? detail.addon_id ?? detail.addonId ?? detail.addon_uuid ?? detail.addonUuid;
+                    const addonsRaw = detail.addons ?? detail.addon ?? detail.addon_ids ?? detail.addonIds ?? detail.addon_id ?? detail.addonId ?? detail.addon_uuid ?? detail.addonUuid;
                     const parsedAddonIds = Array.isArray(addonsRaw)
                       ? (addonsRaw as unknown[])
-                          .map((x) => toStringSafe(x).trim())
+                          .map((x) => {
+                            if (x && typeof x === 'object') {
+                              const obj = x as Record<string, unknown>;
+                              return toStringSafe(obj.addon_id ?? obj.id ?? obj.uuid ?? '');
+                            }
+                            return toStringSafe(x).trim();
+                          })
                           .filter((x) => x)
                       : typeof addonsRaw === 'string'
                         ? addonsRaw
@@ -756,9 +808,20 @@ export const FleetOrderForm: React.FC = () => {
           baseEntries.map(async (e) => (e.armada_id ? fetchPricesForEntry(e.armada_id, nextRentType) : []))
         );
         const addonsList = await Promise.all(baseEntries.map(async (e) => (e.armada_id ? fetchAddonsForEntry(e.armada_id) : [])));
+
+        const detailAddonOptions = parseAddonsFromResponse(detail.addon ?? detail.addons);
+
         const nextEntries = baseEntries.map((e, idx) => {
           const prices = pricesList[idx] ?? [];
-          const addons = addonsList[idx] ?? [];
+          const fetchedAddons = addonsList[idx] ?? [];
+          const selectedAddonIds = new Set(e.addon_ids ?? []);
+          const mergedAddons = [...fetchedAddons];
+          detailAddonOptions.forEach((opt) => {
+            if (selectedAddonIds.has(opt.id) && !mergedAddons.find((a) => a.id === opt.id)) {
+              mergedAddons.push(opt);
+            }
+          });
+
           let nextPriceId = e.price_id;
           if (prices.length === 1) nextPriceId = prices[0].price_id;
           else if (nextPriceId && !prices.find((p) => p.price_id === nextPriceId)) nextPriceId = '';
@@ -767,7 +830,7 @@ export const FleetOrderForm: React.FC = () => {
             fleet_prices: prices,
             price_id: nextPriceId,
             loading_prices: false,
-            addon_options: addons,
+            addon_options: mergedAddons,
             addon_ids: e.addon_ids ?? [],
             addon_select_id: '',
             loading_addons: false,
@@ -810,7 +873,7 @@ export const FleetOrderForm: React.FC = () => {
       }
     };
     loadDetail();
-  }, [editOrderId, fetchAddonsForEntry, fetchPricesForEntry, token]);
+  }, [editOrderId, fetchAddonsForEntry, fetchPricesForEntry, parseAddonsFromResponse, token]);
 
   useEffect(() => {
     if (daysCount <= 0) {
@@ -1643,13 +1706,12 @@ export const FleetOrderForm: React.FC = () => {
                               return (
                                 <div
                                   key={addonId}
-                                  className="flex items-center justify-between gap-2"
+                                  className="flex items-center justify-between gap-2 bg-blue-500"
                                   style={{
                                     fontSize: '0.75rem',
                                     lineHeight: '1rem',
-                                    padding: '0.2rem 0.4rem',
+                                    padding: '0.4rem 1rem',
                                     width: '200px',
-                                    background: '#000',
                                     borderRadius: '10rem',
                                     border: '0px',
                                     color: '#fff',
@@ -1659,15 +1721,51 @@ export const FleetOrderForm: React.FC = () => {
                                   <Button
                                     type="button"
                                     variant="ghost"
-                                    className="h-5 w-5 p-0 text-red-500 hover:text-red-600 hover:bg-transparent"
+                                    className="h-5 w-5 p-0 text-white hover:text-blue-200 hover:bg-transparent"
                                     disabled={saving || loadingDetail}
-                                    onClick={() =>
+                                    onClick={async () => {
+                                      if (isEditMode && row.order_item_id) {
+                                        const result = await Swal.fire({
+                                          title: 'Hapus Addon?',
+                                          text: 'Anda yakin ingin menghapus addon ini dari pesanan?',
+                                          icon: 'warning',
+                                          showCancelButton: true,
+                                          confirmButtonText: 'Ya, hapus',
+                                          cancelButtonText: 'Batal',
+                                        });
+                                        if (!result.isConfirmed) return;
+                                        
+                                        try {
+                                          setSaving(true);
+                                          const res = await api.post<unknown>(
+                                            '/services/fleet/order/delete-addon',
+                                            {
+                                              order_id: editOrderId,
+                                              addon_id: addonId,
+                                              order_item_id: row.order_item_id
+                                            },
+                                            token ? { Authorization: token } : undefined
+                                          );
+                                          if (res.status !== 'success') {
+                                            await Swal.fire('Error', record(res).message as string || 'Gagal menghapus addon', 'error');
+                                            setSaving(false);
+                                            return;
+                                          }
+                                        } catch (e) {
+                                          console.error(e);
+                                          await Swal.fire('Error', 'Terjadi kesalahan sistem saat menghapus addon', 'error');
+                                          setSaving(false);
+                                          return;
+                                        } finally {
+                                          setSaving(false);
+                                        }
+                                      }
                                       setArmadaEntries((prev) =>
                                         prev.map((r, i) =>
                                           i === idx ? { ...r, addon_ids: (r.addon_ids ?? []).filter((x) => x !== addonId) } : r
                                         )
-                                      )
-                                    }
+                                      );
+                                    }}
                                   >
                                     <X className="h-4 w-4" />
                                   </Button>

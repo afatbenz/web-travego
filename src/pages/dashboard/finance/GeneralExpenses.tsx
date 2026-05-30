@@ -38,7 +38,7 @@ export const GeneralExpenses: React.FC = () => {
     transaction_type_label: string;
   };
 
-  type IntOption = { id: number; label: string };
+  type IntOption = { id: string; label: string };
   type BankOption = { code: string; name: string };
 
   const toRecord = (v: unknown): Record<string, unknown> =>
@@ -116,10 +116,13 @@ export const GeneralExpenses: React.FC = () => {
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [transactionDateOpen, setTransactionDateOpen] = useState(false);
   const [transactionTypeOpen, setTransactionTypeOpen] = useState(false);
+  const [fleetOrderOpen, setFleetOrderOpen] = useState(false);
+  const [fleetOrderLoading, setFleetOrderLoading] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderTypes, setOrderTypes] = useState<IntOption[]>([]);
   const [orderList, setOrderList] = useState<{ id: string; label: string }[]>([]);
+  const [fleetOrders, setFleetOrders] = useState<{ id: string; label: string }[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<IntOption[]>([]);
   const [paymentStatuses, setPaymentStatuses] = useState<IntOption[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<IntOption[]>([]);
@@ -128,6 +131,7 @@ export const GeneralExpenses: React.FC = () => {
     transaction_date: toYmdLocal(new Date()),
     transaction_type: '',
     order_type: '',
+    fleet_order_id: '',
     order_id: '',
     status: '',
     payment_method: '',
@@ -246,11 +250,11 @@ export const GeneralExpenses: React.FC = () => {
         const token = localStorage.getItem('token') ?? '';
         const headers = token ? { Authorization: token } : undefined;
         const [typesRes, statusesRes, methodsRes, banksRes, orderTypesRes] = await Promise.all([
-          api.get<unknown>('/services/transactions/labels?filteredby=expense', headers),
+          api.get<unknown>('/services/transactions/types?filteredby=items&type=expense', headers),
           api.get<unknown>('/general/payment-status', headers),
           api.get<unknown>('/general/payment-method', headers),
           api.get<unknown>('/general/bank-list', headers),
-          api.get<unknown>('/services/transactions/types', headers),
+          api.get<unknown>('/services/transactions/types?filteredby=categories&type=expense', headers),
         ]);
         if (currentReq !== metaRequestIdRef.current) return;
 
@@ -274,8 +278,10 @@ export const GeneralExpenses: React.FC = () => {
           return list
             .map((raw) => {
               const o = toRecord(raw);
-              const id = toNumberSafe(o.id);
-              const label = toStringSafe(o.label).trim();
+              const id = toStringSafe(
+                o.id ?? o.code ?? o.transaction_type_id ?? o.transactionTypeId ?? o.transaction_type ?? o.transactionType
+              ).trim();
+              const label = toStringSafe(o.label ?? o.name ?? o.title).trim();
               if (!id || !label) return null;
               return { id, label } satisfies IntOption;
             })
@@ -312,8 +318,24 @@ export const GeneralExpenses: React.FC = () => {
 
   useEffect(() => {
     const ot = Number(manualForm.order_type);
-    const tt = Number(manualForm.transaction_type);
-    const isFleetUnitType = ot === 4 || (ot === 3 && tt === 106);
+    const tt = toNumberSafe(manualForm.transaction_type);
+    const trxId = String(manualForm.transaction_type || '').toUpperCase().trim();
+    const otId = String(manualForm.order_type || '').toUpperCase().trim();
+    const selectedTrxId = trxId.startsWith('TRX') ? trxId : otId.startsWith('TRX') ? otId : '';
+    const isTrx01Type = selectedTrxId === 'TRX01';
+    const isFleetUnitType =
+      ot === 4 ||
+      (ot === 3 && tt === 106) ||
+      selectedTrxId === 'TRX01' ||
+      selectedTrxId === 'TRX04' ||
+      selectedTrxId === 'TRX06' ||
+      tt === 106;
+
+    if (isFleetUnitType && isTrx01Type && !manualForm.fleet_order_id) {
+      setOrderList([]);
+      setManualForm((prev) => ({ ...prev, order_id: '' }));
+      return;
+    }
 
     if (![1, 2].includes(ot) && !isFleetUnitType) {
       setOrderList([]);
@@ -327,9 +349,12 @@ export const GeneralExpenses: React.FC = () => {
         const token = localStorage.getItem('token') ?? '';
         const headers = token ? { Authorization: token } : undefined;
         let url = '';
-        if (ot === 1) url = '/services/fleet/orders';
+        if (isFleetUnitType) {
+          url = '/services/fleet-units';
+          if (isTrx01Type) url = `${url}?order_id=${encodeURIComponent(manualForm.fleet_order_id)}`;
+        }
+        else if (ot === 1) url = '/services/fleet/orders';
         else if (ot === 2) url = '/services/tour-packages/order/list';
-        else if (isFleetUnitType) url = '/services/fleet-units';
 
         const res = await api.get<unknown>(url, headers);
         if (res.status !== 'success') {
@@ -353,16 +378,18 @@ export const GeneralExpenses: React.FC = () => {
         };
 
         const list = extractList(res.data);
-        const mapped = list.map((raw) => {
+        const mapped = list
+          .map((raw) => {
           const o = toRecord(raw);
           if (isFleetUnitType) {
             const unit_id = toStringSafe(o.unit_id ?? o.id);
             const fleet_name = toStringSafe(o.fleet_name ?? o.fleet);
             const vehicle_id = toStringSafe(o.vehicle_id);
             const plate_number = toStringSafe(o.plate_number);
+            const label = [fleet_name, plate_number, vehicle_id].map((x) => String(x ?? '').trim()).filter(Boolean).join(' - ');
             return {
               id: unit_id,
-              label: `${fleet_name} ${vehicle_id} ${plate_number}`.trim(),
+              label: label || unit_id,
             };
           } else {
             const order_id = toStringSafe(o.order_id ?? o.id);
@@ -371,7 +398,8 @@ export const GeneralExpenses: React.FC = () => {
               label: order_id,
             };
           }
-        }).filter(x => x.id);
+          })
+          .filter((x) => x.id);
         
         setOrderList(mapped);
       } catch {
@@ -382,7 +410,7 @@ export const GeneralExpenses: React.FC = () => {
     };
 
     loadOrders();
-  }, [manualForm.order_type, manualForm.transaction_type]);
+  }, [manualForm.fleet_order_id, manualForm.order_type, manualForm.transaction_type]);
 
   useEffect(() => {
     setPage(1);
@@ -401,16 +429,106 @@ export const GeneralExpenses: React.FC = () => {
     return id === 1002;
   }, [manualForm.payment_method]);
 
+  const transactionTypeIdUpper = useMemo(() => {
+    return String(manualForm.transaction_type || '').toUpperCase().trim();
+  }, [manualForm.transaction_type]);
+
+  const transactionTypeIdNumber = useMemo(() => {
+    return toNumberSafe(manualForm.transaction_type);
+  }, [manualForm.transaction_type]);
+
+  const orderTypeIdUpper = useMemo(() => {
+    return String(manualForm.order_type || '').toUpperCase().trim();
+  }, [manualForm.order_type]);
+
+  const orderTypeIdNumber = useMemo(() => {
+    return toNumberSafe(manualForm.order_type);
+  }, [manualForm.order_type]);
+
+  const selectedTrxIdUpper = useMemo(() => {
+    if (transactionTypeIdUpper.startsWith('TRX')) return transactionTypeIdUpper;
+    if (orderTypeIdUpper.startsWith('TRX')) return orderTypeIdUpper;
+    return '';
+  }, [orderTypeIdUpper, transactionTypeIdUpper]);
+
+  const isTrx01Type = useMemo(() => {
+    return selectedTrxIdUpper === 'TRX01';
+  }, [selectedTrxIdUpper]);
+
+  const isTrx04Type = useMemo(() => {
+    return selectedTrxIdUpper === 'TRX04';
+  }, [selectedTrxIdUpper]);
+
   const isFleetUnitType = useMemo(() => {
     const ot = Number(manualForm.order_type);
-    const tt = Number(manualForm.transaction_type);
-    return ot === 4 || (ot === 3 && tt === 106);
-  }, [manualForm.order_type, manualForm.transaction_type]);
+    return (
+      ot === 4 ||
+      orderTypeIdNumber === 4 ||
+      (ot === 3 && transactionTypeIdNumber === 106) ||
+      selectedTrxIdUpper === 'TRX01' ||
+      selectedTrxIdUpper === 'TRX04' ||
+      selectedTrxIdUpper === 'TRX06' ||
+      transactionTypeIdNumber === 106
+    );
+  }, [manualForm.order_type, orderTypeIdNumber, selectedTrxIdUpper, transactionTypeIdNumber]);
+
+  const isOperasionalArmadaType = useMemo(() => {
+    return selectedTrxIdUpper === 'TRX06' || transactionTypeIdNumber === 106;
+  }, [selectedTrxIdUpper, transactionTypeIdNumber]);
 
   const showOrderOrFleetSelect = useMemo(() => {
     const ot = Number(manualForm.order_type);
     return [1, 2].includes(ot) || isFleetUnitType;
   }, [manualForm.order_type, isFleetUnitType]);
+
+  useEffect(() => {
+    if (!isTrx01Type) {
+      setFleetOrders([]);
+      if (manualForm.fleet_order_id) setManualForm((prev) => ({ ...prev, fleet_order_id: '' }));
+      return;
+    }
+
+    const loadFleetOrders = async () => {
+      setFleetOrderLoading(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const headers = token ? { Authorization: token } : undefined;
+        const res = await api.get<unknown>('/services/fleet/orders?payment_status=1', headers);
+        if (res.status !== 'success') {
+          setFleetOrders([]);
+          return;
+        }
+
+        const payload = res.data as unknown;
+        const root = toRecord(payload);
+        const dataNode = root.data ?? payload;
+        const dataObj = toRecord(dataNode);
+        const list = (Array.isArray(dataObj.orders) ? (dataObj.orders as unknown[]) : Array.isArray(root.orders) ? (root.orders as unknown[]) : []) as unknown[];
+
+        const mapped = list
+          .map((raw) => {
+            const o = toRecord(raw);
+            const order_id = toStringSafe(o.order_id ?? o.orderId ?? o.id).trim();
+            const customer_name = toStringSafe(o.customer_name ?? o.customerName).trim();
+            if (!order_id) return null;
+            const label = [order_id, customer_name].filter(Boolean).join(' - ');
+            return { id: order_id, label: label || order_id };
+          })
+          .filter((x): x is { id: string; label: string } => Boolean(x));
+
+        setFleetOrders(mapped);
+      } finally {
+        setFleetOrderLoading(false);
+      }
+    };
+
+    loadFleetOrders();
+  }, [isTrx01Type]);
+
+  useEffect(() => {
+    if (!isTrx01Type) return;
+    setManualForm((prev) => ({ ...prev, order_id: '' }));
+  }, [isTrx01Type, manualForm.fleet_order_id]);
 
   useEffect(() => {
     if (!showBankFields) {
@@ -732,7 +850,7 @@ export const GeneralExpenses: React.FC = () => {
             <div className="h-px bg-slate-100" />
 
             <form
-              className="space-y-6"
+              className="space-y-6 h-85 overflow-auto max-h-[650px]"
               onSubmit={async (e) => {
                 e.preventDefault();
                 // ... validation logic stays the same ...
@@ -745,8 +863,8 @@ export const GeneralExpenses: React.FC = () => {
                   showAlert({ title: 'Gagal', description: 'Nominal pembayaran wajib diisi.', type: 'warning' });
                   return;
                 }
-                const transactionType = Number(manualForm.transaction_type || 0);
-                if (!transactionType) {
+                const transactionTypeValue = String(manualForm.transaction_type || '').trim();
+                if (!transactionTypeValue) {
                   showAlert({ title: 'Gagal', description: 'Jenis transaksi wajib dipilih.', type: 'warning' });
                   return;
                 }
@@ -760,8 +878,14 @@ export const GeneralExpenses: React.FC = () => {
                   showAlert({ title: 'Gagal', description: 'Metode pembayaran wajib dipilih.', type: 'warning' });
                   return;
                 }
-                const orderType = Number(manualForm.order_type || 3);
-                if (manualForm.order_type && !manualForm.order_id) {
+                const orderTypeBase = toNumberSafe(manualForm.order_type) || 3;
+                const orderType = isFleetUnitType ? 4 : orderTypeBase;
+                const needsLegacyOrder = [1, 2].includes(Number(manualForm.order_type));
+                if (isTrx01Type && !manualForm.fleet_order_id) {
+                  showAlert({ title: 'Gagal', description: 'Pesanan wajib dipilih.', type: 'warning' });
+                  return;
+                }
+                if ((isFleetUnitType || needsLegacyOrder) && !manualForm.order_id) {
                   const label = isFleetUnitType ? 'Armada' : 'Pesanan';
                   showAlert({ title: 'Gagal', description: `${label} wajib dipilih jika jenis order ditentukan.`, type: 'warning' });
                   return;
@@ -785,9 +909,11 @@ export const GeneralExpenses: React.FC = () => {
                 try {
                   const token = localStorage.getItem('token') ?? '';
                   const headers = token ? { Authorization: token } : undefined;
+                  const transactionTypePayload =
+                    transactionTypeValue && Number.isFinite(Number(transactionTypeValue)) ? Number(transactionTypeValue) : transactionTypeValue;
                   const payload: Record<string, unknown> = {
                     transaction_date: manualForm.transaction_date,
-                    transaction_type: transactionType,
+                    transaction_type: transactionTypePayload,
                     status,
                     payment_method: paymentMethod,
                     amount,
@@ -795,6 +921,7 @@ export const GeneralExpenses: React.FC = () => {
                     order_type: orderType,
                     order_id: manualForm.order_id || undefined,
                   };
+                  if (isTrx01Type) payload.fleet_order_id = manualForm.fleet_order_id || undefined;
                   if (showBankFields) {
                     payload.bank_code = manualForm.bank_code;
                     payload.bank_account = manualForm.bank_account;
@@ -822,6 +949,7 @@ export const GeneralExpenses: React.FC = () => {
                     transaction_date: toYmdLocal(new Date()),
                     transaction_type: '',
                     order_type: '',
+                    fleet_order_id: '',
                     order_id: '',
                     status: '',
                     payment_method: '',
@@ -874,13 +1002,16 @@ export const GeneralExpenses: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-slate-700 font-semibold ml-1">Jenis Order</Label>
-                    <Select value={manualForm.order_type} onValueChange={(v) => setManualForm((prev) => ({ ...prev, order_type: v, order_id: '' }))}>
+                    <Label className="text-slate-700 font-semibold ml-1">Jenis Transaksi</Label>
+                    <Select
+                      value={manualForm.order_type}
+                      onValueChange={(v) => setManualForm((prev) => ({ ...prev, order_type: v, fleet_order_id: '', order_id: '' }))}
+                    >
                       <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
                         <SelectValue placeholder="Pilih jenis order" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                        <SelectItem value="0" className="rounded-lg">Tanpa Order</SelectItem>
+                        {/* <SelectItem value="0" className="rounded-lg">Tanpa Order</SelectItem> */}
                         {orderTypes.map((o) => (
                           <SelectItem key={o.id} value={String(o.id)} className="rounded-lg">
                             {o.label}
@@ -891,57 +1022,116 @@ export const GeneralExpenses: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-slate-700 font-semibold ml-1">Jenis Transaksi</Label>
-                  <Popover open={transactionTypeOpen} onOpenChange={setTransactionTypeOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={transactionTypeOpen}
-                        className="w-full h-12 justify-between rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all font-normal text-slate-700"
-                      >
-                        <span className={cn('truncate text-left', manualForm.transaction_type ? 'text-slate-900' : 'text-slate-400')}>
-                          {manualForm.transaction_type
-                            ? (transactionTypes.find((x) => x.id === Number(manualForm.transaction_type))?.label ?? 'Pilih jenis transaksi')
-                            : 'Pilih jenis transaksi'}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl border-slate-200 shadow-xl" align="start">
-                      <Command>
-                        <CommandInput placeholder="Cari jenis transaksi..." />
-                        <CommandList>
-                          <CommandEmpty>Tidak ada data.</CommandEmpty>
-                          <CommandGroup>
-                            {transactionTypes.map((o) => {
-                              const selected = String(o.id) === String(manualForm.transaction_type);
-                              return (
-                                <CommandItem
-                                  key={o.id}
-                                  value={o.label}
-                                  onSelect={() => {
-                                    setManualForm((prev) => ({ ...prev, transaction_type: String(o.id) }));
-                                    setTransactionTypeOpen(false);
-                                  }}
-                                  className="rounded-lg"
-                                >
-                                  <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
-                                  <span className="truncate">{o.label}</span>
-                                </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                {isTrx01Type ? (
+                  <>
+                    <div className="space-y-2 md:col-span-1">
+                      <Label className="text-slate-700 font-semibold ml-1">Pilih Pesanan</Label>
+                      <Popover open={fleetOrderOpen} onOpenChange={setFleetOrderOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={fleetOrderOpen}
+                            className="w-full h-12 justify-between rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all font-normal text-slate-700"
+                            disabled={fleetOrderLoading}
+                          >
+                            <span className={cn('truncate text-left', manualForm.fleet_order_id ? 'text-slate-900' : 'text-slate-400')}>
+                              {fleetOrderLoading
+                                ? 'Memuat...'
+                                : manualForm.fleet_order_id
+                                  ? (fleetOrders.find((x) => x.id === manualForm.fleet_order_id)?.label ?? 'Pilih...')
+                                  : 'Pilih...'}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl border-slate-200 shadow-xl" align="start">
+                          <Command>
+                            <CommandInput placeholder="Cari..." />
+                            <CommandList>
+                              <CommandEmpty>Tidak ada data.</CommandEmpty>
+                              <CommandGroup>
+                                {fleetOrders.map((o) => {
+                                  const selected = o.id === manualForm.fleet_order_id;
+                                  return (
+                                    <CommandItem
+                                      key={o.id}
+                                      value={o.label}
+                                      onSelect={() => {
+                                        setManualForm((prev) => ({ ...prev, fleet_order_id: o.id }));
+                                        setFleetOrderOpen(false);
+                                      }}
+                                      className="rounded-lg"
+                                    >
+                                      <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                                      <span className="truncate">{o.label}</span>
+                                    </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
 
-                {manualForm.order_type && showOrderOrFleetSelect ? (
-                  <div className="space-y-2">
+                    <div className="space-y-2 md:col-span-1">
+                      <Label className="text-slate-700 font-semibold ml-1">Pilih Armada</Label>
+                      <Popover open={orderOpen} onOpenChange={setOrderOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={orderOpen}
+                            className="w-full h-12 justify-between rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all font-normal text-slate-700"
+                            disabled={orderLoading || !manualForm.fleet_order_id}
+                          >
+                            <span className={cn('truncate text-left', manualForm.order_id ? 'text-slate-900' : 'text-slate-400')}>
+                              {!manualForm.fleet_order_id
+                                ? 'Pilih pesanan dulu...'
+                                : orderLoading
+                                  ? 'Memuat...'
+                                  : manualForm.order_id
+                                    ? (orderList.find((x) => x.id === manualForm.order_id)?.label ?? 'Pilih...')
+                                    : 'Pilih...'}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl border-slate-200 shadow-xl" align="start">
+                          <Command>
+                            <CommandInput placeholder="Cari..." />
+                            <CommandList>
+                              <CommandEmpty>Tidak ada data.</CommandEmpty>
+                              <CommandGroup>
+                                {orderList.map((o) => {
+                                  const selected = o.id === manualForm.order_id;
+                                  return (
+                                    <CommandItem
+                                      key={o.id}
+                                      value={o.label}
+                                      onSelect={() => {
+                                        setManualForm((prev) => ({ ...prev, order_id: o.id }));
+                                        setOrderOpen(false);
+                                      }}
+                                      className="rounded-lg"
+                                    >
+                                      <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                                      <span className="truncate">{o.label}</span>
+                                    </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </>
+                ) : showOrderOrFleetSelect ? (
+                  <div className={cn('space-y-2', isOperasionalArmadaType || isTrx04Type ? 'md:col-span-2' : '')}>
                     <Label className="text-slate-700 font-semibold ml-1">{isFleetUnitType ? 'Pilih Armada' : 'Pilih Pesanan'}</Label>
                     <Popover open={orderOpen} onOpenChange={setOrderOpen}>
                       <PopoverTrigger asChild>
@@ -957,8 +1147,8 @@ export const GeneralExpenses: React.FC = () => {
                             {orderLoading
                               ? 'Memuat...'
                               : manualForm.order_id
-                              ? (orderList.find((x) => x.id === manualForm.order_id)?.label ?? 'Pilih...')
-                              : 'Pilih...'}
+                                ? (orderList.find((x) => x.id === manualForm.order_id)?.label ?? 'Pilih...')
+                                : 'Pilih...'}
                           </span>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
@@ -993,6 +1183,62 @@ export const GeneralExpenses: React.FC = () => {
                     </Popover>
                   </div>
                 ) : null}
+
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold ml-1">Jenis Pengeluaran</Label>
+                  <Popover open={transactionTypeOpen} onOpenChange={setTransactionTypeOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={transactionTypeOpen}
+                        className="w-full h-12 justify-between rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all font-normal text-slate-700"
+                      >
+                        <span className={cn('truncate text-left', manualForm.transaction_type ? 'text-slate-900' : 'text-slate-400')}>
+                          {manualForm.transaction_type
+                            ? (transactionTypes.find((x) => String(x.id) === String(manualForm.transaction_type))?.label ?? 'Pilih jenis pengeluaran')
+                            : 'Pilih jenis pengeluaran'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl border-slate-200 shadow-xl" align="start">
+                      <Command>
+                        <CommandInput placeholder="Cari jenis transaksi..." />
+                        <CommandList>
+                          <CommandEmpty>Tidak ada data.</CommandEmpty>
+                          <CommandGroup>
+                            {transactionTypes.map((o) => {
+                              const selected = String(o.id) === String(manualForm.transaction_type);
+                              return (
+                                <CommandItem
+                                  key={o.id}
+                                  value={o.label}
+                                  onSelect={() => {
+                                    const nextId = String(o.id);
+                                    const nextCode = nextId.toUpperCase();
+                                    setManualForm((prev) => ({
+                                      ...prev,
+                                      transaction_type: nextId,
+                                      order_type: nextCode === 'TRX010' ? '4' : prev.order_type,
+                                      order_id: nextCode === 'TRX04'  ? '' : prev.order_id,
+                                    }));
+                                    setTransactionTypeOpen(false);
+                                  }}
+                                  className="rounded-lg"
+                                >
+                                  <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                                  <span className="truncate">{o.label}</span>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
                 <div className="space-y-2">
                   <Label className="text-slate-700 font-semibold ml-1">Status Pembayaran</Label>
@@ -1114,7 +1360,7 @@ export const GeneralExpenses: React.FC = () => {
                   <button
                     type="submit"
                     disabled={manualSubmitting}
-                    className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 text-white font-normal flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_25px_rgba(37,99,235,0.3)] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                    className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
                   >
                     {manualSubmitting ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

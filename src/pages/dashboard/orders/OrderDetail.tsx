@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight, AlertTriangle } from 'lucide-react';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
@@ -54,6 +54,9 @@ type FleetItem = {
 };
 
 type OrderData = {
+  total_discount: number;
+  total_addon: number;
+  total_charge: number;
   id: string;
   fleetId: string;
   customerName: string;
@@ -154,6 +157,8 @@ const createEmptyOrderData = (id: string): OrderData => ({
   discount: 0,
   createdAt: '',
   paymentStatus: 'pending',
+  total_discount: 0,
+  total_addon: 0,
   paymentMethod: '-',
   paymentDate: '',
   pickupLocation: '-',
@@ -241,6 +246,11 @@ export const OrderDetail: React.FC = () => {
 
   const isWaitingConfirmation = orderData.rawStatus === 1 && orderData.rawPaymentStatus === 3;
   const isWaitingOrderConfirmation = orderData.rawStatus === 2 && orderData.rawPaymentStatus === 2;
+  const shouldShowScheduleActionWarning =
+    orderData.rawStatus === 1 &&
+    (orderData.rawPaymentStatus ?? 0) > 0 &&
+    orderData.rawPaymentStatus !== 2 &&
+    orderData.scheduled === false;
 
   const scheduleUrlSuffix = (() => {
     const qs = new URLSearchParams();
@@ -638,22 +648,40 @@ export const OrderDetail: React.FC = () => {
     const getString = (v: unknown, fallback: string) =>
       typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : fallback;
     const getNumber = (v: unknown, fallback: number) => {
+      if (typeof v === 'number') return Number.isFinite(v) ? v : fallback;
+      if (typeof v === 'bigint') return Number(v);
+      if (typeof v === 'string') {
+        const raw = v.trim();
+        if (!raw) return fallback;
+        const cleaned = raw.replace(/[^\d-]/g, '');
+        if (!cleaned || cleaned === '-') return fallback;
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? n : fallback;
+      }
       const n = Number(v);
       return Number.isFinite(n) ? n : fallback;
     };
 
     const pickup = record(detail.pickup);
     const customer = record(detail.customer);
-    const paymentSummary = record(detail.payment_summary ?? detail.paymentSummary);
-    const payment = record(detail.payment);
+    const paymentSummary = record(
+      detail.payment_summary ??
+        detail.paymentSummary ??
+        root.payment_summary ??
+        root.paymentSummary ??
+        (root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).payment_summary : undefined) ??
+        (root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).paymentSummary : undefined)
+    );
+    const payment = record(detail.payment ?? root.payment ?? (root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).payment : undefined));
     const hasPaymentInfo = Object.keys(paymentSummary).length > 0;
     const addonsRaw = detail.addon;
     const addons = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
 
-    const normalizePaymentStatus = (raw: unknown): 'paid' | 'pending' | 'failed' => {
+    const normalizePaymentStatus = (raw: unknown): 'paid' | 'pending' | 'failed' | 'unpaid' => {
       if (raw === 1 || raw === '1' || raw === 'paid' || raw === 'lunas') return 'paid';
-      if (raw === 4 || raw === '4' || raw === 'failed' || raw === 'gagal') return 'failed';
-      if (raw === 2 || raw === '2' || raw === 3 || raw === '3') return 'pending';
+      if (raw === 0 || raw === '0') return 'failed';
+      if (raw === 4 || raw === '4') return 'pending';
+      if (raw === 2 || raw === '2' || raw === 3 || raw === '3') return 'unpaid';
       if (typeof raw === 'string') {
         const s = raw.toLowerCase().trim();
         if (s === 'paid' || s === 'lunas' || s === 'success') return 'paid';
@@ -683,11 +711,11 @@ export const OrderDetail: React.FC = () => {
     const createdAt = getString(detail.order_date ?? detail.created_at ?? detail.createdAt, startDate || endDate || '');
     const paymentDate = getString(
       payment.payment_date ??
-        payment.paymentDate ??
-        paymentSummary.payment_date ??
-        paymentSummary.paymentDate ??
-        detail.payment_date ??
-        detail.paymentDate,
+      payment.paymentDate ??
+      paymentSummary.payment_date ??
+      paymentSummary.paymentDate ??
+      detail.payment_date ??
+      detail.paymentDate,
       createdAt
     );
 
@@ -722,82 +750,82 @@ export const OrderDetail: React.FC = () => {
     const groupedItinerary: Record<number, ItineraryDay> = {};
 
     rawItinerary.forEach((raw) => {
-       const item = record(raw);
-       const dayNum = getNumber(item.day, 1);
-       const activityRaw = item.destination ?? item.activities ?? item.activity;
-       if (!activityRaw) return;
+      const item = record(raw);
+      const dayNum = getNumber(item.day, 1);
+      const activityRaw = item.destination ?? item.activities ?? item.activity;
+      if (!activityRaw) return;
 
-       if (!groupedItinerary[dayNum]) {
-         let dayDate = getString(item.date, '');
-         if (!dayDate && startDate) {
-           const baseDate = new Date(startDate);
-           if (!isNaN(baseDate.getTime())) {
-             baseDate.setDate(baseDate.getDate() + (dayNum - 1));
-             dayDate = baseDate.toISOString().split('T')[0];
-           }
-         }
-
-         groupedItinerary[dayNum] = {
-           day: dayNum,
-           date: dayDate,
-           activities: [],
-         };
-       }
-       
-       if (Array.isArray(activityRaw)) {
-          groupedItinerary[dayNum].activities.push(...activityRaw.map((a) => getString(a, '')).filter((s) => s));
-        } else {
-          const cityName = getString(item.city_label ?? item.city_name ?? '', '');
-          const destination = getString(activityRaw, '');
-          const activityText = cityName ? `${destination}, ${cityName}` : destination;
-          if (activityText) groupedItinerary[dayNum].activities.push(activityText);
+      if (!groupedItinerary[dayNum]) {
+        let dayDate = getString(item.date, '');
+        if (!dayDate && startDate) {
+          const baseDate = new Date(startDate);
+          if (!isNaN(baseDate.getTime())) {
+            baseDate.setDate(baseDate.getDate() + (dayNum - 1));
+            dayDate = baseDate.toISOString().split('T')[0];
+          }
         }
-     });
+
+        groupedItinerary[dayNum] = {
+          day: dayNum,
+          date: dayDate,
+          activities: [],
+        };
+      }
+
+      if (Array.isArray(activityRaw)) {
+        groupedItinerary[dayNum].activities.push(...activityRaw.map((a) => getString(a, '')).filter((s) => s));
+      } else {
+        const cityName = getString(item.city_label ?? item.city_name ?? '', '');
+        const destination = getString(activityRaw, '');
+        const activityText = cityName ? `${destination}, ${cityName}` : destination;
+        if (activityText) groupedItinerary[dayNum].activities.push(activityText);
+      }
+    });
 
     const itinerary = Object.values(groupedItinerary).sort((a, b) => a.day - b.day);
 
     const fleetsRaw = detail.fleets;
     const fleets: FleetItem[] = Array.isArray(fleetsRaw)
       ? fleetsRaw.map((fleet: unknown) => {
-          const f = record(fleet);
-          const quantity = getNumber(f.quantity ?? f.qty, 0);
-          const price = getNumber(f.price, 0);
-          const chargeAmount = getNumber(f.charge_amount ?? f.chargeAmount, 0);
-          const discountAmount = getNumber(f.discount, 0);
-          const addonAmount = getNumber(f.addon_amount ?? f.addonAmount, 0);
+        const f = record(fleet);
+        const quantity = getNumber(f.quantity ?? f.qty, 0);
+        const price = getNumber(f.price, 0);
+        const chargeAmount = getNumber(f.charge_amount ?? f.chargeAmount, 0);
+        const discountAmount = getNumber(f.discount, 0);
+        const addonAmount = getNumber(f.addon_amount ?? f.addonAmount, 0);
 
-          const addonsRaw = f.addons ?? f.addon;
-          const addonsArr = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
-          const addons = addonsArr
-            .map((a) => record(a))
-            .map((a) => {
-              const addon_name = getString(a.addon_name ?? a.addonName ?? a.name ?? a.title, '').trim();
-              const addon_price = getNumber(a.addon_price ?? a.addonPrice ?? a.price, 0);
-              return addon_name ? { addon_name, addon_price } : null;
-            })
-            .filter((x): x is { addon_name: string; addon_price: number } => Boolean(x));
+        const addonsRaw = f.addons ?? f.addon;
+        const addonsArr = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
+        const addons = addonsArr
+          .map((a) => record(a))
+          .map((a) => {
+            const addon_name = getString(a.addon_name ?? a.addonName ?? a.name ?? a.title, '').trim();
+            const addon_price = getNumber(a.addon_price ?? a.addonPrice ?? a.price, 0);
+            return addon_name ? { addon_name, addon_price } : null;
+          })
+          .filter((x): x is { addon_name: string; addon_price: number } => Boolean(x));
 
-          const subTotalFromRes = getNumber(f.sub_total ?? f.subTotal, NaN);
-          const computedSubTotal = Math.max(0, (price + addonAmount + chargeAmount - discountAmount) * quantity);
-          const subTotal = Number.isFinite(subTotalFromRes) ? subTotalFromRes : computedSubTotal;
+        const subTotalFromRes = getNumber(f.sub_total ?? f.subTotal, NaN);
+        const computedSubTotal = Math.max(0, (price + addonAmount + chargeAmount - discountAmount) * quantity);
+        const subTotal = Number.isFinite(subTotalFromRes) ? subTotalFromRes : computedSubTotal;
 
-          return {
-            fleet_id: getString(f.fleet_id ?? f.fleetId, ''),
-            fleet_name: getString(f.fleet_name ?? f.fleetName, ''),
-            fleet_type: getString(f.fleet_type ?? f.fleetType, ''),
-            quantity,
-            price,
-            addon_amount: addonAmount,
-            addons,
-            duration,
-            charge_amount: chargeAmount,
-            discount: discountAmount,
-            sub_total: subTotal,
-            order_id: getString(f.order_id ?? f.orderId, ''),
-            order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
-            price_id: getString(f.price_id ?? f.priceId, ''),
-          };
-        })
+        return {
+          fleet_id: getString(f.fleet_id ?? f.fleetId, ''),
+          fleet_name: getString(f.fleet_name ?? f.fleetName, ''),
+          fleet_type: getString(f.fleet_type ?? f.fleetType, ''),
+          quantity,
+          price,
+          addon_amount: addonAmount,
+          addons,
+          duration,
+          charge_amount: chargeAmount,
+          discount: discountAmount,
+          sub_total: subTotal,
+          order_id: getString(f.order_id ?? f.orderId, ''),
+          order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
+          price_id: getString(f.price_id ?? f.priceId, ''),
+        };
+      })
       : [];
 
     const discountSum = fleets.reduce((acc, f) => acc + (Number.isFinite(f.discount) ? f.discount : 0), 0);
@@ -809,25 +837,36 @@ export const OrderDetail: React.FC = () => {
 
     const remainingAmountRaw = hasPaymentInfo
       ? getNumber(
-          paymentSummary.payment_remaining ??
-            paymentSummary.paymentRemaining ??
-            paymentSummary.remaining_amount ??
-            paymentSummary.remainingAmount ??
-            detail.payment_remaining ??
-            detail.paymentRemaining,
-          totalFromRes
-        )
+        paymentSummary.payment_remaining ??
+        paymentSummary.paymentRemaining ??
+        paymentSummary.remaining_amount ??
+        paymentSummary.remainingAmount ??
+        detail.payment_remaining ??
+        detail.paymentRemaining,
+        totalFromRes
+      )
       : totalFromRes;
     const remainingAmount = hasPaymentInfo ? Math.min(remainingAmountRaw, totalFromRes) : totalFromRes;
-
+    const total_charge = getNumber(
+      paymentSummary.total_charge ?? paymentSummary.totalCharge ?? detail.total_charge ?? detail.totalCharge,
+      chargeSum
+    );
+    const total_discount = getNumber(
+      paymentSummary.total_discount ?? paymentSummary.totalDiscount ?? detail.total_discount ?? detail.totalDiscount,
+      discountSum
+    );
+    const total_addon = getNumber(
+      paymentSummary.total_addon ?? paymentSummary.totalAddon ?? detail.total_addon ?? detail.totalAddon,
+      addonSum
+    );
     const paidAmountFromRes = hasPaymentInfo
       ? getNumber(
-          paymentSummary.paid_amount ??
-            paymentSummary.paidAmount ??
-            detail.paid_amount ??
-            detail.paidAmount,
-          Math.max(0, totalFromRes - remainingAmount)
-        )
+        paymentSummary.paid_amount ??
+        paymentSummary.paidAmount ??
+        detail.paid_amount ??
+        detail.paidAmount,
+        Math.max(0, totalFromRes - remainingAmount)
+      )
       : Math.max(0, totalFromRes - remainingAmount);
     const paidAmount = Math.max(0, Math.min(paidAmountFromRes, totalFromRes));
 
@@ -856,13 +895,13 @@ export const OrderDetail: React.FC = () => {
       paymentStatus,
       paymentMethod: getString(
         payment.payment_method_label ??
-          payment.paymentMethodLabel ??
-          detail.payment_method_label ??
-          detail.paymentMethodLabel ??
-          payment.payment_method ??
-          payment.paymentMethod ??
-          detail.payment_method ??
-          detail.paymentMethod,
+        payment.paymentMethodLabel ??
+        detail.payment_method_label ??
+        detail.paymentMethodLabel ??
+        payment.payment_method ??
+        payment.paymentMethod ??
+        detail.payment_method ??
+        detail.paymentMethod,
         '-'
       ),
       paymentDate,
@@ -884,7 +923,10 @@ export const OrderDetail: React.FC = () => {
       },
       scheduled: Boolean(detail.scheduled ?? false),
       rawStatus,
-      duration,
+      duration: getString(detail.duration, ''),
+      total_charge,
+      total_discount,
+      total_addon,
       rawPaymentStatus,
       lastPaymentAmount,
       lastPaymentMethod,
@@ -915,7 +957,7 @@ export const OrderDetail: React.FC = () => {
     try {
       const token = localStorage.getItem('token') ?? '';
       const res = await api.get<unknown>(
-        `/services/schedule/detail/${encodeURIComponent(resolvedOrderId)}`,
+        `/services/schedule/fleet/detail/${encodeURIComponent(resolvedOrderId)}`,
         token ? { Authorization: token } : undefined
       );
       if (res.status !== 'success') {
@@ -1126,9 +1168,11 @@ export const OrderDetail: React.FC = () => {
       case 'paid':
         return <Badge className="bg-green-100 text-bold text-green-800 dark:bg-green-900/20 dark:text-green-300">Lunas</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">Pending</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">Belum Lunas</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300">Gagal</Badge>;
+      case 'unpaid':
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300">Belum Dibayar</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -1232,23 +1276,23 @@ export const OrderDetail: React.FC = () => {
           const totalFromRes = getNumberSafe(detail.total_amount ?? detail.totalAmount, orderData.totalAmount);
           const remaining = hasPaymentInfo
             ? getNumberSafe(
-                paymentObj.payment_remaining ??
-                  paymentObj.paymentRemaining ??
-                  paymentObj.remaining_amount ??
-                  paymentObj.remainingAmount ??
-                  detail.payment_remaining ??
-                  detail.paymentRemaining,
-                totalFromRes
-              )
+              paymentObj.payment_remaining ??
+              paymentObj.paymentRemaining ??
+              paymentObj.remaining_amount ??
+              paymentObj.remainingAmount ??
+              detail.payment_remaining ??
+              detail.paymentRemaining,
+              totalFromRes
+            )
             : totalFromRes;
 
           setOrderData((prev) => ({
             ...prev,
             paymentMethod: getStringSafe(
               paymentObj.payment_method_label ??
-                paymentObj.paymentMethodLabel ??
-                detail.payment_method_label ??
-                detail.paymentMethodLabel,
+              paymentObj.paymentMethodLabel ??
+              detail.payment_method_label ??
+              detail.paymentMethodLabel,
               prev.paymentMethod
             ),
             paymentDate: getStringSafe(
@@ -1399,9 +1443,9 @@ export const OrderDetail: React.FC = () => {
       const payDataInner = record(payData.data);
       const invoiceNumber = getStringSafe(
         payData.invoice_number ??
-          payData.invoiceNumber ??
-          payDataInner.invoice_number ??
-          payDataInner.invoiceNumber,
+        payData.invoiceNumber ??
+        payDataInner.invoice_number ??
+        payDataInner.invoiceNumber,
         ''
       ).trim();
 
@@ -1438,12 +1482,12 @@ export const OrderDetail: React.FC = () => {
             const dataNode = record(root.data);
             const urlCandidate = getStringSafe(
               dataNode.url ??
-                dataNode.file_url ??
-                dataNode.fileUrl ??
-                dataNode.path ??
-                dataNode.file ??
-                root.url ??
-                root.path,
+              dataNode.file_url ??
+              dataNode.fileUrl ??
+              dataNode.path ??
+              dataNode.file ??
+              root.url ??
+              root.path,
               ''
             ).trim();
             if (urlCandidate) {
@@ -1740,6 +1784,11 @@ export const OrderDetail: React.FC = () => {
                   className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
                 >
                   More Action
+                  {shouldShowScheduleActionWarning ? (
+                    <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#295BFF]">
+                      <AlertTriangle className="h-3.5 w-3.5 text-white" />
+                    </span>
+                  ) : null}
                   <MoreHorizontal className="h-4 w-4 ml-2" />
                 </Button>
               </DropdownMenuTrigger>
@@ -1747,7 +1796,7 @@ export const OrderDetail: React.FC = () => {
                 {!isWaitingConfirmation && (
                   <DropdownMenuItem
                     className="cursor-pointer"
-                    disabled={!showScheduleButton}
+                    disabled={isWaitingConfirmation}
                     onSelect={(e) => {
                       e.preventDefault();
                       onViewScheduleArmadaTim();
@@ -2019,11 +2068,13 @@ export const OrderDetail: React.FC = () => {
                           <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
                             <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
                               <span>Diskon</span>
-                              <span className="font-medium text-red-600">-{formatCurrency(orderData.discount || 0)}</span>
+                              <span className="font-medium text-red-600">-{formatCurrency(orderData.total_discount || 0)}</span>
                             </div>
                             <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
                               <span>Biaya Lain</span>
-                              <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(orderData.additionalAmount || 0)}</span>
+                              <span className="font-medium text-slate-900 dark:text-white">
+                                {formatCurrency(Number.isFinite(orderData.total_addon) ? orderData.total_addon : 0)}
+                              </span>
                             </div>
                             <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900 dark:border-slate-800 dark:text-white">
                               <span>Total</span>
@@ -2229,6 +2280,27 @@ export const OrderDetail: React.FC = () => {
 
                   <TabsContent value="summary" className="pt-5">
                     <div className="space-y-4">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                        <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                          <span>Harga Awal</span>
+                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(orderData.originalAmount || 0)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                          <span>Diskon</span>
+                          <span className="font-medium text-red-600">-{formatCurrency(Number.isFinite(orderData.total_discount) ? orderData.total_discount : 0)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                          <span>Biaya Lain</span>
+                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(Number.isFinite(orderData.total_charge) ? orderData.total_charge : 0)}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                          <span>Total Addon</span>
+                          <span className="font-medium text-slate-900 dark:text-white">
+                            {formatCurrency(Number.isFinite(orderData.total_addon) ? orderData.total_addon : 0)}
+                          </span>
+                        </div>
+                      </div>
+
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                         <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                           <span>Total</span>
@@ -2247,32 +2319,6 @@ export const OrderDetail: React.FC = () => {
                               {formatCurrency(orderData.remainingAmount || 0)}
                             </div>
                           </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
-                        <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                          <span>Harga Awal</span>
-                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(orderData.originalAmount || 0)}</span>
-                        </div>
-                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                          <span>Diskon</span>
-                          <span className="font-medium text-red-600">-{formatCurrency(orderData.discount || 0)}</span>
-                        </div>
-                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                          <span>Biaya Lain</span>
-                          <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(orderData.additionalAmount || 0)}</span>
-                        </div>
-                        <div className="mt-2 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                          <span>Total Addon</span>
-                          <span className="font-medium text-slate-900 dark:text-white">
-                            {formatCurrency(
-                              (orderData.fleets ?? []).reduce(
-                                (acc, f) => acc + (Number.isFinite(f.addon_amount) ? f.addon_amount : 0),
-                                0
-                              )
-                            )}
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -2420,7 +2466,7 @@ export const OrderDetail: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
                 <p className="flex gap-2">
                   <span className="text-blue-500 font-bold">•</span>
@@ -2463,7 +2509,7 @@ export const OrderDetail: React.FC = () => {
       {/* Modal Konfirmasi Pesanan */}
       <Dialog open={isConfirmOrderOpen} onOpenChange={setIsConfirmOrderOpen}>
         <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-white dark:bg-gray-900 shadow-2xl rounded-2xl">
-          <DialogHeader className="p-6 bg-gradient-to-r from-green-600 to-emerald-700 text-white">
+          <DialogHeader className="p-6 bg-gradient-to-r from-blue-500 to-blue-700 text-white">
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <CheckCircle className="h-5 w-5" />
               Konfirmasi Pesanan
@@ -2487,7 +2533,7 @@ export const OrderDetail: React.FC = () => {
                 Tutup
               </Button>
               <Button
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg shadow-green-500/20 transition-all active:scale-[0.98]"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-green-500/20 transition-all active:scale-[0.98]"
                 disabled={isApproving}
                 onClick={async () => {
                   const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
@@ -2554,7 +2600,7 @@ export const OrderDetail: React.FC = () => {
               {canRefund ? 'Ajukan Refund' : 'Update Pembayaran'}
             </DialogTitle>
           </DialogHeader>
-          
+
           <form onSubmit={handleUpdatePayment} className="p-6 space-y-5">
             {!canRefund ? (
               <div className="grid grid-cols-2 gap-4">
@@ -2568,10 +2614,10 @@ export const OrderDetail: React.FC = () => {
                       {(paymentStatusOptions.length > 0
                         ? paymentStatusOptions
                         : [
-                            { value: 'dp', label: 'Uang Muka (DP)' },
-                            { value: 'installment', label: 'Cicilan' },
-                            { value: 'full', label: 'Pelunasan' },
-                          ]
+                          { value: 'dp', label: 'Uang Muka (DP)' },
+                          { value: 'installment', label: 'Cicilan' },
+                          { value: 'full', label: 'Pelunasan' },
+                        ]
                       ).map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
@@ -2600,10 +2646,10 @@ export const OrderDetail: React.FC = () => {
                       {(paymentMethodOptions.length > 0
                         ? paymentMethodOptions
                         : [
-                            { value: 'transfer', label: 'Transfer Bank' },
-                            { value: 'qris', label: 'QRIS' },
-                            { value: 'cash', label: 'Tunai' },
-                          ]
+                          { value: 'transfer', label: 'Transfer Bank' },
+                          { value: 'qris', label: 'QRIS' },
+                          { value: 'cash', label: 'Tunai' },
+                        ]
                       ).map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
@@ -2633,10 +2679,10 @@ export const OrderDetail: React.FC = () => {
                     {(paymentMethodOptions.length > 0
                       ? paymentMethodOptions
                       : [
-                          { value: 'transfer', label: 'Transfer Bank' },
-                          { value: 'qris', label: 'QRIS' },
-                          { value: 'cash', label: 'Tunai' },
-                        ]
+                        { value: 'transfer', label: 'Transfer Bank' },
+                        { value: 'qris', label: 'QRIS' },
+                        { value: 'cash', label: 'Tunai' },
+                      ]
                     ).map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}

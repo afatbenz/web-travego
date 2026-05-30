@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, Clock, DollarSign, Download, Eye, Filter, MoreHorizontal, Plus, ShoppingBag, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CircleAlert, Clock, DollarSign, Download, Eye, Filter, MoreHorizontal, Plus, ShoppingBag, XCircle } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -129,6 +129,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     endDate: string;
     rentType?: string;
     pax?: number;
+    scheduleId?: string;
   }
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -220,6 +221,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
               item.packageImage;
             const fleetThumbnail =
               typeof thumbnailRaw === 'string' && thumbnailRaw.trim() ? toFileUrl(thumbnailRaw.trim()) : undefined;
+            const scheduleIdRaw = item.schedule_id ?? item.scheduleId;
             return {
               orderId:
                 typeof orderIdRaw === 'string' || typeof orderIdRaw === 'number' ? String(orderIdRaw) : '',
@@ -258,6 +260,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
               endDate: end,
               rentType: typeof rentTypeRaw === 'string' ? rentTypeRaw : undefined,
               pax: Number.isFinite(Number(paxRaw)) ? Number(paxRaw) : undefined,
+              scheduleId: scheduleIdRaw,
             } as Order;
           });
           setOrders(mappedOrders);
@@ -273,11 +276,21 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     fetchOrders();
   }, [type, searchTerm, orderPeriod, orderDate]);
 
+  const scheduleWarning = (order: Order) => {
+    if (order.status === 1 && order.paymentStatus !== 2 && order.scheduleId === "") {
+      return (
+          <span title="Pesanan ini belum dijadwalkan">
+            <CircleAlert className="ml-1 h-4 w-4 mt-1 transition-transform duration-200 hover:scale-125 text-red-500" />
+          </span>
+      );
+    }
+  }
+
   const getStatusBadge = (order: Order) => {
     // Logic based on order status
     if (order.status === 2) {
       return (
-        <Badge className="rounded-full border-transparent bg-blue-500/50 px-3 py-1 font-medium text-white hover:text-white hover:bg-blue-700/50 dark:bg-blue-400/15 dark:text-white">
+        <Badge className="rounded-full border-transparent bg-orange-500 px-3 py-1 font-medium text-white hover:text-white hover:bg-orange-700 dark:bg-orange-400/15 dark:text-white">
           <Clock className="mr-1.5 h-3.5 w-3.5" />
           Menunggu Konfirmasi
         </Badge>
@@ -318,7 +331,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         );
       case 4:
         return (
-          <Badge className="rounded-full border-transparent bg-rose-500/10 px-3 py-1 font-medium text-rose-800 hover:bg-rose-500/10 dark:bg-rose-400/15 dark:text-rose-300">
+          <Badge className="rounded-full border-transparent bg-yellow-600 px-3 py-1 font-medium text-white hover:bg-yellow-500 dark:bg-yellow-400/15 dark:text-white">
             <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
             Belum Lunas
           </Badge>
@@ -655,7 +668,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       width: 220,
       render: (row) => (
         <div title={row.latestPaymentStatus || undefined} className="inline-flex">
-          {getStatusBadge(row)}
+          {getStatusBadge(row)} {scheduleWarning(row)}
         </div>
       )
     },
@@ -822,7 +835,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           },
           pageSizeOptions: [10, 20, 50, 100],
         }}
-        sorting={{ initialSort: { key: 'createdAt', direction: 'desc' } }}
+        sorting={{ enabled: false }}
         rowKey={(row) => row.transactionId || row.orderId}
       />
 

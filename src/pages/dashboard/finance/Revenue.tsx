@@ -25,6 +25,7 @@ export const Revenue: React.FC = () => {
     description: string;
     sourceLabel: string;
     transactionTypeLabel: string;
+    transactionCategoryLabel: string;
     transactionMarkLabel: string;
     amount: number;
     statusLabel: string;
@@ -104,7 +105,7 @@ export const Revenue: React.FC = () => {
   };
 
   const isIncoming = (row: TransactionRow) => {
-    const mark = String(row.transactionMarkLabel ?? '').toLowerCase();
+    const mark = String(row.transactionCategoryLabel ?? '').toLowerCase();
     const type = String(row.transactionTypeLabel ?? '').toLowerCase();
     const desc = String(row.description ?? '').toLowerCase();
     if (['masuk', 'pemasukan', 'income', 'credit', 'kredit'].some((x) => mark.includes(x) || type.includes(x) || desc.includes(x))) {
@@ -206,6 +207,7 @@ export const Revenue: React.FC = () => {
         (Array.isArray(root.rows) ? root.rows : undefined) ??
         (Array.isArray(root.transactions) ? root.transactions : undefined) ??
         (Array.isArray(root.data) ? root.data : undefined) ??
+        (Array.isArray(root.transactions) ? root.transactions : undefined) ??
         [];
 
       const mapped = (listNode as unknown[]).map((raw, idx) => {
@@ -218,6 +220,7 @@ export const Revenue: React.FC = () => {
         const sourceLabel = toStringSafe(o.order_type_label ?? o.orderTypeLabel ?? o.source_label ?? o.sourceLabel).trim();
         const transactionTypeLabel = toStringSafe(o.transaction_type_label ?? o.transactionTypeLabel ?? o.type_label ?? o.typeLabel).trim();
         const transactionMarkLabel = toStringSafe(o.transaction_mark_label ?? o.transactionMarkLabel ?? o.mark_label ?? o.markLabel).trim();
+        const transactionCategoryLabel = toStringSafe(o.transaction_category_label ?? o.transactionCategoryLabel ?? o.category_label ?? o.categoryLabel).trim();
         const amount = toNumberSafe(
           o.amount ??
             o.total_amount ??
@@ -240,6 +243,7 @@ export const Revenue: React.FC = () => {
           description,
           sourceLabel,
           transactionTypeLabel,
+          transactionCategoryLabel,
           transactionMarkLabel,
           amount,
           statusLabel,
@@ -259,11 +263,11 @@ export const Revenue: React.FC = () => {
         const token = localStorage.getItem('token') ?? '';
         const headers = token ? { Authorization: token } : undefined;
         const [typesRes, statusesRes, methodsRes, banksRes, orderTypesRes] = await Promise.all([
-          api.get<unknown>('/services/transactions/labels?filteredby=income', headers),
+          api.get<unknown>('/services/transactions/labels?filteredby=categories&type=income', headers),
           api.get<unknown>('/general/payment-status', headers),
           api.get<unknown>('/general/payment-method', headers),
           api.get<unknown>('/general/bank-list', headers),
-          api.get<unknown>('/services/transactions/types', headers),
+          api.get<unknown>('/services/transactions/types?filteredby=items&type=income', headers),
         ]);
         if (currentReq !== metaRequestIdRef.current) return;
 
@@ -517,10 +521,10 @@ export const Revenue: React.FC = () => {
     },
     {
       label: 'Jenis Transaksi',
-      key: 'transactionMarkLabel',
+      key: 'transactionCategoryLabel',
       sortable: true,
-      width: 170,
-      render: (row) => <span className="text-sm text-foreground">{row.transactionTypeLabel || '-'}</span>,
+      width: 200,
+      render: (row) => <span className="text-sm text-foreground">{row.transactionCategoryLabel || '-'}</span>,
     },
     {
       label: 'Jumlah',

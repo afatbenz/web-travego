@@ -122,9 +122,11 @@ export const ArmadaForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("test saving ... ", saving)
     if (saving) return;
 
     if (validateForm()) {
+      console.log(".... validate form ...")
       setSaving(true);
       const addonItems = formData.addons
         .filter((a) => a && (a.name?.trim() || a.description?.trim() || (a.price ?? 0) > 0))
@@ -180,7 +182,17 @@ export const ArmadaForm: React.FC = () => {
         setSaving(false);
       }
     } else {
+      console.log("error validate")
       setSaving(false);
+      Swal.fire({
+        icon: 'error',
+        title: 'Validasi Gagal',
+        html: Object.values(errors)
+          .filter(msg => msg)
+          .map(msg => `• ${msg}`)
+          .join('<br/>'),
+        confirmButtonColor: '#4F6BFF',
+      });
     }
   };
 
@@ -827,7 +839,7 @@ export const ArmadaForm: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form id="armada-form" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Left Column: Form Fields */}
@@ -1484,8 +1496,6 @@ export const ArmadaForm: React.FC = () => {
           </div>
         </div>
 
-      </form>
-
       <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-40">
         <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70 px-3 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:justify-end">
@@ -1524,6 +1534,8 @@ export const ArmadaForm: React.FC = () => {
           </div>
         </div>
       </div>
+      </form>
+
     </div>
   );
 };

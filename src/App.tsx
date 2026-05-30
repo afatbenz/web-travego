@@ -99,6 +99,7 @@ import { PartnerProfile } from '@/pages/dashboard/partner/Profile';
 import { PartnerProfileEdit } from '@/pages/dashboard/partner/ProfileEdit';
 import { PartnerChangePassword } from '@/pages/dashboard/partner/ChangePassword';
 import { PartnerInquiry } from '@/pages/dashboard/partner/Inquiry';
+import { PartnerPreferencesCities } from '@/pages/dashboard/partner/preferences/CitiesPreferences';
 import { PartnerOperations } from '@/pages/dashboard/partner/PartnerOperations';
 import { PartnerOperationDetail } from '@/pages/dashboard/partner/PartnerOperationDetail';
 import PartnerContent from '@/pages/dashboard/partner/content/Content';
@@ -159,6 +160,9 @@ import { CustomerEdit } from '@/pages/dashboard/customers/CustomerEdit';
 import { FleetManagement } from '@/pages/dashboard/schedules/FleetManagement';
 import { TeamSchedules } from '@/pages/dashboard/schedules/TeamSchedules';
 import { LeaveManagement } from '@/pages/dashboard/schedules/LeaveManagement';
+import { FleetSchedules } from '@/pages/dashboard/schedules/FleetSchedules';
+import { FleetScheduleDetail } from '@/pages/dashboard/schedules/FleetScheduleDetail';
+import { FleetScheduleManage } from '@/pages/dashboard/schedules/FleetScheduleManage';
 
 // Finance Pages
 import { Revenue } from '@/pages/dashboard/finance/Revenue';
@@ -569,6 +573,36 @@ function App() {
               <FleetManagement />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/schedules/fleet-schedules" element={
+            <DashboardLayout>
+              <FleetSchedules />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/schedules/fleet-schedules" element={
+            <DashboardLayout>
+              <FleetSchedules />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/schedules/fleet-schedules/detail/:order_id" element={
+            <DashboardLayout>
+              <FleetScheduleDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/schedules/fleet-schedules/detail/:order_id" element={
+            <DashboardLayout>
+              <FleetScheduleDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/schedules/fleet-schedules/manage/:order_id" element={
+            <DashboardLayout>
+              <FleetScheduleManage />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/schedules/fleet-schedules/manage/:order_id" element={
+            <DashboardLayout>
+              <FleetScheduleManage />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/partner/schedules/team-schedules" element={
             <DashboardLayout>
               <TeamSchedules />
@@ -850,6 +884,11 @@ function App() {
           <Route path="/dashboard/partner/fleet-units/edit/:unit_id" element={
             <DashboardLayout>
               <FleetUnitEdit />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/preferences/cities" element={
+            <DashboardLayout>
+              <PartnerPreferencesCities />
             </DashboardLayout>
           } />
           <Route path="/dashboard/fleet-units" element={

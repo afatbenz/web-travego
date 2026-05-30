@@ -78,11 +78,11 @@ export const ScheduleFleetDetail: React.FC = () => {
       nestedResponse.data && typeof nestedResponse.data === 'object' ? (nestedResponse.data as Record<string, unknown>) : {};
     return toStringSafe(
       obj.message ??
-        obj.error ??
-        nestedData.message ??
-        nestedData.error ??
-        nestedResponseData.message ??
-        nestedResponseData.error
+      obj.error ??
+      nestedData.message ??
+      nestedData.error ??
+      nestedResponseData.message ??
+      nestedResponseData.error
     ).trim();
   };
 
@@ -287,11 +287,11 @@ export const ScheduleFleetDetail: React.FC = () => {
       const rawFleets = Array.isArray(root.fleets) ? root.fleets : Array.isArray(detail.fleets) ? detail.fleets : [];
       const nextOrderTypeLabel = toStringSafe(
         detail.order_type_label ??
-          detail.orderTypeLabel ??
-          detail.rent_type_label ??
-          detail.rentTypeLabel ??
-          detail.category ??
-          'Armada'
+        detail.orderTypeLabel ??
+        detail.rent_type_label ??
+        detail.rentTypeLabel ??
+        detail.category ??
+        'Armada'
       ).trim();
 
       const nextCustomerName = toStringSafe(customer.customer_name ?? customer.customerName ?? detail.customer_name ?? detail.customerName).trim();
@@ -365,7 +365,7 @@ export const ScheduleFleetDetail: React.FC = () => {
 
     const loadScheduleDetail = async () => {
       const token = localStorage.getItem('token') ?? '';
-      const res = await api.get<unknown>(`/services/schedule/detail/${encodeURIComponent(orderId)}`, token ? { Authorization: token } : undefined);
+      const res = await api.get<unknown>(`/services/schedule/fleet/detail/${encodeURIComponent(orderId)}`, token ? { Authorization: token } : undefined);
       if (res.status !== 'success') return;
 
       const root = record(res.data);
@@ -622,13 +622,13 @@ export const ScheduleFleetDetail: React.FC = () => {
         const fleetId = slot?.fleetId ?? '';
         const baseUnit = assignment.driverUuid.trim()
           ? [
-              {
-                fleet_id: fleetId,
-                unit_id: assignment.unitId,
-                driver_id: assignment.driverUuid.trim(),
-                ...(assignment.crewUuid.trim() ? { crew_id: assignment.crewUuid.trim() } : {}),
-              },
-            ]
+            {
+              fleet_id: fleetId,
+              unit_id: assignment.unitId,
+              driver_id: assignment.driverUuid.trim(),
+              ...(assignment.crewUuid.trim() ? { crew_id: assignment.crewUuid.trim() } : {}),
+            },
+          ]
           : [];
         const extraUnits = (assignment.extraPairs ?? [])
           .filter((p) => Boolean(p.driverUuid.trim()))
@@ -1098,18 +1098,18 @@ export const ScheduleFleetDetail: React.FC = () => {
           </CardContent>
         </Card>
         {!isEditing && !isOrderStartDateInFuture ? (
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  className="bg-blue-700 text-white"
-                  onClick={() => setIsEditing(true)}
-                  disabled={!scheduleId || !orderId}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit Jadwal
-                </Button>
-              </div>
-            ) : null}
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              className="bg-blue-700 text-white"
+              onClick={() => setIsEditing(true)}
+              disabled={!scheduleId || !orderId}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Jadwal
+            </Button>
+          </div>
+        ) : null}
 
         <div className="flex justify-between items-center pt-6 border-t">
           <div className="text-sm text-gray-600 dark:text-gray-300">
