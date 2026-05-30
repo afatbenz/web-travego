@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Car, Users, Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { ArrowLeft, Save, X, Car, Users, Check, ChevronsUpDown, Plus, ShoppingCart, CarFront, Building2, MessageCircleWarning } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardHeaderWithBadge, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -30,13 +30,18 @@ export const AddSchedule: React.FC = () => {
   const [destinationText, setDestinationText] = useState('');
   const [quantity, setQuantity] = useState(0);
   const [garageOutTime, setGarageOutTime] = useState('');
+  const [garageOutDate, setGarageOutDate] = useState('');
+  const [garageOutClock, setGarageOutClock] = useState('');
   const [garageInTime, setGarageInTime] = useState('');
+  const [garageInDate, setGarageInDate] = useState('');
+  const [garageInClock, setGarageInClock] = useState('');
   const [periodStartDate, setPeriodStartDate] = useState('');
   const [periodEndDate, setPeriodEndDate] = useState('');
 
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [unitOptionsByFleet, setUnitOptionsByFleet] = useState<Record<string, Array<{ value: string; label: string }>>>({});
   const [unitPickerOpen, setUnitPickerOpen] = useState<Record<number, boolean>>({});
+  const [unitSearchByIndex, setUnitSearchByIndex] = useState<Record<number, string>>({});
   const [fleetUnitSlots, setFleetUnitSlots] = useState<Array<{ fleetId: string; fleetName: string }>>([]);
 
   const [loadingEmployees, setLoadingEmployees] = useState(false);
@@ -76,7 +81,103 @@ export const AddSchedule: React.FC = () => {
     ).trim();
   };
 
+  const formFieldClass =
+  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
   const isEditMode = Boolean(searchParams.get('mode') === 'edit' || searchParams.get('schedule_id') || searchParams.get('scheduleId'));
+
+  const formatYmdLong = (ymd: string) => {
+    const value = String(ymd ?? '').trim();
+    if (!value) return '';
+    const d = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return value;
+    return d
+      .toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+      .replace(/[.,]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const allowedGarageOutDates = useMemo(() => {
+    const toYmdFromAny = (value: string) => {
+      const v = String(value ?? '').trim();
+      if (!v) return '';
+      const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : '';
+    };
+    const start = toYmdFromAny(periodStartDate);
+    if (!start) return [] as string[];
+    const date = new Date(`${start}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return [start];
+    const minusOne = new Date(date);
+    minusOne.setDate(minusOne.getDate() - 1);
+    const formatYmd = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const startMinusOne = formatYmd(minusOne);
+    return [startMinusOne, start].filter(Boolean);
+  }, [periodStartDate]);
+
+  const allowedGarageInDates = useMemo(() => {
+    const toYmdFromAny = (value: string) => {
+      const v = String(value ?? '').trim();
+      if (!v) return '';
+      const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : '';
+    };
+    const end = toYmdFromAny(periodEndDate);
+    if (!end) return [] as string[];
+    const date = new Date(`${end}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return [end];
+    const plusOne = new Date(date);
+    plusOne.setDate(plusOne.getDate() + 1);
+    const formatYmd = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const endPlusOne = formatYmd(plusOne);
+    return [end, endPlusOne].filter(Boolean);
+  }, [periodEndDate]);
+
+  useEffect(() => {
+    if (!orderId) {
+      setGarageOutDate('');
+      setGarageOutClock('');
+      setGarageOutTime('');
+      return;
+    }
+    if (allowedGarageOutDates.length <= 0) return;
+
+    const m = garageOutTime.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    const existingDate = (m?.[1] ?? '').trim();
+    const existingClock = (m?.[2] ?? '').trim();
+    const nextDateCandidate = garageOutDate || existingDate;
+    const nextDate = allowedGarageOutDates.includes(nextDateCandidate)
+      ? nextDateCandidate
+      : allowedGarageOutDates[allowedGarageOutDates.length - 1] ?? '';
+    const nextClock = garageOutClock || existingClock;
+
+    setGarageOutDate(nextDate);
+    setGarageOutClock(nextClock);
+    setGarageOutTime(nextClock && nextDate ? `${nextDate}T${nextClock}` : '');
+  }, [allowedGarageOutDates, orderId]);
+
+  useEffect(() => {
+    if (!orderId) {
+      setGarageInDate('');
+      setGarageInClock('');
+      setGarageInTime('');
+      return;
+    }
+    if (allowedGarageInDates.length <= 0) return;
+
+    const m = garageInTime.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    const existingDate = (m?.[1] ?? '').trim();
+    const existingClock = (m?.[2] ?? '').trim();
+    const nextDateCandidate = garageInDate || existingDate;
+    const nextDate = allowedGarageInDates.includes(nextDateCandidate) ? nextDateCandidate : allowedGarageInDates[0] ?? '';
+    const nextClock = garageInClock || existingClock;
+
+    setGarageInDate(nextDate);
+    setGarageInClock(nextClock);
+    setGarageInTime(nextClock && nextDate ? `${nextDate}T${nextClock}` : '');
+  }, [allowedGarageInDates, orderId]);
 
   useEffect(() => {
     const toYmdFromAny = (value: string) => {
@@ -161,8 +262,13 @@ export const AddSchedule: React.FC = () => {
       setFleetUnitSlots([]);
       setUnitOptionsByFleet({});
       setGarageOutTime('');
+      setGarageOutDate('');
+      setGarageOutClock('');
       setGarageInTime('');
+      setGarageInDate('');
+      setGarageInClock('');
       setAssignments([]);
+      setUnitSearchByIndex({});
       return;
     }
     const loadDetail = async () => {
@@ -417,11 +523,13 @@ export const AddSchedule: React.FC = () => {
       const units = assignments.flatMap((assignment, index) => {
         const slot = fleetUnitSlots[index];
         const fleetId = slot?.fleetId ?? '';
+        const unitIdValue = assignment.unitId.trim();
+        const isKnownUnitId = Boolean(fleetId && unitIdValue && (unitOptionsByFleet[fleetId] ?? []).some((u) => u.value === unitIdValue));
         const baseUnit = assignment.driverUuid.trim()
           ? [
               {
                 fleet_id: fleetId,
-                unit_id: assignment.unitId,
+                ...(isKnownUnitId ? { unit_id: unitIdValue } : { fleet_partner: unitIdValue }),
                 driver_id: assignment.driverUuid.trim(),
                 ...(assignment.crewUuid.trim() ? { crew_id: assignment.crewUuid.trim() } : {}),
               },
@@ -431,7 +539,7 @@ export const AddSchedule: React.FC = () => {
           .filter((p) => Boolean(p.driverUuid.trim()))
           .map((p) => ({
             fleet_id: fleetId,
-            unit_id: assignment.unitId,
+            ...(isKnownUnitId ? { unit_id: unitIdValue } : { fleet_partner: unitIdValue }),
             driver_id: p.driverUuid.trim(),
             ...(p.crewUuid.trim() ? { crew_id: p.crewUuid.trim() } : {}),
           }));
@@ -509,12 +617,11 @@ export const AddSchedule: React.FC = () => {
       <form onSubmit={onSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Car className="h-5 w-5 mr-2" />
-                Informasi Pesanan
-              </CardTitle>
-            </CardHeader>
+            <CardHeaderWithBadge
+              badgeIcon={ShoppingCart}
+              title="Informasi Pesanan"
+              subtitle="Lengkapi customer, paket, dan jadwal perjalanan."
+            />
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -550,32 +657,86 @@ export const AddSchedule: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jam Keluar Garasi *</label>
-                  <Input
-                    type="datetime-local"
-                    value={garageOutTime}
-                    onChange={(e) => {
-                      setGarageOutTime(e.target.value);
-                      if (errors.garageOutTime) setErrors((prev) => ({ ...prev, garageOutTime: '' }));
-                    }}
-                    disabled={!orderId}
-                    className={errors.garageOutTime ? 'border-red-500' : ''}
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Select
+                      value={garageOutDate}
+                      onValueChange={(v) => {
+                        setGarageOutDate(v);
+                        const nextValue = garageOutClock && v ? `${v}T${garageOutClock}` : '';
+                        setGarageOutTime(nextValue);
+                        if (errors.garageOutTime) setErrors((prev) => ({ ...prev, garageOutTime: '' }));
+                      }}
+                      disabled={!orderId || allowedGarageOutDates.length <= 0}
+                    >
+                      <SelectTrigger className={errors.garageOutTime ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Tanggal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allowedGarageOutDates.map((d) => (
+                          <SelectItem key={d} value={d}>
+                            {formatYmdLong(d)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="time"
+                      value={garageOutClock}
+                      // className={formFieldClass}
+                      onChange={(e) => {
+                        const t = e.target.value;
+                        setGarageOutClock(t);
+                        const nextValue = garageOutDate && t ? `${garageOutDate}T${t}` : '';
+                        setGarageOutTime(nextValue);
+                        if (errors.garageOutTime) setErrors((prev) => ({ ...prev, garageOutTime: '' }));
+                      }}
+                      disabled={!orderId}
+                      className={formFieldClass ? 'border-red-500' : ''}
+                    />
+                  </div>
                   {errors.garageOutTime ? <p className="text-sm text-red-500">{errors.garageOutTime}</p> : null}
                 </div>
 
                 {isEditMode ? (
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jam Kembali Garasi *</label>
-                    <Input
-                      type="time"
-                      value={garageInTime}
-                      onChange={(e) => {
-                        setGarageInTime(e.target.value);
-                        if (errors.garageInTime) setErrors((prev) => ({ ...prev, garageInTime: '' }));
-                      }}
-                      disabled={!orderId}
-                      className={errors.garageInTime ? 'border-red-500' : ''}
-                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Select
+                        value={garageInDate}
+                        className={formFieldClass}
+                        onValueChange={(v) => {
+                          setGarageInDate(v);
+                          const nextValue = garageInClock && v ? `${v}T${garageInClock}` : '';
+                          setGarageInTime(nextValue);
+                          if (errors.garageInTime) setErrors((prev) => ({ ...prev, garageInTime: '' }));
+                        }}
+                        disabled={!orderId || allowedGarageInDates.length <= 0}
+                      >
+                        <SelectTrigger className={errors.garageInTime ? 'border-red-500' : ''}>
+                          <SelectValue placeholder="Tanggal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allowedGarageInDates.map((d) => (
+                            <SelectItem key={d} value={d}>
+                              {formatYmdLong(d)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="time"
+                        value={garageInClock}
+                        onChange={(e) => {
+                          const t = e.target.value;
+                          setGarageInClock(t);
+                          const nextValue = garageInDate && t ? `${garageInDate}T${t}` : '';
+                          setGarageInTime(nextValue);
+                          if (errors.garageInTime) setErrors((prev) => ({ ...prev, garageInTime: '' }));
+                        }}
+                        disabled={!orderId}
+                        className={errors.garageInTime ? 'border-red-500' : ''}
+                      />
+                    </div>
                     {errors.garageInTime ? <p className="text-sm text-red-500">{errors.garageInTime}</p> : null}
                   </div>
                 ) : (
@@ -586,12 +747,11 @@ export const AddSchedule: React.FC = () => {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="h-5 w-5 mr-2" />
-                Informasi Pelanggan
-              </CardTitle>
-            </CardHeader>
+            <CardHeaderWithBadge
+              badgeIcon={ShoppingCart}
+              title="Informasi Pelanggan"
+              subtitle="Periksa Kembai informasi pelanggan sebelum armada dijadwalkan"
+            />
             <CardContent className="space-y-4">
               <div className="space-y-1">
                 <div className="text-sm font-medium text-gray-600 dark:text-gray-300">Nama Pelanggan</div>
@@ -614,15 +774,11 @@ export const AddSchedule: React.FC = () => {
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Users className="h-5 w-5 mr-2" />
-              Informasi Armada dan Petugas
-            </CardTitle>
-            {quantity > 0 ? (
-              <p className="text-sm text-gray-600 dark:text-gray-300">{quantity} unit perlu ditugaskan sebelum jadwal disimpan.</p>
-            ) : null}
-          </CardHeader>
+          <CardHeaderWithBadge
+                badgeIcon={CarFront}
+                title="Armada dan crew yang bertugas"
+                subtitle="Lengkapi armada dan crew yang ditugaskan untuk perjalanan ini"
+              />
           <CardContent>
             {quantity <= 0 ? (
               <div className="text-sm text-gray-600 dark:text-gray-300">Pilih order untuk memuat petugas.</div>
@@ -663,10 +819,42 @@ export const AddSchedule: React.FC = () => {
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                             <Command>
-                              <CommandInput placeholder="Cari unit..." />
+                              <CommandInput
+                                placeholder="Cari atau ketik armada..."
+                                value={unitSearchByIndex[idx] ?? ''}
+                                onValueChange={(v) => setUnitSearchByIndex((prev) => ({ ...prev, [idx]: v }))}
+                              />
                               <CommandList>
                                 <CommandEmpty>Tidak ada data</CommandEmpty>
                                 <CommandGroup>
+                                  {(() => {
+                                    const q = (unitSearchByIndex[idx] ?? '').trim();
+                                    const fleetId = fleetUnitSlots[idx]?.fleetId || '';
+                                    const all = unitOptionsByFleet[fleetId] ?? [];
+                                    const matched =
+                                      q &&
+                                      all.some(
+                                        (u) =>
+                                          u.value.toLowerCase() === q.toLowerCase() || u.label.toLowerCase() === q.toLowerCase()
+                                      );
+                                    if (!q || matched) return null;
+                                    return (
+                                      <CommandItem
+                                        key={`free-text-${idx}`}
+                                        value={`free-text ${q}`}
+                                        onSelect={() => {
+                                          setAssignments((prev) => prev.map((x, i) => (i === idx ? { ...x, unitId: q } : x)));
+                                          const k = `assignments.${idx}.unitId`;
+                                          if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+                                          setUnitPickerOpen((prev) => ({ ...prev, [idx]: false }));
+                                          setUnitSearchByIndex((prev) => ({ ...prev, [idx]: '' }));
+                                        }}
+                                      >
+                                        <Check className={cn('mr-2 h-4 w-4', a.unitId === q ? 'opacity-100' : 'opacity-0')} />
+                                        {`Gunakan: ${q}`}
+                                      </CommandItem>
+                                    );
+                                  })()}
                                   {getUnitOptions(fleetUnitSlots[idx]?.fleetId || '', a.unitId).map((o) => (
                                     <CommandItem
                                       key={o.value}
@@ -676,6 +864,7 @@ export const AddSchedule: React.FC = () => {
                                         const k = `assignments.${idx}.unitId`;
                                         if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
                                         setUnitPickerOpen((prev) => ({ ...prev, [idx]: false }));
+                                        setUnitSearchByIndex((prev) => ({ ...prev, [idx]: '' }));
                                       }}
                                     >
                                       <Check className={cn('mr-2 h-4 w-4', a.unitId === o.value ? 'opacity-100' : 'opacity-0')} />
@@ -880,6 +1069,15 @@ export const AddSchedule: React.FC = () => {
                 ))}
               </div>
             )}
+            <div className="flex items-start gap-3 mt-5 bg-blue-100 rounded-2xl p-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/70 text-blue-700 ring-1 ring-blue-200/60">
+                <MessageCircleWarning className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-gray-900">Armada tidak tersedia?</div>
+                <div className="mt-0.5 text-sm text-gray-600">Kamu bisa menambahkan armada dari operator lain, dengan menuliskan nama armada / operator di kolom pilihan armada.</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -896,7 +1094,7 @@ export const AddSchedule: React.FC = () => {
               <X className="h-4 w-4 mr-2" />
               Batal
             </Button>
-            <Button type="submit" className="bg-blue-700 text-white" disabled={!submitReady || saving}>
+            <Button type="submit" className="bg-blue-500 hover:bg-blue-700 transition-all text-white" disabled={!submitReady || saving}>
               <Save className="h-4 w-4 mr-2" />
               {saving ? 'Menyimpan...' : 'Simpan Jadwal'}
             </Button>

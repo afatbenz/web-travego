@@ -356,7 +356,7 @@ export const FleetManagement: React.FC = () => {
         const ymd = toYmd(selectedDate);
         const qs = new URLSearchParams();
         qs.set('date', ymd);
-        const res = await api.get<unknown>(`/services/schedule/detail?${qs.toString()}`, token ? { Authorization: token } : undefined);
+        const res = await api.get<unknown>(`/services/schedule/fleet/detail?${qs.toString()}`, token ? { Authorization: token } : undefined);
         if (!active) return;
         if (res.status !== 'success') {
           setModalRows([]);
@@ -371,9 +371,9 @@ export const FleetManagement: React.FC = () => {
         const listCandidate =
           (dataNode && typeof dataNode === 'object' && !Array.isArray(dataNode)
             ? (dataNode as Record<string, unknown>).items ??
-              (dataNode as Record<string, unknown>).rows ??
-              (dataNode as Record<string, unknown>).schedules ??
-              (dataNode as Record<string, unknown>).data
+            (dataNode as Record<string, unknown>).rows ??
+            (dataNode as Record<string, unknown>).schedules ??
+            (dataNode as Record<string, unknown>).data
             : undefined) ?? dataNode;
         const items = Array.isArray(listCandidate)
           ? listCandidate
@@ -498,32 +498,29 @@ export const FleetManagement: React.FC = () => {
             {days.map((day, index) => (
               <div
                 key={index}
-                className={`min-h-[76px] border ${
-                  isToday(day) ? 'border-2 border-green-500 dark:border-green-400' : 'border-gray-200 dark:border-gray-700'
-                }`}
+                className={`min-h-[76px] border ${isToday(day) ? 'border-2 border-green-500 dark:border-green-400' : 'border-gray-200 dark:border-gray-700'
+                  }`}
               >
                 {(() => {
                   const inCurrentMonth = day.getMonth() === selectedMonth && day.getFullYear() === selectedYear;
                   return (
                     <button
                       type="button"
-                      className={`h-full w-full p-1 text-left transition-colors ${
-                        inCurrentMonth
+                      className={`h-full w-full p-1 text-left transition-colors ${inCurrentMonth
                           ? `bg-transparent hover:bg-green-100 dark:hover:bg-gray-800 ${isToday(day) ? 'bg-green-50 dark:bg-green-900/20' : ''}`
                           : 'bg-gray-100 dark:bg-gray-900/40 cursor-default'
-                      }`}
+                        }`}
                       onClick={() => (inCurrentMonth ? openDate(day) : undefined)}
                       disabled={loading || !inCurrentMonth}
                     >
                       <div className="flex items-center justify-between mb-0.5">
                         <span
-                          className={`text-xs font-medium ${
-                            inCurrentMonth
+                          className={`text-xs font-medium ${inCurrentMonth
                               ? isToday(day)
                                 ? 'text-green-600 dark:text-gray-200'
                                 : 'text-gray-900 dark:text-white'
                               : 'text-gray-400 dark:text-gray-500'
-                          }`}
+                            }`}
                         >
                           {day.getDate()}
                         </span>

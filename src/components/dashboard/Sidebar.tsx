@@ -26,6 +26,7 @@ import {
   X,
   Handshake,
   Mails,
+  MapPin,
   SlidersHorizontal,
   Building2,
   CalendarCheck,
@@ -141,14 +142,22 @@ export const Sidebar: React.FC = () => {
         items: [
           { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
           { title: 'Daftar Armada', icon: Car, href: `${basePrefix}/services/fleet` },
-          { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units` }
+          { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units` },
+        ]
+      },
+      {
+        label: 'Preferensi',
+        items: [
+          { title: 'Preferensi Harga', icon: Package, href: `${basePrefix}/services/preferences/fleet-prices` },
+          ...(!isAdmin ? [{ title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities` }] : [])
         ]
       },
       {
         label: 'Jadwal',
         items: [
-          { title: 'Jadwal Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-management` },
           { title: 'Jadwal Tim', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
+          { title: 'Kalender Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-management` },
+          { title: 'Jadwal Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-schedules` },
           { title: 'Manajemen Cuti', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
         ]
       },
@@ -193,7 +202,7 @@ export const Sidebar: React.FC = () => {
         ]
       }
     ],
-    [basePrefix]
+    [basePrefix, isAdmin]
   );
 
   const SidebarContent = ({
@@ -270,8 +279,8 @@ export const Sidebar: React.FC = () => {
                         ref={
                           active
                             ? (el) => {
-                                activeItemRef.current = el;
-                              }
+                              activeItemRef.current = el;
+                            }
                             : undefined
                         }
                         className={cn(
