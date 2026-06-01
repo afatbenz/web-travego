@@ -14,8 +14,13 @@ type FleetScheduleRow = {
   orderId: string;
   tripDate: string;
   fleetName: string;
+  vehicleId: string;
+  plateNumber: string;
+  destinations: string;
   driverName: string;
+  crewName: string;
   status: string;
+  scheduleNumber: string;
 };
 
 type FilterValues = {
@@ -43,6 +48,15 @@ const tryFormatDate = (value: string): string => {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+};
+
+const formatDmy = (value: string): string => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = String(d.getFullYear());
+  return `${dd} ${d.toLocaleDateString('id-ID', { month: 'long' })} ${yyyy}`;
 };
 
 const getDefaultPeriod = () => {
@@ -176,19 +190,18 @@ export const FleetSchedules: React.FC = () => {
         const mapped: FleetScheduleRow[] = items.map((raw) => {
           const item = toRecord(raw);
           const orderId = pickString(item, ['order_id', 'orderId', 'order_id_display', 'order_code', 'id']) || '-';
-          const tripDate = pickString(item, [
-            'trip_date',
-            'tripDate',
-            'start_date',
-            'startDate',
-            'departure_date',
-            'departureDate',
-            'schedule_date',
-            'scheduleDate',
-            'created_at',
-            'createdAt',
-          ]);
+          const startDate = pickString(item, ['start_date']);
+          const endDate = pickString(item, ['end_date']);
+          const startLabel = formatDmy(startDate);
+          const endLabel = formatDmy(endDate);
+          const tripDate = startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel || endLabel || '-';
           const fleetName = pickString(item, ['fleet_name', 'fleetName', 'armada', 'vehicle_name', 'vehicleName', 'unit_name', 'unitName', 'name']) || '-';
+          const vehicleId = pickString(item, ['vehicle_id', 'vehicleId']) || '-';
+          const plateNumber = pickString(item, ['plate_number', 'plateNumber']) || '-';
+          const crewName = pickString(item, ['crew_name', 'crewName']) || '-';
+          const destinations = pickString(item, ['destination', 'destinations']) || '-';
+          const scheduleNumber = pickString(item, ['schedule_number', 'scheduleNumber']) || '-';
+
           const driverName =
             pickString(item, ['driver_name', 'driverName']) ||
             pickString(toRecord(item.driver), ['fullname', 'name']) ||
@@ -196,7 +209,7 @@ export const FleetSchedules: React.FC = () => {
             '-';
           const status = pickString(item, ['status', 'schedule_status', 'scheduleStatus', 'order_status', 'orderStatus', 'status_label', 'statusLabel']) || '-';
 
-          return { orderId, tripDate, fleetName, driverName, status };
+          return { orderId, tripDate, fleetName, vehicleId, plateNumber, destinations, scheduleNumber, driverName, crewName, status };
         });
 
         setRows(mapped);
@@ -232,42 +245,42 @@ export const FleetSchedules: React.FC = () => {
         ),
       },
       {
-        label: 'Order ID',
-        key: 'orderId',
-        width: 200,
+        label: 'Armada',
+        key: 'fleetName',
+        width: 270,
         sortable: true,
-        render: (row) => <div className="font-medium text-foreground">{row.orderId}</div>,
+        render: (row) => <div className="text-foreground">{row.fleetName} - <b> {row.plateNumber}</b></div>,
       },
+      // {
+      //   label: 'Order ID',
+      //   key: 'orderId',
+      //   width: 200,
+      //   sortable: true,
+      //   render: (row) => <div className="font-medium text-foreground">{row.orderId}</div>,
+      // },
       {
         label: 'Tanggal Perjalanan',
         key: 'tripDate',
-        width: 220,
+        width: 180,
         sortable: true,
-        render: (row) => <div className="text-foreground">{tryFormatDate(row.tripDate)}</div>,
+        render: (row) => <div className="text-foreground">{row.tripDate}</div>,
       },
       {
-        label: 'Armada',
-        key: 'fleetName',
-        width: 240,
-        sortable: true,
-        render: (row) => <div className="text-foreground">{row.fleetName}</div>,
-      },
-      {
-        label: 'Driver',
+        label: 'Crew',
         key: 'driverName',
         width: 220,
         sortable: true,
-        render: (row) => <div className="text-foreground">{row.driverName}</div>,
+        render: (row) => <div className="text-foreground">{row.driverName.split(" ").slice(0, 2).join(" ")} {row.crewName ? `, ${row.crewName.split(" ").slice(0, 2).join(" ")}` : ''}</div>,
       },
       {
-        label: 'Status',
+        label: 'Tujuan',
         key: 'status',
         width: 160,
         sortable: true,
         render: (row) => (
-          <Badge variant={statusVariant(row.status)} className="capitalize">
-            {row.status || '-'}
-          </Badge>
+          <div className="text-foreground">
+            {row.destinations ? row.destinations.split(",").slice(0, 2).join(", ") : '-'}  
+          </div>
         ),
       },
     ] satisfies Array<DataTableColumn<FleetScheduleRow>>;
@@ -461,13 +474,13 @@ export const FleetSchedules: React.FC = () => {
             ...a,
             disabled: false,
             onSelect: (row: FleetScheduleRow) => {
-              const orderId = (row.orderId || '').trim();
-              if (!orderId || orderId === '-') return;
+              const scheduleNumber = (row.scheduleNumber || '').trim();
+              if (!scheduleNumber || scheduleNumber === '-') return;
               if (a.key === 'manage') {
-                navigate(`${basePrefix}/schedules/fleet-schedules/manage/${encodeURIComponent(orderId)}`);
+                navigate(`${basePrefix}/schedules/fleet-schedules/manage/${encodeURIComponent(scheduleNumber)}`);
                 return;
               }
-              navigate(`${basePrefix}/schedules/fleet-schedules/detail/${encodeURIComponent(orderId)}`);
+              navigate(`${basePrefix}/schedules/fleet-schedules/detail/${encodeURIComponent(scheduleNumber)}`);
             },
           })),
         }}
