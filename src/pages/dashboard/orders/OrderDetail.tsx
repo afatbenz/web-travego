@@ -245,6 +245,7 @@ export const OrderDetail: React.FC = () => {
   })();
 
   const isWaitingConfirmation = orderData.rawStatus === 1 && orderData.rawPaymentStatus === 3;
+  const isScheduled = orderData.scheduled;
   const isWaitingOrderConfirmation = orderData.rawStatus === 2 && orderData.rawPaymentStatus === 2;
   const shouldShowScheduleActionWarning =
     orderData.rawStatus === 1 &&
@@ -674,8 +675,28 @@ export const OrderDetail: React.FC = () => {
     );
     const payment = record(detail.payment ?? root.payment ?? (root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).payment : undefined));
     const hasPaymentInfo = Object.keys(paymentSummary).length > 0;
-    const addonsRaw = detail.addon;
+    const addonsRaw =
+      (root.addon ??
+        detail.addon ??
+        (root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).addon : undefined) ??
+        (root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).addons : undefined) ??
+        detail.addons) as unknown;
     const addons = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
+
+    const addonsByOrderItemId = new Map<string, Array<{ addon_name: string; addon_price: number }>>();
+    addons
+      .map((a) => record(a))
+      .forEach((a) => {
+        const order_item_id = getString(a.order_item_id ?? a.orderItemId ?? a.order_item ?? a.orderItem, '').trim();
+        if (!order_item_id) return;
+        const addon_name = getString(a.addon_name ?? a.addonName ?? a.name ?? a.title, '').trim();
+        if (!addon_name) return;
+        const addon_price = getNumber(a.addon_price ?? a.addonPrice ?? a.price ?? a.amount ?? a.value, 0);
+        const existing = addonsByOrderItemId.get(order_item_id) ?? [];
+        const alreadyExists = existing.some((x) => x.addon_name === addon_name && x.addon_price === addon_price);
+        if (alreadyExists) return;
+        addonsByOrderItemId.set(order_item_id, [...existing, { addon_name, addon_price }]);
+      });
 
     const normalizePaymentStatus = (raw: unknown): 'paid' | 'pending' | 'failed' | 'unpaid' => {
       if (raw === 1 || raw === '1' || raw === 'paid' || raw === 'lunas') return 'paid';
@@ -788,6 +809,7 @@ export const OrderDetail: React.FC = () => {
     const fleets: FleetItem[] = Array.isArray(fleetsRaw)
       ? fleetsRaw.map((fleet: unknown) => {
         const f = record(fleet);
+        const order_item_id = getString(f.order_item_id ?? f.orderItemId, '').trim();
         const quantity = getNumber(f.quantity ?? f.qty, 0);
         const price = getNumber(f.price, 0);
         const chargeAmount = getNumber(f.charge_amount ?? f.chargeAmount, 0);
@@ -796,7 +818,7 @@ export const OrderDetail: React.FC = () => {
 
         const addonsRaw = f.addons ?? f.addon;
         const addonsArr = Array.isArray(addonsRaw) ? (addonsRaw as unknown[]) : [];
-        const addons = addonsArr
+        const addonsFromRow = addonsArr
           .map((a) => record(a))
           .map((a) => {
             const addon_name = getString(a.addon_name ?? a.addonName ?? a.name ?? a.title, '').trim();
@@ -804,6 +826,13 @@ export const OrderDetail: React.FC = () => {
             return addon_name ? { addon_name, addon_price } : null;
           })
           .filter((x): x is { addon_name: string; addon_price: number } => Boolean(x));
+
+        const addonsFromRoot = order_item_id ? (addonsByOrderItemId.get(order_item_id) ?? []) : [];
+        const mergedAddons = [...addonsFromRoot];
+        addonsFromRow.forEach((a) => {
+          const exists = mergedAddons.some((x) => x.addon_name === a.addon_name && x.addon_price === a.addon_price);
+          if (!exists) mergedAddons.push(a);
+        });
 
         const subTotalFromRes = getNumber(f.sub_total ?? f.subTotal, NaN);
         const computedSubTotal = Math.max(0, (price + addonAmount + chargeAmount - discountAmount) * quantity);
@@ -816,13 +845,13 @@ export const OrderDetail: React.FC = () => {
           quantity,
           price,
           addon_amount: addonAmount,
-          addons,
+          addons: mergedAddons,
           duration,
           charge_amount: chargeAmount,
           discount: discountAmount,
           sub_total: subTotal,
           order_id: getString(f.order_id ?? f.orderId, ''),
-          order_item_id: getString(f.order_item_id ?? f.orderItemId, ''),
+          order_item_id,
           price_id: getString(f.price_id ?? f.priceId, ''),
         };
       })
@@ -1784,26 +1813,27 @@ export const OrderDetail: React.FC = () => {
                   className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
                 >
                   More Action
-                  {shouldShowScheduleActionWarning ? (
-                    <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#295BFF]">
-                      <AlertTriangle className="h-3.5 w-3.5 text-white" />
+                  {!isScheduled ? (
+                    <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 animate-bounce">
+                      <AlertTriangle className="h-3.7 w-3.7 p-1 text-blue-900" />
                     </span>
                   ) : null}
                   <MoreHorizontal className="h-4 w-4 ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[240px]">
-                {!isWaitingConfirmation && (
+                {!isScheduled && (
                   <DropdownMenuItem
                     className="cursor-pointer"
-                    disabled={isWaitingConfirmation}
+                    disabled={isScheduled}
                     onSelect={(e) => {
                       e.preventDefault();
                       onViewScheduleArmadaTim();
                     }}
                   >
                     <Calendar className="mr-2 h-4 w-4" />
-                    Lihat Jadwal Armada dan Tim
+                    {isScheduled ? 'Lihat Jadwal Armada' : "Atur armada dan crew"}
+                    {isScheduled ? null : <Loader2 className="ml-2 h-4 w-4 text-blue-900 animate-spin" />}
                   </DropdownMenuItem>
                 )}
                 {!isWaitingConfirmation && <DropdownMenuSeparator />}

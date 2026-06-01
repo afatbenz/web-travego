@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Pagination } from '@/components/common/Pagination';
 
 type ScheduledFleet = {
+  scheduleId?: string;
   orderId: string;
   vehicleId: string;
   fleetName: string;
@@ -40,12 +41,14 @@ const toYmd = (d: Date) => {
 
 const tryParseDate = (value: string): Date | null => {
   if (!value) return null;
+  const ymdPrefix = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymdPrefix) {
+    const d = new Date(Number(ymdPrefix[1]), Number(ymdPrefix[2]) - 1, Number(ymdPrefix[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
   const iso = new Date(value);
   if (!Number.isNaN(iso.getTime())) return iso;
-  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return Number.isNaN(d.getTime()) ? null : d;
+  return null;
 };
 
 const getDaysInMonthGrid = (date: Date) => {
@@ -140,11 +143,13 @@ export const FleetManagement: React.FC = () => {
 
         items.forEach((raw) => {
           const item = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+          const scheduleIdRaw = item.schedule_id ?? item.scheduleId;
+          const scheduleId = typeof scheduleIdRaw === 'string' || typeof scheduleIdRaw === 'number' ? String(scheduleIdRaw) : '';
           const orderIdRaw = item.order_id ?? item.id ?? item.orderId;
           const orderId = typeof orderIdRaw === 'string' || typeof orderIdRaw === 'number' ? String(orderIdRaw) : '';
           if (!orderId) return;
 
-          const dateRaw =
+          const startDateRaw =
             item.start_date ??
             item.startDate ??
             item.trip_date ??
@@ -153,9 +158,13 @@ export const FleetManagement: React.FC = () => {
             item.orderDate ??
             item.created_at ??
             item.createdAt;
-          const dateStr = typeof dateRaw === 'string' ? dateRaw : '';
-          const date = tryParseDate(dateStr) ?? monthStart;
-          const dateKey = toYmd(date);
+          const endDateRaw = item.end_date ?? item.endDate;
+          const startDateStr = typeof startDateRaw === 'string' ? startDateRaw : '';
+          const endDateStr = typeof endDateRaw === 'string' ? endDateRaw : '';
+          const startDate = tryParseDate(startDateStr) ?? monthStart;
+          const endDate = tryParseDate(endDateStr) ?? startDate;
+          const rangeStart = startDate.getTime() <= endDate.getTime() ? startDate : endDate;
+          const rangeEnd = startDate.getTime() <= endDate.getTime() ? endDate : startDate;
 
           const vehicleIdRaw = item.vehicle_id ?? item.vehicleId ?? item.unit_id ?? item.unitId ?? item.fleet_unit_id ?? item.fleetUnitId;
           const vehicleId = typeof vehicleIdRaw === 'string' || typeof vehicleIdRaw === 'number' ? String(vehicleIdRaw) : '';
@@ -211,8 +220,8 @@ export const FleetManagement: React.FC = () => {
           const coDriver = typeof coDriverRaw === 'string' ? coDriverRaw : '';
 
           const link = `${basePrefix}/orders/fleet/detail/${encodeURIComponent(orderId)}`;
-          if (!map[dateKey]) map[dateKey] = [];
-          map[dateKey].push({
+          const entry: ScheduledFleet = {
+            scheduleId: scheduleId || undefined,
             orderId,
             vehicleId: vehicleId || '-',
             fleetName: fleetName || '-',
@@ -221,7 +230,21 @@ export const FleetManagement: React.FC = () => {
             driver: driver || '-',
             coDriver: coDriver || '-',
             link,
-          });
+          };
+
+          const cursor = new Date(rangeStart);
+          cursor.setHours(0, 0, 0, 0);
+          const endDay = new Date(rangeEnd);
+          endDay.setHours(0, 0, 0, 0);
+
+          let guard = 0;
+          while (cursor.getTime() <= endDay.getTime() && guard < 400) {
+            const dateKey = toYmd(cursor);
+            if (!map[dateKey]) map[dateKey] = [];
+            map[dateKey].push(entry);
+            cursor.setDate(cursor.getDate() + 1);
+            guard += 1;
+          }
         });
 
         setSchedulesByDate(map);
@@ -257,7 +280,7 @@ export const FleetManagement: React.FC = () => {
     const set = new Set<string>();
     const list: Array<{ vehicleId: string; fleetName: string }> = [];
     schedules.forEach((s) => {
-      const k = `${s.vehicleId}::${s.fleetName}`;
+      const k = s.scheduleId ? `schedule::${s.scheduleId}` : `order::${s.orderId}`;
       if (set.has(k)) return;
       set.add(k);
       list.push({ vehicleId: s.vehicleId, fleetName: s.fleetName });
