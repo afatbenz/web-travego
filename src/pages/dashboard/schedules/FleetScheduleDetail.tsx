@@ -31,6 +31,15 @@ type FleetTripExpenseRow = {
   paymentLabel: 'Lunas' | 'Tagihan';
 };
 
+type FleetTripExpenseTableRow = {
+  id: string;
+  transactionItemLabel: string;
+  reporter: string;
+  amount: number;
+  paymentMethodLabel: string;
+  description: string;
+};
+
 type FleetTripDetail = {
   scheduleFleetId: string;
   scheduleId: string;
@@ -52,6 +61,55 @@ type FleetTripDetail = {
   crewId: string;
   crewAvatar: string;
   expenses: FleetTripExpenseRow[];
+};
+
+const parseFleetTripFinance = (payload: unknown, scheduleNumberFallback: string) => {
+  const root = toRecord(payload);
+  const data = toRecord(root.data ?? root.detail ?? root);
+
+  const rowsNode =
+    (Array.isArray(data.expenses) ? data.expenses : undefined) ??
+    (Array.isArray(data.expesnes) ? data.expesnes : undefined) ??
+    (Array.isArray(data.transactions) ? data.transactions : undefined) ??
+    (Array.isArray(data.items) ? data.items : undefined) ??
+    [];
+
+  const expenses = (rowsNode as unknown[]).map((raw, idx) => {
+    const o = toRecord(raw);
+    const id =
+      pickString(o, ['expense_id', 'transaction_id', 'transactionId', 'id', 'uuid']) ||
+      `${scheduleNumberFallback}-expense-${idx}`;
+    const transactionItemLabel =
+      pickString(o, ['transaction_item_label', 'transactionItemLabel', 'transaction_type_label', 'transactionTypeLabel', 'label', 'name']) ||
+      pickString(o, ['transaction_item', 'transactionItem']) ||
+      '-';
+    const reporter =
+      pickString(o, ['created_by', 'createdBy', 'created_by_name', 'createdByName', 'reporter', 'reporter_name', 'user_name', 'userName']) || '-';
+    const description = pickString(o, ['description', 'desc', 'note']) || '-';
+    const amount = toNumberSafe(o.amount ?? o.total_amount ?? o.totalAmount ?? o.nominal ?? o.value);
+    const paymentMethodLabelRaw = pickString(o, ['payment_method_label', 'paymentMethodLabel', 'payment_label', 'paymentLabel']);
+    const paymentMethodNum = toNumberSafe(o.payment_method ?? o.paymentMethod);
+    const paymentMethodLabel =
+      paymentMethodLabelRaw ||
+      (paymentMethodNum === 1 ? 'Biaya Operasional' : paymentMethodNum === 2 ? 'Reimburse' : '-');
+
+    const row: FleetTripExpenseTableRow = {
+      id,
+      transactionItemLabel,
+      reporter,
+      amount,
+      paymentMethodLabel,
+      description,
+    };
+    return row;
+  });
+
+  const totalAmount = toNumberSafe(data.total_amount ?? data.tota_amount ?? data.totalAmount);
+  const totalExpenses = toNumberSafe(data.total_expenses ?? data.totalExpenses);
+  const totalReimburse = toNumberSafe(data.total_reimburse ?? data.totalReimburse);
+  const balance = toNumberSafe(data.balance ?? data.sisa_operasional ?? data.balance_amount ?? data.balanceAmount);
+
+  return { totalAmount, totalExpenses, totalReimburse, balance, expenses };
 };
 
 const toRecord = (v: unknown): Record<string, unknown> =>
@@ -216,7 +274,10 @@ export const FleetScheduleDetail: React.FC = () => {
   const [transactionTypesLoading, setTransactionTypesLoading] = useState(false);
   const [transactionTypes, setTransactionTypes] = useState<Option[]>([]);
   const [transactionTypeOpen, setTransactionTypeOpen] = useState(false);
-  const [expenseDraft, setExpenseDraft] = useState({ transaction_item: '', amount: '', payment_method: '1' as '1' | '2' });
+  const [expenseDraft, setExpenseDraft] = useState({ transaction_item: '', amount: '', description: '', payment_method: '1' as '1' | '2' });
+  const [financeTotalsOverride, setFinanceTotalsOverride] = useState<null | { totalAmount: number; totalExpenses: number; totalReimburse: number; balance?: number }>(null);
+  const [financeExpenses, setFinanceExpenses] = useState<FleetTripExpenseTableRow[]>([]);
+  const [financeLoaded, setFinanceLoaded] = useState(false);
 
   const [crewModalOpen, setCrewModalOpen] = useState(false);
   const [crewSubmitting, setCrewSubmitting] = useState(false);
@@ -342,15 +403,32 @@ export const FleetScheduleDetail: React.FC = () => {
     if (!scheduleNumber) return;
     setLoading(true);
     try {
-      const res = await api.get<unknown>(
-        `/services/schedule/fleet-trip/detail/${encodeURIComponent(scheduleNumber)}`,
-        token ? { Authorization: token } : undefined
-      );
-      if (res.status !== 'success') {
+      const headers = token ? { Authorization: token } : undefined;
+      const [detailRes, financeRes] = await Promise.all([
+        api.get<unknown>(`/services/schedule/fleet-trip/detail/${encodeURIComponent(scheduleNumber)}`, headers),
+        api.get<unknown>(`/services/transactions/fleet-trip?schedule_number=${encodeURIComponent(scheduleNumber)}`, headers),
+      ]);
+
+      if (detailRes.status !== 'success') {
         setFleetTrip(null);
-        return;
+      } else {
+        setFleetTrip(parseFleetTripDetail(detailRes.data, scheduleNumber));
       }
-      setFleetTrip(parseFleetTripDetail(res.data, scheduleNumber));
+
+      if (financeRes.status === 'success') {
+        const parsed = parseFleetTripFinance(financeRes.data, scheduleNumber);
+        setFinanceLoaded(true);
+        setFinanceExpenses(parsed.expenses);
+        setFinanceTotalsOverride({
+          totalAmount: parsed.totalAmount,
+          totalExpenses: parsed.totalExpenses,
+          totalReimburse: parsed.totalReimburse,
+          balance: parsed.balance,
+        });
+      } else {
+        setFinanceLoaded(false);
+        setFinanceExpenses([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -360,6 +438,12 @@ export const FleetScheduleDetail: React.FC = () => {
     if (!scheduleNumber) return;
     loadFleetTrip();
   }, [scheduleNumber, token]);
+
+  useEffect(() => {
+    setFinanceTotalsOverride(null);
+    setFinanceExpenses([]);
+    setFinanceLoaded(false);
+  }, [scheduleNumber]);
 
   useEffect(() => {
     if (!addExpenseOpen) return;
@@ -573,13 +657,36 @@ export const FleetScheduleDetail: React.FC = () => {
   }, [fleetTrip, navigate]);
 
   const financeSummary = useMemo(() => {
+    if (financeTotalsOverride) {
+      const operasional = financeTotalsOverride.totalAmount;
+      const total = financeTotalsOverride.totalExpenses;
+      const reimburse = financeTotalsOverride.totalReimburse;
+      const sisaOperasional = Number.isFinite(financeTotalsOverride.balance ?? NaN) ? (financeTotalsOverride.balance as number) : operasional - total;
+      return { operasional, reimburse, total, sisaOperasional };
+    }
     const expenses = fleetTrip?.expenses ?? [];
     const operasional = expenses.reduce((sum, x) => sum + (x.paymentMethod === 1 ? x.amount : 0), 0);
     const reimburse = expenses.reduce((sum, x) => sum + (x.paymentMethod === 2 ? x.amount : 0), 0);
     const total = expenses.reduce((sum, x) => sum + x.amount, 0);
     const sisaOperasional = expenses.reduce((sum, x) => sum + (x.paymentMethod === 1 && x.paymentLabel === 'Tagihan' ? x.amount : 0), 0);
     return { operasional, reimburse, total, sisaOperasional };
-  }, [fleetTrip?.expenses]);
+  }, [financeTotalsOverride, fleetTrip?.expenses]);
+
+  const expenseTableRows = useMemo(() => {
+    if (financeLoaded) return financeExpenses;
+    return (fleetTrip?.expenses ?? []).map((row) => {
+      const paymentMethodLabel = row.paymentMethod === 1 ? 'Biaya Operasional' : row.paymentMethod === 2 ? 'Reimburse' : '-';
+      const mapped: FleetTripExpenseTableRow = {
+        id: row.id,
+        transactionItemLabel: row.transactionItem || '-',
+        reporter: row.reporter || '-',
+        amount: row.amount,
+        paymentMethodLabel,
+        description: '-',
+      };
+      return mapped;
+    });
+  }, [financeExpenses, financeLoaded, fleetTrip?.expenses]);
 
   const financeItems = useMemo(() => {
     return [
@@ -761,39 +868,35 @@ export const FleetScheduleDetail: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[56px] px-4">No</TableHead>
                     <TableHead className="px-4">Jenis Transaksi</TableHead>
-                    <TableHead className="px-4">Reporter</TableHead>
+                    <TableHead className="px-4">Deskripsi</TableHead>
                     <TableHead className="px-4 text-right w-[160px]">Nominal</TableHead>
                     <TableHead className="px-4 w-[160px]">Jenis Pembayaran</TableHead>
+                    <TableHead className="px-4">Reporter</TableHead>
                     <TableHead className="px-4 text-right w-[90px]">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(fleetTrip?.expenses ?? []).length === 0 ? (
+                  {expenseTableRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-10 text-center text-sm text-gray-500">
+                      <TableCell colSpan={7} className="py-10 text-center text-sm text-gray-500">
                         Tidak ada data transaksi
                       </TableCell>
                     </TableRow>
                   ) : (
-                    (fleetTrip?.expenses ?? []).map((row, idx) => (
+                    expenseTableRows.map((row, idx) => (
                       <TableRow key={row.id}>
                         <TableCell className="px-4 text-muted-foreground tabular-nums">{idx + 1}</TableCell>
-                        <TableCell className="px-4 font-medium text-foreground">{row.transactionItem || '-'}</TableCell>
-                        <TableCell className="px-4 text-foreground">{row.reporter || '-'}</TableCell>
+                        <TableCell className="px-4 font-medium text-foreground">{row.transactionItemLabel || '-'}</TableCell>
+                        <TableCell className="px-4 text-foreground">{row.description || '-'}</TableCell>
                         <TableCell className="px-4 text-right font-semibold text-foreground tabular-nums">
                           {formatCurrency(row.amount)}
                         </TableCell>
                         <TableCell className="px-4">
-                          {row.paymentLabel === 'Lunas' ? (
-                            <Badge className="rounded-full border-transparent bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:bg-emerald-400/15 dark:text-emerald-300">
-                              Lunas
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="rounded-full">
-                              Tagihan
-                            </Badge>
-                          )}
+                          <Badge variant="outline" className="rounded-full">
+                            {row.paymentMethodLabel || '-'}
+                          </Badge>
                         </TableCell>
+                        <TableCell className="px-4 text-foreground">{row.reporter || '-'}</TableCell>
                         <TableCell className="px-4 text-right">
                           <Button
                             type="button"
@@ -845,7 +948,7 @@ export const FleetScheduleDetail: React.FC = () => {
           setAddExpenseOpen(open);
           if (!open) {
             setTransactionTypeOpen(false);
-            setExpenseDraft({ transaction_item: '', amount: '', payment_method: '1' });
+            setExpenseDraft({ transaction_item: '', amount: '', description: '', payment_method: '1' });
           }
         }}
       >
@@ -885,16 +988,34 @@ export const FleetScheduleDetail: React.FC = () => {
 
                 setAddExpenseSubmitting(true);
                 try {
-                  await api.post<unknown>(
+                  const res = await api.post<unknown>(
                     '/transactions/fleet-trip/expenses/submit',
                     {
                       schedule_number: scheduleNumber,
                       transaction_item: expenseDraft.transaction_item,
                       amount,
                       payment_method: expenseDraft.payment_method === '2' ? 2 : 1,
+                      description: expenseDraft.description.trim() || undefined,
                     },
                     token ? { Authorization: token } : undefined
                   );
+                  if (res.status === 'success' && (res.statusCode === 200 || res.statusCode === 201)) {
+                    const data = toRecord(res.data);
+                    const hasTotals =
+                      'total_amount' in data ||
+                      'tota_amount' in data ||
+                      'total_expenses' in data ||
+                      'total_reimburse' in data ||
+                      'totalAmount' in data ||
+                      'totalExpenses' in data ||
+                      'totalReimburse' in data;
+                    if (hasTotals) {
+                      const totalAmount = toNumberSafe(data.total_amount ?? data.tota_amount ?? data.totalAmount);
+                      const totalExpenses = toNumberSafe(data.total_expenses ?? data.totalExpenses);
+                      const totalReimburse = toNumberSafe(data.total_reimburse ?? data.totalReimburse);
+                      setFinanceTotalsOverride({ totalAmount, totalExpenses, totalReimburse });
+                    }
+                  }
                   setAddExpenseOpen(false);
                   await loadFleetTrip();
                 } finally {
@@ -954,6 +1075,18 @@ export const FleetScheduleDetail: React.FC = () => {
                     onChange={(e) => setExpenseDraft((p) => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))}
                     placeholder="Rp 0"
                     className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all tabular-nums text-slate-700"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="expense-description" className="text-slate-700 font-semibold ml-1">Deskripsi (Opsional)</Label>
+                  <textarea
+                    id="expense-description"
+                    value={expenseDraft.description}
+                    onChange={(e) => setExpenseDraft((p) => ({ ...p, description: e.target.value }))}
+                    placeholder="Tulis catatan pengeluaran (opsional)"
+                    rows={3}
+                    className="w-full min-h-[96px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all text-slate-700 resize-none"
                   />
                 </div>
 
