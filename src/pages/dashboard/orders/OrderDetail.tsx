@@ -245,7 +245,8 @@ export const OrderDetail: React.FC = () => {
   })();
 
   const isWaitingConfirmation = orderData.rawStatus === 1 && orderData.rawPaymentStatus === 3;
-  const isScheduled = orderData.scheduled;
+  const isScheduled = (orderData.scheduled && orderData.rawStatus === 1 && orderData.rawPaymentStatus !== 2);
+  console.log({orderData, isScheduled})
   const isWaitingOrderConfirmation = orderData.rawStatus === 2 && orderData.rawPaymentStatus === 2;
   const shouldShowScheduleActionWarning =
     orderData.rawStatus === 1 &&

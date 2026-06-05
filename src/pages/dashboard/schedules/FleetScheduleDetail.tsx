@@ -452,7 +452,7 @@ export const FleetScheduleDetail: React.FC = () => {
       setTransactionTypesLoading(true);
       try {
         const res = await api.get<unknown>(
-          '/services/transactions/types?filteredby=items&type=expense&order_type=fleet',
+          '/services/transactions/types?filteredby=items&type=expense&order_type=fleet&tags=operations',
           token ? { Authorization: token } : undefined
         );
         if (res.status !== 'success') {
