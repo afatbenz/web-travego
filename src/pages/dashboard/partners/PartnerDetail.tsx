@@ -22,7 +22,7 @@ export const PartnerDetail: React.FC = () => {
 
   return (
     <div className="bg-[#F5F7FB] min-h-screen">
-      <div className="space-y-5 p-4 sm:p-6">
+      <div className="space-y-5 p-2 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <Button

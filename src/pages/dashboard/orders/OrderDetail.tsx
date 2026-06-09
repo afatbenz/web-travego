@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight, AlertTriangle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
@@ -181,7 +182,8 @@ const createEmptyOrderData = (id: string): OrderData => ({
     end_date: '',
     pickup_location: '',
     pickup_city: ''
-  }
+  },
+  total_charge: 0
 });
 
 export const OrderDetail: React.FC = () => {
@@ -245,14 +247,19 @@ export const OrderDetail: React.FC = () => {
   })();
 
   const isWaitingConfirmation = orderData.rawStatus === 1 && orderData.rawPaymentStatus === 3;
-  const isScheduled = (orderData.scheduled && orderData.rawStatus === 1 && orderData.rawPaymentStatus !== 2);
-  console.log({orderData, isScheduled})
-  const isWaitingOrderConfirmation = orderData.rawStatus === 2 && orderData.rawPaymentStatus === 2;
-  const shouldShowScheduleActionWarning =
+  const isScheduled =
+    orderData.scheduled === true &&
     orderData.rawStatus === 1 &&
-    (orderData.rawPaymentStatus ?? 0) > 0 &&
-    orderData.rawPaymentStatus !== 2 &&
-    orderData.scheduled === false;
+    Number(orderData.rawPaymentStatus ?? 0) !== 2 &&
+    Number(orderData.rawPaymentStatus ?? 0) !== 0;
+  const hasPayment =
+    Number(orderData.rawPaymentStatus ?? 0) !== 2 &&
+    Number(orderData.rawPaymentStatus ?? 0) !== 0;
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    console.log({ orderData, isScheduled, hasPayment });
+  }, [orderData.id, orderData.scheduled, orderData.rawStatus, orderData.rawPaymentStatus]);
+  const isWaitingOrderConfirmation = orderData.rawStatus === 2 && orderData.rawPaymentStatus === 2;
 
   const scheduleUrlSuffix = (() => {
     const qs = new URLSearchParams();
@@ -750,7 +757,6 @@ export const OrderDetail: React.FC = () => {
     const pickupLocation = pickupCityLabel ? `${pickupLocationRaw}, ${pickupCityLabel}` : pickupLocationRaw;
 
     const duration = detail.duration;
-    const durationUom = getString(detail.duration_uom ?? detail.uom, '');
     const rentTypeLabel = getString(detail.rent_type_label ?? detail.rentTypeLabel, '');
     const fallbackDescriptionParts = [
       rentTypeLabel,
@@ -1119,7 +1125,7 @@ export const OrderDetail: React.FC = () => {
         const token = localStorage.getItem('token') ?? '';
         const [statusRes, methodRes, bankRes] = await Promise.all([
           api.get<unknown>('/general/payment-status', token ? { Authorization: token } : undefined),
-          api.get<unknown>('/general/payment-method', token ? { Authorization: token } : undefined),
+          api.get<unknown>('/general/payment-method?type=general', token ? { Authorization: token } : undefined),
           api.get<unknown>('/general/bank-list', token ? { Authorization: token } : undefined),
         ]);
 
@@ -1676,43 +1682,20 @@ export const OrderDetail: React.FC = () => {
   const remainingAmount = Math.max(0, Number(orderData.remainingAmount || 0));
   const paidAmount = (() => {
     const fromRes = Number(orderData.paidAmount || 0);
-    if (Number.isFinite(fromRes) && fromRes > 0) return Math.max(0, Math.min(fromRes, totalAmount));
+    if (Number.isFinite(fromRes)) {
+      if (fromRes <= 0) return 0;
+      return Math.max(0, Math.min(fromRes, totalAmount));
+    }
     return Math.max(0, totalAmount - remainingAmount);
   })();
   const paymentProgressPct =
     totalAmount > 0
       ? Math.min(100, Math.max(0, Math.round((paidAmount / totalAmount) * 100)))
       : 0;
-  const orderTabsListRef = useRef<HTMLDivElement | null>(null);
-  const orderTabTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const [orderTabIndicator, setOrderTabIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
-
-  useEffect(() => {
-    const update = () => {
-      const listEl = orderTabsListRef.current;
-      const activeEl = orderTabTriggerRefs.current[orderInfoTab];
-      if (!listEl || !activeEl) {
-        setOrderTabIndicator((prev) => (prev.width === 0 ? prev : { left: 0, width: 0 }));
-        return;
-      }
-      const listRect = listEl.getBoundingClientRect();
-      const activeRect = activeEl.getBoundingClientRect();
-      const left = Math.max(0, activeRect.left - listRect.left);
-      const width = Math.max(0, activeRect.width);
-      setOrderTabIndicator({ left, width });
-    };
-
-    const raf = window.requestAnimationFrame(update);
-    window.addEventListener('resize', update);
-    return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener('resize', update);
-    };
-  }, [orderInfoTab]);
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-4 z-20 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/70">
+      <div className="sticky top-4 z-20 rounded-2xl p-4 ">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-4">
             <Button
@@ -1743,16 +1726,17 @@ export const OrderDetail: React.FC = () => {
                 <ChevronRight className="h-4 w-4 text-slate-400" />
                 <span className="text-slate-600 dark:text-slate-300">Detail</span>
               </div>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Detail Pesanan
+              <h1 className="mt-1 text-lg md:text-xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                <span className="sm:hidden">Detail Order</span>
+                <span className="hidden sm:inline">Detail Pesanan</span>
               </h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">
                 Informasi lengkap pesanan pelanggan
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+          <div className="flex flex-nowrap items-center justify-start gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible lg:justify-end">
             <Button
               type="button"
               variant="outline"
@@ -1797,7 +1781,7 @@ export const OrderDetail: React.FC = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-10 rounded-2xl border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-lg/10 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200"
+                className="h-10 rounded-2xl border-emerald-200 bg-green-500 hover:bg-green-600 text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg/10 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200"
                 onClick={() => setIsConfirmOrderOpen(true)}
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -1811,19 +1795,24 @@ export const OrderDetail: React.FC = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+                  className="relative h-10 w-10 px-0 sm:w-auto sm:px-3 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
                 >
-                  More Action
-                  {!isScheduled ? (
-                    <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 animate-bounce">
-                      <AlertTriangle className="h-3.7 w-3.7 p-1 text-blue-900" />
-                    </span>
+                  <span className="hidden sm:inline">More Action</span>
+                  {!isScheduled && hasPayment ? (
+                    <>
+                      <span className="hidden sm:inline-flex ml-2 h-5 w-5 items-center justify-center rounded-full bg-blue-100 animate-bounce">
+                        <AlertTriangle className="h-3.5 w-3.5 p-1 text-blue-900" />
+                      </span>
+                      <span className="sm:hidden absolute -top-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-100 ring-2 ring-white dark:ring-slate-950">
+                        <AlertTriangle className="h-3 w-3 text-blue-900" />
+                      </span>
+                    </>
                   ) : null}
-                  <MoreHorizontal className="h-4 w-4 ml-2" />
+                  <MoreHorizontal className="h-5 w-5 sm:h-4 sm:w-4 sm:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[240px]">
-                {!isScheduled && (
+                {!isScheduled && hasPayment && (
                   <DropdownMenuItem
                     className="cursor-pointer"
                     disabled={isScheduled}
@@ -1881,7 +1870,7 @@ export const OrderDetail: React.FC = () => {
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
             <CardHeaderWithBadge
               className="pb-2"
-              badgeIcon={Users}
+              badgeIcon={<Users className="h-3 w-3 sm:h-6 sm:w-6" />}
               title="Informasi Customer"
               subtitle="Ringkasan data customer untuk pesanan ini."
             />
@@ -1937,60 +1926,51 @@ export const OrderDetail: React.FC = () => {
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
             <CardHeaderWithBadge
               className="pb-2"
-              badgeIcon={<span className="text-[#295BFF]">{getCategoryIcon(orderData.category)}</span>}
+              badgeIcon={
+                <span className="origin-center scale-50 sm:scale-100 text-[#295BFF]">{getCategoryIcon(orderData.category)}</span>
+              }
               title="Informasi Pesanan"
               subtitle="Detail pesanan, itinerary, fasilitas, dan jadwal perjalanan."
             />
             <CardContent className="pt-4">
               <Tabs value={orderInfoTab} onValueChange={(v) => setOrderInfoTab(v as typeof orderInfoTab)}>
-                <div className="relative">
-                  <TabsList ref={orderTabsListRef} className="relative w-full justify-start gap-6 border-slate-200 dark:border-slate-800">
-                    <TabsTrigger
-                      value="overview"
-                      ref={(el) => {
-                        orderTabTriggerRefs.current.overview = el;
-                      }}
-                      className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
-                    >
-                      Overview
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="itinerary"
-                      ref={(el) => {
-                        orderTabTriggerRefs.current.itinerary = el;
-                      }}
-                      className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
-                    >
-                      Itinerary
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="facilities"
-                      ref={(el) => {
-                        orderTabTriggerRefs.current.facilities = el;
-                      }}
-                      className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
-                    >
-                      Fasilitas
-                    </TabsTrigger>
-                    {orderData.scheduled ? (
-                      <TabsTrigger
-                        value="schedule"
-                        ref={(el) => {
-                          orderTabTriggerRefs.current.schedule = el;
-                        }}
-                        className="px-0 py-3 text-sm font-semibold text-slate-500 transition-colors data-[state=active]:border-[#295BFF] data-[state=active]:text-[#295BFF] dark:text-slate-400 dark:data-[state=active]:text-[#7FA0FF]"
-                      >
-                        Jadwal Perjalanan
-                      </TabsTrigger>
-                    ) : null}
+                <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
+                  <TabsList className="flex w-full items-center gap-1.5 overflow-x-auto scroll-smooth">
+                    {([
+                      { key: 'overview', label: 'Overview', icon: Package },
+                      { key: 'itinerary', label: 'Itinerary', icon: MapPin },
+                      { key: 'facilities', label: 'Fasilitas', icon: Car },
+                      { key: 'schedule', label: 'Jadwal Perjalanan', icon: Calendar, hidden: !orderData.scheduled },
+                    ] as const)
+                      .filter((t) => !t.hidden)
+                      .map((t) => {
+                        const isTabActive = orderInfoTab === t.key;
+                        const Icon = t.icon;
+                        return (
+                          <TabsTrigger
+                            key={t.key}
+                            value={t.key}
+                            className={[
+                              'relative isolate inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 text-white',
+                              'outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BFF]/30 text-white focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                              isTabActive
+                                ? 'text-white '
+                                : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] hover:-translate-y-[1px]',
+                            ].join(' ')}
+                          >
+                            {isTabActive ? (
+                              <motion.span
+                                layoutId="order-detail-info-active-pill"
+                                className="absolute inset-0 -z-10 rounded-full bg-blue-600 text-white"
+                                transition={{ duration: 0.25 }}
+                              />
+                            ) : null}
+                            <Icon className={['h-4 w-4', isTabActive ? 'text-white' : 'text-[#64748B]'].join(' ')} />
+                            <span className={`whitespace-nowrap ${isTabActive ? 'text-white' : 'text-[#64748B]'}`}>{t.label}</span>
+                          </TabsTrigger>
+                        );
+                      })}
                   </TabsList>
-                  <div
-                    className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-[#295BFF] transition-all duration-300"
-                    style={{
-                      width: `${orderTabIndicator.width}px`,
-                      transform: `translateX(${orderTabIndicator.left}px)`,
-                    }}
-                  />
                 </div>
 
                 <div key={orderInfoTab} className="pt-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
@@ -2256,7 +2236,7 @@ export const OrderDetail: React.FC = () => {
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950 lg:sticky lg:top-24">
             <CardHeaderWithBadge
               className="pb-2"
-              badgeIcon={CreditCard}
+              badgeIcon={<CreditCard className="h-3 w-3 sm:h-6 sm:w-6" />}
               title="Pembayaran"
               subtitle="Pantau status pembayaran dan riwayat transaksi."
             />
@@ -2421,7 +2401,7 @@ export const OrderDetail: React.FC = () => {
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950">
             <CardHeaderWithBadge
               className="pb-2"
-              badgeIcon={Calendar}
+              badgeIcon={<Calendar className="h-3 w-3 sm:h-6 sm:w-6" />}
               title="Timeline Order"
               subtitle="Urutan aktivitas dan milestone pesanan."
             />

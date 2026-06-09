@@ -1,14 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarCheck, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
-import { FilterBar } from '@/components/common/FilterBar';
 
 type FleetScheduleRow = {
   orderId: string;
@@ -43,13 +40,6 @@ const pickString = (obj: Record<string, unknown>, keys: string[]): string => {
   return '';
 };
 
-const tryFormatDate = (value: string): string => {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-};
-
 const formatDmy = (value: string): string => {
   if (!value) return '';
   const d = new Date(value);
@@ -70,7 +60,7 @@ const normalizePeriod = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return getDefaultPeriod();
   if (/^\d{4}-\d{2}$/.test(trimmed)) return trimmed;
-  const m = trimmed.match(/^(\d{4})[\/-](\d{1,2})$/);
+  const m = trimmed.match(/^(\d{4})[/-](\d{1,2})$/);
   if (m) return `${m[1]}-${String(Number(m[2])).padStart(2, '0')}`;
   return getDefaultPeriod();
 };
@@ -97,15 +87,6 @@ const shiftPeriod = (value: string, deltaMonths: number): string => {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
 };
 
-const statusVariant = (statusRaw: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
-  const s = statusRaw.trim().toLowerCase();
-  if (!s) return 'outline';
-  if (['selesai', 'done', 'completed', 'success'].includes(s)) return 'secondary';
-  if (['dibatalkan', 'cancelled', 'canceled', 'failed', 'reject', 'rejected'].includes(s)) return 'destructive';
-  if (['sedang berjalan', 'ongoing', 'in progress', 'in_progress', 'running', 'scheduled'].includes(s)) return 'default';
-  return 'outline';
-};
-
 const extractRows = (payload: unknown): unknown[] => {
   if (Array.isArray(payload)) return payload;
   const root = toRecord(payload);
@@ -126,10 +107,11 @@ export const FleetSchedules: React.FC = () => {
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const token = localStorage.getItem('token') ?? '';
+  const fetchSeq = useRef(0);
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<FleetScheduleRow[]>([]);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [tableKey, setTableKey] = useState(0);
   const [filterValues, setFilterValues] = useState<FilterValues>(() => ({
     orderId: '',
     period: getDefaultPeriod(),
@@ -147,6 +129,18 @@ export const FleetSchedules: React.FC = () => {
 
   const periodParts = useMemo(() => parsePeriodParts(filterValues.period), [filterValues.period]);
   const periodLabel = useMemo(() => formatPeriodLabel(filterValues.period), [filterValues.period]);
+  const appliedPeriodLabel = useMemo(() => formatPeriodLabel(applied.period), [applied.period]);
+
+  const getScheduleNumber = useCallback((row: FleetScheduleRow) => {
+    const scheduleNumber = (row.scheduleNumber || '').trim();
+    return scheduleNumber && scheduleNumber !== '-' ? scheduleNumber : '';
+  }, []);
+
+  const goToDetail = useCallback((row: FleetScheduleRow) => {
+    const scheduleNumber = getScheduleNumber(row);
+    if (!scheduleNumber) return;
+    navigate(`${basePrefix}/schedules/fleet-schedules/detail/${encodeURIComponent(scheduleNumber)}`);
+  }, [basePrefix, getScheduleNumber, navigate]);
 
   const monthOptions = useMemo(
     () =>
@@ -167,20 +161,30 @@ export const FleetSchedules: React.FC = () => {
 
   const applyPeriod = (nextPeriod: string) => {
     const normalized = normalizePeriod(nextPeriod);
+    setRows([]);
+    setPage(1);
     setFilterValues((prev) => ({ ...prev, period: normalized }));
     setApplied((prev) => ({ ...prev, period: normalized }));
   };
 
   useEffect(() => {
+    const seq = ++fetchSeq.current;
     (async () => {
       setLoading(true);
+      setRows([]);
+      setPage(1);
+      setTableKey(seq);
       try {
+        const period = normalizePeriod(applied.period);
         const qs = new URLSearchParams();
-        qs.set('period', normalizePeriod(applied.period));
+        qs.set('period', period);
+        const orderId = applied.orderId.trim();
+        if (orderId) qs.set('order_id', orderId);
         const res = await api.get<unknown>(
           `/services/schedule/fleet?${qs.toString()}`,
           token ? { Authorization: token } : undefined
         );
+        if (seq !== fetchSeq.current) return;
         if (res.status !== 'success') {
           setRows([]);
           return;
@@ -215,24 +219,13 @@ export const FleetSchedules: React.FC = () => {
         setRows(mapped);
         setPage(1);
       } finally {
-        setLoading(false);
+        if (seq === fetchSeq.current) {
+          setLoading(false);
+        }
       }
     })();
-  }, [applied.period, token]);
+  }, [applied.orderId, applied.period, token]);
 
-  const filteredRows = useMemo(() => {
-    const q = applied.orderId.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.orderId.toLowerCase().includes(q));
-  }, [applied.orderId, rows]);
-
-  const filterFields = useMemo(
-    () =>
-      [
-        { name: 'orderId', type: 'text', label: 'Order ID', placeholder: 'Cari Order ID…' },
-      ] as const,
-    []
-  );
 
   const columns = useMemo(() => {
     return [
@@ -247,44 +240,79 @@ export const FleetSchedules: React.FC = () => {
       {
         label: 'Armada',
         key: 'fleetName',
-        width: 270,
+        width: 360,
         sortable: true,
-        render: (row) => <div className="text-foreground">{row.fleetName} - <b> {row.plateNumber}</b></div>,
+        render: (row) => {
+          const scheduleNumber = getScheduleNumber(row);
+          const content = (
+            <span className="whitespace-nowrap text-blue-900 hover:text-blue-700">
+              {row.fleetName} - <b> {row.plateNumber}</b> ({row.vehicleId})
+            </span>
+          );
+
+          if (!scheduleNumber) return content;
+
+          return (
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-900 hover:no-underline dark:text-blue-300 dark:hover:text-blue-200"
+              onClick={() => goToDetail(row)}
+              title="Lihat Detail"
+            >
+              {content}
+            </Button>
+          );
+        },
       },
-      // {
-      //   label: 'Order ID',
-      //   key: 'orderId',
-      //   width: 200,
-      //   sortable: true,
-      //   render: (row) => <div className="font-medium text-foreground">{row.orderId}</div>,
-      // },
       {
         label: 'Tanggal Perjalanan',
         key: 'tripDate',
-        width: 180,
+        width: 240,
         sortable: true,
-        render: (row) => <div className="text-foreground">{row.tripDate}</div>,
+        render: (row) => <div className="text-foreground whitespace-nowrap">{row.tripDate}</div>,
       },
       {
         label: 'Crew',
         key: 'driverName',
-        width: 220,
+        width: 260,
         sortable: true,
-        render: (row) => <div className="text-foreground">{row.driverName.split(" ").slice(0, 2).join(" ")} {row.crewName ? `, ${row.crewName.split(" ").slice(0, 2).join(" ")}` : ''}</div>,
+        render: (row) => <div className="text-foreground whitespace-nowrap">{row.driverName.split(" ").slice(0, 2).join(" ")} {row.crewName ? `, ${row.crewName.split(" ").slice(0, 2).join(" ")}` : ''}</div>,
       },
       {
         label: 'Tujuan',
         key: 'status',
-        width: 160,
+        width: 260,
         sortable: true,
         render: (row) => (
-          <div className="text-foreground">
+          <div className="text-foreground whitespace-nowrap">
             {row.destinations ? row.destinations.split(",").slice(0, 2).join(", ") : '-'}  
           </div>
         ),
       },
+      {
+        label: 'Detail',
+        key: '__detail__',
+        width: 120,
+        align: 'right',
+        sortable: false,
+        render: (row) => (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-lg"
+              onClick={() => goToDetail(row)}
+              disabled={!getScheduleNumber(row)}
+            >
+              Detail
+            </Button>
+          </div>
+        ),
+      },
     ] satisfies Array<DataTableColumn<FleetScheduleRow>>;
-  }, [page, pageSize]);
+  }, [getScheduleNumber, goToDetail, page, pageSize]);
 
   return (
     <div className="space-y-6 pb-24 md:pb-0">
@@ -294,153 +322,109 @@ export const FleetSchedules: React.FC = () => {
             <CalendarCheck className="h-5 w-5 text-blue-700 dark:text-blue-300" />
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Jadwal Armada</h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
-            Kelola dan pantau jadwal armada berdasarkan periode.
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">
+            Kelola dan pantau jadwal armada di bulan <span className="capitalize">{appliedPeriodLabel}</span>
           </p>
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 rounded-xl"
-          onClick={() => setFilterOpen((v) => !v)}
-          aria-expanded={filterOpen}
-          title={filterOpen ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
-        >
-          <Filter className="h-4 w-4" />
-        </Button>
-      </div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 w-full md:w-auto md:min-w-[320px]">
+          <div className="mb-1 text-xs font-medium text-muted-foreground">Periode</div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() => applyPeriod(shiftPeriod(applied.period, -1))}
+              aria-label="Bulan sebelumnya"
+              title="Bulan sebelumnya"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
 
-      <div
-        className={cn(
-          'overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out',
-          filterOpen ? 'max-h-[560px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-1'
-        )}
-      >
-        <div className="pt-1">
-          <div className="mb-3 grid grid-cols-2 items-end gap-3 md:flex md:flex-nowrap md:items-end md:overflow-x-auto">
-            <div className="col-span-2 min-w-0 w-full md:w-auto md:min-w-[320px]">
-              <div className="mb-1 text-xs font-medium text-muted-foreground">Periode</div>
-              <div className="flex items-center gap-2">
+            <Popover open={periodPickerOpen} onOpenChange={setPeriodPickerOpen}>
+              <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-lg"
-                  onClick={() => applyPeriod(shiftPeriod(applied.period, -1))}
-                  aria-label="Bulan sebelumnya"
-                  title="Bulan sebelumnya"
+                  className="h-10 flex-1 justify-start rounded-lg font-normal"
+                  aria-label="Pilih periode"
+                  title="Pilih periode"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <span className="truncate capitalize">{periodLabel}</span>
                 </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-[340px] p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="min-w-0">
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">Bulan</div>
+                    <Select value={pad2(periodParts.month)} onValueChange={(m) => applyPeriod(`${periodParts.year}-${m}`)}>
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Pilih bulan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            <span className="capitalize">{opt.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <Popover open={periodPickerOpen} onOpenChange={setPeriodPickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-10 flex-1 justify-start rounded-lg font-normal"
-                      aria-label="Pilih periode"
-                      title="Pilih periode"
+                  <div className="min-w-0">
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">Tahun</div>
+                    <Select
+                      value={String(periodParts.year)}
+                      onValueChange={(y) => applyPeriod(`${y}-${pad2(periodParts.month)}`)}
                     >
-                      <span className="truncate capitalize">{periodLabel}</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-[340px] p-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="min-w-0">
-                        <div className="mb-1 text-xs font-medium text-muted-foreground">Bulan</div>
-                        <Select
-                          value={pad2(periodParts.month)}
-                          onValueChange={(m) => applyPeriod(`${periodParts.year}-${m}`)}
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue placeholder="Pilih bulan" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {monthOptions.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                <span className="capitalize">{opt.label}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Pilih tahun" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {yearOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-                      <div className="min-w-0">
-                        <div className="mb-1 text-xs font-medium text-muted-foreground">Tahun</div>
-                        <Select
-                          value={String(periodParts.year)}
-                          onValueChange={(y) => applyPeriod(`${y}-${pad2(periodParts.month)}`)}
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue placeholder="Pilih tahun" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {yearOptions.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                <div className="mt-4 flex justify-end">
+                  <Button type="button" className="h-9 rounded-lg" onClick={() => setPeriodPickerOpen(false)}>
+                    Selesai
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-                    <div className="mt-4 flex justify-end">
-                      <Button type="button" className="h-9 rounded-lg" onClick={() => setPeriodPickerOpen(false)}>
-                        Selesai
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-lg"
-                  onClick={() => applyPeriod(shiftPeriod(applied.period, 1))}
-                  aria-label="Bulan selanjutnya"
-                  title="Bulan selanjutnya"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() => applyPeriod(shiftPeriod(applied.period, 1))}
+              aria-label="Bulan selanjutnya"
+              title="Bulan selanjutnya"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-
-          <FilterBar
-            fields={filterFields}
-            values={filterValues}
-            onChange={(name, value) => setFilterValues((prev) => ({ ...prev, [name]: String(value ?? '') }))}
-            onSubmit={(values) => {
-              setApplied({
-                orderId: String(values.orderId ?? ''),
-                period: normalizePeriod(String(values.period ?? filterValues.period ?? '')),
-              });
-            }}
-            onReset={() => {
-              const next = { orderId: '', period: getDefaultPeriod() };
-              setFilterValues(next);
-              setApplied(next);
-            }}
-            submitLabel="Terapkan"
-            resetLabel="Reset"
-            layout="responsive-grid"
-          />
         </div>
       </div>
 
       <DataTable
-        data={filteredRows}
+        key={tableKey}
+        data={rows}
         columns={columns}
         loading={loading}
         stickyHeader
         zebra
+        tableClassName="table-auto w-full min-w-[1120px]"
         emptyTitle="Tidak ada jadwal"
         emptyDescription="Coba ubah filter periode atau Order ID."
         pagination={{
@@ -454,35 +438,13 @@ export const FleetSchedules: React.FC = () => {
           pageSizeOptions: [10, 20, 50, 100],
         }}
         sorting={{ initialSort: { key: 'tripDate', direction: 'desc' } }}
-        rowKey={(row, index) => row.orderId || index}
-        actions={{
-          label: 'Action',
-          actions: [
-            {
-              key: 'manage',
-              label: 'Manage Jadwal',
-              disabled: true,
-              onSelect: () => {},
-            },
-            {
-              key: 'detail',
-              label: 'Lihat Detail',
-              disabled: true,
-              onSelect: () => {},
-            },
-          ].map((a) => ({
-            ...a,
-            disabled: false,
-            onSelect: (row: FleetScheduleRow) => {
-              const scheduleNumber = (row.scheduleNumber || '').trim();
-              if (!scheduleNumber || scheduleNumber === '-') return;
-              if (a.key === 'manage') {
-                navigate(`${basePrefix}/schedules/fleet-schedules/manage/${encodeURIComponent(scheduleNumber)}`);
-                return;
-              }
-              navigate(`${basePrefix}/schedules/fleet-schedules/detail/${encodeURIComponent(scheduleNumber)}`);
-            },
-          })),
+        rowKey={(row, index) => {
+          const scheduleNumber = (row.scheduleNumber || '').trim();
+          if (scheduleNumber && scheduleNumber !== '-') return scheduleNumber;
+          const orderId = (row.orderId || '').trim();
+          const vehicleId = (row.vehicleId || '').trim();
+          const tripDate = (row.tripDate || '').trim();
+          return `${orderId || 'order'}-${vehicleId || 'vehicle'}-${tripDate || 'date'}-${index}`;
         }}
       />
     </div>

@@ -447,7 +447,7 @@ export function DataTable<T>({
         </div>
 
         {paginationEnabled ? (
-          <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
+          <div className="flex items-center justify-between gap-3 border-t px-4 pt-8">
             <div className="flex min-w-0 items-center gap-2 text-xs sm:text-sm text-muted-foreground">
               <span>Rows</span>
               <Select value={String(effectivePageSize)} onValueChange={(v) => setPageSize(Number(v))}>

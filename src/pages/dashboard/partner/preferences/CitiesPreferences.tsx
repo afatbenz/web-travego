@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DialogClose, DialogContentScrollable, DialogScrollableBody, DialogStickyFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
  
@@ -27,8 +28,6 @@ type PreferenceCityRow = {
   raw: Record<string, unknown>;
 };
  
-type OptionItem = { value: string; label: string };
- 
 type PreferenceDetail = {
   preference_id: string;
   province_id: string;
@@ -38,8 +37,8 @@ type PreferenceDetail = {
   minimal_day: number;
   service_type: ServiceTypeId[];
 };
- 
-type ModalMode = 'detail';
+
+type TripCardId = 'overland' | 'citytour' | 'droponly';
  
 const SERVICE_TYPE_LABEL: Record<ServiceTypeId, string> = {
   1: 'Citytour',
@@ -113,7 +112,7 @@ const AddPreferenceCitiesModal: React.FC<{
   onSubmit: (data: { selectedTrips: string[]; selectedCities: CityOption[]; minDays: number; service_type: ServiceTypeId[] }) => void | Promise<void>;
   cityOptions: CityOption[];
 }> = ({ isOpen, onClose, onSubmit, cityOptions }) => {
-  const [selectedTrips, setSelectedTrips] = useState<string[]>([]);
+  const [selectedTrips, setSelectedTrips] = useState<TripCardId[]>([]);
   const [selectedCities, setSelectedCities] = useState<CityOption[]>([]);
   const [minDays, setMinDays] = useState(1);
   const [cityOpen, setCityOpen] = useState(false);
@@ -196,7 +195,7 @@ const AddPreferenceCitiesModal: React.FC<{
     return Array.from(new Set(list));
   }, [selectedTrips]);
 
-  const onToggleTrip = (id: string) => {
+  const onToggleTrip = (id: TripCardId) => {
     setSelectedTrips((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
@@ -255,21 +254,21 @@ const AddPreferenceCitiesModal: React.FC<{
               transition={{ duration: 0.2 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
-              <DialogPrimitive.Content className="w-full max-w-3xl rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
-                <div className="p-6 sm:p-8 space-y-6">
+              <DialogContentScrollable className="max-w-3xl border-none bg-white p-0 dark:bg-gray-900">
+                <div className="px-6 sm:px-8 pt-6 sm:pt-8">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-300 shrink-0">
+                      <div className="w-5 h-5 sm:w-12 sm:h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-300 shrink-0">
                         <MapPin className="w-6 h-6" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-2xl font-bold text-slate-900 dark:text-white">Tambah Preferensi Kota</div>
-                        <div className="text-sm text-slate-500 dark:text-slate-300 mt-1">
+                        <div className="text-md sm:text-2xl font-bold text-slate-900 dark:text-white">Tambah Preferensi Kota</div>
+                        <div className="text-xs sm:text-lg text-slate-500 dark:text-slate-300 mt-1">
                           Tambahkan preferensi kota tujuan wisata beserta minimal hari booking dan jenis trip
                         </div>
                       </div>
                     </div>
-                    <DialogPrimitive.Close asChild>
+                    <DialogClose asChild>
                       <button
                         type="button"
                         onClick={onClose}
@@ -278,9 +277,12 @@ const AddPreferenceCitiesModal: React.FC<{
                       >
                         <X className="w-5 h-5" />
                       </button>
-                    </DialogPrimitive.Close>
+                    </DialogClose>
                   </div>
+                  <div className="mt-6 h-px bg-slate-100 dark:bg-slate-800" />
+                </div>
 
+                <DialogScrollableBody className="px-6 sm:px-8 py-6 space-y-6">
                   <div className="space-y-3">
                     <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">JENIS TRIP</div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -443,29 +445,29 @@ const AddPreferenceCitiesModal: React.FC<{
                       </div>
                     </div>
                   </div>
+                </DialogScrollableBody>
 
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-                      Batal
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => void handleSubmit()}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Menyimpan...
-                        </>
-                      ) : (
-                        'Simpan Preferensi'
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </DialogPrimitive.Content>
+                <DialogStickyFooter className="flex justify-end gap-2 border-t border-slate-100 px-6 pb-6 pt-4 dark:border-slate-800 sm:px-8">
+                  <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+                    Batal
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void handleSubmit()}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Menyimpan...
+                      </>
+                    ) : (
+                      'Simpan Preferensi'
+                    )}
+                  </Button>
+                </DialogStickyFooter>
+              </DialogContentScrollable>
             </motion.div>
           </DialogPrimitive.Portal>
         ) : null}
@@ -557,8 +559,8 @@ const DetailPreferenceCityModal: React.FC<{
               transition={{ duration: 0.2 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
-              <DialogPrimitive.Content className="w-full max-w-3xl rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
-                <div className="p-6 sm:p-8 space-y-6">
+              <DialogContentScrollable className="max-w-3xl border-none bg-white p-0 dark:bg-gray-900">
+                <div className="px-6 sm:px-8 pt-6 sm:pt-8">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-300 shrink-0">
@@ -571,7 +573,7 @@ const DetailPreferenceCityModal: React.FC<{
                         </div>
                       </div>
                     </div>
-                    <DialogPrimitive.Close asChild>
+                    <DialogClose asChild>
                       <button
                         type="button"
                         onClick={onClose}
@@ -580,9 +582,12 @@ const DetailPreferenceCityModal: React.FC<{
                       >
                         <X className="w-5 h-5" />
                       </button>
-                    </DialogPrimitive.Close>
+                    </DialogClose>
                   </div>
+                  <div className="mt-6 h-px bg-slate-100 dark:bg-slate-800" />
+                </div>
 
+                <DialogScrollableBody className="px-6 sm:px-8 py-6 space-y-6">
                   {loading ? (
                     <div className="flex items-center gap-2 text-slate-500">
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -662,29 +667,29 @@ const DetailPreferenceCityModal: React.FC<{
                       </div>
                     </div>
                   </div>
+                </DialogScrollableBody>
 
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-                      Batal
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => void handleSave()}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                      disabled={saving || loading}
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Menyimpan...
-                        </>
-                      ) : (
-                        'Save'
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </DialogPrimitive.Content>
+                <DialogStickyFooter className="flex justify-end gap-2 border-t border-slate-100 px-6 pb-6 pt-4 dark:border-slate-800 sm:px-8">
+                  <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+                    Batal
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void handleSave()}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    disabled={saving || loading}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Menyimpan...
+                      </>
+                    ) : (
+                      'Save'
+                    )}
+                  </Button>
+                </DialogStickyFooter>
+              </DialogContentScrollable>
             </motion.div>
           </DialogPrimitive.Portal>
         ) : null}
@@ -764,7 +769,7 @@ export const PartnerPreferencesCities: React.FC = () => {
     void fetchRows();
   }, []);
  
-  const fetchDetail = async (cityId: string, opts?: { applyToForm?: boolean }) => {
+  const fetchDetail = async (cityId: string) => {
     const cid = cityId.trim();
     if (!cid) return;
     setDetailLoading(true);
@@ -888,14 +893,14 @@ export const PartnerPreferencesCities: React.FC = () => {
       key: 'city_label',
       sortable: true,
       width: 260,
-      render: (r) => <span className="font-medium text-foreground">{r.city_label || '-'}</span>,
+      render: (r) => <span className="font-medium text-foreground whitespace-nowrap">{r.city_label || '-'}</span>,
     },
     {
       label: 'PROVINSI',
       key: 'province_label',
       sortable: false,
       width: 220,
-      render: (r) => <span className="text-foreground/80">{r.province_label || '-'}</span>,
+      render: (r) => <span className="text-foreground/80 whitespace-nowrap">{r.province_label || '-'}</span>,
     },
     {
       label: 'MINIMAL HARI',
@@ -945,8 +950,8 @@ export const PartnerPreferencesCities: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Preferensi Tujuan Wisata</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Preferensi Tujuan Wisata</h1>
+          <p className="text-xs sm:text-lg text-gray-600 dark:text-gray-300 mt-1">
             Kelola daftar kota tujuan wisata beserta minimal hari booking dan jenis trip
           </p>
         </div>
@@ -972,7 +977,7 @@ export const PartnerPreferencesCities: React.FC = () => {
         loading={loading}
         stickyHeader
         zebra
-        tableClassName="table-auto w-full min-w-0"
+        tableClassName="table-auto w-full min-w-[1120px]"
         emptyTitle="Tidak ada data"
         emptyDescription="Coba ubah kata kunci pencarian."
         pagination={{

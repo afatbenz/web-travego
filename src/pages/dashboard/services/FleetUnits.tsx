@@ -92,23 +92,23 @@ export const FleetUnits: React.FC = () => {
       sortable: false,
       render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
     },
-    { label: 'Jenis Armada', key: 'fleet_name', sortable: true, width: 380, render: (unit) => <span className="text-foreground">{unit.fleet_name}</span> },
+    { label: 'Jenis Armada', key: 'fleet_name', sortable: true, width: 420, render: (unit) => <span className="text-foreground whitespace-nowrap">{unit.fleet_name}</span> },
     {
       label: 'ID Armada',
       key: 'vehicle_id',
       sortable: true,
-      width: 160,
+      width: 180,
       render: (unit) => (
         <Link
           to={`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(unit.id))}`}
           className="font-medium text-blue-600 hover:no-underline hover:text-bold dark:text-blue-400"
         >
-          {unit.vehicle_id}
+          <span className="whitespace-nowrap">{unit.vehicle_id}</span>
         </Link>
       )
     },
-    { label: 'Plat Nomor', key: 'plate_number', sortable: true, width: 160, render: (unit) => <span className="text-foreground">{unit.plate_number}</span> },
-    { label: 'Chassis / Mesin', key: 'engine', sortable: true, width: 250, render: (unit) => <span className="text-foreground">{unit.engine || '-'}</span> },
+    { label: 'Plat Nomor', key: 'plate_number', sortable: true, width: 170, render: (unit) => <span className="text-foreground whitespace-nowrap">{unit.plate_number}</span> },
+    { label: 'Chassis / Mesin', key: 'engine', sortable: true, width: 260, render: (unit) => <span className="text-foreground whitespace-nowrap">{unit.engine || '-'}</span> },
     {
       label: 'Kapasitas',
       key: 'capacity',
@@ -124,14 +124,14 @@ export const FleetUnits: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Armada</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Unit Armada</h1>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">
             Kelola unit armada spesifik (berdasarkan plat nomor/ID)
           </p>
         </div>
         {canCreate ? (
           <Button
-            className="h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-4 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
+            className="hidden sm:flex h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-4 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
             onClick={() => navigate(createUnitPath)}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -148,7 +148,7 @@ export const FleetUnits: React.FC = () => {
             placeholder="Cari ID armada, jenis armada, atau plat nomor..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="h-11 rounded-2xl pl-10"
           />
         </div>
       </div>
@@ -164,6 +164,7 @@ export const FleetUnits: React.FC = () => {
         loading={loading}
         stickyHeader
         zebra
+        tableClassName="table-auto w-full min-w-[1260px]"
         emptyTitle="Tidak ada data unit armada"
         emptyDescription="Coba ubah pencarian."
         actions={{

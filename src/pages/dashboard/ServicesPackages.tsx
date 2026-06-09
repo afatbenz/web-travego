@@ -277,13 +277,13 @@ export const ServicesPackages: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Paket Wisata</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Paket Wisata</h1>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">
             Kelola paket wisata yang tersedia
           </p>
         </div>
         <Button 
-          className="h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-4 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
+          className="hidden sm:flex h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-4 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
           onClick={() => navigate(`${basePrefix}/services/packages/create`)}
         >
           <Plus className="h-4 w-4 mr-2" />

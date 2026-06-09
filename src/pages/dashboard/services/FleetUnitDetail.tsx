@@ -21,7 +21,6 @@ import {
   Star,
   TrendingDown,
   TrendingUp,
-  Users,
   XCircle,
   Wallet,
 } from 'lucide-react';
@@ -29,6 +28,7 @@ import { api, toFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,6 +39,7 @@ import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { CardHeaderWithBadge } from '@/components/ui/card';
 
 type OrderHistoryRow = {
   order_id: string;
@@ -80,6 +81,10 @@ type UnitReview = {
 
 type AvailabilityRow = {
   date: string;
+  unit_id?: string;
+  vehicle_id?: string;
+  order_id?: string;
+  destination?: string;
   available: boolean;
 };
 
@@ -96,6 +101,14 @@ type ExpenseRow = {
   transaction_category_label: string;
   transaction_item_label: string;
   transaction_date: string;
+  amount: number;
+};
+
+type RevenueHistoryRow = {
+  transaction_date: string;
+  order_id: string;
+  payment_type_label: string;
+  payment_method_label: string;
   amount: number;
 };
 
@@ -164,6 +177,13 @@ const formatTripDate = (value?: string) => {
   return format(d, 'dd MMM yyyy', { locale: idLocale });
 };
 
+const formatLongDate = (value?: string) => {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '-';
+  return format(d, 'dd MMMM yyyy', { locale: idLocale });
+};
+
 const formatTripRange = (start: string, end: string) => {
   const s = formatTripDate(start);
   const e = formatTripDate(end);
@@ -229,6 +249,7 @@ export const FleetUnitDetail: React.FC = () => {
   const [revenuePeriod, setRevenuePeriod] = useState<PeriodPreset>('this_month');
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [revenueSummary, setRevenueSummary] = useState<RevenueSummary | null>(null);
+  const [revenueHistoryRows, setRevenueHistoryRows] = useState<RevenueHistoryRow[]>([]);
 
   const [expensePeriod, setExpensePeriod] = useState<PeriodPreset>('this_month');
   const [expenseLoading, setExpenseLoading] = useState(false);
@@ -392,16 +413,20 @@ export const FleetUnitDetail: React.FC = () => {
         const res = await api.post<unknown>('/services/fleet-units/revenue', { unit_id: unitId, period }, headers);
         if (res.status !== 'success') {
           setRevenueSummary(null);
+          setRevenueHistoryRows([]);
           return;
         }
         const payload = res.data as unknown;
         const root = record(payload);
-        const arr: unknown[] =
+        const dataNode = root.data ?? payload;
+        const dataObj = record(dataNode);
+        const summaryArr: unknown[] =
+          (Array.isArray(dataObj.summary) ? (dataObj.summary as unknown[]) : undefined) ??
+          (Array.isArray(dataObj.data) ? (dataObj.data as unknown[]) : undefined) ??
+          (Array.isArray(dataObj.items) ? (dataObj.items as unknown[]) : undefined) ??
           (Array.isArray(payload) ? (payload as unknown[]) : undefined) ??
-          (Array.isArray(root.data) ? (root.data as unknown[]) : undefined) ??
-          (Array.isArray(root.items) ? (root.items as unknown[]) : undefined) ??
           [];
-        const list = arr.map((x) => record(x));
+        const list = summaryArr.map((x) => record(x));
         const first = list.length > 0 ? record(list[0]) : {};
         const second = list.length > 1 ? record(list[1]) : null;
 
@@ -410,7 +435,7 @@ export const FleetUnitDetail: React.FC = () => {
           totalRevenue: getNumber(first.total_revenue ?? first.totalRevenue ?? first.revenue),
         };
 
-        let previous: RevenueSummary['previous'] =
+        const previous: RevenueSummary['previous'] =
           second
             ? {
                 totalBooking: getNumber(second.total_booking ?? second.totalBooking ?? second.booking ?? second.bookings),
@@ -418,30 +443,30 @@ export const FleetUnitDetail: React.FC = () => {
               }
             : undefined;
 
-        if (!previous && meta.prevPeriod) {
-          const prevRes = await api.post<unknown>('/services/fleet-units/revenue', { unit_id: unitId, period: meta.prevPeriod }, headers);
-          if (prevRes.status === 'success') {
-            const prevPayload = prevRes.data as unknown;
-            const prevRoot = record(prevPayload);
-            const prevArr: unknown[] =
-              (Array.isArray(prevPayload) ? (prevPayload as unknown[]) : undefined) ??
-              (Array.isArray(prevRoot.data) ? (prevRoot.data as unknown[]) : undefined) ??
-              (Array.isArray(prevRoot.items) ? (prevRoot.items as unknown[]) : undefined) ??
-              [];
-            const prevFirst = prevArr.length > 0 ? record(prevArr[0]) : {};
-            previous = {
-              totalBooking: getNumber(prevFirst.total_booking ?? prevFirst.totalBooking ?? prevFirst.booking ?? prevFirst.bookings),
-              totalRevenue: getNumber(prevFirst.total_revenue ?? prevFirst.totalRevenue ?? prevFirst.revenue),
-            };
-          }
-        }
+        const historyArr: unknown[] =
+          (Array.isArray(dataObj.history) ? (dataObj.history as unknown[]) : undefined) ??
+          (Array.isArray(root.history) ? (root.history as unknown[]) : undefined) ??
+          [];
+        const mappedHistory = historyArr
+          .map((x) => record(x))
+          .map((x) => {
+            const transaction_date = getString(x.transaction_date ?? x.transactionDate ?? x.date).trim();
+            const order_id = getString(x.order_id ?? x.orderId ?? x.order).trim();
+            const payment_type_label = getString(x.payment_type_label ?? x.paymentTypeLabel ?? x.payment_method_label ?? x.paymentMethodLabel).trim();
+            const payment_method_label = getString(x.payment_method_label ?? x.paymentMethodLabel).trim();
+            const amount = getNumber(x.amount ?? x.payment_amount ?? x.paymentAmount ?? x.total);
+            if (!transaction_date && !order_id && !payment_type_label && !amount) return null;
+            return { transaction_date, order_id, payment_type_label, payment_method_label, amount } satisfies RevenueHistoryRow;
+          })
+          .filter((v): v is RevenueHistoryRow => Boolean(v));
 
         setRevenueSummary({
           current,
           previous,
-          currentLabel: meta.currentLabel,
-          previousLabel: previous ? meta.previousLabel : undefined,
+          currentLabel: getString(first.period).trim() || meta.currentLabel,
+          previousLabel: previous ? getString(second?.period).trim() || meta.previousLabel : undefined,
         });
+        setRevenueHistoryRows(mappedHistory);
       } finally {
         setRevenueLoading(false);
       }
@@ -559,17 +584,14 @@ export const FleetUnitDetail: React.FC = () => {
         const payload = { unit_id: unitId, start_date: toYmd(r.start), end_date: toYmd(r.end) };
         const res = await api.post<unknown>('/services/schedule/daily-availibility/fleet-unit', payload, headers);
         if (res.status === 'success') {
-          const root = record(res.data as unknown);
-          const dataNode = root.data ?? root;
-          const dataObj = record(dataNode);
-          const arr =
-            (Array.isArray(dataNode) ? (dataNode as unknown[]) : undefined) ??
-            (Array.isArray(dataObj.data) ? (dataObj.data as unknown[]) : undefined) ??
-            [];
-          const mapped = arr
-            .map((raw) => {
+          const arr = res.data;
+          console.log({arr})
+          const mapped = (arr as unknown[])
+            .map((raw: unknown) => {
               const obj = record(raw);
               const date = getString(obj.date ?? obj.schedule_date ?? obj.day ?? obj.start_date).trim();
+              const unit_id = getString(obj.unit_id ?? obj.unitId).trim();
+              const vehicle_id = getString(obj.vehicle_id ?? obj.vehicleId).trim();
               const availableRaw = obj.available ?? obj.is_available ?? obj.status;
               const available =
                 typeof availableRaw === 'boolean'
@@ -580,9 +602,10 @@ export const FleetUnitDetail: React.FC = () => {
                       ? false
                       : Boolean(availableRaw);
               if (!date) return null;
-              return { date, available } satisfies AvailabilityRow;
+              return { date, unit_id: unit_id || undefined, vehicle_id: vehicle_id || undefined, available, order_id: obj.order_id || '-', destinations: obj.destination || '-' } satisfies AvailabilityRow;
             })
-            .filter((v): v is AvailabilityRow => Boolean(v));
+            .filter((v: any): v is AvailabilityRow => Boolean(v));
+            console.log("mapped here ", {mapped})
           setAvailabilityRows(mapped);
         } else {
           setAvailabilityRows([]);
@@ -685,6 +708,7 @@ export const FleetUnitDetail: React.FC = () => {
   const availabilityPageStart = (availabilityPageSafe - 1) * availabilityItemsPerPage;
   const availabilityPageEnd = availabilityPageStart + availabilityItemsPerPage;
   const availabilityCurrent = availabilityRows.slice(availabilityPageStart, availabilityPageEnd);
+  console.log({availabilityCurrent});
 
   const unitCode = detail?.vehicle_id || unitIdParam || 'BB001';
   const ownershipBadge = (() => {
@@ -736,9 +760,9 @@ export const FleetUnitDetail: React.FC = () => {
     navigate(`${basePrefix}/orders/fleet/create?${q.toString()}`);
   };
 
-  const handleReservasiYmd = (dateYmd: string) => {
+  const handleReservasiYmd = (dateYmd: string, unitIdOverride?: string) => {
     const q = new URLSearchParams();
-    q.set('unit_id', detail?.unit_id || unitIdParam);
+    q.set('unit_id', unitIdOverride || detail?.unit_id || unitIdParam);
     q.set('date', dateYmd);
     navigate(`${basePrefix}/orders/fleet/create?${q.toString()}`);
   };
@@ -778,8 +802,48 @@ export const FleetUnitDetail: React.FC = () => {
 
   return (
     <div className="bg-[#F5F7FB]">
-      <div className="space-y-5 p-4 sm:p-6">
-        <div className="flex items-start justify-between gap-4">
+      <div className="space-y-5 p-2 sm:p-6">
+        <div className="sm:hidden space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="shrink-0 bg-white border-gray-200/70 hover:bg-white"
+              onClick={() => navigate(`${basePrefix}/fleet-units`)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+
+            {detail ? (
+              <Button
+                variant="outline"
+                className="bg-white border-gray-200/70 hover:bg-white"
+                onClick={() => navigate(`${basePrefix}/fleet-units/edit/${encodeURIComponent(detail.unit_id)}`)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight text-gray-900">Detail Unit Armada</h1>
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                Aktif
+              </span>
+            </div>
+            <div className="mt-1 text-xs text-gray-500">
+              <span className="text-gray-500">Unit Armada</span>
+              <span className="mx-2 text-gray-300">/</span>
+              <span className="text-gray-500">Detail Unit Armada</span>
+              <span className="mx-2 text-gray-300">/</span>
+              <span className="font-medium text-gray-700">{unitCode}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="hidden sm:flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <Button
               variant="outline"
@@ -791,7 +855,7 @@ export const FleetUnitDetail: React.FC = () => {
             </Button>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">Detail Unit Armada</h1>
+                <h1 className="text-xl sm:text-3xl font-semibold tracking-tight text-gray-900">Detail Unit Armada</h1>
                 <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
                   Aktif
                 </span>
@@ -806,12 +870,8 @@ export const FleetUnitDetail: React.FC = () => {
             </div>
           </div>
 
-          {detail && (
+          {detail ? (
             <div className="flex items-center gap-2">
-              <Button variant="outline" className="bg-white border-gray-200/70 hover:bg-white" onClick={() => setShowAdModal(true)}>
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Generate Iklan
-              </Button>
               <Button
                 variant="outline"
                 className="bg-white border-gray-200/70 hover:bg-white"
@@ -821,7 +881,7 @@ export const FleetUnitDetail: React.FC = () => {
                 Edit
               </Button>
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -962,7 +1022,7 @@ export const FleetUnitDetail: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="hidden sm:grid grid-cols-2 gap-4">
                   {metrics.map((m) => {
                     const Icon = m.icon;
                     return (
@@ -1043,7 +1103,7 @@ export const FleetUnitDetail: React.FC = () => {
                   {loading ? (
                     <div className="animate-pulse grid grid-cols-1 lg:grid-cols-2 gap-4">
                       {Array.from({ length: 2 }).map((_, i) => (
-                        <div key={`ov-s-${i}`} className="rounded-2xl border border-gray-200/60 bg-white p-4">
+                        <div key={`ov-s-${i}`} className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
                           <div className="h-4 w-44 rounded bg-gray-100" />
                           <div className="mt-4 space-y-3">
                             {Array.from({ length: 6 }).map((__, j) => (
@@ -1060,29 +1120,29 @@ export const FleetUnitDetail: React.FC = () => {
                     <div className="py-10 text-center text-sm text-gray-500">Data unit tidak ditemukan</div>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
-                        <div className="text-sm font-semibold text-gray-900">Informasi Teknis</div>
-                        <div className="mt-4 overflow-hidden rounded-xl border border-gray-200/60">
+                      <div className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
+                        <div className="text-sm font-semibold text-gray-900 mb-5">Informasi Teknis</div>
+                        {/* <div className="mt-4 overflow-hidden rounded-xl border border-gray-200/60"> */}
                           <table className="w-full text-sm">
                             <tbody className="divide-y divide-gray-200/60">
                               {[
-                                { label: 'Fleet Type', value: detail.fleet_type || '-' },
-                                { label: 'Tipe Armada', value: detail.fleet_name || '-' },
+                                { label: 'Jenis Armada', value: detail.fleet_type || '-' },
+                                { label: 'Nama Armada', value: detail.fleet_name || '-' },
                                 { label: 'Chassis', value: detail.engine || '-' },
                                 { label: 'Transmisi', value: detail.transmission || '-' },
                                 { label: 'Tahun Produksi', value: detail.production_year ? String(detail.production_year) : '-' },
-                                { label: 'Kapasitas Kursi', value: detail.capacity ? String(detail.capacity) : '-' },
+                                { label: 'Kapasitas Kursi', value: detail.capacity ? `${String(detail.capacity)} seat` : '-' },
                               ].map((row) => (
                                 <tr key={row.label} className="bg-white">
-                                  <td className="px-4 py-3 text-gray-500 w-1/2">{row.label}</td>
-                                  <td className="px-4 py-3 font-medium text-gray-900">{row.value}</td>
+                                  <td className="py-3 text-gray-500 w-1/2">{row.label}</td>
+                                  <td className="py-3 font-medium text-gray-900">{row.value}</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
-                        </div>
+                        {/* </div> */}
 
-                        <div className="mt-4">
+                        <div className="hidden mt-4">
                           <div className="text-xs font-semibold text-gray-700">Pickup Points</div>
                           <div className="mt-2 flex flex-wrap gap-2">
                             {(detail?.pickup_points ?? []).length === 0 ? (
@@ -1102,9 +1162,8 @@ export const FleetUnitDetail: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
-                        <div className="text-sm font-semibold text-gray-900">Informasi Administratif</div>
-                        <div className="mt-4 overflow-hidden rounded-xl border border-gray-200/60">
+                      <div className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
+                        <div className="text-sm font-semibold text-gray-900 mb-5">Informasi Administratif</div>
                           <table className="w-full text-sm">
                             <tbody className="divide-y divide-gray-200/60">
                               {(() => {
@@ -1141,13 +1200,12 @@ export const FleetUnitDetail: React.FC = () => {
                                 return rows;
                               })().map((row) => (
                                 <tr key={row.label} className="bg-white">
-                                  <td className="px-4 py-3 text-gray-500 w-1/2">{row.label}</td>
-                                  <td className="px-4 py-3 font-medium text-gray-900">{row.value}</td>
+                                  <td className="py-3 text-gray-500 w-1/2">{row.label}</td>
+                                  <td className="py-3 font-medium text-gray-900">{row.value}</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
-                        </div>
                       </div>
                     </div>
                   )}
@@ -1206,12 +1264,15 @@ export const FleetUnitDetail: React.FC = () => {
 
                   <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white">
                     <div className="overflow-auto">
-                      <Table>
+                      <Table className="min-w-[460px]">
                         <TableHeader>
                           <TableRow className="bg-gray-50 hover:bg-gray-50">
-                            <TableHead className="px-4">Tanggal</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right pr-4">Aksi</TableHead>
+                            <TableHead className="w-[20px] px-4 whitespace-nowrap">No</TableHead>
+                            <TableHead className="px-4 whitespace-nowrap w-[90px]">Tanggal</TableHead>
+                            <TableHead className="px-4 whitespace-nowrap w-[170px]">Order ID</TableHead>
+                            <TableHead className="px-4 whitespace-nowrap w-[170px]">Tujuan</TableHead>
+                            <TableHead className="whitespace-nowrap w-[170px]">Status</TableHead>
+                            <TableHead className="text-right pr-4 whitespace-nowrap w-[120px]">Aksi</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1219,7 +1280,16 @@ export const FleetUnitDetail: React.FC = () => {
                             Array.from({ length: 8 }).map((_, i) => (
                               <TableRow key={`a-tab-s-${i}`}>
                                 <TableCell className="px-4">
+                                  <Skeleton className="h-4 w-8" />
+                                </TableCell>
+                                <TableCell className="px-4">
                                   <Skeleton className="h-4 w-36" />
+                                </TableCell>
+                                <TableCell className="px-4">
+                                  <Skeleton className="h-4 w-40" />
+                                </TableCell>
+                                <TableCell className="px-4">
+                                  <Skeleton className="h-4 w-40" />
                                 </TableCell>
                                 <TableCell>
                                   <Skeleton className="h-4 w-28" />
@@ -1231,21 +1301,25 @@ export const FleetUnitDetail: React.FC = () => {
                             ))
                           ) : availabilityCurrent.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={3} className="py-10 text-center text-gray-500">
+                              <TableCell colSpan={4} className="py-10 text-center text-gray-500">
                                 Tidak ada data ketersediaan
                               </TableCell>
                             </TableRow>
                           ) : (
                             availabilityCurrent.map((row, idx) => {
+                              console.log({row})
                               const d = row.date ? new Date(row.date) : null;
                               const dateLabel = d && !isNaN(d.getTime()) ? format(d, 'dd MMMM yyyy', { locale: idLocale }) : row.date || '-';
                               const dateYmd = d && !isNaN(d.getTime()) ? toYmd(startOfDay(d)) : row.date;
                               return (
                                 <TableRow key={`${row.date}-${idx}`} className="hover:bg-gray-50">
-                                  <TableCell className="px-4 font-medium text-gray-900">{dateLabel}</TableCell>
+                                  <TableCell className="px-4 text-gray-700">{availabilityPageStart + idx + 1}</TableCell>
+                                  <TableCell className="px-4 font-medium text-gray-900 whitespace-nowrap">{dateLabel}</TableCell>
+                                  <TableCell className="px-4 whitespace-nowrap">{row.order_id || '-'}</TableCell>
+                                  <TableCell className="px-4 whitespace-nowrap">{row.destinations || '-'}</TableCell>
                                   <TableCell>
                                     {row.available ? (
-                                      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 inline-flex items-center gap-1.5">
+                                      <Badge variant="outline" className="border-green-200 bg-green-500 text-white inline-flex items-center gap-1.5">
                                         <CheckCircle2 className="h-4 w-4" />
                                         Tersedia
                                       </Badge>
@@ -1256,13 +1330,13 @@ export const FleetUnitDetail: React.FC = () => {
                                       </Badge>
                                     )}
                                   </TableCell>
-                                  <TableCell className="text-right pr-4">
+                                  <TableCell className="text-right pr-4 whitespace-nowrap">
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="bg-white border-gray-200/70 hover:bg-white"
+                                      className="bg-white border-gray-200/70 hover:bg-white whitespace-nowrap"
                                       disabled={!row.available || !dateYmd}
-                                      onClick={() => (dateYmd ? handleReservasiYmd(dateYmd) : undefined)}
+                                      onClick={() => (dateYmd ? handleReservasiYmd(dateYmd, row.unit_id) : undefined)}
                                     >
                                       Reservasi Sekarang
                                     </Button>
@@ -1358,15 +1432,15 @@ export const FleetUnitDetail: React.FC = () => {
                   </div>
 
                   <div className="overflow-x-auto border border-gray-200/70 rounded-2xl">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[1100px] table-auto text-sm">
                       <thead className="bg-gray-50">
                         <tr className="border-b border-gray-200/70 text-left">
-                          <th className="py-3 px-4 font-semibold text-gray-900">Order Id</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900">Tanggal Trip</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900">Pickup Point</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900">Tujuan</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900">Pengemudi</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900 text-right">Action</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[160px]">Order Id</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[220px]">Tanggal Trip</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[220px]">Pickup Point</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[220px]">Tujuan</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[200px]">Pengemudi</th>
+                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap text-right w-[220px]">Action</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white">
@@ -1389,16 +1463,16 @@ export const FleetUnitDetail: React.FC = () => {
                         ) : (
                           orderCurrent.map((row, idx) => (
                             <tr key={`o-${row.order_id || idx}`} className="border-b border-gray-200/60 hover:bg-gray-50 transition-colors">
-                              <td className="py-3 px-4 font-medium text-gray-900">{row.order_id || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</td>
-                              <td className="py-3 px-4 text-gray-700">{row.pickup_point || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700">{row.destination || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700">{row.driver_name || '-'}</td>
-                              <td className="py-3 px-4 text-right">
+                              <td className="py-3 px-4 font-medium text-gray-900 whitespace-nowrap">{row.order_id || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</td>
+                              <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{row.pickup_point || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{row.destination || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{row.driver_name || '-'}</td>
+                              <td className="py-3 px-4 text-right whitespace-nowrap">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="!w-auto !h-auto p-2 bg-blue-400 hover:bg-blue-500 border-gray-200/70 transition-transform duration-300 text-white"
+                                  className="!w-auto !h-auto p-2 bg-blue-400 hover:bg-blue-500 border-gray-200/70 transition-transform duration-300 text-white whitespace-nowrap"
                                   disabled={!row.order_id}
                                   onClick={() =>
                                     row.order_id ? navigate(`${basePrefix}/orders/fleet/detail/${encodeURIComponent(row.order_id)}`) : undefined
@@ -1502,11 +1576,16 @@ export const FleetUnitDetail: React.FC = () => {
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
             <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow h-full min-h-[420px] flex flex-col">
-              <div className="flex items-start justify-between gap-3">
-                <div className="text-sm font-semibold text-gray-900">Pendapatan</div>
-                <div className="w-[190px]">
+              <div>
+                <CardHeaderWithBadge
+                  className=""
+                  badgeIcon={<Wallet className="h-3 w-3 sm:h-6 sm:w-6" />}
+                  title="Pendapatan"
+                  subtitle="Pantau pendapatan di sini."
+                />
+                <div className="flex justify-end gap-2">
                   <Select value={revenuePeriod} onValueChange={(v) => setRevenuePeriod(v as PeriodPreset)}>
-                    <SelectTrigger className="border-gray-200/70 bg-white h-9">
+                    <SelectTrigger className="border-gray-200/70 bg-white h-9 w-[190px]">
                       <SelectValue placeholder="Pilih periode" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1517,65 +1596,108 @@ export const FleetUnitDetail: React.FC = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 bg-white border-gray-200/70 hover:bg-white"
+                        aria-label="Export"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-56">
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onSelect={(e) => {
+                          e.preventDefault();
+                        }}
+                      >
+                        Download Excel (.xls)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onSelect={(e) => {
+                          e.preventDefault();
+                        }}
+                      >
+                        Export Google Sheet
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
-              <div className="mt-4 flex-1 flex flex-col">
-                <div className="rounded-2xl border border-gray-200/70 bg-white p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-xs text-gray-500">{revenueSummary?.currentLabel ?? 'Periode'}</div>
-                      <div className="mt-2 text-2xl font-semibold text-gray-900">
+              <div className="mt-3 flex-1 flex flex-col">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200/70 bg-white flex-1 flex flex-col">
+                  <div className="flex-1 overflow-auto">
+                    <Table className="min-w-[460px]">
+                      <TableHeader>
+                        <TableRow className="bg-gray-50 hover:bg-gray-50">
+                          <TableHead className="whitespace-nowrap w-[160px]">Tanggal</TableHead>
+                          <TableHead className="whitespace-nowrap w-[100px]">Order ID</TableHead>
+                          <TableHead className="whitespace-nowrap w-[120px]">Metode</TableHead>
+                          <TableHead className="text-right pr-4 whitespace-nowrap w-[100px]">Nominal</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {revenueLoading ? (
-                          <span className="inline-flex items-center text-sm text-gray-500">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Memuat...
-                          </span>
+                          Array.from({ length: 6 }).map((_, i) => (
+                            <TableRow key={`rev-s-${i}`}>
+                              <TableCell>
+                                <Skeleton className="h-4 w-28" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-44" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-28" />
+                              </TableCell>
+                              <TableCell className="text-right pr-4">
+                                <Skeleton className="h-4 w-28 ml-auto" />
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : revenueHistoryRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-10 text-center text-gray-500">
+                              Tidak ada riwayat pendapatan
+                            </TableCell>
+                          </TableRow>
                         ) : (
-                          formatRupiahFromNumber(revenueSummary?.current.totalRevenue ?? 0)
+                          revenueHistoryRows.map((row, idx) => (
+                            <TableRow key={`rev-${row.transaction_date}-${row.order_id}-${idx}`} className="hover:bg-gray-50">
+                              <TableCell className="text-gray-700 whitespace-nowrap">
+                                {formatLongDate(row.transaction_date) !== '-' ? formatLongDate(row.transaction_date) : row.transaction_date || '-'}
+                              </TableCell>
+                              <TableCell className="text-gray-700 whitespace-nowrap">{row.order_id || '-'}</TableCell>
+                              <TableCell className="text-gray-700 whitespace-nowrap">{row.payment_method_label || '-'}</TableCell>
+                              <TableCell className="text-right pr-4 font-semibold text-gray-900 whitespace-nowrap">
+                                {formatRupiahFromNumber(row.amount)}
+                              </TableCell>
+                            </TableRow>
+                          ))
                         )}
-                      </div>
-                      <div className="mt-2 text-sm text-gray-600">
-                        Total Pesanan:{' '}
-                        <span className="font-semibold text-gray-900">{formatNumberId(revenueSummary?.current.totalBooking ?? 0)}</span>
-                      </div>
-                    </div>
-
-                    <div className="shrink-0 h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center">
-                      <Wallet className="h-5 w-5 text-emerald-600" />
-                    </div>
+                      </TableBody>
+                    </Table>
                   </div>
-
-                  {revenueTrend && revenueSummary?.previousLabel ? (
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <div className="text-xs text-gray-500 min-w-0">
-                        <span className="truncate">vs {revenueSummary.previousLabel}</span>
-                        <span className="mx-1.5 text-gray-300">•</span>
-                        <span className="font-medium text-gray-700">{formatRupiahFromNumber(revenueTrend.previous)}</span>
-                      </div>
-                      <div
-                        className={[
-                          'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
-                          revenueTrend.up ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
-                        ].join(' ')}
-                      >
-                        {revenueTrend.up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-                        {`${revenueTrend.up ? '+' : ''}${revenueTrend.percent.toFixed(1)}%`}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-3 text-xs text-gray-400">Data periode sebelumnya tidak tersedia</div>
-                  )}
                 </div>
               </div>
             </div>
 
             <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow h-full min-h-[420px] flex flex-col">
-              <div className="flex items-start justify-between gap-3">
-                <div className="text-sm font-semibold text-gray-900">Pengeluaran</div>
-                <div className="w-[190px]">
+              <div>
+                <CardHeaderWithBadge
+                  className=""
+                  badgeIcon={<TrendingDown className="h-3 w-3 sm:h-6 sm:w-6" />}
+                  title="Pengeluaran"
+                  subtitle="Pantau pengeluaran di sini."
+                />
+                <div className="flex justify-end gap-2">
                   <Select value={expensePeriod} onValueChange={(v) => setExpensePeriod(v as PeriodPreset)}>
-                    <SelectTrigger className="border-gray-200/70 bg-white h-9">
+                    <SelectTrigger className="border-gray-200/70 bg-white h-9 w-[190px]">
                       <SelectValue placeholder="Pilih periode" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1586,51 +1708,85 @@ export const FleetUnitDetail: React.FC = () => {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 bg-white border-gray-200/70 hover:bg-white"
+                        aria-label="Export"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-56">
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onSelect={(e) => {
+                          e.preventDefault();
+                        }}
+                      >
+                        Download Excel (.xls)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onSelect={(e) => {
+                          e.preventDefault();
+                        }}
+                      >
+                        Export Google Sheet
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-
-              <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200/70 bg-white flex-1 flex flex-col">
-                <div className="flex-1 overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50 hover:bg-gray-50">
-                        <TableHead>Item Transaksi</TableHead>
-                        <TableHead>Tanggal Transaksi</TableHead>
-                        <TableHead className="text-right pr-4">Nominal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {expenseLoading ? (
-                        Array.from({ length: 6 }).map((_, i) => (
-                          <TableRow key={`ex-s-${i}`}>
-                            <TableCell>
-                              <Skeleton className="h-4 w-44" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-32" />
-                            </TableCell>
-                            <TableCell className="text-right pr-4">
-                              <Skeleton className="h-4 w-28 ml-auto" />
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : expenseRows.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4} className="py-10 text-center text-gray-500">
-                            Tidak ada data pengeluaran
-                          </TableCell>
+              
+              <div className="mt-3 flex-1 flex flex-col">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200/70 bg-white flex-1 flex flex-col">
+                  <div className="flex-1 overflow-auto">
+                    <Table className="min-w-[480px]">
+                      <TableHeader>
+                        <TableRow className="bg-gray-50 hover:bg-gray-50">
+                          <TableHead className="whitespace-nowrap w-[160px]">Item Transaksi</TableHead>
+                          <TableHead className="whitespace-nowrap w-[160px]">Tanggal Transaksi</TableHead>
+                          <TableHead className="text-right pr-4 whitespace-nowrap w-[100px]">Nominal</TableHead>
                         </TableRow>
-                      ) : (
-                        expenseRows.map((row, idx) => (
-                          <TableRow key={`ex-${row.transaction_date}-${idx}`} className="hover:bg-gray-50">
-                            <TableCell className="text-gray-700">{row.transaction_item_label || '-'}</TableCell>
-                            <TableCell className="text-gray-700">{formatTripDate(row.transaction_date) !== '-' ? formatTripDate(row.transaction_date) : row.transaction_date || '-'}</TableCell>
-                            <TableCell className="text-right pr-4 font-semibold text-gray-900">{formatRupiahFromNumber(row.amount)}</TableCell>
+                      </TableHeader>
+                      <TableBody>
+                        {expenseLoading ? (
+                          Array.from({ length: 6 }).map((_, i) => (
+                            <TableRow key={`ex-s-${i}`}>
+                              <TableCell>
+                                <Skeleton className="h-4 w-44" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-32" />
+                              </TableCell>
+                              <TableCell className="text-right pr-4">
+                                <Skeleton className="h-4 w-28 ml-auto" />
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : expenseRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-10 text-center text-gray-500">
+                              Tidak ada data pengeluaran
+                            </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          expenseRows.map((row, idx) => (
+                            <TableRow key={`ex-${row.transaction_date}-${idx}`} className="hover:bg-gray-50">
+                              <TableCell className="text-gray-700 whitespace-nowrap">{row.transaction_item_label || '-'}</TableCell>
+                              <TableCell className="text-gray-700 whitespace-nowrap">{formatTripDate(row.transaction_date) !== '-' ? formatTripDate(row.transaction_date) : row.transaction_date || '-'}</TableCell>
+                              <TableCell className="text-right pr-4 font-semibold text-gray-900 whitespace-nowrap">{formatRupiahFromNumber(row.amount)}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
             </div>

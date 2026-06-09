@@ -708,7 +708,7 @@ function App() {
               <OrdersTable
                 status="all"
                 type="fleet"
-                title="Fleet Orders"
+                title="Pesanan Armada"
                 description="Kelola pesanan armada"
               />
             </DashboardLayout>
@@ -723,7 +723,7 @@ function App() {
               <OrdersTable
                 status="all"
                 type="fleet"
-                title="Fleet Orders"
+                title="Pesanan Armada"
                 description="Kelola pesanan armada"
               />
             </DashboardLayout>
