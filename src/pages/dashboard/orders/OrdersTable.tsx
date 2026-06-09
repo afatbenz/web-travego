@@ -167,12 +167,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         const qs = new URLSearchParams();
         if (searchTerm.trim()) qs.set('search', searchTerm.trim());
         if (op.start && op.end) {
-          qs.set('period_from', toYmd(op.start));
-          qs.set('period_to', toYmd(op.end));
+          qs.set('order_date_start', toYmd(op.start));
+          qs.set('order_date_end', toYmd(op.end));
         }
         if (od.start && od.end) {
-          qs.set('created_from', toYmd(od.start));
-          qs.set('created_to', toYmd(od.end));
+          qs.set('start_date', toYmd(od.start));
+          qs.set('end_date', toYmd(od.end));
         }
         const endpoint = qs.toString() ? `${endpointBase}?${qs.toString()}` : endpointBase;
 
@@ -562,27 +562,33 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     }
   };
 
-  const downloadAction = (
+  const downloadHeaderAction = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" className="h-10 w-full rounded-2xl px-4 md:w-10 md:px-0">
+        <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-2xl" title="Download">
           <Download className="h-4 w-4" />
-          <span className="ml-2 md:hidden">Download</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[220px]">
+      <DropdownMenuContent align="end" className="min-w-[240px]">
         <DropdownMenuItem
           className="cursor-pointer"
-          onSelect={() => {
+          onSelect={(e) => {
+            e.preventDefault();
+            downloadExcel();
+          }}
+        >
+          <FileSpreadsheet className="mr-2 h-4 w-4" />
+          Download ke excel (.xlsx)
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="cursor-pointer"
+          onSelect={(e) => {
+            e.preventDefault();
             void exportToGoogleSheets();
           }}
         >
           <GoogleSheetsIcon className="mr-2 h-4 w-4" />
-          Ekspor ke google sheet
-        </DropdownMenuItem>
-        <DropdownMenuItem className="cursor-pointer" onSelect={downloadExcel}>
-          <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Download Excel (.xlsx)
+          Copy ke Google Sheet
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -921,12 +927,22 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   return (
     <div className="space-y-6 pb-24 md:pb-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{title}</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             {description}
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {canAddOrder ? (
+            <Button type="button" 
+            className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-gray-200 hover:text-black transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40" onClick={() => navigate(createOrderPath)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Pesanan Baru
+            </Button>
+          ) : null}
+          {downloadHeaderAction}
         </div>
       </div>
 
@@ -998,8 +1014,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           resetLabel="Reset"
           resetButtonClassName="md:inline-flex"
           resetIconOnly
-          actionsSlot={downloadAction}
-          mobileActionGrid
         />
       </div>
 

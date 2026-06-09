@@ -13,7 +13,6 @@ import {
   Edit,
   Eye,
   FileText,
-  Image as ImageIcon,
   Loader2,
   MapPin,
   MessageCircleMore,
@@ -1175,7 +1174,7 @@ export const FleetUnitDetail: React.FC = () => {
                                     className="text-blue-600 hover:no-underline text-bold"
                                     onClick={() =>
                                       navigate(
-                                        `${basePrefix}/partners/detail/${encodeURIComponent(String(detail.partner_id ?? ''))}`,
+                                        `${basePrefix}/partner-operations/detail/${encodeURIComponent(String(detail.partner_id ?? ''))}`,
                                         { state: { partner_id: detail.partner_id, partner_name: detail.partner_name, partner_phone: detail.partner_phone } }
                                       )
                                     }

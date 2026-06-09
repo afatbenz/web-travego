@@ -148,7 +148,7 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Preferensi',
         items: [
-          { title: 'Preferensi Harga', icon: Package, href: `${basePrefix}/services/preferences/fleet-prices` },
+          // { title: 'Preferensi Harga', icon: Package, href: `${basePrefix}/services/preferences/fleet-prices` },
           ...(!isAdmin ? [{ title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities` }] : [])
         ]
       },
@@ -158,7 +158,7 @@ export const Sidebar: React.FC = () => {
           { title: 'Jadwal Tim', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
           { title: 'Kalender Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-management` },
           { title: 'Jadwal Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-schedules` },
-          { title: 'Manajemen Cuti', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
+          // { title: 'Manajemen Cuti', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
         ]
       },
       {

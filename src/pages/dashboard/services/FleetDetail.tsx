@@ -1488,11 +1488,10 @@ export const FleetDetail: React.FC = () => {
             </div>
 
             <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow">
-              <div className="text-sm font-semibold text-gray-900">Informasi</div>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
                   <div className="text-xs text-gray-500">Dibuat Oleh</div>
-                  <div className="mt-1 font-medium text-gray-900 truncate">{fleet.meta.created_by || '-'}</div>
+                  <div className="mt-1 font-medium text-xs sm:text-sm text-gray-900 truncate">{fleet.meta.created_by || '-'}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 sm:contents">
                   <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">

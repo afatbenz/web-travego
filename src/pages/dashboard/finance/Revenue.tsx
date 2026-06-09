@@ -619,7 +619,7 @@ export const Revenue: React.FC = () => {
                 </div>
               </div>
               {loading ? (
-                <div className="mt-1 h-6 w-28 rounded bg-muted animate-pulse mt-5" />
+                <div className="mt-5 h-6 w-28 rounded bg-muted animate-pulse" />
               ) : (
                 <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums mt-5">
                   {formatRupiah(summary.revenue)}
