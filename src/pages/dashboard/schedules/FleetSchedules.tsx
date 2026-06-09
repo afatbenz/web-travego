@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight, FileSpreadsheet, MoreHorizontal, Sheet } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { showAlert } from '@/hooks/use-alert';
+import moment from 'moment';
+import * as XLSX from 'xlsx';
 
 type FleetScheduleRow = {
   orderId: string;
@@ -23,6 +28,7 @@ type FleetScheduleRow = {
 type FilterValues = {
   orderId: string;
   period: string;
+  search: string;
 };
 
 const toRecord = (v: unknown): Record<string, unknown> =>
@@ -111,15 +117,32 @@ export const FleetSchedules: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<FleetScheduleRow[]>([]);
+  const [exportSchedules, setExportSchedules] = useState<
+    Array<{
+      start_date: string;
+      end_date: string;
+      order_id: string;
+      schedule_number: string;
+      fleet_name: string;
+      vehicle_id: string;
+      plate_number: string;
+      driver_name: string;
+      crew_name: string;
+      pickup_city_label: string;
+      destinations: string;
+    }>
+  >([]);
   const [tableKey, setTableKey] = useState(0);
   const [filterValues, setFilterValues] = useState<FilterValues>(() => ({
     orderId: '',
     period: getDefaultPeriod(),
+    search: '',
   }));
 
   const [applied, setApplied] = useState<FilterValues>(() => ({
     orderId: '',
     period: getDefaultPeriod(),
+    search: '',
   }));
 
   const [page, setPage] = useState(1);
@@ -162,9 +185,19 @@ export const FleetSchedules: React.FC = () => {
   const applyPeriod = (nextPeriod: string) => {
     const normalized = normalizePeriod(nextPeriod);
     setRows([]);
+    setExportSchedules([]);
     setPage(1);
     setFilterValues((prev) => ({ ...prev, period: normalized }));
     setApplied((prev) => ({ ...prev, period: normalized }));
+  };
+
+  const applySearch = (nextSearch: string) => {
+    const trimmed = String(nextSearch ?? '').trim();
+    setRows([]);
+    setExportSchedules([]);
+    setPage(1);
+    setFilterValues((prev) => ({ ...prev, search: nextSearch }));
+    setApplied((prev) => ({ ...prev, search: trimmed }));
   };
 
   useEffect(() => {
@@ -172,6 +205,7 @@ export const FleetSchedules: React.FC = () => {
     (async () => {
       setLoading(true);
       setRows([]);
+      setExportSchedules([]);
       setPage(1);
       setTableKey(seq);
       try {
@@ -180,6 +214,8 @@ export const FleetSchedules: React.FC = () => {
         qs.set('period', period);
         const orderId = applied.orderId.trim();
         if (orderId) qs.set('order_id', orderId);
+        const search = applied.search.trim();
+        if (search) qs.set('search', search);
         const res = await api.get<unknown>(
           `/services/schedule/fleet?${qs.toString()}`,
           token ? { Authorization: token } : undefined
@@ -187,10 +223,41 @@ export const FleetSchedules: React.FC = () => {
         if (seq !== fetchSeq.current) return;
         if (res.status !== 'success') {
           setRows([]);
+          setExportSchedules([]);
           return;
         }
 
         const items = extractRows(res.data);
+        const exportMapped = items.map((raw) => {
+          const item = toRecord(raw);
+          const start_date = pickString(item, ['start_date']);
+          const end_date = pickString(item, ['end_date']);
+          const order_id = pickString(item, ['order_id', 'orderId', 'order_id_display', 'order_code', 'id']);
+          const schedule_number = pickString(item, ['schedule_number', 'scheduleNumber']);
+          const fleet_name = pickString(item, ['fleet_name', 'fleetName', 'armada', 'vehicle_name', 'vehicleName', 'unit_name', 'unitName', 'name']);
+          const vehicle_id = pickString(item, ['vehicle_id', 'vehicleId']);
+          const plate_number = pickString(item, ['plate_number', 'plateNumber']);
+          const driver_name =
+            pickString(item, ['driver_name', 'driverName']) ||
+            pickString(toRecord(item.driver), ['fullname', 'name']) ||
+            pickString(toRecord(item.crew), ['driver_name', 'driverName']);
+          const crew_name = pickString(item, ['crew_name', 'crewName']);
+          const pickup_city_label = pickString(item, ['pickup_city_label', 'pickupCityLabel', 'pickup_city', 'pickupCity']);
+          const destinations = pickString(item, ['destinations', 'destination']);
+          return {
+            start_date: start_date || '-',
+            end_date: end_date || '-',
+            order_id: order_id || '-',
+            schedule_number: schedule_number || '-',
+            fleet_name: fleet_name || '-',
+            vehicle_id: vehicle_id || '-',
+            plate_number: plate_number || '-',
+            driver_name: driver_name || '-',
+            crew_name: crew_name || '-',
+            pickup_city_label: pickup_city_label || '-',
+            destinations: destinations || '-',
+          };
+        });
         const mapped: FleetScheduleRow[] = items.map((raw) => {
           const item = toRecord(raw);
           const orderId = pickString(item, ['order_id', 'orderId', 'order_id_display', 'order_code', 'id']) || '-';
@@ -217,6 +284,7 @@ export const FleetSchedules: React.FC = () => {
         });
 
         setRows(mapped);
+        setExportSchedules(exportMapped);
         setPage(1);
       } finally {
         if (seq === fetchSeq.current) {
@@ -224,7 +292,105 @@ export const FleetSchedules: React.FC = () => {
         }
       }
     })();
-  }, [applied.orderId, applied.period, token]);
+  }, [applied.orderId, applied.period, applied.search, token]);
+
+  const exportSheetRows = useMemo(() => {
+    return exportSchedules.map((s, index) => ({
+      No: index + 1,
+      'Tanggal Berangkat': s.start_date || '-',
+      'Tanggal Pulang': s.end_date || '-',
+      'Order ID': s.order_id || '-',
+      'Nomor Tugas': s.schedule_number || '-',
+      Armada: s.fleet_name || '-',
+      'Unit ID': s.vehicle_id || '-',
+      'Plat Nomor': s.plate_number || '-',
+      Pengemudi: s.driver_name || '-',
+      Crew: s.crew_name || '-',
+      Penjemputan: s.pickup_city_label || '-',
+      Tujuan: s.destinations || '-',
+    }));
+  }, [exportSchedules]);
+
+  const downloadExcel = () => {
+    if (!exportSheetRows.length) {
+      showAlert({ title: 'Gagal', description: 'Tidak ada data jadwal armada untuk diunduh.', type: 'warning' });
+      return;
+    }
+    const worksheet = XLSX.utils.json_to_sheet(exportSheetRows);
+    worksheet['!cols'] = [
+      { wch: 6 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 28 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Jadwal Armada');
+    XLSX.writeFile(workbook, `travego-jadwal_armada-${moment().format('YYYYMMDDHH-mm')}.xlsx`);
+  };
+
+  const copyToGoogleSheet = async () => {
+    if (!exportSheetRows.length) {
+      showAlert({ title: 'Gagal', description: 'Tidak ada data jadwal armada untuk dicopy.', type: 'warning' });
+      return;
+    }
+
+    const headers = [
+      'No',
+      'Tanggal Berangkat',
+      'Tanggal Pulang',
+      'Order ID',
+      'Nomor Tugas',
+      'Armada',
+      'Unit ID',
+      'Plat Nomor',
+      'Pengemudi',
+      'Crew',
+      'Penjemputan',
+      'Tujuan',
+    ];
+    const rowsTsv = exportSheetRows.map((row) => [
+      row.No,
+      row['Tanggal Berangkat'],
+      row['Tanggal Pulang'],
+      row['Order ID'],
+      row['Nomor Tugas'],
+      row.Armada,
+      row['Unit ID'],
+      row['Plat Nomor'],
+      row.Pengemudi,
+      row.Crew,
+      row.Penjemputan,
+      row.Tujuan,
+    ]);
+    const tsv = [headers, ...rowsTsv]
+      .map((cols) => cols.map((value) => String(value ?? '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ')).join('\t'))
+      .join('\n');
+
+    try {
+      await navigator.clipboard.writeText(tsv);
+      window.open('https://docs.google.com/spreadsheets/create', '_blank', 'noopener,noreferrer');
+      showAlert({
+        title: 'Berhasil',
+        description: 'Data jadwal armada disalin ke clipboard. Tempel di Google Sheet dengan Ctrl+V.',
+        type: 'success',
+      });
+    } catch {
+      window.open('https://docs.google.com/spreadsheets/create', '_blank', 'noopener,noreferrer');
+      showAlert({
+        title: 'Perhatian',
+        description: 'Google Sheet dibuka, tetapi data gagal disalin ke clipboard.',
+        type: 'warning',
+      });
+    }
+  };
 
 
   const columns = useMemo(() => {
@@ -326,6 +492,43 @@ export const FleetSchedules: React.FC = () => {
             Kelola dan pantau jadwal armada di bulan <span className="capitalize">{appliedPeriodLabel}</span>
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 rounded-2xl"
+                aria-label="Aksi jadwal armada"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-56 rounded-2xl">
+              <DropdownMenuItem
+                className="cursor-pointer gap-2"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  downloadExcel();
+                }}
+              >
+                <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                <span>Download ke excel (.xlsx)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer gap-2"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void copyToGoogleSheet();
+                }}
+              >
+                <Sheet className="h-4 w-4 text-green-600" />
+                <span>Copy ke Google Sheet</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -414,6 +617,32 @@ export const FleetSchedules: React.FC = () => {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+
+        <div className="w-full md:max-w-md">
+          <div className="mb-1 text-xs font-medium text-muted-foreground">Search</div>
+          <Input
+            value={filterValues.search}
+            placeholder="Cari order / armada / plat / driver..."
+            className="h-10 rounded-2xl"
+            onChange={(e) => {
+              const next = e.target.value;
+              setFilterValues((prev) => ({ ...prev, search: next }));
+              const trimmed = next.trim();
+              if (!trimmed) {
+                setApplied((prev) => ({ ...prev, search: '' }));
+                return;
+              }
+              if (trimmed.length >= 2) {
+                setApplied((prev) => ({ ...prev, search: trimmed }));
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              applySearch(e.currentTarget.value);
+            }}
+          />
         </div>
       </div>
 
