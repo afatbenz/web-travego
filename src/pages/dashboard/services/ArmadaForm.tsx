@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon, BusFront, Tags, Layers, Package2, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon, BusFront, Tags, Layers, Package2, SlidersHorizontal, Globe, ShieldCheck, Building2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
@@ -66,6 +66,25 @@ export const ArmadaForm: React.FC = () => {
   const [bodySuggestions, setBodySuggestions] = useState<string[]>([]);
   const [showBodyDropdown, setShowBodyDropdown] = useState(false);
   const [loadingBody, setLoadingBody] = useState(false);
+  const publicationStatusMeta: Record<
+    string,
+    { title: string; subtitle: string; icon: React.ElementType; iconBg: string; iconColor: string }
+  > = {
+    active: {
+      title: 'Publish',
+      subtitle: 'Tampil di publik',
+      icon: Globe,
+      iconBg: 'bg-[#EEF3FF]',
+      iconColor: 'text-[#4F6BFF]',
+    },
+    inactive: {
+      title: 'Hanya Internal',
+      subtitle: 'Hanya untuk kebutuhan internal',
+      icon: ShieldCheck,
+      iconBg: 'bg-[#F1F5F9]',
+      iconColor: 'text-[#475569]',
+    },
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -164,7 +183,7 @@ export const ArmadaForm: React.FC = () => {
                   ? 2
                   : 3,
           price: p.price,
-          uom: p.unit || 'hari',
+          uom: 'hari',
         })),
         ...(addonItems.length > 0 ? { addon: addonItems } : {}),
         thumbnail: formData.thumbnailFile ? toFileUrl(formData.thumbnailFile) : undefined,
@@ -514,7 +533,7 @@ export const ArmadaForm: React.FC = () => {
               const obj = x as Record<string, unknown>;
               const uuid = isUuid(obj.uuid) ? obj.uuid : undefined;
               const durationNum = typeof obj.duration === 'number' ? obj.duration : Number(obj.duration ?? 0);
-              const uom = typeof obj.uom === 'string' ? obj.uom : 'hari';
+              const uom = 'hari';
               const rent_type = typeof obj.rent_type === 'number' ? obj.rent_type : Number(obj.rent_type ?? 1);
               const disc_price = typeof obj.disc_price === 'number' ? obj.disc_price : Number(obj.disc_price ?? 0);
               const base_price = typeof obj.price === 'number' ? obj.price : Number(obj.price ?? 0);
@@ -1156,26 +1175,56 @@ export const ArmadaForm: React.FC = () => {
               <CardContent className="px-5 py-5">
                 <div className="space-y-3">
                   {formData.features.map((feature, index) => (
-                    <div key={index} className="flex items-center space-x-2">
+                    <div key={index} className="flex items-center gap-2">
                       <Input
                         value={feature}
                         onChange={(e) => updateFeature(index, e.target.value)}
-                        placeholder="Masukkan fasilitas"
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter') return;
+                          e.preventDefault();
+                          const trimmed = String(e.currentTarget.value ?? '').trim();
+                          if (!trimmed) return;
+                          setFormData((prev) => {
+                            const next = [...prev.features];
+                            next.splice(index + 1, 0, '');
+                            return { ...prev, features: next };
+                          });
+                        }}
+                        placeholder="Masukkan fasilitas armada, contoh: Audio Video On Demand (AVOD)"
                         className="flex-1 h-11 rounded-full border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                       />
+                      {index === formData.features.length - 1 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-11 w-11 rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+                          onClick={addFeature}
+                          title="Tambah fasilitas"
+                        >
+                          <Plus className="h-4 w-4 text-[#4F6BFF]" />
+                        </Button>
+                      )}
                       {formData.features.length > 1 && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="rounded-full hover:bg-[#EEF3FF]"
+                          className="h-11 w-11 rounded-full hover:bg-[#EEF3FF]"
                           onClick={() => removeFeature(index)}
+                          title="Hapus fasilitas"
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       )}
                     </div>
                   ))}
+                </div>
+                <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-blue-100/50 px-4 py-3 text-sm text-blue-900/80">
+                  <span className="inline-flex items-center gap-2">
+                    <Info className="h-5 w-5 text-blue-700 mr-3 hover:scale-50 transition-all animate-bounce" />
+                    Kamu bisa menambahkan lebih dari 1 (satu) fasilitas
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -1204,35 +1253,24 @@ export const ArmadaForm: React.FC = () => {
               <CardContent className="px-5 py-5 space-y-4">
                 {formData.rentalPrices.map((price, index) => (
                   <div key={index} className="rounded-2xl border border-[#E9EEF7] bg-white p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                      <div className="md:col-span-3">
                         <label className="text-sm font-medium text-[#475569]">
                           Durasi
                         </label>
-                        <div className="flex space-x-2">
+                        <div className="flex">
                           <Input
                             value={price.duration}
                             onChange={(e) => updateRentalPrice(index, 'duration', e.target.value)}
                             placeholder="1"
-                            className="flex-1 mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
+                            className="flex-1 mt-1 h-11 rounded-l-xl rounded-r-none border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                           />
-                          <Select
-                            value={price.unit || 'hari'}
-                            onValueChange={(value) => updateRentalPrice(index, 'unit', value)}
-                          >
-                            <SelectTrigger className="w-28 mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white">
-                              <SelectValue placeholder="Satuan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="jam">Jam</SelectItem>
-                              <SelectItem value="hari">Hari</SelectItem>
-                              <SelectItem value="pekan">Pekan</SelectItem>
-                              <SelectItem value="bulan">Bulan</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="mt-1 h-11 px-4 flex items-center rounded-r-xl border border-l-0 border-[#E9EEF7] bg-[#F8FAFC] text-sm font-medium text-[#475569]">
+                            Hari
+                          </div>
                         </div>
                       </div>
-                      <div>
+                      <div className="md:col-span-6">
                         <label className="text-sm font-medium text-[#475569]">
                           Jenis Sewa
                         </label>
@@ -1244,13 +1282,13 @@ export const ArmadaForm: React.FC = () => {
                             <SelectValue placeholder="Pilih jenis sewa" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1">Citytour (Dalam Kota)</SelectItem>
-                            <SelectItem value="2">Overland (Luar Kota)</SelectItem>
+                            <SelectItem value="1">Citytour / Perjalanan Dalam Kota / Kawasan</SelectItem>
+                            <SelectItem value="2">Overland / Perjalanan Luar Kota</SelectItem>
                             <SelectItem value="3">Citytour Pickup / Drop only</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
+                      <div className="md:col-span-3">
                         <label className="text-sm font-medium text-[#475569]">
                           Harga (Rp)
                         </label>
@@ -1278,6 +1316,13 @@ export const ArmadaForm: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-blue-100/50 px-4 py-3 text-sm text-blue-900/80">
+                  <span className="inline-flex items-center gap-2">
+                    <Info className="h-5 w-5 text-blue-700 mr-3 hover:scale-50 transition-all animate-bounce" />
+                    Masukkan harga rata-rata sebagai harga awal. <br />
+                    Kamu bisa menambah atau mengurangi biaya layanan saat membuat pesanan.
+                  </span>
+                </div>
               </CardContent>
             </Card>
 
@@ -1480,12 +1525,38 @@ export const ArmadaForm: React.FC = () => {
               <div className="h-px bg-[#E9EEF7]" />
               <CardContent className="px-5 py-5">
                 <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-                  <SelectTrigger className="w-full h-11 rounded-xl border-[#E9EEF7] bg-white">
-                    <SelectValue />
+                  <SelectTrigger className="w-full h-auto min-h-[64px] rounded-2xl border-[#E9EEF7] bg-white px-4 py-3">
+                    {(() => {
+                      const meta = publicationStatusMeta[formData.status] ?? publicationStatusMeta.active;
+                      return (
+                        <div className="flex gap-3"></div>
+                      );
+                    })()}
+                    <SelectValue className="hidden" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Publish</SelectItem>
-                    <SelectItem value="inactive">Hanya Internal</SelectItem>
+                    <SelectItem value="active" textValue="Publish">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-2xl bg-[#EEF3FF] flex items-center justify-center">
+                          <Globe className="h-5 w-5 text-[#4F6BFF]" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-[#1E293B]">Publish</div>
+                          <div className="text-xs text-[#64748B]">Tampil di publik</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="inactive" textValue="Hanya Internal">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-2xl bg-[#F1F5F9] flex items-center justify-center">
+                          <ShieldCheck className="h-5 w-5 text-[#475569]" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-[#1E293B]">Hanya Internal</div>
+                          <div className="text-xs text-[#64748B]">Hanya untuk kebutuhan internal</div>
+                        </div>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="mt-2 text-xs text-[#64748B]">

@@ -312,8 +312,8 @@ export const OrganizationSettings: React.FC = () => {
     <div className="mx-auto max-w-[1600px] animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Organization Settings</h1>
-          <p className="mt-1 text-slate-500 dark:text-slate-400">Perbarui informasi organisasi dan branding perusahaan</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Pengaturan Organisasi</h1>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">Atur informasi dan branding perusahaan</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:justify-end">
           {hasUnsavedChanges ? (

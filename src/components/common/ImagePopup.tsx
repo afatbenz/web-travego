@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -19,11 +18,7 @@ export const ImagePopup: React.FC<ImagePopupProps> = ({
   isOpen,
   onClose,
   onImageChange,
-  itemType = 'catalog',
-  itemId = '1'
 }) => {
-  const navigate = useNavigate();
-
   if (!isOpen) return null;
 
   const currentImage = images[currentIndex];
@@ -54,13 +49,13 @@ export const ImagePopup: React.FC<ImagePopupProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex h-[calc(90vh-120px)]">
+        <div className="flex flex-col sm:flex-row sm:h-[calc(90vh-120px)]">
           {/* Left Section - Main Image */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative max-h-[50vh] sm:max-h-none">
             <img
               src={currentImage}
               alt={`Gallery image ${currentIndex + 1}`}
-              className="w-full h-full object-cover"
+              className="w-full h-full max-h-[50vh] sm:max-h-none object-contain sm:object-cover"
             />
             
             {/* Navigation Arrows */}
@@ -83,7 +78,7 @@ export const ImagePopup: React.FC<ImagePopupProps> = ({
           </div>
 
           {/* Right Section - Photo List & Reviews */}
-          <div className="w-96 p-4 border-l bg-gray-50 dark:bg-gray-900">
+          <div className="w-full sm:w-96 p-4 border-t sm:border-t-0 sm:border-l bg-gray-50 dark:bg-gray-900">
             {/* Photo List */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">

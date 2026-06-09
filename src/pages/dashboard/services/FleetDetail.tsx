@@ -79,6 +79,7 @@ type FleetUnitRow = {
   ownership?: string;
   status?: string;
   thumbnail?: string;
+  ownership_type?: string;
 };
 
 type FleetReview = {
@@ -145,19 +146,6 @@ export const FleetDetail: React.FC = () => {
     const x = new Date(d);
     x.setHours(0, 0, 0, 0);
     return x;
-  };
-
-  const endOfDay = (d: Date) => {
-    const x = new Date(d);
-    x.setHours(23, 59, 59, 999);
-    return x;
-  };
-
-  const normalizeRange = (range: DateRange | undefined) => {
-    if (!range?.from) return { start: null as Date | null, end: null as Date | null };
-    const from = startOfDay(range.from);
-    const to = endOfDay(range.to ?? range.from);
-    return { start: from, end: to };
   };
 
   const toYmd = (d: Date | null) => {
@@ -326,9 +314,11 @@ export const FleetDetail: React.FC = () => {
             const created_at = getString(obj.created_at ?? obj.createdAt).trim();
             const order_id = getString(obj.order_id ?? obj.orderId ?? obj.transaction_id ?? obj.transactionId).trim();
             if (!review && !customer_name && !order_id) return null;
-            return { star, review, customer_name: customer_name || '-', created_at: created_at || undefined, order_id } satisfies FleetReview;
+            return created_at
+              ? ({ star, review, customer_name: customer_name || '-', created_at, order_id } satisfies FleetReview)
+              : ({ star, review, customer_name: customer_name || '-', order_id } satisfies FleetReview);
           })
-          .filter((v): v is FleetReview => Boolean(v));
+          .filter((v): v is FleetReview => v !== null);
 
         setFleet({
           meta: { ...metaObj, total_ulasan: metaObj.total_ulasan || reviewsArr.length },
@@ -349,14 +339,18 @@ export const FleetDetail: React.FC = () => {
     const loadSchedule = async () => {
       const fleetId = fleet?.meta?.fleet_id;
       if (!fleetId) return;
-      const r = normalizeRange(scheduleRange);
-      if (!r.start || !r.end) return;
+      const fromRaw = scheduleRange?.from;
+      if (!fromRaw) return;
+      const start = startOfDay(new Date(fromRaw));
+      const end = new Date(scheduleRange?.to ?? fromRaw);
+      end.setHours(23, 59, 59, 999);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
       setSchedulePage(1);
       setScheduleLoading(true);
       try {
         const token = localStorage.getItem('token') ?? '';
         const headers = token ? { Authorization: token } : undefined;
-        const payload = { fleet_id: fleetId, start_date: toYmd(r.start), end_date: toYmd(r.end) };
+        const payload = { fleet_id: fleetId, start_date: toYmd(start), end_date: toYmd(end) };
         const res = await api.post<unknown>('/services/schedule/daily-availibility/fleet', payload, headers);
         if (res.status === 'success') {
           const record = (v: unknown): Record<string, unknown> =>
@@ -676,7 +670,8 @@ export const FleetDetail: React.FC = () => {
   ].filter((x, i, arr) => Boolean(x) && arr.indexOf(x) === i);
 
   const unitOwnership = (value?: string) => {
-    const raw = (value ?? '').toLowerCase();
+    const raw = (value === '1' ? 'Partnership' : 'In-House').toLowerCase();
+
     if (raw.includes('in-house') || raw.includes('owned') || raw.includes('milik')) return { label: 'In-House', tone: 'green' as const };
     if (raw.includes('partner') || raw.includes('kerjasama') || raw.includes('operasional')) return { label: 'Partnership', tone: 'orange' as const };
     if (!raw) return { label: 'In-House', tone: 'green' as const };
@@ -731,10 +726,10 @@ export const FleetDetail: React.FC = () => {
 
   return (
     <div className="bg-[#F5F7FB]">
-      <div className="space-y-5 p-4 sm:p-6">
+      <div className="space-y-5 p-2 sm:p-6">
         <div className="flex flex-col gap-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
+          <div className="flex flex-wrap sm:flex-nowrap items-start justify-between gap-4">
+            <div className="flex flex-wrap sm:flex-nowrap items-start gap-3 min-w-0 flex-1">
               <Button
                 variant="outline"
                 size="icon"
@@ -743,12 +738,12 @@ export const FleetDetail: React.FC = () => {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div className="min-w-0">
+              <div className="min-w-0 w-full sm:w-auto">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900 truncate">{fleetTitle}</h1>
+                  <h1 className="text-xl sm:text-3xl font-semibold tracking-tight text-gray-900 truncate">{fleetTitle}</h1>
                   <span
                     className={clsx(
-                      'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium',
+                      'hidden sm:inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium',
                       isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-gray-50 text-gray-700'
                     )}
                   >
@@ -763,10 +758,10 @@ export const FleetDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="w-full sm:w-auto grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <div className="flex items-start gap-2 ml-auto sm:ml-0 sm:flex-wrap sm:justify-end">
               <Button
                 variant="outline"
-                className="w-full sm:w-auto bg-white border-purple-200 text-purple-700 hover:bg-white"
+                className="hidden sm:inline-flex w-full sm:w-auto bg-white border-purple-200 text-purple-700 hover:bg-white"
                 onClick={() => setShowAdModal(true)}
               >
                 <ImageIcon className="h-4 w-4 mr-2" />
@@ -778,12 +773,21 @@ export const FleetDetail: React.FC = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full sm:w-auto bg-white border-gray-200/70 hover:bg-white">
-                    <MoreVertical className="h-4 w-4 mr-2" />
-                    Lainnya
+                  <Button
+                    aria-label="Menu"
+                    variant="outline"
+                    className="h-10 w-10 p-0 bg-white border-gray-200/70 hover:bg-white sm:h-9 sm:w-auto sm:px-4 sm:py-2"
+                  >
+                    <span className="hidden sm:inline">Menu</span>
+                    <MoreVertical className="h-4 w-4 sm:ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-56">
+                  <DropdownMenuItem onClick={() => setShowAdModal(true)} className="cursor-pointer sm:hidden">
+                    <ImageIcon className="h-4 w-4 mr-2" />
+                    Buat Gambar Iklan
+                  </DropdownMenuItem>
+
                   <DropdownMenuItem
                     onClick={() => navigate(`${basePrefix}/services/fleet/edit/${encodeURIComponent(fleet.meta.fleet_id)}`)}
                     className="cursor-pointer"
@@ -818,8 +822,8 @@ export const FleetDetail: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="order-1 rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-xs text-gray-500">Total Pesanan</div>
@@ -856,7 +860,7 @@ export const FleetDetail: React.FC = () => {
                 ) : null}
               </div>
 
-              <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+              <div className="order-3 col-span-2 sm:col-span-1 sm:order-2 rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-xs text-gray-500">Total Pendapatan</div>
@@ -883,7 +887,7 @@ export const FleetDetail: React.FC = () => {
                     })()
                   ) : null}
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-blue-600">
+                <div className="mt-2 text-md sm:text-2xl font-semibold text-blue-600">
                   {revenueLoading ? <Skeleton className="h-7 w-40" /> : formatCurrency(revenueSummary?.current.totalRevenue ?? 0)}
                 </div>
                 {!revenueLoading && revenueSummary?.previous ? (
@@ -893,7 +897,7 @@ export const FleetDetail: React.FC = () => {
                 ) : null}
               </div>
 
-              <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
+              <div className="order-2 sm:order-3 rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-xs text-gray-500">Ulasan</div>
@@ -977,7 +981,7 @@ export const FleetDetail: React.FC = () => {
                         ))}
                       </div>
 
-                      <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
+                      <div className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
                         <div className="text-sm font-semibold text-gray-900">Deskripsi</div>
                         {fleet.meta.description ? (
                           <div
@@ -990,7 +994,7 @@ export const FleetDetail: React.FC = () => {
                       </div>
 
 
-                      <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
+                      <div className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
                         <div className="text-sm font-semibold text-gray-900">Fasilitas</div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {fleet.facilities.length > 0 ? (
@@ -1005,7 +1009,7 @@ export const FleetDetail: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border border-gray-200/60 bg-white p-4">
+                      <div className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
                         <div className="text-sm font-semibold text-gray-900">Pickup Points</div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {fleet.pickup.length > 0 ? (
@@ -1047,12 +1051,11 @@ export const FleetDetail: React.FC = () => {
                         <Table>
                           <TableHeader>
                             <TableRow className="bg-gray-50 hover:bg-gray-50">
-                              <TableHead className="px-4">Vehicle ID</TableHead>
-                              <TableHead>Plate Number</TableHead>
-                              <TableHead>Engine</TableHead>
-                              <TableHead className="text-center">Capacity</TableHead>
-                              <TableHead>Ownership</TableHead>
-                              <TableHead>Status</TableHead>
+                              <TableHead className="px-4">Unit ID</TableHead>
+                              <TableHead>Plat Nomor</TableHead>
+                              <TableHead>Mesin</TableHead>
+                              <TableHead className="text-center">Kapasitas</TableHead>
+                              <TableHead>Kepemilikan</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1075,7 +1078,6 @@ export const FleetDetail: React.FC = () => {
                             ) : (
                               filteredUnits.map((u) => {
                                 const own = unitOwnership(u.ownership);
-                                const st = unitStatus(u.status);
                                 return (
                                   <TableRow key={u.id} className="hover:bg-gray-50">
                                     <TableCell className="px-4 font-medium">
@@ -1092,7 +1094,7 @@ export const FleetDetail: React.FC = () => {
                                     </TableCell>
                                     <TableCell className="text-gray-700">{u.plate_number || '-'}</TableCell>
                                     <TableCell className="text-gray-700">{u.engine || '-'}</TableCell>
-                                    <TableCell className="text-center text-gray-700">{u.capacity || '-'}</TableCell>
+                                    <TableCell className="text-center text-gray-700">{u.capacity || '-'} seat</TableCell>
                                     <TableCell>
                                       <span
                                         className={clsx(
@@ -1101,12 +1103,6 @@ export const FleetDetail: React.FC = () => {
                                         )}
                                       >
                                         {own.label}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell>
-                                      <span className="inline-flex items-center gap-2 text-sm text-gray-700">
-                                        <span className={clsx('h-2 w-2 rounded-full', st.tone === 'green' ? 'bg-emerald-500' : 'bg-blue-500')} />
-                                        {st.label}
                                       </span>
                                     </TableCell>
                                     
@@ -1299,15 +1295,15 @@ export const FleetDetail: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white">
-                        <Table>
+                      <div className="rounded-2xl border border-gray-200/70 bg-white overflow-x-auto">
+                        <Table className="min-w-[720px]">
                           <TableHeader>
                             <TableRow className="bg-gray-50 hover:bg-gray-50">
-                              <TableHead className="px-4 w-14">No</TableHead>
-                              <TableHead>Tanggal</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-center">Jumlah Unit</TableHead>
-                              <TableHead className="text-right pr-4">Action</TableHead>
+                              <TableHead className="px-4 w-14 whitespace-nowrap">No</TableHead>
+                              <TableHead className="whitespace-nowrap w-56">Tanggal</TableHead>
+                              <TableHead className="whitespace-nowrap w-44">Status</TableHead>
+                              <TableHead className="text-center whitespace-nowrap w-32">Jumlah Unit</TableHead>
+                              <TableHead className="text-right pr-4 whitespace-nowrap w-20">Action</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1346,8 +1342,8 @@ export const FleetDetail: React.FC = () => {
                                 return (
                                   <TableRow key={`${row.date}-${idx}`} className="hover:bg-gray-50">
                                     <TableCell className="px-4 text-gray-700">{schedulePageStart + idx + 1}</TableCell>
-                                    <TableCell className="font-medium text-gray-900">{dateLabel}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="font-medium text-gray-900 whitespace-nowrap">{dateLabel}</TableCell>
+                                    <TableCell className="whitespace-nowrap">
                                       {row.available ? (
                                         <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 inline-flex items-center gap-1.5">
                                           <CheckCircle2 className="h-4 w-4" />
@@ -1360,7 +1356,7 @@ export const FleetDetail: React.FC = () => {
                                         </Badge>
                                       )}
                                     </TableCell>
-                                    <TableCell className="text-center text-gray-700">{unitCount} unit</TableCell>
+                                    <TableCell className="text-center text-gray-700 whitespace-nowrap">{unitCount} unit</TableCell>
                                     <TableCell className="text-right pr-4">
                                       {unitCount > 0 ? (
                                         <Button
@@ -1498,13 +1494,15 @@ export const FleetDetail: React.FC = () => {
                   <div className="text-xs text-gray-500">Dibuat Oleh</div>
                   <div className="mt-1 font-medium text-gray-900 truncate">{fleet.meta.created_by || '-'}</div>
                 </div>
-                <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
-                  <div className="text-xs text-gray-500">Tanggal Dibuat</div>
-                  <div className="mt-1 font-medium text-gray-900 truncate">{formatDate(fleet.meta.created_at)}</div>
-                </div>
-                <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
-                  <div className="text-xs text-gray-500">Tanggal Diperbarui</div>
-                  <div className="mt-1 font-medium text-gray-900 truncate">{formatDate(fleet.meta.updated_at)}</div>
+                <div className="grid grid-cols-2 gap-4 sm:contents">
+                  <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
+                    <div className="text-xs text-gray-500">Tanggal Dibuat</div>
+                    <div className="text-xs sm:text-sm mt-1 font-medium text-gray-900 truncate">{formatDate(fleet.meta.created_at)}</div>
+                  </div>
+                  <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
+                    <div className="text-xs text-gray-500">Tanggal Diperbarui</div>
+                    <div className="text-xs sm:text-sm mt-1 font-medium text-gray-900 truncate">{formatDate(fleet.meta.updated_at)}</div>
+                  </div>
                 </div>
               </div>
             </div>

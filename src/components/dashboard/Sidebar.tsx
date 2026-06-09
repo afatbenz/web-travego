@@ -131,10 +131,10 @@ export const Sidebar: React.FC = () => {
         items: [{ title: 'Dashboard', icon: Home, href: basePrefix }]
       },
       {
-        label: 'Pesanan',
+        label: 'Orders',
         items: [
-          { title: 'Pesanan Armada', icon: Car, href: `${basePrefix}/orders/fleet` },
-          { title: 'Pesanan Wisata', icon: Package, href: `${basePrefix}/orders/tour` },
+          { title: 'Armad Pariwisata', icon: Car, href: `${basePrefix}/orders/fleet` },
+          // { title: 'Pesanan Wisata', icon: Package, href: `${basePrefix}/orders/tour` },
         ]
       },
       {

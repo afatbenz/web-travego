@@ -304,7 +304,7 @@ export const FleetScheduleDetail: React.FC = () => {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Memproses Surat Jalan</title>
+    <title>Generate File...</title>
     <style>
       body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0b1220; color: #e5e7eb; }
       .wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 24px; }
@@ -320,8 +320,8 @@ export const FleetScheduleDetail: React.FC = () => {
   <body>
     <div class="wrap">
       <div class="card">
-        <div class="title">Surat Jalan sedang diproses</div>
-        <p class="desc">Surat jalan sedang diproses. Mohon tunggu dan izinkan popup.</p>
+        <div class="title">Generate File...</div>
+        <p class="desc">Mohon tunggu dan izinkan popup.</p>
         <div class="row">
           <div class="spinner"></div>
           <div>Menunggu respon server...</div>
@@ -337,8 +337,8 @@ export const FleetScheduleDetail: React.FC = () => {
       }
     }
     void Swal.fire({
-      title: 'Surat Jalan sedang diproses',
-      text: 'Surat jalan sedang diproses. Mohon tunggu dan izinkan popup',
+      title: 'Generate File...',
+      text: 'Generate File...',
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
@@ -348,16 +348,14 @@ export const FleetScheduleDetail: React.FC = () => {
     });
 
     const base = String(import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api').replace(/\/+$/, '');
-    const url = `${base}/schedules/fleet-trip/print`;
+    const url = `${base}/services/print-management/fleet/trips/${encodeURIComponent(scheduleNumber)}`;
     try {
       const res = await fetch(url, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           Accept: 'application/pdf, application/octet-stream, application/json',
-          'Content-Type': 'application/json',
           ...(token ? { Authorization: token } : {}),
         },
-        body: JSON.stringify({ schedule_number: scheduleNumber }),
       });
       const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
       if (!res.ok) throw new Error('PRINT_FAILED');
@@ -380,7 +378,8 @@ export const FleetScheduleDetail: React.FC = () => {
         return;
       }
 
-      const blob = await res.blob();
+      const buffer = await res.arrayBuffer();
+      const blob = new Blob([buffer], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
       await wait(700);
       if (popup) popup.location.href = blobUrl;

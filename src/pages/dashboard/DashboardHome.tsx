@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Users, ShoppingBag, TrendingUp, Car, MapPin, DollarSign, ChartSpline, MapPinCheck, MapPinHouse, TreePalm, PersonStanding } from 'lucide-react';
+import { Users, ShoppingBag, TrendingUp, Car, MapPin, DollarSign, ChartSpline, MapPinCheck, MapPinHouse, TreePalm, PersonStanding, ArrowDownRight, ArrowRight, ArrowUpRight, Minus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
+import { Link } from 'react-router-dom';
 
 interface TransactionMetric { label: string; value: number }
 interface PeriodStat { current: number; previous: number; total_amount: number; prev_amount: number; transaction_metrics: TransactionMetric[] }
@@ -20,15 +21,17 @@ interface DashboardData {
   messages?: { current: number; previous: number };
   revenue?: PeriodStat;
   expenses?: PeriodStat;
-  transaction?: { total_order?: number; order_percentage?: number };
-  customers?: { total_customers?: number; customer_percentage?: number };
+  transaction?: { total_order?: number; prev_total_orders?: number; order_percentage?: number };
+  customers?: { total_customers?: number; prev_total_customers?: number; customer_percentage?: number };
 }
 
 export const DashboardHome: React.FC = () => {
   const [periodPreset, setPeriodPreset] = useState('Bulan Ini');
   const [totalOrders, setTotalOrders] = useState(0);
+  const [previousTotalOrders, setPreviousTotalOrders] = useState(0);
   const [orderPercentage, setOrderPercentage] = useState(0);
   const [totalCustomers, setTotalCustomers] = useState(0);
+  const [previousTotalCustomers, setPreviousTotalCustomers] = useState(0);
   const [customerPercentage, setCustomerPercentage] = useState(0);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [revenueStat, setRevenueStat] = useState<PeriodStat | null>(null);
@@ -207,12 +210,16 @@ export const DashboardHome: React.FC = () => {
         if (dashboardRes.status === 'success' && dashboardRes.data && typeof dashboardRes.data === 'object') {
           const root = dashboardRes.data as DashboardData;
           const nextTotalOrders = toFiniteNumber(root.transaction?.total_order);
+          const nextPreviousTotalOrders = toFiniteNumber(root.transaction?.prev_total_orders);
           const nextOrderPct = toFiniteNumber(root.transaction?.order_percentage);
           const nextTotalCustomers = toFiniteNumber(root.customers?.total_customers);
+          const nextPreviousTotalCustomers = toFiniteNumber(root.customers?.prev_total_customers);
           const nextCustomerPct = toFiniteNumber(root.customers?.customer_percentage);
           setTotalOrders(nextTotalOrders);
+          setPreviousTotalOrders(nextPreviousTotalOrders);
           setOrderPercentage(nextOrderPct);
           setTotalCustomers(nextTotalCustomers);
+          setPreviousTotalCustomers(nextPreviousTotalCustomers);
           setCustomerPercentage(nextCustomerPct);
           setRevenueStat(parsePeriodStat(root.revenue));
           setExpensesStat(parsePeriodStat(root.expenses));
@@ -268,39 +275,63 @@ export const DashboardHome: React.FC = () => {
     title: string;
     value: string;
     change: string;
-    changeType: 'increase' | 'decrease';
+    changeType: 'increase' | 'decrease' | 'neutral';
     icon: React.ElementType;
     color: string;
-  }> = ({ title, value, change, changeType, icon: Icon, color }) => {
+    previousPeriodText?: string;
+    footerLabel?: string;
+    footerHref?: string;
+  }> = ({ title, value, change, changeType, icon: Icon, color, previousPeriodText, footerLabel, footerHref }) => {
+    const trendStyles =
+      changeType === 'increase'
+        ? 'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400'
+        : changeType === 'decrease'
+          ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400'
+          : 'bg-gray-100 text-gray-600 dark:bg-gray-500/10 dark:text-gray-300';
+    const TrendIcon = changeType === 'increase' ? ArrowUpRight : changeType === 'decrease' ? ArrowDownRight : Minus;
+
     return (
-      <Card className="hover:shadow-lg transition-shadow duration-200">
+      <Card className="hover:shadow-lg transition-shadow duration-200 pb-0">
         <CardContent className="px-4 py-3 md:p-4 lg:p-6">
-          <div className="space-y-1 md:flex md:items-center md:justify-between md:space-y-0">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Icon className={`h-4 w-4 ${color}`} />
-                <p className="text-[11px] md:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
-                  {title}
+          <div className="space-y-3">
+            <div className="space-y-1 md:flex md:items-center md:justify-between md:space-y-0">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Icon className={`h-4 w-4 ${color}`} />
+                  <p className="text-[11px] md:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
+                    {title}
+                  </p>
+                </div>
+                <p className="mt-1 text-base md:text-lg lg:text-2xl font-bold text-gray-900 dark:text-white">
+                  {value}
                 </p>
+                <div className="mt-2 space-y-1">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs lg:text-sm font-medium ${trendStyles}`}>
+                    <TrendIcon className="h-3.5 w-3.5" />
+                    {change}
+                  </span>
+                  {previousPeriodText ? (
+                    <p className="text-[11px] lg:text-xs text-gray-500 dark:text-gray-400">
+                      {previousPeriodText}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-              <p className="mt-1 text-base md:text-lg lg:text-2xl font-bold text-gray-900 dark:text-white">
-                {value}
-              </p>
-              <div className="hidden md:flex items-center mt-1 lg:mt-2">
-                <span
-                  className={`text-xs lg:text-sm font-medium ${
-                    changeType === 'increase' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}
-                >
-                  {change}
-                </span>
+              <div
+                className={`hidden md:flex w-10 h-10 lg:w-12 lg:h-12 ${color} bg-opacity-10 rounded-lg items-center justify-center flex-shrink-0`}
+              >
+                <Icon className={`h-5 w-5 lg:h-6 lg:w-6 ${color}`} />
               </div>
             </div>
-            <div
-              className={`hidden md:flex w-10 h-10 lg:w-12 lg:h-12 ${color} bg-opacity-10 rounded-lg items-center justify-center flex-shrink-0`}
-            >
-              <Icon className={`h-5 w-5 lg:h-6 lg:w-6 ${color}`} />
-            </div>
+            {footerLabel && footerHref ? (
+              <Link
+                to={footerHref}
+                className="flex items-center justify-between border-t border-gray-100 pt-3 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 dark:border-gray-800 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                <span>{footerLabel}</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -312,17 +343,23 @@ export const DashboardHome: React.FC = () => {
       title: 'Total Pesanan',
       value: totalOrders.toLocaleString('id-ID'),
       change: `${orderPercentage >= 0 ? '+' : ''}${orderPercentage}%`,
-      changeType: orderPercentage >= 0 ? 'increase' : 'decrease',
+      changeType: orderPercentage > 0 ? 'increase' : orderPercentage < 0 ? 'decrease' : 'neutral',
       icon: ShoppingBag,
-      color: 'text-blue-600 dark:text-blue-400'
+      color: 'text-blue-600 dark:text-blue-400',
+      previousPeriodText: `periode sebelumnya ${previousTotalOrders}`,
+      footerLabel: 'Lihat Detail',
+      footerHref: '/dashboard/partner/services/fleet',
     },
     {
       title: 'Jumlah Pelanggan',
       value: totalCustomers.toLocaleString('id-ID'),
       change: `${customerPercentage >= 0 ? '+' : ''}${customerPercentage}%`,
-      changeType: customerPercentage >= 0 ? 'increase' : 'decrease',
+      changeType: customerPercentage > 0 ? 'increase' : customerPercentage < 0 ? 'decrease' : 'neutral',
       icon: Users,
-      color: 'text-green-600 dark:text-green-400'
+      color: 'text-green-600 dark:text-green-400',
+      previousPeriodText: `periode sebelumnya ${previousTotalCustomers.toLocaleString('id-ID')}`,
+      footerLabel: 'Lihat Detail',
+      footerHref: '/dashboard/partner/customers',
     },
     (() => {
       const current = revenueStat?.total_amount ?? 0;
@@ -332,9 +369,12 @@ export const DashboardHome: React.FC = () => {
         title: 'Pemasukan Bulan Ini',
         value: formatCurrency(current),
         change: `${change.pct > 0 ? '+' : ''}${change.pct}%`,
-        changeType: change.pct >= 0 ? 'increase' : 'decrease',
+        changeType: change.direction === 'flat' ? 'neutral' : change.pct > 0 ? 'increase' : 'decrease',
         icon: TrendingUp,
-        color: 'text-orange-600 dark:text-orange-400'
+        color: 'text-orange-600 dark:text-orange-400',
+        previousPeriodText: `periode sebelumnya ${formatCurrency(previous)}`,
+        footerLabel: 'Lihat Detail',
+        footerHref: '/dashboard/partner/finance/revenue',
       } as const;
     })(),
     (() => {
@@ -345,9 +385,12 @@ export const DashboardHome: React.FC = () => {
         title: 'Pengeluaran Bulan Ini',
         value: formatCurrency(current),
         change: `${change.pct > 0 ? '+' : ''}${change.pct}%`,
-        changeType: change.pct >= 0 ? 'increase' : 'decrease',
+        changeType: change.direction === 'flat' ? 'neutral' : change.pct > 0 ? 'increase' : 'decrease',
         icon: DollarSign,
-        color: 'text-red-600 dark:text-red-400'
+        color: 'text-red-600 dark:text-red-400',
+        previousPeriodText: `periode sebelumnya ${formatCurrency(previous)}`,
+        footerLabel: 'Lihat Detail',
+        footerHref: '/dashboard/partner/finance/expenses',
       } as const;
     })(),
   ];
@@ -726,6 +769,9 @@ export const DashboardHome: React.FC = () => {
                 changeType={card.changeType}
                 icon={card.icon}
                 color={card.color}
+                previousPeriodText={card.previousPeriodText}
+                footerLabel={card.footerLabel}
+                footerHref={card.footerHref}
               />
             ))}
           </div>

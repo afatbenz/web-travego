@@ -1334,18 +1334,7 @@ export const FleetOrderForm: React.FC = () => {
     });
   };
 
-  const formReady = useMemo(() => validate() === null, [
-    armadaEntries,
-    rentType,
-    customer?.id,
-    pickupAt,
-    dropoffAt,
-    pickupAddress,
-    pickupCity?.id,
-    itinerary,
-    daysCount,
-    computedTotalPrice
-  ]);
+  const formReady = useMemo(() => validate() === null, [validate]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

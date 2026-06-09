@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Calendar as CalendarIcon, Check, ChevronDown, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, ChevronDown, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Locale } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
@@ -90,6 +90,9 @@ export type FilterBarProps<V extends Record<string, unknown>> = {
   dateLocale?: Locale;
   resetButtonClassName?: string;
   submitButtonClassName?: string;
+  resetIconOnly?: boolean;
+  actionsSlot?: React.ReactNode;
+  mobileActionGrid?: boolean;
 };
 
 const formatDate = (d: Date, fmt: string, locale?: Locale) =>
@@ -112,7 +115,10 @@ export function FilterBar<V extends Record<string, unknown>>({
   desktopDateFormat: desktopDateFormatProp,
   dateLocale,
   resetButtonClassName,
-  submitButtonClassName
+  submitButtonClassName,
+  resetIconOnly = false,
+  actionsSlot,
+  mobileActionGrid = false
 }: FilterBarProps<V>) {
   const [openField, setOpenField] = useState<string | null>(null);
 
@@ -121,7 +127,7 @@ export function FilterBar<V extends Record<string, unknown>>({
     onSubmit?.(values);
   };
 
-  const hasActions = Boolean(onSubmit || onReset);
+  const hasActions = Boolean(onSubmit || onReset || actionsSlot);
   const isGrid = layout === 'responsive-grid';
   const desktopDateFormat = desktopDateFormatProp ?? dateFormatProp ?? 'dd MMM yyyy';
   const mobileDateFormat = mobileDateFormatProp ?? desktopDateFormat;
@@ -151,7 +157,7 @@ export function FilterBar<V extends Record<string, unknown>>({
         <div
           className={cn(
             isGrid
-              ? 'p-2 grid grid-cols-2 items-end gap-3 md:flex md:flex-nowrap md:items-end md:overflow-x-auto'
+              ? 'p-2 grid grid-cols-1 items-end gap-3 md:flex md:flex-nowrap md:items-end md:overflow-x-auto'
               : 'flex flex-wrap items-end gap-3'
           )}
         >
@@ -344,7 +350,7 @@ export function FilterBar<V extends Record<string, unknown>>({
             }
 
             const v = values[field.name];
-            const range = (v && typeof v === 'object' ? (v as DateRange) : undefined) as DateRange | undefined;
+            const range = (v && typeof v === 'object' ? (v as unknown as DateRange) : undefined) as DateRange | undefined;
             const mobileText =
               range?.from && range?.to
                 ? `${formatDate(range.from, mobileDateFormat, dateLocale)} - ${formatDate(range.to, mobileDateFormat, dateLocale)}`
@@ -393,8 +399,9 @@ export function FilterBar<V extends Record<string, unknown>>({
                       numberOfMonths={1}
                       selected={range}
                       onSelect={(next) => {
+                        const hadPendingStart = Boolean(range?.from && !range?.to);
                         onChange(field.name as keyof V, (next ?? undefined) as unknown as V[keyof V]);
-                        if (next?.from && next?.to) setOpenField(null);
+                        if (hadPendingStart && next?.from && next?.to) setOpenField(null);
                       }}
                       initialFocus
                     />
@@ -407,25 +414,37 @@ export function FilterBar<V extends Record<string, unknown>>({
           {hasActions ? (
             isGrid ? (
               <>
-                {onReset ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="md:hidden h-10 w-full rounded-lg"
-                    onClick={() => {
-                      onReset();
-                      setOpenField(null);
-                    }}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    {resetLabel}
-                  </Button>
-                ) : null}
+                {(onReset || onSubmit || actionsSlot) ? (
+                  <div className={cn('grid w-full gap-3 md:hidden', mobileActionGrid ? 'grid-cols-2' : 'grid-cols-1')}>
+                    {onReset ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          'h-10 rounded-lg w-full',
+                          resetIconOnly ? 'md:w-10 md:rounded-2xl md:px-0' : '',
+                          resetButtonClassName
+                        )}
+                        onClick={() => {
+                          onReset();
+                          setOpenField(null);
+                        }}
+                        aria-label={resetLabel}
+                        title={resetLabel}
+                      >
+                        <RotateCcw className={cn('h-4 w-4', resetIconOnly ? 'mr-2 md:mr-0' : 'mr-2')} />
+                        {resetIconOnly ? <span className="md:hidden">{resetLabel}</span> : resetLabel}
+                      </Button>
+                    ) : null}
 
-                {onSubmit ? (
-                  <Button type="submit" className="md:hidden h-10 w-full rounded-lg">
-                    {submitLabel}
-                  </Button>
+                    {onSubmit ? (
+                      <Button type="submit" className="h-10 w-full rounded-lg">
+                        {submitLabel}
+                      </Button>
+                    ) : null}
+
+                    {actionsSlot ? <div className="w-full">{actionsSlot}</div> : null}
+                  </div>
                 ) : null}
 
                 <div className="hidden md:flex ml-auto items-center gap-2">
@@ -433,16 +452,24 @@ export function FilterBar<V extends Record<string, unknown>>({
                     <Button
                       type="button"
                       variant="outline"
-                      className={cn('h-10 rounded-lg', resetButtonClassName)}
+                      className={cn(
+                        'h-10 rounded-lg',
+                        resetIconOnly ? 'w-10 rounded-2xl px-0' : '',
+                        resetButtonClassName
+                      )}
                       onClick={() => {
                         onReset();
                         setOpenField(null);
                       }}
+                    aria-label={resetLabel}
+                    title={resetLabel}
                     >
-                      <X className="mr-2 h-4 w-4" />
-                      {resetLabel}
+                      <RotateCcw className={cn('h-4 w-4', resetIconOnly ? '' : 'mr-2')} />
+                      {resetIconOnly ? null : resetLabel}
                     </Button>
                   ) : null}
+
+                  {actionsSlot}
 
                   {onSubmit ? (
                     <Button type="submit" className={cn('h-10 rounded-lg', submitButtonClassName)}>
@@ -452,19 +479,21 @@ export function FilterBar<V extends Record<string, unknown>>({
                 </div>
               </>
             ) : (
-              <div className="ml-auto flex items-center gap-2">
+              <div className={cn('ml-auto flex items-center gap-2', mobileActionGrid ? 'grid grid-cols-2 w-full md:flex' : '')}>
                 {onReset ? (
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 rounded-lg"
+                    className={cn('h-10 rounded-lg w-full', resetIconOnly ? 'md:w-10 md:rounded-2xl md:px-0' : '')}
                     onClick={() => {
                       onReset();
                       setOpenField(null);
                     }}
+                    aria-label={resetLabel}
+                    title={resetLabel}
                   >
-                    <X className="mr-2 h-4 w-4" />
-                    {resetLabel}
+                    <RotateCcw className={cn('h-4 w-4', resetIconOnly ? 'mr-2 md:mr-0' : 'mr-2')} />
+                    {resetIconOnly ? <span className="md:hidden">{resetLabel}</span> : resetLabel}
                   </Button>
                 ) : null}
 
@@ -473,6 +502,8 @@ export function FilterBar<V extends Record<string, unknown>>({
                     {submitLabel}
                   </Button>
                 ) : null}
+
+                {actionsSlot}
               </div>
             )
           ) : null}

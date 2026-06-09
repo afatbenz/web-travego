@@ -49,10 +49,10 @@ function Calendar({
           'h-8 w-8 p-0 font-normal aria-selected:opacity-100 bg-transparent text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800'
         ),
         // Make range start and end share the same highlight as selected
-        day_range_start: 'day-range-start bg-blue-600 text-white hover:bg-blue-700',
-        day_range_end: 'day-range-end bg-blue-600 text-white hover:bg-blue-700',
+        day_range_start: 'day-range-start bg-blue-600 text-white hover:bg-blue-700 hover:text-white focus:bg-blue-700 focus:text-white',
+        day_range_end: 'day-range-end bg-blue-600 text-white hover:bg-blue-700 hover:text-white focus:bg-blue-700 focus:text-white',
         day_selected:
-          'bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700',
+          'bg-blue-600 text-white hover:bg-blue-700 hover:text-white focus:bg-blue-700 focus:text-white',
         day_today: 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
         day_outside:
           'day-outside text-muted-foreground opacity-50  aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30',

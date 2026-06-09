@@ -1,14 +1,24 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Check, ChevronsUpDown, CreditCard, Filter, LogOut, Plus, Info, Save, X, Receipt } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, ChevronRight, ChevronsUpDown, CreditCard, Download, FileSpreadsheet, LogOut, MoreHorizontal, Pencil, Plus, Receipt, Save, Trash2, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { api } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
-import { FilterBar } from '@/components/common/FilterBar';
 import { showAlert } from '@/hooks/use-alert';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,17 +40,57 @@ export const GeneralExpenses: React.FC = () => {
     amount: number;
     statusLabel: string;
     orderType: number;
+    transactionTypeId: string;
+    transactionCategoryId: string;
+    paymentTypeId: string;
+    paymentMethodId: string;
+    orderId: string;
+    unitId: string;
+    bankCode: string;
+    bankAccount: string;
+    bankAccountName: string;
+  };
+  type ExpenseExportRow = {
+    transactionDate: string;
+    invoiceNumber: string;
+    transactionCategoryLabel: string;
+    transactionItemLabel: string;
+    description: string;
+    amount: number;
+    paymentMethodLabel: string;
+    paymentTypeLabel: string;
+    createdAt: string;
+    createdBy: string;
   };
 
-  type FilterValues = {
-    month: string;
-    year: string;
-    invoice_number: string;
-    transaction_type_label: string;
-  };
+  const PERIOD_OPTIONS = ['Bulan Ini', 'Bulan Lalu', '3 Bulan Terakhir', 'Tahun Ini', '1 Tahun terakhir', 'Tahun Lalu'] as const;
+  type PeriodOption = (typeof PERIOD_OPTIONS)[number];
 
   type IntOption = { id: string; label: string };
   type BankOption = { code: string; name: string };
+  type ManualFormValues = {
+    transaction_date: string;
+    transaction_type: string;
+    order_type: string;
+    order_id: string;
+    status: string;
+    payment_method: string;
+    amount: string;
+    description: string;
+    bank_code: string;
+    bank_account: string;
+    bank_account_name: string;
+  };
+  const GoogleSheetIcon = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <path
+        d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"
+        fill="#0F9D58"
+      />
+      <path d="M14 2v5h5z" fill="#34A853" />
+      <path d="M8 10h8M8 13h8M8 16h8M12 8v10" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
 
   const toRecord = (v: unknown): Record<string, unknown> =>
     v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -58,6 +108,31 @@ export const GeneralExpenses: React.FC = () => {
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const addMonthsClamped = (d: Date, months: number): Date => {
+    const day = d.getDate();
+    const anchor = new Date(d.getFullYear(), d.getMonth(), 1);
+    const target = new Date(anchor.getFullYear(), anchor.getMonth() + months, 1);
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    return new Date(target.getFullYear(), target.getMonth(), Math.min(day, lastDay));
+  };
+
+  const addYearsClamped = (d: Date, years: number): Date => addMonthsClamped(d, years * 12);
+
+  const startOfMonth = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), 1);
+  const endOfMonth = (d: Date): Date => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+
+  const getPeriodRange = (period: PeriodOption, now: Date = new Date()): { start: Date; end: Date } => {
+    if (period === 'Bulan Ini') return { start: startOfMonth(now), end: endOfMonth(now) };
+    if (period === 'Bulan Lalu') {
+      const prev = addMonthsClamped(now, -1);
+      return { start: startOfMonth(prev), end: endOfMonth(prev) };
+    }
+    if (period === '3 Bulan Terakhir') return { start: addMonthsClamped(now, -3), end: now };
+    if (period === 'Tahun Ini') return { start: new Date(now.getFullYear(), 0, 1), end: now };
+    if (period === '1 Tahun terakhir') return { start: addYearsClamped(now, -1), end: now };
+    return { start: new Date(now.getFullYear() - 1, 0, 1), end: new Date(now.getFullYear() - 1, 11, 31) };
   };
 
   const tryParseDate = (value: string): Date | null => {
@@ -89,43 +164,26 @@ export const GeneralExpenses: React.FC = () => {
     if (!Number.isFinite(n) || n < 0) return '';
     return `Rp ${Math.round(n).toLocaleString('id-ID')}`;
   };
-
-  const statusBadge = (status: string) => {
-    const v = String(status ?? '').trim().toLowerCase();
-    if (!v) return <Badge variant="outline">-</Badge>;
-    if (['paid', 'lunas', 'success', 'completed', 'selesai'].some((x) => v.includes(x))) {
-      return (
-        <Badge className="rounded-full border-transparent bg-transparent px-3 py-1 font-medium text-emerald-700 hover:bg-gray-200/10 dark:bg-emerald-400/15 dark:text-emerald-300 dark:hover:bg-emerald-400/15">
-          Lunas
-        </Badge>
-      );
-    }
-    return <Badge variant="outline">{status}</Badge>;
+  const formatExportTimestamp = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${yyyy}${mm}${dd}${hh}${min}`;
+  };
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   };
 
-  const monthNames = useMemo(
-    () => ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'],
-    []
-  );
-
-  const [loading, setLoading] = useState(false);
-  const [rows, setRows] = useState<TransactionRow[]>([]);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualSubmitting, setManualSubmitting] = useState(false);
-  const [transactionDateOpen, setTransactionDateOpen] = useState(false);
-  const [transactionTypeOpen, setTransactionTypeOpen] = useState(false);
-  const [orderOpen, setOrderOpen] = useState(false);
-  const [orderLoading, setOrderLoading] = useState(false);
-  const [orderTypes, setOrderTypes] = useState<IntOption[]>([]);
-  const [orderList, setOrderList] = useState<{ id: string; label: string }[]>([]);
-  const [transactionTypes, setTransactionTypes] = useState<IntOption[]>([]);
-  const [paymentStatuses, setPaymentStatuses] = useState<IntOption[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<IntOption[]>([]);
-  const [banks, setBanks] = useState<BankOption[]>([]);
-  const [manualForm, setManualForm] = useState({
+  const createDefaultManualForm = (): ManualFormValues => ({
     transaction_date: toYmdLocal(new Date()),
     transaction_type: '',
     order_type: '',
@@ -138,27 +196,32 @@ export const GeneralExpenses: React.FC = () => {
     bank_account: '',
     bank_account_name: '',
   });
-  const [filters, setFilters] = useState<FilterValues>({
-    month: String(new Date().getMonth() + 1).padStart(2, '0'),
-    year: String(new Date().getFullYear()),
-    invoice_number: '',
-    transaction_type_label: 'all',
-  });
 
-  const selectedMonthIndex = Math.min(11, Math.max(0, Number(filters.month || '1') - 1));
-  const selectedYear = Number(filters.year || String(new Date().getFullYear())) || new Date().getFullYear();
-
-  const monthOptions = useMemo(() => {
-    return monthNames.map((label, i) => ({ label, value: String(i + 1).padStart(2, '0') }));
-  }, [monthNames]);
-
-  const yearOptions = useMemo(() => {
-    const y = new Date().getFullYear();
-    return Array.from({ length: 9 }).map((_, i) => {
-      const year = y - 4 + i;
-      return { label: String(year), value: String(year) };
-    });
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<TransactionRow[]>([]);
+  const [exportRows, setExportRows] = useState<ExpenseExportRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualMode, setManualMode] = useState<'create' | 'edit'>('create');
+  const [activeTransactionId, setActiveTransactionId] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<TransactionRow | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [transactionDateOpen, setTransactionDateOpen] = useState(false);
+  const [transactionTypeOpen, setTransactionTypeOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderTypes, setOrderTypes] = useState<IntOption[]>([]);
+  const [orderList, setOrderList] = useState<{ id: string; label: string }[]>([]);
+  const [transactionTypes, setTransactionTypes] = useState<IntOption[]>([]);
+  const [paymentStatuses, setPaymentStatuses] = useState<IntOption[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<IntOption[]>([]);
+  const [banks, setBanks] = useState<BankOption[]>([]);
+  const [manualForm, setManualForm] = useState<ManualFormValues>(createDefaultManualForm);
+  const [period, setPeriod] = useState<PeriodOption>('Bulan Ini');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const requestIdRef = useRef(0);
   const metaRequestIdRef = useRef(0);
@@ -169,11 +232,17 @@ export const GeneralExpenses: React.FC = () => {
     try {
       const token = localStorage.getItem('token') ?? '';
       const headers = headersOverride ?? (token ? { Authorization: token } : undefined);
-      const res = await api.get<unknown>('/services/transactions/expenses', headers);
+      const { start, end } = getPeriodRange(period);
+      const params = new URLSearchParams();
+      params.set('start_date', toYmdLocal(start));
+      params.set('end_date', toYmdLocal(end));
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      const res = await api.get<unknown>(`/services/transactions/expenses?${params.toString()}`, headers);
       if (currentReq !== requestIdRef.current) return;
 
       if (res.status !== 'success') {
         setRows([]);
+        setExportRows([]);
         return;
       }
 
@@ -220,6 +289,28 @@ export const GeneralExpenses: React.FC = () => {
           o.status_label ?? o.statusLabel ?? o.status ?? o.payment_status_label ?? o.paymentStatusLabel ?? o.payment_status
         ).trim();
         const orderType = toNumberSafe(o.order_type ?? o.orderType);
+        const transactionTypeId = toStringSafe(
+          o.transaction_item ??
+            o.transactionItem ??
+            o.transaction_type_id ??
+            o.transactionTypeId ??
+            o.transaction_type ??
+            o.transactionType
+        ).trim();
+        const transactionCategoryId = toStringSafe(
+          o.transaction_category ?? o.transactionCategory ?? o.order_type ?? o.orderType ?? o.transaction_category_id ?? o.transactionCategoryId
+        ).trim();
+        const paymentTypeId = toStringSafe(
+          o.payment_type ?? o.paymentType ?? o.payment_status_id ?? o.paymentStatusId ?? o.payment_status ?? o.status_id ?? o.statusId
+        ).trim();
+        const paymentMethodId = toStringSafe(
+          o.payment_method ?? o.paymentMethod ?? o.payment_method_id ?? o.paymentMethodId
+        ).trim();
+        const orderId = toStringSafe(o.order_id ?? o.orderId).trim();
+        const unitId = toStringSafe(o.unit_id ?? o.unitId).trim();
+        const bankCode = toStringSafe(o.bank_code ?? o.bankCode).trim();
+        const bankAccount = toStringSafe(o.bank_account ?? o.bankAccount).trim();
+        const bankAccountName = toStringSafe(o.bank_account_name ?? o.bankAccountName).trim();
 
         return {
           id,
@@ -233,14 +324,49 @@ export const GeneralExpenses: React.FC = () => {
           statusLabel,
           orderType,
           transactionCategoryLabel,
+          transactionTypeId,
+          transactionCategoryId,
+          paymentTypeId,
+          paymentMethodId,
+          orderId,
+          unitId,
+          bankCode,
+          bankAccount,
+          bankAccountName,
         } satisfies TransactionRow;
+      });
+      const exportMapped = (listNode as unknown[]).map((raw) => {
+        const o = toRecord(raw);
+        return {
+          transactionDate: toStringSafe(o.transaction_date).trim(),
+          invoiceNumber: toStringSafe(o.invoice_number).trim(),
+          transactionCategoryLabel: toStringSafe(o.transaction_category_label).trim(),
+          transactionItemLabel: toStringSafe(o.transaction_item_label).trim(),
+          description: toStringSafe(o.description).trim(),
+          amount: toNumberSafe(o.amount),
+          paymentMethodLabel: toStringSafe(o.payment_method_label).trim(),
+          paymentTypeLabel: toStringSafe(o.payment_type_label).trim(),
+          createdAt: toStringSafe(o.created_at).trim(),
+          createdBy: toStringSafe(o.created_by).trim(),
+        } satisfies ExpenseExportRow;
       });
 
       setRows(mapped);
+      setExportRows(exportMapped);
     } finally {
       if (currentReq === requestIdRef.current) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setSearchQuery(searchInput.trim()), 400);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+    loadTransactions();
+  }, [period, searchQuery]);
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -251,7 +377,7 @@ export const GeneralExpenses: React.FC = () => {
         const [typesRes, statusesRes, methodsRes, banksRes, orderTypesRes] = await Promise.all([
           api.get<unknown>('/services/transactions/types?filteredby=items&type=expense&tags=general', headers),
           api.get<unknown>('/general/payment-status', headers),
-          api.get<unknown>('/general/payment-method', headers),
+          api.get<unknown>('/general/payment-method?type=general', headers),
           api.get<unknown>('/general/bank-list', headers),
           api.get<unknown>('/services/transactions/types?filteredby=categories&type=expense&tags=general', headers),
         ]);
@@ -310,7 +436,6 @@ export const GeneralExpenses: React.FC = () => {
       }
     };
 
-    loadTransactions();
     loadMeta();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -397,15 +522,7 @@ export const GeneralExpenses: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedMonthIndex, selectedYear, pageSize, filters.invoice_number, filters.transaction_type_label]);
-
-  const monthFilteredRows = useMemo(() => {
-    return rows.filter((r) => {
-      const d = tryParseDate(r.transactionDate);
-      if (!d) return false;
-      return d.getMonth() === selectedMonthIndex && d.getFullYear() === selectedYear;
-    });
-  }, [rows, selectedMonthIndex, selectedYear]);
+  }, [pageSize]);
 
   const showBankFields = useMemo(() => {
     const id = Number(manualForm.payment_method || 0);
@@ -440,26 +557,24 @@ export const GeneralExpenses: React.FC = () => {
     }
   }, [showBankFields]);
 
-  const transactionTypeOptions = useMemo(() => {
-    const set = new Set<string>();
-    monthFilteredRows.forEach((r) => {
-      const v = String(r.transactionTypeLabel ?? '').trim();
-      if (v) set.add(v);
-    });
-    return [{ label: 'Semua', value: 'all' }, ...Array.from(set).sort((a, b) => a.localeCompare(b)).map((v) => ({ label: v, value: v }))];
-  }, [monthFilteredRows]);
-
-  const filteredRows = useMemo(() => {
-    const q = filters.invoice_number.trim().toLowerCase();
-    return monthFilteredRows.filter((r) => {
-      if (filters.transaction_type_label !== 'all' && String(r.transactionTypeLabel ?? '') !== filters.transaction_type_label) return false;
-      if (q) {
-        const inv = String(r.invoiceNumber ?? '').toLowerCase();
-        if (!inv.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [filters.invoice_number, filters.transaction_type_label, monthFilteredRows]);
+  const filteredRows = rows;
+  const exportSheetRows = useMemo(
+    () =>
+      exportRows.map((row, index) => ({
+        No: index + 1,
+        'Tanggal Transaksi': row.transactionDate || '-',
+        'No. Invoice': row.invoiceNumber || '-',
+        Kategori: row.transactionCategoryLabel || '-',
+        'Jenis Transaksi': row.transactionItemLabel || '-',
+        Keterangan: row.description || '-',
+        Nominal: row.amount || 0,
+        'Metode Pembayaran': row.paymentMethodLabel || '-',
+        'Tipe Pembayaran': row.paymentTypeLabel || '-',
+        Timestamp: row.createdAt || '-',
+        PIC: row.createdBy || '-',
+      })),
+    [exportRows]
+  );
 
   const summary = useMemo(() => {
     let expense = 0;
@@ -470,14 +585,106 @@ export const GeneralExpenses: React.FC = () => {
     filteredRows.forEach((r) => {
       const val = Math.abs(r.amount || 0);
       expense += val;
-      if (r.orderType === 3) operationalExpense += val;
-      if (r.orderType === 4) otherExpense += val;
+      const trxOperational = ["TRX01", "TRX02", "TRX04", "TRX05"];
+      if (trxOperational.includes(r.transactionCategoryId || "")) operationalExpense += val;
+      if (!trxOperational.includes(r.transactionCategoryId || "")) otherExpense += val;
     });
 
     return { expense, operationalExpense, otherExpense, transactionCount };
   }, [filteredRows]);
+  const handleDownloadExcel = () => {
+    if (!exportSheetRows.length) {
+      showAlert({ title: 'Gagal', description: 'Tidak ada data untuk diunduh.', type: 'warning' });
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(exportSheetRows);
+    worksheet['!cols'] = [
+      { wch: 8 },
+      { wch: 20 },
+      { wch: 24 },
+      { wch: 22 },
+      { wch: 26 },
+      { wch: 42 },
+      { wch: 18 },
+      { wch: 24 },
+      { wch: 20 },
+      { wch: 24 },
+      { wch: 20 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Expenses');
+    const fileBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    downloadBlob(
+      new Blob([fileBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `travego-expenses-${formatExportTimestamp(new Date())}.xlsx`
+    );
+  };
+  const handleExportGoogleSheet = async () => {
+    if (!exportSheetRows.length) {
+      showAlert({ title: 'Gagal', description: 'Tidak ada data untuk diexport.', type: 'warning' });
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(exportSheetRows);
+    const tsv = XLSX.utils.sheet_to_csv(worksheet, { FS: '\t' });
+    const win = window.open('https://docs.google.com/spreadsheets/create', '_blank', 'noopener,noreferrer');
+
+    try {
+      await navigator.clipboard.writeText(tsv);
+      showAlert({
+        title: 'Berhasil',
+        description: 'Data berhasil disalin. Tempelkan ke Google Sheet yang baru terbuka.',
+        type: 'success',
+      });
+    } catch {
+      if (win) win.close();
+      showAlert({
+        title: 'Gagal',
+        description: 'Browser tidak mengizinkan akses clipboard untuk export Google Sheet.',
+        type: 'error',
+      });
+    }
+  };
 
   const startIndex = (page - 1) * pageSize;
+  const resetManualState = () => {
+    setManualMode('create');
+    setActiveTransactionId('');
+    setManualForm(createDefaultManualForm());
+    setTransactionDateOpen(false);
+    setTransactionTypeOpen(false);
+    setOrderOpen(false);
+  };
+
+  const openCreateModal = () => {
+    resetManualState();
+    setManualOpen(true);
+  };
+
+  const openEditModal = (row: TransactionRow) => {
+    setManualMode('edit');
+    setActiveTransactionId(row.id);
+    setManualForm({
+      transaction_date: row.transactionDate || toYmdLocal(new Date()),
+      transaction_type: row.transactionTypeId,
+      order_type: row.transactionCategoryId || String(row.orderType || ''),
+      order_id: row.unitId || row.orderId,
+      status: row.paymentTypeId,
+      payment_method: row.paymentMethodId,
+      amount: String(Math.round(Math.abs(row.amount || 0))),
+      description: row.description,
+      bank_code: row.bankCode,
+      bank_account: row.bankAccount,
+      bank_account_name: row.bankAccountName,
+    });
+    setTransactionDateOpen(false);
+    setTransactionTypeOpen(false);
+    setOrderOpen(false);
+    setManualOpen(true);
+  };
+
   const columns: Array<DataTableColumn<TransactionRow>> = [
     {
       label: 'No',
@@ -492,28 +699,28 @@ export const GeneralExpenses: React.FC = () => {
       key: 'transactionDate',
       sortable: true,
       width: 130,
-      render: (row) => <span className="text-sm text-foreground tabular-nums">{formatDdMmmYy(row.transactionDate)}</span>,
+      render: (row) => <span className="text-sm text-foreground tabular-nums whitespace-nowrap">{formatDdMmmYy(row.transactionDate)}</span>,
     },
     {
       label: 'No. Invoice',
       key: 'invoiceNumber',
       sortable: true,
       width: 170,
-      render: (row) => <span className="text-sm text-foreground">{row.invoiceNumber || '-'}</span>,
+      render: (row) => <span className="text-sm text-foreground whitespace-nowrap">{row.invoiceNumber || '-'}</span>,
     },
     {
       label: 'Keterangan',
       key: 'description',
       sortable: true,
-      width: 320,
-      render: (row) => <span className="text-sm text-foreground">{row.description || '-'}</span>,
+      width: 520,
+      render: (row) => <span className="text-sm text-foreground whitespace-nowrap">{row.description || '-'}</span>,
     },
     {
       label: 'Jenis Transaksi',
       key: 'transactionTypeLabel',
       sortable: true,
-      width: 170,
-      render: (row) => <span className="text-sm text-foreground">{row.transactionCategoryLabel || '-'}</span>,
+      width: 220,
+      render: (row) => <span className="text-sm text-foreground whitespace-nowrap">{row.transactionCategoryLabel || '-'}</span>,
     },
     {
       label: 'Jumlah',
@@ -524,54 +731,57 @@ export const GeneralExpenses: React.FC = () => {
       render: (row) => <span className="text-sm font-medium text-foreground tabular-nums">{formatRupiah(row.amount || 0)}</span>,
     },
     {
-      label: 'Status',
-      key: 'statusLabel',
-      sortable: true,
-      width: 140,
-      render: (row) => statusBadge(row.statusLabel),
+      label: 'Action',
+      key: 'action',
+      sortable: false,
+      width: 90,
+      align: 'center',
+      render: (row) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              disabled={manualSubmitting || deleteSubmitting}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[180px]">
+            {String(row.transactionTypeId).trim().toUpperCase() !== 'TRX-I00' ? (
+              <>
+                <DropdownMenuItem onSelect={() => openEditModal(row)} className="flex items-center gap-2">
+                  <Pencil className="h-4 w-4" />
+                  <span>Edit pengeluaran</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+            <DropdownMenuItem
+              onSelect={() => setDeleteTarget(row)}
+              className="flex items-center gap-2 text-red-600 focus:text-red-600 cursor-pointer"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Hapus Pengeluaran</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
     },
   ];
-
-  const filterFields = useMemo(() => {
-    return [
-      {
-        name: 'month',
-        type: 'select',
-        label: 'Bulan',
-        placeholder: 'Pilih bulan',
-        options: monthOptions,
-      },
-      {
-        name: 'year',
-        type: 'select',
-        label: 'Tahun',
-        placeholder: 'Pilih tahun',
-        options: yearOptions,
-      },
-      {
-        name: 'invoice_number',
-        type: 'text',
-        label: 'Invoice',
-        placeholder: 'Cari invoice_number...',
-      },
-      {
-        name: 'transaction_type_label',
-        type: 'select',
-        label: 'Tipe',
-        placeholder: 'Semua tipe',
-        options: transactionTypeOptions,
-      },
-    ] as const;
-  }, [monthOptions, transactionTypeOptions, yearOptions]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">General Expenses</h1>
-        <p className="text-gray-600 dark:text-gray-300 mt-1">Track organization expenses</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Pengeluaran Umum</h1>
+        <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">
+          Lihat pengeluaran umum pada periode <span className="font-medium text-foreground">{period}</span>
+        </p>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      {/* <div className="flex items-center justify-between gap-3">
         <Button
           type="button"
           variant="outline"
@@ -583,20 +793,20 @@ export const GeneralExpenses: React.FC = () => {
         >
           <Filter className="h-4 w-4" />
         </Button>
-        <Button type="button" onClick={() => setManualOpen(true)} className="h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
+        <Button type="button" onClick={openCreateModal} className="hidden sm:flex h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
           <Plus className="h-4 w-4 mr-2" />
           Tambah Manual
         </Button>
-      </div>
+      </div> */}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-2xl shadow-sm">
           <CardContent className="px-4 py-3 md:p-5">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300">
                 <CreditCard className="h-4 w-4" />
                 <div className="text-[11px] font-medium text-muted-foreground">
-                  Total Expense
+                  Total Pengeluaran
                 </div>
               </div>
               {loading ? (
@@ -615,8 +825,8 @@ export const GeneralExpenses: React.FC = () => {
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                 <CreditCard className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">
-                  Pengeluaran Operasional
+                <div className="text-[11px] sm:text-sm font-medium text-muted-foreground">
+                  Biaya Operasional
                 </div>
               </div>
               {loading ? (
@@ -670,26 +880,77 @@ export const GeneralExpenses: React.FC = () => {
       </div>
 
       <div
-        className={`overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out ${
-          filterOpen ? 'max-h-[520px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-1'
-        }`}
+        className={`overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out max-h-[520px] opacity-100 translate-y-0`}
       >
         <div className="pt-1">
-          <FilterBar
-            fields={filterFields}
-            values={filters}
-            onChange={(name, value) => setFilters((prev) => ({ ...prev, [name]: String(value ?? '') }))}
-            onReset={() =>
-              setFilters({
-                month: String(new Date().getMonth() + 1).padStart(2, '0'),
-                year: String(new Date().getFullYear()),
-                invoice_number: '',
-                transaction_type_label: 'all',
-              })
-            }
-            layout="responsive-grid"
-            resetButtonClassName="hidden md:inline-flex md:w-auto"
-          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[280px_1fr] py-2 px-1">
+            <div className="space-y-1.5">
+              {/* <Label className="text-xs text-muted-foreground">Periode</Label> */}
+              <Select value={period} onValueChange={(v) => setPeriod(v as PeriodOption)}>
+                <SelectTrigger className="h-10 rounded-2xl">
+                  <SelectValue placeholder="Pilih periode" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  {PERIOD_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              {/* <Label className="text-xs text-muted-foreground">Cari Invoice / Keterangan / Order ID</Label> */}
+              <div className="flex gap-2">
+                <Input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Cari invoice, keterangan atau order ID..."
+                  className="h-10 rounded-2xl"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-2xl"
+                  onClick={() => {
+                    setPeriod('Bulan Ini');
+                    setSearchInput('');
+                  }}
+                  title="Reset filter"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-2xl"
+                      disabled={loading || !exportSheetRows.length}
+                      title="Download data"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[220px] rounded-xl">
+                    <DropdownMenuItem onSelect={handleDownloadExcel} className="flex items-center gap-2 cursor-pointer">
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                      <span>Download file excel (.xlsx)</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => void handleExportGoogleSheet()} className="flex items-center gap-2 cursor-pointer">
+                      <GoogleSheetIcon className="h-4 w-4" />
+                      <span>Export ke Google Sheet</span>
+                      <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -699,9 +960,9 @@ export const GeneralExpenses: React.FC = () => {
         loading={loading}
         stickyHeader
         zebra
-        tableClassName="table-auto w-full min-w-0"
+        tableClassName="table-auto w-full min-w-[1020px]"
         emptyTitle="Tidak ada data transaksi"
-        emptyDescription="Coba ubah filter atau periode bulan & tahun."
+        emptyDescription="Coba ubah periode atau kata kunci pencarian."
         pagination={{
           page,
           pageSize,
@@ -718,7 +979,7 @@ export const GeneralExpenses: React.FC = () => {
 
       <Button
         type="button"
-        onClick={() => setManualOpen(true)}
+        onClick={openCreateModal}
         className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] md:bottom-6 z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
         size="icon"
         title="Tambah Expense Manual"
@@ -731,121 +992,130 @@ export const GeneralExpenses: React.FC = () => {
         onOpenChange={(v) => {
           if (manualSubmitting) return;
           setManualOpen(v);
+          if (!v) resetManualState();
         }}
       >
-        <DialogContent className="max-w-2xl p-0 border-none bg-white overflow-hidden">
-          <div className="p-8 space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
-                  <Receipt className="w-6 h-6" />
+        <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
+          <form
+            className="flex flex-col flex-1 min-h-0"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!manualForm.transaction_date) {
+                showAlert({ title: 'Gagal', description: 'Tanggal transaksi wajib diisi.', type: 'warning' });
+                return;
+              }
+              const amount = Number(String(manualForm.amount ?? '').replace(/\D/g, '') || 0);
+              if (!amount) {
+                showAlert({ title: 'Gagal', description: 'Nominal pembayaran wajib diisi.', type: 'warning' });
+                return;
+              }
+              const transactionCategoryValue = String(manualForm.order_type || '').trim();
+              if (!transactionCategoryValue) {
+                showAlert({ title: 'Gagal', description: 'Jenis transaksi wajib dipilih.', type: 'warning' });
+                return;
+              }
+              const transactionItemValue = String(manualForm.transaction_type || '').trim();
+              if (!transactionItemValue) {
+                showAlert({ title: 'Gagal', description: 'Jenis pengeluaran wajib dipilih.', type: 'warning' });
+                return;
+              }
+              const paymentType = Number(manualForm.status || 0);
+              if (!paymentType) {
+                showAlert({ title: 'Gagal', description: 'Status pembayaran wajib dipilih.', type: 'warning' });
+                return;
+              }
+              const paymentMethod = Number(manualForm.payment_method || 0);
+              if (!paymentMethod) {
+                showAlert({ title: 'Gagal', description: 'Metode pembayaran wajib dipilih.', type: 'warning' });
+                return;
+              }
+
+              setManualSubmitting(true);
+              try {
+                const token = localStorage.getItem('token') ?? '';
+                const headers = token ? { Authorization: token } : undefined;
+                const toNumberish = (v: string) => (v && Number.isFinite(Number(v)) ? Number(v) : v);
+                const unitId = isTrx04Type ? (manualForm.order_id || undefined) : undefined;
+                const payload: Record<string, unknown> = {
+                  amount,
+                  description: manualForm.description,
+                  unit_id: unitId,
+                  payment_method: paymentMethod,
+                  payment_type: paymentType,
+                  transaction_date: manualForm.transaction_date,
+                  transaction_category: toNumberish(transactionCategoryValue),
+                  transaction_item: toNumberish(transactionItemValue),
+                };
+
+                if (manualMode === 'edit') {
+                  payload.transaction_id = activeTransactionId;
+                }
+
+                const endpoint =
+                  manualMode === 'edit'
+                    ? '/services/transactions/expenses/update'
+                    : '/services/transactions/expenses/submit';
+
+                const res = await api.post<unknown>(endpoint, payload, headers);
+                if (res.status !== 'success') {
+                  const code = String(res.message ?? '');
+                  const map: Record<string, string> = {
+                    PAYMENT_METHOD_DOESNT_EXIST: 'Metode pembayaran tidak tersedia. Silakan pilih metode lain.',
+                    PAYMENT_TYPE_DOESNT_EXIST: 'Status pembayaran tidak tersedia. Silakan pilih status lain.',
+                    PAYMENT_STATUS_DOESNT_EXIST: 'Status pembayaran tidak tersedia. Silakan pilih status lain.',
+                    TRANSACTION_CATEGORY_DOESNT_EXIST: 'Jenis transaksi tidak tersedia. Silakan pilih jenis lain.',
+                    TRANSACTION_ITEM_DOESNT_EXIST: 'Jenis pengeluaran tidak tersedia. Silakan pilih jenis lain.',
+                    TRANSACTION_TYPE_DOESNT_EXIST: 'Jenis pengeluaran tidak tersedia. Silakan pilih jenis lain.',
+                    BANK_DOESNT_EXIST: 'Bank tidak tersedia. Silakan pilih bank lain.',
+                  };
+                  const message = map[code] ?? (manualMode === 'edit'
+                    ? 'Gagal mengubah expense. Silakan coba lagi.'
+                    : 'Gagal menambahkan expense. Silakan coba lagi.');
+                  showAlert({ title: 'Gagal', description: message, type: 'error' });
+                  return;
+                }
+
+                showAlert({
+                  title: 'Berhasil',
+                  description: manualMode === 'edit' ? 'Expense berhasil diperbarui.' : 'Expense berhasil ditambahkan.',
+                  type: 'success',
+                });
+                setManualOpen(false);
+                resetManualState();
+                await loadTransactions(headers);
+              } finally {
+                setManualSubmitting(false);
+              }
+            }}
+          >
+            <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Receipt className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-2xl font-bold text-slate-900">
+                      {manualMode === 'edit' ? 'Edit Expense' : 'Tambah Expense'}
+                    </h2>
+                    <p className="text-slate-500 text-xs sm:text-sm">
+                      {manualMode === 'edit'
+                        ? 'Perbarui catatan pengeluaran anda secara manual di sini'
+                        : 'Tambahkan catatan pengeluaran anda secara manual di sini'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Tambah Expense</h2>
-                  <p className="text-slate-500 text-sm">Tambahkan catatan pengeluaran anda secara manual di sini</p>
-                </div>
+                <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                  <X className="w-3 h-3 sm:w-5 sm:h-5" />
+                </DialogClose>
               </div>
-              <DialogClose className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
-                <X className="w-5 h-5" />
-              </DialogClose>
+
+              <div className="mt-6 h-px bg-slate-100" />
             </div>
 
-            <div className="h-px bg-slate-100" />
-
-            <form
-              className="space-y-6 h-85 overflow-auto max-h-[650px]"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                // ... validation logic stays the same ...
-                if (!manualForm.transaction_date) {
-                  showAlert({ title: 'Gagal', description: 'Tanggal transaksi wajib diisi.', type: 'warning' });
-                  return;
-                }
-                const amount = Number(String(manualForm.amount ?? '').replace(/\D/g, '') || 0);
-                if (!amount) {
-                  showAlert({ title: 'Gagal', description: 'Nominal pembayaran wajib diisi.', type: 'warning' });
-                  return;
-                }
-                const transactionCategoryValue = String(manualForm.order_type || '').trim();
-                if (!transactionCategoryValue) {
-                  showAlert({ title: 'Gagal', description: 'Jenis transaksi wajib dipilih.', type: 'warning' });
-                  return;
-                }
-                const transactionItemValue = String(manualForm.transaction_type || '').trim();
-                if (!transactionItemValue) {
-                  showAlert({ title: 'Gagal', description: 'Jenis pengeluaran wajib dipilih.', type: 'warning' });
-                  return;
-                }
-                const paymentType = Number(manualForm.status || 0);
-                if (!paymentType) {
-                  showAlert({ title: 'Gagal', description: 'Status pembayaran wajib dipilih.', type: 'warning' });
-                  return;
-                }
-                const paymentMethod = Number(manualForm.payment_method || 0);
-                if (!paymentMethod) {
-                  showAlert({ title: 'Gagal', description: 'Metode pembayaran wajib dipilih.', type: 'warning' });
-                  return;
-                }
-
-                setManualSubmitting(true);
-                try {
-                  const token = localStorage.getItem('token') ?? '';
-                  const headers = token ? { Authorization: token } : undefined;
-                  const toNumberish = (v: string) => (v && Number.isFinite(Number(v)) ? Number(v) : v);
-                  const unitId = isTrx04Type ? (manualForm.order_id || undefined) : undefined;
-                  const payload: Record<string, unknown> = {
-                    amount,
-                    description: manualForm.description,
-                    unit_id: unitId,
-                    payment_method: paymentMethod,
-                    payment_type: paymentType,
-                    transaction_date: manualForm.transaction_date,
-                    transaction_category: toNumberish(transactionCategoryValue),
-                    transaction_item: toNumberish(transactionItemValue),
-                  };
-
-                  const res = await api.post<unknown>('/services/transactions/expenses/submit', payload, headers);
-                  if (res.status !== 'success') {
-                    const code = String(res.message ?? '');
-                    const map: Record<string, string> = {
-                      PAYMENT_METHOD_DOESNT_EXIST: 'Metode pembayaran tidak tersedia. Silakan pilih metode lain.',
-                      PAYMENT_TYPE_DOESNT_EXIST: 'Status pembayaran tidak tersedia. Silakan pilih status lain.',
-                      PAYMENT_STATUS_DOESNT_EXIST: 'Status pembayaran tidak tersedia. Silakan pilih status lain.',
-                      TRANSACTION_CATEGORY_DOESNT_EXIST: 'Jenis transaksi tidak tersedia. Silakan pilih jenis lain.',
-                      TRANSACTION_ITEM_DOESNT_EXIST: 'Jenis pengeluaran tidak tersedia. Silakan pilih jenis lain.',
-                      TRANSACTION_TYPE_DOESNT_EXIST: 'Jenis pengeluaran tidak tersedia. Silakan pilih jenis lain.',
-                      BANK_DOESNT_EXIST: 'Bank tidak tersedia. Silakan pilih bank lain.',
-                    };
-                    const message = map[code] ?? 'Gagal menambahkan expense. Silakan coba lagi.';
-                    showAlert({ title: 'Gagal', description: message, type: 'error' });
-                    return;
-                  }
-
-                  showAlert({ title: 'Berhasil', description: 'Expense berhasil ditambahkan.', type: 'success' });
-                  setManualOpen(false);
-                  setManualForm((prev) => ({
-                    ...prev,
-                    transaction_date: toYmdLocal(new Date()),
-                    transaction_type: '',
-                    order_type: '',
-                    order_id: '',
-                    status: '',
-                    payment_method: '',
-                    amount: '',
-                    description: '',
-                    bank_code: '',
-                    bank_account: '',
-                    bank_account_name: '',
-                  }));
-                  await loadTransactions(headers);
-                } finally {
-                  setManualSubmitting(false);
-                }
-              }}
-            >
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="grid grid-cols-2 gap-5 col-span-1 md:col-span-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 col-span-1 md:col-span-2">
                   <div className="space-y-2">
                     <Label className="text-slate-700 font-semibold ml-1">Tanggal Transaksi</Label>
                     <Popover open={transactionDateOpen} onOpenChange={setTransactionDateOpen}>
@@ -1107,44 +1377,88 @@ export const GeneralExpenses: React.FC = () => {
                   className="rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
                 />
               </div>
+            </div>
 
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
-                {/* Info Card */}
-                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
-                  <div className="text-blue-600">
-                    <Info className="w-4 h-4" />
-                  </div>
-                </div>
+            <div className="px-6 sm:px-8 pb-6 pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setManualOpen(false)}
-                    disabled={manualSubmitting}
-                    className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={manualSubmitting}
-                    className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
-                  >
-                    {manualSubmitting ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <Save className="w-5 h-5" />
-                        Simpan Expense
-                      </>
-                    )}
-                  </button>
-                </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setManualOpen(false)}
+                  disabled={manualSubmitting}
+                  className="w-full sm:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 border-2 border-slate-200"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={manualSubmitting}
+                  className="w-full sm:w-auto h-12 px-8 rounded-lg bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                >
+                  {manualSubmitting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      {manualMode === 'edit' ? 'Update Expense' : 'Simpan Expense'}
+                    </>
+                  )}
+                </button>
               </div>
-            </form>
-          </div>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!deleteSubmitting && !open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus pengeluaran?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Data pengeluaran{deleteTarget?.invoiceNumber ? ` ${deleteTarget.invoiceNumber}` : ''} akan dihapus permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteSubmitting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteSubmitting}
+              className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteTarget?.id) return;
+                setDeleteSubmitting(true);
+                try {
+                  const token = localStorage.getItem('token') ?? '';
+                  const headers = token ? { Authorization: token } : undefined;
+                  const res = await api.post<unknown>(
+                    '/services/transactions/expenses/delete',
+                    { transaction_id: deleteTarget.id },
+                    headers
+                  );
+
+                  if (res.status !== 'success') {
+                    showAlert({ title: 'Gagal', description: 'Gagal menghapus expense. Silakan coba lagi.', type: 'error' });
+                    return;
+                  }
+
+                  showAlert({ title: 'Berhasil', description: 'Expense berhasil dihapus.', type: 'success' });
+                  setDeleteTarget(null);
+                  await loadTransactions(headers);
+                } finally {
+                  setDeleteSubmitting(false);
+                }
+              }}
+            >
+              {deleteSubmitting ? 'Menghapus...' : 'Hapus'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

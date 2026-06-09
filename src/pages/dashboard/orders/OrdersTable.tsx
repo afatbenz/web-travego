@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, CircleAlert, Clock, DollarSign, Download, Eye, Filter, MoreHorizontal, Plus, ShoppingBag, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, CircleAlert, Clock, DollarSign, Download, Eye, FileSpreadsheet, Filter, MoreHorizontal, Plus, ShoppingBag, XCircle } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,7 @@ import { FilterBar, type FilterField } from '@/components/common/FilterBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { id as idLocale } from 'date-fns/locale';
+import * as XLSX from 'xlsx';
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
@@ -29,6 +31,22 @@ const toYmd = (d: Date | undefined) => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 };
+
+const getDefaultOrderPeriodRange = (): DateRange => {
+  const today = new Date();
+  return {
+    from: startOfDay(new Date(today.getFullYear(), 0, 1)),
+    to: startOfDay(today),
+  };
+};
+
+const GoogleSheetsIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none">
+    <path fill="#0F9D58" d="M14 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8z" />
+    <path fill="#34A853" d="M14 2v4a2 2 0 0 0 2 2h4z" />
+    <path fill="#fff" d="M8 10h8v1.5H8zm0 3h8v1.5H8zm0 3h5v1.5H8zm6-5.5h2V16h-2z" />
+  </svg>
+);
 
 interface OrdersTableProps {
   status: 'all' | 'ongoing' | 'success' | 'waiting-approval';
@@ -49,18 +67,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const [summaryRevenue, setSummaryRevenue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initializedDefaultRange, setInitializedDefaultRange] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
   // client-side parsing helpers removed since filtering now handled by backend
   useEffect(() => {
     if (!initializedDefaultRange) {
-      const today = new Date();
-      const lastYear = new Date(today);
-      lastYear.setFullYear(today.getFullYear() - 1);
-      const from = startOfDay(lastYear);
-      const to = startOfDay(today);
-      setOrderPeriod({ from, to });
-      setOrderDate({ from, to });
+      setOrderPeriod(getDefaultOrderPeriodRange());
+      setOrderDate(undefined);
       setInitializedDefaultRange(true);
     }
   }, [initializedDefaultRange]);
@@ -110,6 +124,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
   interface Order {
     orderId: string;
+    orderDate: string;
     transactionId?: string;
     fleetName: string;
     fleetThumbnail?: string;
@@ -119,7 +134,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     paymentStatus: number;
     status: number;
     latestPaymentStatus: string;
+    totalPaymentStatus: string;
     customerName: string;
+    customerPhone: string;
     totalAmount: number;
     // Keep these for potential filtering usage, map them if available
     title: string;
@@ -148,7 +165,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         const op = normalizeRange(orderPeriod);
         const od = normalizeRange(orderDate);
         const qs = new URLSearchParams();
-        if (searchTerm.trim()) qs.set('q', searchTerm.trim());
+        if (searchTerm.trim()) qs.set('search', searchTerm.trim());
         if (op.start && op.end) {
           qs.set('period_from', toYmd(op.start));
           qs.set('period_to', toYmd(op.end));
@@ -198,8 +215,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             const orderIdRaw = item.order_id ?? item.id;
             const fleetNameRaw = item.fleet_name ?? item.package_name ?? item.title;
             const latestPaymentStatusRaw = item.latest_payment_status ?? item.latestPaymentStatus ?? item.latest_payment_status_label ?? item.latestPaymentStatusLabel;
+            const totalPaymentStatusRaw = item.total_payment_status ?? item.totalPaymentStatus ?? latestPaymentStatusRaw;
             const uomRaw = item.uom;
             const rentTypeRaw = item.rent_type;
+            const orderDateRaw = item.order_date ?? item.orderDate ?? item.created_at ?? item.createdAt;
             const paxRaw =
               item.pax ??
               item.total_pax ??
@@ -225,6 +244,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             return {
               orderId:
                 typeof orderIdRaw === 'string' || typeof orderIdRaw === 'number' ? String(orderIdRaw) : '',
+              orderDate:
+                typeof orderDateRaw === 'string' || typeof orderDateRaw === 'number' ? String(orderDateRaw) : '',
               transactionId:
                 typeof transactionIdRaw === 'string' || typeof transactionIdRaw === 'number'
                   ? String(transactionIdRaw)
@@ -240,11 +261,21 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
                 typeof latestPaymentStatusRaw === 'string' || typeof latestPaymentStatusRaw === 'number'
                   ? String(latestPaymentStatusRaw)
                   : '',
+              totalPaymentStatus:
+                typeof totalPaymentStatusRaw === 'string' || typeof totalPaymentStatusRaw === 'number'
+                  ? String(totalPaymentStatusRaw)
+                  : '',
               customerName:
                 typeof item.customer_name === 'string'
                   ? item.customer_name
                   : typeof item.customerName === 'string'
                     ? item.customerName
+                    : '-',
+              customerPhone:
+                typeof item.customer_phone === 'string'
+                  ? item.customer_phone
+                  : typeof item.customerPhone === 'string'
+                    ? item.customerPhone
                     : '-',
               totalAmount: Number.isFinite(Number(item.total_amount ?? item.totalAmount)) ? Number(item.total_amount ?? item.totalAmount) : 0,
               title: typeof fleetNameRaw === 'string' ? fleetNameRaw : 'Order',
@@ -291,7 +322,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     if (order.status === 2) {
       return (
         <Badge className="rounded-full border-transparent bg-orange-500 px-3 py-1 font-medium text-white hover:text-white hover:bg-orange-700 dark:bg-orange-400/15 dark:text-white">
-          <Clock className="mr-1.5 h-3.5 w-3.5" />
+          <Clock className="mr-1.5 h-3.5 w-3.5 animate-bounce" />
           Menunggu Konfirmasi
         </Badge>
       );
@@ -325,13 +356,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       case 3:
         return (
           <Badge className="rounded-full border-transparent bg-sky-500/10 px-3 py-1 font-medium text-sky-800 hover:bg-sky-500/10 dark:bg-sky-400/15 dark:text-sky-300">
-            <Clock className="mr-1.5 h-3.5 w-3.5" />
+            <Clock className="mr-1.5 h-3.5 w-3.5 animate-bounce" />
             Menunggu Persetujuan
           </Badge>
         );
       case 4:
         return (
-          <Badge className="rounded-full border-transparent bg-yellow-600 px-3 py-1 font-medium text-white hover:bg-yellow-500 dark:bg-yellow-400/15 dark:text-white">
+          <Badge className="rounded-full border-transparent bg-cyan-600 px-3 py-1 font-medium text-white hover:bg-cyan-500 dark:bg-cyan-400/15 dark:text-white">
             <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
             Belum Lunas
           </Badge>
@@ -372,7 +403,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
   const totalOrders = filteredOrders.length;
   const completedCount = filteredOrders.filter((o) => o.paymentStatus === 1).length;
-  const pendingCount = filteredOrders.filter((o) => o.paymentStatus === 2 || o.paymentStatus === 3).length;
+  const pendingCount = filteredOrders.filter((o) => o.paymentStatus === 2 || o.paymentStatus === 3 || o.paymentStatus === 4 || o.status === 2).length;
   const formatRupiah = (n: number) => `Rp ${Math.round(n || 0).toLocaleString('id-ID')}`;
   const formatIdrJt = (n: number) => {
     const jt = (Number.isFinite(n) ? n : 0) / 1_000_000;
@@ -412,6 +443,232 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
+  const formatExportDate = (value: string) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return value;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getExportStatusLabel = (statusValue: number) => {
+    if (statusValue === 1) return 'diproses';
+    if (statusValue === 2) return 'belum dikonfirmasi';
+    return String(statusValue || '-');
+  };
+
+  const getScheduleLabel = (scheduleId: Order['scheduleId']) => {
+    if (scheduleId == null) return 'belum terjadwal';
+    if (typeof scheduleId === 'string' && !scheduleId.trim()) return 'belum terjadwal';
+    return 'terjadwal';
+  };
+
+  const exportHeaders = [
+    'No',
+    'Order ID',
+    'Tanggal Order',
+    'Jenis Order',
+    'Nama Armada',
+    'Jumlah Unit',
+    'Durasi',
+    'Total Tagihan',
+    'Nama Pelanggan',
+    'No. Telepon',
+    'Tanggal Keberangkatan',
+    'Tanggal Kepulangan',
+    'Status',
+    'Status Pembayaran',
+    'Terjadwal',
+  ];
+
+  const exportRows = filteredOrders.map((row, index) => [
+    index + 1,
+    row.orderId,
+    formatExportDate(row.orderDate),
+    row.rentType ?? '-',
+    row.fleetName,
+    row.unitQty,
+    `${row.duration} hari`,
+    row.totalAmount,
+    row.customerName,
+    row.customerPhone,
+    formatExportDate(row.startDate),
+    formatExportDate(row.endDate),
+    getExportStatusLabel(row.status),
+    row.totalPaymentStatus || row.latestPaymentStatus || '-',
+    getScheduleLabel(row.scheduleId),
+  ]);
+
+  const getExportFilename = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    return `travego-fleet_orders-${yyyy}${mm}${dd}${hh}${min}`;
+  };
+
+  const copyTextToClipboard = async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  };
+
+  const downloadExcel = () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([exportHeaders, ...exportRows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+    XLSX.writeFile(workbook, `${getExportFilename()}.xlsx`);
+  };
+
+  const exportToGoogleSheets = async () => {
+    const sheetWindow = window.open('https://docs.google.com/spreadsheets/create', '_blank', 'noopener,noreferrer');
+    const clipboardText = [exportHeaders.join('\t'), ...exportRows.map((row) => row.join('\t'))].join('\n');
+
+    try {
+      await copyTextToClipboard(clipboardText);
+      toast({
+        title: 'Berhasil',
+        description: 'Data order berhasil disalin ke clipboard.',
+      });
+    } catch {
+      toast({
+        title: 'Gagal',
+        description: 'Data order gagal disalin ke clipboard.',
+        variant: 'destructive',
+      });
+    }
+
+    if (!sheetWindow) {
+      toast({
+        title: 'Perhatian',
+        description: 'Popup Google Sheet diblokir browser.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const downloadAction = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" className="h-10 w-full rounded-2xl px-4 md:w-10 md:px-0">
+          <Download className="h-4 w-4" />
+          <span className="ml-2 md:hidden">Download</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[220px]">
+        <DropdownMenuItem
+          className="cursor-pointer"
+          onSelect={() => {
+            void exportToGoogleSheets();
+          }}
+        >
+          <GoogleSheetsIcon className="mr-2 h-4 w-4" />
+          Ekspor ke google sheet
+        </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer" onSelect={downloadExcel}>
+          <FileSpreadsheet className="mr-2 h-4 w-4" />
+          Download Excel (.xlsx)
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const renderSummaryCards = () => (
+    <>
+      <Card className="rounded-2xl shadow-sm">
+        <CardContent className="px-4 py-2.5 md:px-4 md:py-3">
+          <div className="space-y-0.5">
+            <div className="mb-3 flex items-center gap-2 text-blue-700 dark:text-blue-300">
+              <ShoppingBag className="h-4 w-4" />
+              <div className="text-[11px] font-medium text-muted-foreground sm:text-sm">Jumlah Pesanan</div>
+            </div>
+            <div className="text-[10px] text-muted-foreground">{summaryPeriodLabel}</div>
+            {loading ? (
+              <div className="mt-1 h-6 w-16 animate-pulse rounded bg-muted" />
+            ) : (
+              <div className="mt-[23px] text-base font-semibold tracking-tight text-foreground tabular-nums md:text-xl">
+                {totalOrders}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl shadow-sm pb-0">
+        <CardContent className="px-4 py-2.5 md:px-4 md:py-3">
+          <div className="space-y-0.5">
+            <div className="mb-3 flex items-center gap-2 text-amber-700 dark:text-amber-300">
+              <Clock className="h-4 w-4" />
+              <div className="text-[11px] font-medium text-muted-foreground sm:text-sm">Pesanan dalam proses</div>
+            </div>
+            <div className="mb-5 text-[10px] text-muted-foreground">{summaryPeriodLabel}</div>
+            {loading ? (
+              <div className="mt-5 h-6 w-16 animate-pulse rounded bg-muted" />
+            ) : (
+              <div className="mt-[23px] text-base font-semibold tracking-tight text-foreground tabular-nums md:text-xl">
+                {pendingCount}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl shadow-sm pb-0">
+        <CardContent className="px-4 py-2.5 md:px-4 md:py-3">
+          <div className="space-y-0.5">
+            <div className="mb-3 flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" />
+              <div className="text-[11px] font-medium text-muted-foreground sm:text-sm">Pesanan Selesai</div>
+            </div>
+            <div className="text-[10px] text-muted-foreground">{summaryPeriodLabel}</div>
+            {loading ? (
+              <div className="mt-1 h-6 w-16 animate-pulse rounded bg-muted" />
+            ) : (
+              <div className="mt-[23px] text-base font-semibold tracking-tight text-foreground tabular-nums md:text-xl">
+                {completedCount}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl shadow-sm pb-0">
+        <CardContent className="px-4 py-2.5 md:px-4 md:py-3">
+          <div className="space-y-0.5">
+            <div className="mb-3 flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
+              <DollarSign className="h-4 w-4" />
+              <div className="text-[11px] font-medium text-muted-foreground sm:text-sm">Total Pendapatan</div>
+            </div>
+            <div className="text-[10px] text-muted-foreground">{summaryPeriodLabel}</div>
+            {loading ? (
+              <div className="mt-1 h-6 w-28 animate-pulse rounded bg-muted" />
+            ) : (
+              <div className="mt-[23px] text-base font-semibold tracking-tight text-foreground tabular-nums md:text-xl">
+                <span className="md:hidden">{formatIdrJt(summaryRevenue || 0)}</span>
+                <span className="hidden md:inline">{formatRupiah(summaryRevenue || 0)}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+
   type OrdersFilters = {
     q: string;
     orderPeriod: DateRange | undefined;
@@ -429,56 +686,32 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       name: 'q',
       type: 'text',
       label: 'Search',
-      placeholder: 'Cari order...',
-      className: 'col-span-2 md:min-w-[220px] md:flex-[2]'
+      placeholder: 'Cari order ID / nama pelanggan / Nama Unit',
+      className: 'col-span-1 md:min-w-[220px] md:flex-[2]',
+      inputClassName: 'rounded-2xl'
     },
     {
       name: 'orderPeriod',
       type: 'daterange',
-      label: 'Order Period',
+      label: 'Periode Pemesanan',
       placeholder: 'Pilih rentang',
-      className: 'col-span-1 md:min-w-[260px]'
+      className: 'col-span-1 md:min-w-[260px]',
+      triggerClassName: 'rounded-2xl'
     },
     {
       name: 'orderDate',
       type: 'daterange',
-      label: 'Order Date',
-      placeholder: 'Pilih rentang',
-      className: 'col-span-1 md:min-w-[260px]'
+      label: 'Tanggal Perjalanan',
+      placeholder: 'Semua Tanggal Keberangkatan',
+      className: 'col-span-1 md:min-w-[260px]',
+      triggerClassName: 'rounded-2xl'
     },
   ];
 
   const handleResetFilters = () => {
     setSearchTerm('');
-    setOrderPeriod(undefined);
+    setOrderPeriod(getDefaultOrderPeriodRange());
     setOrderDate(undefined);
-  };
-
-  const getRentTypeBadge = (rentType: string | undefined) => {
-    const raw = (rentType ?? '').trim();
-    if (!raw) {
-      return (
-        <Badge variant="outline" className="rounded-full px-2.5 py-0.5">
-          -
-        </Badge>
-      );
-    }
-    const k = raw.toLowerCase();
-    const cls =
-      k.includes('hour') || k.includes('jam')
-        ? 'bg-amber-500/10 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300'
-        : k.includes('day') || k.includes('hari')
-          ? 'bg-sky-500/10 text-sky-800 dark:bg-sky-400/15 dark:text-sky-300'
-          : k.includes('week') || k.includes('minggu')
-            ? 'bg-violet-500/10 text-violet-800 dark:bg-violet-400/15 dark:text-violet-300'
-            : k.includes('month') || k.includes('bulan')
-              ? 'bg-emerald-500/10 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300'
-              : 'bg-zinc-500/10 text-zinc-800 dark:bg-zinc-400/15 dark:text-zinc-200';
-    return (
-      <Badge className={cn('rounded-full border-transparent px-3 py-1 font-medium hover:bg-transparent', cls)}>
-        {raw}
-      </Badge>
-    );
   };
 
   const isPartnerTour = type === 'tour' && basePrefix === '/dashboard/partner';
@@ -651,6 +884,17 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         ] as Array<DataTableColumn<Order>>)
       : []),
     packageColumn,
+    {
+      label: 'Jumlah Unit',
+      key: 'unitQty',
+      sortable: true,
+      width: 220,
+      render: (row) => (
+        <div title={row.latestPaymentStatus || undefined} className="inline-flex">
+          {row.unitQty} unit
+        </div>
+      )
+    },
     ...(type === 'fleet' && basePrefix === '/dashboard/partner'
       ? ([
           {
@@ -672,7 +916,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </div>
       )
     },
-    actionsColumn,
   ] satisfies Array<DataTableColumn<Order>>);
 
   return (
@@ -680,140 +923,84 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{title}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{title}</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             {description}
           </p>
         </div>
       </div>
 
-      <div className={cn('flex items-center gap-3', canAddOrder ? 'justify-between' : 'justify-end')}>
+      <div className="flex items-center justify-between gap-3">
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className="h-9 w-9 rounded-xl"
-          onClick={() => setFilterOpen((v) => !v)}
-          aria-expanded={filterOpen}
-          title={filterOpen ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
+          className="h-10 w-10 rounded-2xl md:hidden"
+          onClick={() => setMobileFilterOpen((prev) => !prev)}
+          aria-expanded={mobileFilterOpen}
+          title={mobileFilterOpen ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
         >
           <Filter className="h-4 w-4" />
         </Button>
-        {canAddOrder ? (
-          <Button
-            type="button"
-            className="h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-4 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
-            onClick={() => navigate(createOrderPath)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Tambahkan Pesanan
-          </Button>
-        ) : null}
+      </div>
+
+      <div className="md:hidden">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 w-full rounded-2xl"
+          onClick={() => setMobileSummaryOpen((prev) => !prev)}
+          aria-expanded={mobileSummaryOpen}
+        >
+          {mobileSummaryOpen ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+          Lihat Summary
+        </Button>
+      </div>
+
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-300 md:hidden',
+          mobileSummaryOpen ? 'max-h-[1200px] opacity-100' : 'max-h-0 opacity-0'
+        )}
+      >
+        <div className="grid grid-cols-2 gap-4 pt-1">
+          {renderSummaryCards()}
+        </div>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="px-4 py-3 md:p-5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                <ShoppingBag className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">Jumlah Pesanan</div>
-              </div>
-              <div className="text-[11px] text-muted-foreground">{summaryPeriodLabel}</div>
-              {loading ? (
-                <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
-              ) : (
-                <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                  {totalOrders}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="px-4 py-3 md:p-5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-                <Clock className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">Pesanan dalam proses</div>
-              </div>
-              <div className="text-[11px] text-muted-foreground">{summaryPeriodLabel}</div>
-              {loading ? (
-                <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
-              ) : (
-                <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                  {pendingCount}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="px-4 py-3 md:p-5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">Pesanan Selesai</div>
-              </div>
-              <div className="text-[11px] text-muted-foreground">{summaryPeriodLabel}</div>
-              {loading ? (
-                <div className="mt-1 h-6 w-16 rounded bg-muted animate-pulse" />
-              ) : (
-                <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                  {completedCount}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="px-4 py-3 md:p-5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
-                <DollarSign className="h-4 w-4" />
-                <div className="text-[11px] font-medium text-muted-foreground">Total Pendapatan</div>
-              </div>
-              <div className="text-[11px] text-muted-foreground">{summaryPeriodLabel}</div>
-              {loading ? (
-                <div className="mt-1 h-6 w-28 rounded bg-muted animate-pulse" />
-              ) : (
-                <div className="text-lg md:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                  <span className="md:hidden">{formatIdrJt(summaryRevenue || 0)}</span>
-                  <span className="hidden md:inline">{formatRupiah(summaryRevenue || 0)}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+        {renderSummaryCards()}
       </div>
 
       {/* Filters */}
       <div
-        className={`overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out ${
-          filterOpen ? 'max-h-[720px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-1'
-        }`}
+        className={cn(
+          'overflow-hidden transition-all duration-300',
+          mobileFilterOpen ? 'max-h-[1200px] opacity-100' : 'max-h-0 opacity-0 md:max-h-none md:opacity-100'
+        )}
       >
-        <div className="pt-1">
-          <FilterBar
-            fields={filterFields}
-            values={filterValues}
-            onChange={(name, value) => {
-              if (name === 'q') setSearchTerm(String(value ?? ''));
-              if (name === 'orderPeriod') setOrderPeriod(value as DateRange | undefined);
-              if (name === 'orderDate') setOrderDate(value as DateRange | undefined);
-            }}
-            onReset={handleResetFilters}
-            layout="responsive-grid"
-            mobileDateFormat="dd MMMM"
-            desktopDateFormat="dd MMM yyyy"
-            dateLocale={idLocale}
-            resetButtonClassName="hidden md:inline-flex md:w-auto"
-          />
-        </div>
+        <FilterBar
+          fields={filterFields}
+          values={filterValues}
+          className="p-0"
+          containerClassName="rounded-none border-0 bg-transparent pb-0 shadow-none"
+          onChange={(name, value) => {
+            if (name === 'q') setSearchTerm(String(value ?? ''));
+            if (name === 'orderPeriod') setOrderPeriod(value as DateRange | undefined);
+            if (name === 'orderDate') setOrderDate(value as DateRange | undefined);
+          }}
+          onReset={handleResetFilters}
+          layout="responsive-grid"
+          mobileDateFormat="dd MMMM"
+          desktopDateFormat="dd MMM yyyy"
+          dateLocale={idLocale}
+          resetLabel="Reset"
+          resetButtonClassName="md:inline-flex"
+          resetIconOnly
+          actionsSlot={downloadAction}
+          mobileActionGrid
+        />
       </div>
 
       {/* Table */}
@@ -825,6 +1012,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         zebra
         emptyTitle="Tidak ada data order"
         emptyDescription="Coba ubah filter atau rentang tanggal."
+        tableClassName="min-w-max sm:table-auto sm:min-w-full"
         pagination={{
           page: currentPage,
           pageSize: itemsPerPage,
@@ -842,7 +1030,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
       {canAddOrder ? (
         <Button
           onClick={() => navigate(createOrderPath)}
-          className="md:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
+          className="fixed right-6 bottom-[calc(env(safe-area-inset-bottom)+2.5rem)] z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
           size="icon"
           title="Tambah Order"
         >
