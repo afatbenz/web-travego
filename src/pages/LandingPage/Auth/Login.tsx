@@ -70,6 +70,7 @@ export const Login: React.FC = () => {
       setSubmitting(true);
       const res = await api.post<{
         token?: string;
+        refresh_token?: string;
         user?: { role?: string };
         fullname?: string;
         email?: string;
@@ -83,6 +84,10 @@ export const Login: React.FC = () => {
         toast({ title: 'Login berhasil', description: 'Selamat datang kembali!' });
         if (res.data?.token) {
           localStorage.setItem('token', res.data.token);
+          // Store refresh token for auto-refresh
+          if (res.data.refresh_token) {
+            localStorage.setItem('refresh_token', res.data.refresh_token);
+          }
           try {
             const payloadStr = res.data.token.split('.')[1];
             const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');

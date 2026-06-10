@@ -44,12 +44,86 @@ function extractData<T>(payload: unknown): T | undefined {
   return payload as T;
 }
 
+// --- Refresh token logic ---
+
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+/**
+ * Attempt to refresh the access token using the stored refresh_token.
+ * Returns true if refresh succeeded, false otherwise.
+ */
+async function tryRefreshToken(): Promise<boolean> {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return false;
+
+  try {
+    const res = await fetch(toApiUrl('/auth/refresh'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!res.ok) return false;
+
+    const json = (await res.json()) as Record<string, unknown>;
+    const data = json.data as Record<string, unknown> | undefined;
+    const newToken = data?.token as string | undefined;
+    const newRefreshToken = data?.refresh_token as string | undefined;
+
+    if (newToken && newRefreshToken) {
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('refresh_token', newRefreshToken);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Coordinate refresh attempts so only one is in-flight at a time.
+ * All concurrent 401 responses wait on the same promise.
+ */
+function refreshTokenOnce(): Promise<boolean> {
+  if (isRefreshing && refreshPromise) return refreshPromise;
+  isRefreshing = true;
+  refreshPromise = tryRefreshToken().finally(() => {
+    isRefreshing = false;
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
+/** Redirect to login page and clear auth state. */
+function redirectToLogin(): void {
+  const currentPath = window.location.pathname + window.location.search;
+  if (!currentPath.includes('/auth/login')) {
+    localStorage.setItem('redirect_path', currentPath);
+  }
+  localStorage.removeItem('token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  window.location.href = '/auth/login';
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   try {
     const defaultHeaders: Record<string, string> = { Accept: 'application/json' };
     if (init?.body !== undefined && !(init.body instanceof FormData)) {
       defaultHeaders['Content-Type'] = 'application/json';
     }
+
+    // Auto-attach Authorization header from localStorage if not already provided
+    const token = localStorage.getItem('token');
+    if (token && !(init?.headers as Record<string, string> | undefined)?.['Authorization']) {
+      defaultHeaders['Authorization'] = `Bearer ${token}`;
+    }
+
     const mergedHeaders: Record<string, string> = {
       ...defaultHeaders,
       ...(init?.headers as Record<string, string> | undefined) ?? {},
@@ -98,6 +172,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
     }
 
     if (res.status === 401) {
+      // Skip auto-refresh for auth endpoints (login, register, refresh itself)
+      const isAuthEndpoint = path.startsWith('/auth/');
+      if (!isAuthEndpoint) {
+        // Attempt to refresh the access token
+        const refreshed = await refreshTokenOnce();
+        if (refreshed) {
+          // Retry the original request with the new token
+          const newToken = localStorage.getItem('token');
+          const retryHeaders: Record<string, string> = {
+            ...mergedHeaders,
+            Authorization: `Bearer ${newToken}`,
+          };
+          return request<T>(path, { ...init, headers: retryHeaders });
+        }
+      }
+
+      // Refresh failed or not applicable — redirect to login
       await Swal.fire({
         icon: 'warning',
         title: 'Sesi Habis',
@@ -108,13 +199,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
         allowOutsideClick: false,
         allowEscapeKey: false
       });
-      
-      const currentPath = window.location.pathname + window.location.search;
-      if (!currentPath.includes('/auth/login')) {
-        localStorage.setItem('redirect_path', currentPath);
-      }
-      
-      window.location.href = '/auth/login';
+
+      redirectToLogin();
       return { status: 'error', statusCode: 401, message: 'Unauthorized' };
     }
 
