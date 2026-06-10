@@ -29,6 +29,9 @@ function strengthColor(label: Strength): string {
 
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
+const INPUT_CLS =
+  'h-14 rounded-2xl border-slate-200 bg-slate-50 transition-all duration-300 focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-slate-700 dark:bg-slate-900/50';
+
 export const PartnerChangePassword: React.FC = () => {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
@@ -220,54 +223,60 @@ export const PartnerChangePassword: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/partner/profile')} className="!w-auto !h-auto p-2">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Ubah Password</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">Perbarui password akun anda</p>
+    <div className="mx-auto max-w-[1600px] animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => navigate('/dashboard/partner/profile')}
+            className="h-10 w-10 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Ubah Password</h1>
+            <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">Perbarui password akun anda</p>
+          </div>
         </div>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-6" autoComplete="off">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 md:col-span-1 flex">
-            <div className="flex flex-col flex-1">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Foto Profil</h2>
-              </div>
-              <div className="mt-3 h-px bg-gray-200 dark:bg-gray-700" />
-              <div className="flex flex-col items-center justify-center flex-1 min-h-[260px]">
-                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+      <form onSubmit={onSubmit} autoComplete="off">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_1fr] xl:gap-8">
+          <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-200/60 transition-all duration-300 hover:border-blue-100 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">Foto Profil</h2>
+              <p className="mt-1 text-xs text-slate-500">Pratinjau foto profil Anda</p>
+
+              <div className="mt-5 flex flex-col items-center">
+                <div className="h-36 w-36 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 ring-1 ring-slate-200/70 dark:ring-slate-700 flex items-center justify-center">
                   {avatarPath ? (
                     <img src={toFileUrl(avatarPath)} alt="Foto Profil" className="h-full w-full object-cover" />
                   ) : (
                     <img src={defaultAvatar} alt="Foto Profil" className="h-16 w-16 object-contain opacity-80" />
                   )}
                 </div>
-                {loadingProfile ? <div className="mt-4 text-sm text-gray-600 dark:text-gray-300">Memuat...</div> : null}
+                {loadingProfile ? <div className="mt-4 text-xs text-slate-500">Memuat...</div> : null}
               </div>
             </div>
-          </div>
+          </aside>
 
           <div
             className={[
-              'bg-white dark:bg-gray-900 rounded-lg shadow p-6 md:col-span-2',
-              'transition-all duration-300',
+              'rounded-3xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-200/60 transition-all duration-300 sm:p-8 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none lg:p-10',
               mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
             ].join(' ')}
           >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Ubah Password</h2>
+            <div>
+              <div className="text-lg font-semibold text-slate-900 dark:text-white">Ubah Password</div>
+              <p className="mt-1 text-sm text-slate-500">Pastikan password baru kuat dan mudah Anda ingat</p>
             </div>
-            <div className="mt-3 h-px bg-gray-200 dark:bg-gray-700" />
 
-            <div className="mt-4 w-full max-w-md space-y-4">
-              <div>
-                <label className="text-sm">Existing Password</label>
-                <div className="flex items-center gap-2">
+            <div className="mt-8 w-full max-w-md space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Existing Password</label>
+                <div className="flex items-center gap-3">
                   <div className="relative flex-1">
                     <Input
                       ref={existingInputRef}
@@ -275,25 +284,25 @@ export const PartnerChangePassword: React.FC = () => {
                       name="existing_password"
                       value={form.existingPassword}
                       onChange={(e) => setForm((p) => ({ ...p, existingPassword: e.target.value }))}
-                      className={`h-12 pr-10 ${errors.existingPassword ? 'border-red-500' : ''}`}
+                      className={[INPUT_CLS, 'pr-11', errors.existingPassword ? 'border-red-500' : ''].join(' ')}
                       placeholder="Masukkan password lama"
                       autoComplete="off"
                     />
                     <button
                       type="button"
                       onClick={() => setShowExisting((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-transparent"
                     >
                       {showExisting ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <div className="w-6 h-6 flex items-center justify-center">
+                  <div className="w-7 h-7 flex items-center justify-center">
                     {existingStatus === 'valid' ? (
                       <CheckCircle2 className="h-5 w-5 text-green-600" />
                     ) : existingStatus === 'invalid' ? (
                       <XCircle className="h-5 w-5 text-red-600" />
                     ) : existingStatus === 'checking' ? (
-                      <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                      <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />
                     ) : null}
                   </div>
                 </div>
@@ -306,35 +315,34 @@ export const PartnerChangePassword: React.FC = () => {
                 ) : null}
               </div>
 
-              <div>
-                <label className="text-sm">New Password</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">New Password</label>
                 <div className="relative">
                   <Input
                     type={showNew ? 'text' : 'password'}
                     name="new_password"
                     value={form.newPassword}
                     onChange={(e) => setForm((p) => ({ ...p, newPassword: e.target.value }))}
-                    className={`h-12 pr-10 ${errors.newPassword ? 'border-red-500' : ''}`}
+                    className={[INPUT_CLS, 'pr-11', errors.newPassword ? 'border-red-500' : ''].join(' ')}
                     placeholder="Masukkan password baru"
                     autoComplete="off"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNew((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-transparent"
                   >
                     {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <div className="mt-1 text-xs text-gray-600">
-                  Kekuatan password:{' '}
-                  <span className={`font-semibold ${strengthColor(strength.label)}`}>{strength.label}</span>
+                <div className="text-xs text-slate-500">
+                  Kekuatan password: <span className={`font-semibold ${strengthColor(strength.label)}`}>{strength.label}</span>
                 </div>
                 {errors.newPassword ? <p className="text-sm text-red-600 mt-1">{errors.newPassword}</p> : null}
               </div>
 
-              <div>
-                <label className="text-sm">Confirm Password</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Confirm Password</label>
                 <div className="relative">
                   <Input
                     type={showConfirm ? 'text' : 'password'}
@@ -342,7 +350,7 @@ export const PartnerChangePassword: React.FC = () => {
                     value={form.confirmPassword}
                     onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))}
                     disabled={!existingValid}
-                    className={`h-12 pr-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                    className={[INPUT_CLS, 'pr-11', errors.confirmPassword ? 'border-red-500' : ''].join(' ')}
                     placeholder="Ulangi password baru"
                     autoComplete="off"
                   />
@@ -350,7 +358,7 @@ export const PartnerChangePassword: React.FC = () => {
                     type="button"
                     onClick={() => setShowConfirm((v) => !v)}
                     disabled={!existingValid}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-transparent disabled:opacity-40"
                   >
                     {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -358,20 +366,20 @@ export const PartnerChangePassword: React.FC = () => {
                 {errors.confirmPassword ? <p className="text-sm text-red-600 mt-1">{errors.confirmPassword}</p> : null}
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="flex justify-end">
-          <Button type="submit" disabled={saving || !existingValid} className="bg-blue-600 hover:bg-blue-700 text-white">
-            {saving ? (
-              <span className="flex items-center">
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Proses Validasi...
-              </span>
-            ) : (
-              'Simpan Perubahan'
-            )}
-          </Button>
+            <div className="mt-10 flex justify-end">
+              <Button type="submit" disabled={saving || !existingValid} className="h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-6">
+                {saving ? (
+                  <span className="flex items-center">
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Proses Validasi...
+                  </span>
+                ) : (
+                  'Simpan Perubahan'
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       </form>
     </div>

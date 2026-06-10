@@ -9,6 +9,9 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import defaultAvatar from '@/assets/general/avatar.svg';
 
+const INPUT_CLS =
+  'h-14 rounded-2xl border-slate-200 bg-slate-50 transition-all duration-300 focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-slate-700 dark:bg-slate-900/50';
+
 export const PartnerProfileEdit: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -303,228 +306,263 @@ export const PartnerProfileEdit: React.FC = () => {
   }, [cityDisplay, form.province]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/partner/profile')} className="!w-auto !h-auto p-2">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Edit Profil</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">Perbarui informasi profil anda</p>
+    <div className="mx-auto max-w-[1600px] animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => navigate('/dashboard/partner/profile')}
+            className="h-10 w-10 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Edit Profil</h1>
+            <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">Perbarui informasi profil anda</p>
+          </div>
         </div>
       </div>
-      <form onSubmit={submit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-6 md:col-span-1 flex">
-            <div className="flex flex-col flex-1">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Foto Profil</h2>
-              </div>
-              <div className="mt-3 h-px bg-gray-200" />
-              <div className="flex flex-col items-center justify-center flex-1 min-h-[300px]">
-                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+
+      <form onSubmit={submit}>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_1fr] xl:gap-8">
+          <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-200/60 transition-all duration-300 hover:border-blue-100 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">Foto Profil</h2>
+              <p className="mt-1 text-xs text-slate-500">PNG atau JPG</p>
+
+              <div className="mt-5 flex flex-col items-center">
+                <div className="h-36 w-36 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800 ring-1 ring-slate-200/70 dark:ring-slate-700 flex items-center justify-center">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Foto Profil" className="h-full w-full object-cover" />
                   ) : (
                     <img src={defaultAvatar} alt="Foto Profil" className="h-16 w-16 object-contain opacity-80" />
                   )}
                 </div>
-                <div className="mt-4 flex flex-col gap-2 w-full">
-                  <label className={`inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer ${avatarUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                <div className="mt-5 flex flex-col gap-2 w-full">
+                  <label
+                    className={[
+                      'inline-flex items-center justify-center rounded-2xl text-sm font-medium h-11 px-4 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-all duration-300',
+                      avatarUploading ? 'opacity-60 pointer-events-none' : '',
+                    ].join(' ')}
+                  >
                     <Upload className="h-4 w-4 mr-2" />
                     Unggah foto baru
                     <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                   </label>
-                  <Button type="button" variant="outline" className="h-10" onClick={handleAvatarRemove} disabled={avatarUploading || (!avatarUrl && !avatarFile)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                    onClick={handleAvatarRemove}
+                    disabled={avatarUploading || (!avatarUrl && !avatarFile)}
+                  >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Hapus foto profil
                   </Button>
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
 
-          <div className="bg-white rounded-lg shadow p-6 md:col-span-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Informasi Profil</h2>
-              <Button type="button" variant="outline" onClick={() => navigate('/dashboard/partner/profile/password')}>
+          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm shadow-slate-200/60 transition-all duration-300 sm:p-8 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none lg:p-10">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-lg font-semibold text-slate-900 dark:text-white">Informasi Profil</div>
+                <p className="mt-1 text-sm text-slate-500">Lengkapi informasi dasar profil Anda</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-2xl border-blue-100 bg-blue-50/50 text-blue-600 transition-all duration-300 hover:border-blue-200 hover:bg-blue-100 hover:text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200 dark:hover:bg-blue-950/40"
+                onClick={() => navigate('/dashboard/partner/profile/password')}
+              >
                 Ubah Password
               </Button>
             </div>
-            <div className="mt-3 h-px bg-gray-200" />
-            <div className="mt-4 grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm">Nama</label>
-              <Input name="name" value={form.name} onChange={handleChange} className="h-12" placeholder="Nama lengkap" />
-            </div>
-            <div>
-              <label className="text-sm">Telepon</label>
-              <Input name="phone" value={form.phone} onChange={handleChange} className="h-12" placeholder="62xxxxxxxxxxx" />
-            </div>
-            <div>
-              <label className="text-sm">NPWP</label>
-              <Input
-                name="npwp"
-                value={form.npwp}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={16}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 16);
-                  setForm((p) => ({ ...p, npwp: v }));
-                }}
-                className="h-12"
-                placeholder="Nomor NPWP"
-              />
-            </div>
-            <div>
-              <label className="text-sm">Gender</label>
-              <Select value={form.gender} onValueChange={(v) => setForm((p) => ({ ...p, gender: v }))}>
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Pilih gender" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="M">Laki Laki (M)</SelectItem>
-                  <SelectItem value="F">Perempuan (F)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm">Tanggal Lahir (ISO)</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full h-12 justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dob
-                      ? dob.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
-                      : 'Pilih tanggal lahir'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dob ?? undefined}
-                    onSelect={(date) => setDob(date ?? null)}
-                    captionLayout="dropdown"
-                    fromYear={1950}
-                    toYear={new Date().getFullYear()}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <label className="text-sm">Alamat</label>
-              <Input name="address" value={form.address} onChange={handleChange} className="h-12" placeholder="Alamat lengkap" />
-            </div>
-            <div>
-              <label className="text-sm">Provinsi (ID)</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  name="province"
-                  value={provinceDisplay}
-                  onFocus={() => setShowProvinceList(true)}
-                  onBlur={() => setTimeout(() => setShowProvinceList(false), 150)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'PageDown') {
-                      e.preventDefault();
-                      setShowProvinceList(true);
-                      if (!loadingProvince && provinceOptions.length === 0) {
-                        fetchProvincesImmediate();
-                      }
-                    }
-                  }}
-                  onChange={(e) => setProvinceDisplay(e.target.value)}
-                  className="pl-10 h-12"
-                  placeholder="Cari provinsi (ID/nama)"
-                />
-                {showProvinceList && (provinceDisplay.trim().length > 0 || loadingProvince) && (
-                  <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-md shadow max-h-60 overflow-auto">
-                    <div className="px-3 py-2 text-xs text-gray-500 flex items-center">
-                      {loadingProvince ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
-                      <span>{loadingProvince ? 'Memuat...' : 'Pilih provinsi'}</span>
-                    </div>
-                    {provinceOptions.map((opt) => (
-                      <button
-                        type="button"
-                        key={opt.id}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setForm((p) => ({ ...p, province: opt.id }));
-                          setProvinceDisplay(opt.name);
-                          setShowProvinceList(false);
-                        }}
-                        className="w-full text-left px-3 py-2 bg-white hover:bg-gray-100"
-                      >
-                        {opt.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm">Kota (ID)</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  name="city"
-                  value={cityDisplay}
-                  onFocus={() => setShowCityList(true)}
-                  onBlur={() => setTimeout(() => setShowCityList(false), 150)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'PageDown') {
-                      e.preventDefault();
-                      setShowCityList(true);
-                      if (!loadingCity && cityOptions.length === 0) {
-                        fetchCitiesImmediate();
-                      }
-                    }
-                  }}
-                  onChange={(e) => setCityDisplay(e.target.value)}
-                  className="pl-10 h-12"
-                  placeholder="Cari kota (ID/nama)"
-                />
-                {showCityList && (cityDisplay.trim().length > 0 || loadingCity) && (
-                  <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-md shadow max-h-60 overflow-auto">
-                    <div className="px-3 py-2 text-xs text-gray-500 flex items-center">
-                      {loadingCity ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
-                      <span>{loadingCity ? 'Memuat...' : 'Pilih kota'}</span>
-                    </div>
-                    {cityOptions.map((opt) => (
-                      <button
-                        type="button"
-                        key={opt.id}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setForm((p) => ({ ...p, city: opt.id }));
-                          setCityDisplay(opt.name);
-                          setShowCityList(false);
-                        }}
-                        className="w-full text-left px-3 py-2 bg-white hover:bg-gray-100"
-                      >
-                        {opt.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm">Kode Pos</label>
-              <Input name="postal_code" value={form.postal_code} onChange={handleChange} className="h-12" placeholder="Kode pos" />
-            </div>
-          </div>
-          </div>
-        </div>
 
-        <div className="flex justify-end">
-          <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 h-12 text-white">
-            {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
-          </Button>
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Nama</label>
+                <Input name="name" value={form.name} onChange={handleChange} className={INPUT_CLS} placeholder="Nama lengkap" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Telepon</label>
+                <Input name="phone" value={form.phone} onChange={handleChange} className={INPUT_CLS} placeholder="62xxxxxxxxxxx" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">NPWP</label>
+                <Input
+                  name="npwp"
+                  value={form.npwp}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={16}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 16);
+                    setForm((p) => ({ ...p, npwp: v }));
+                  }}
+                  className={INPUT_CLS}
+                  placeholder="Nomor NPWP"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Gender</label>
+                <Select value={form.gender} onValueChange={(v) => setForm((p) => ({ ...p, gender: v }))}>
+                  <SelectTrigger className={INPUT_CLS}>
+                    <SelectValue placeholder="Pilih gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Laki Laki (M)</SelectItem>
+                    <SelectItem value="F">Perempuan (F)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Tanggal Lahir</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={[INPUT_CLS, 'w-full justify-start text-left font-normal px-4'].join(' ')}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
+                      {dob ? dob.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Pilih tanggal lahir'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dob ?? undefined}
+                      onSelect={(date) => setDob(date ?? null)}
+                      captionLayout="dropdown"
+                      fromYear={1950}
+                      toYear={new Date().getFullYear()}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Alamat</label>
+                <Input name="address" value={form.address} onChange={handleChange} className={INPUT_CLS} placeholder="Alamat lengkap" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Provinsi</label>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    name="province"
+                    value={provinceDisplay}
+                    onFocus={() => setShowProvinceList(true)}
+                    onBlur={() => setTimeout(() => setShowProvinceList(false), 150)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'PageDown') {
+                        e.preventDefault();
+                        setShowProvinceList(true);
+                        if (!loadingProvince && provinceOptions.length === 0) {
+                          fetchProvincesImmediate();
+                        }
+                      }
+                    }}
+                    onChange={(e) => setProvinceDisplay(e.target.value)}
+                    className={[INPUT_CLS, 'pl-11'].join(' ')}
+                    placeholder="Cari provinsi (ID/nama)"
+                  />
+                  {showProvinceList && (provinceDisplay.trim().length > 0 || loadingProvince) && (
+                    <div className="absolute left-0 right-0 top-full mt-2 z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900 max-h-60 overflow-auto">
+                      <div className="px-4 py-3 text-xs text-slate-500 flex items-center">
+                        {loadingProvince ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+                        <span>{loadingProvince ? 'Memuat...' : 'Pilih provinsi'}</span>
+                      </div>
+                      {provinceOptions.map((opt) => (
+                        <button
+                          type="button"
+                          key={opt.id}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setForm((p) => ({ ...p, province: opt.id, city: '' }));
+                            setProvinceDisplay(opt.name);
+                            setCityDisplay('');
+                            setShowProvinceList(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                        >
+                          {opt.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Kota</label>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    name="city"
+                    value={cityDisplay}
+                    onFocus={() => setShowCityList(true)}
+                    onBlur={() => setTimeout(() => setShowCityList(false), 150)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'PageDown') {
+                        e.preventDefault();
+                        setShowCityList(true);
+                        if (!loadingCity && cityOptions.length === 0) {
+                          fetchCitiesImmediate();
+                        }
+                      }
+                    }}
+                    onChange={(e) => setCityDisplay(e.target.value)}
+                    className={[INPUT_CLS, 'pl-11'].join(' ')}
+                    placeholder="Cari kota (ID/nama)"
+                  />
+                  {showCityList && (cityDisplay.trim().length > 0 || loadingCity) && (
+                    <div className="absolute left-0 right-0 top-full mt-2 z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900 max-h-60 overflow-auto">
+                      <div className="px-4 py-3 text-xs text-slate-500 flex items-center">
+                        {loadingCity ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+                        <span>{loadingCity ? 'Memuat...' : 'Pilih kota'}</span>
+                      </div>
+                      {cityOptions.map((opt) => (
+                        <button
+                          type="button"
+                          key={opt.id}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setForm((p) => ({ ...p, city: opt.id }));
+                            setCityDisplay(opt.name);
+                            setShowCityList(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                        >
+                          {opt.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Kode Pos</label>
+                <Input name="postal_code" value={form.postal_code} onChange={handleChange} className={INPUT_CLS} placeholder="Kode pos" />
+              </div>
+            </div>
+
+            <div className="mt-10 flex justify-end">
+              <Button type="submit" disabled={saving} className="h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-6">
+                {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </Button>
+            </div>
+          </div>
         </div>
       </form>
     </div>

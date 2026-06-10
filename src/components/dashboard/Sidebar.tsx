@@ -172,8 +172,8 @@ export const Sidebar: React.FC = () => {
         label: 'CRM',
         items: [
           { title: 'Daftar Pelanggan', icon: Users, href: `${basePrefix}/customers` },
-          { title: 'Pesan Masuk', icon: Mails, href: `${basePrefix}/inquiry` },
           { title: 'Mitra Operasional', icon: Handshake, href: `${basePrefix}/partner-operations` },
+          { title: 'Pesan Masuk', icon: Mails, href: `${basePrefix}/inquiry` },
         ]
       },
       {
