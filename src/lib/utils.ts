@@ -5,6 +5,38 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function formatPhoneNumberId(value: string | number | null | undefined): string {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw === '-') return '-';
+
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return raw;
+
+  let normalized = digits;
+  if (normalized.startsWith('0')) {
+    normalized = `62${normalized.slice(1)}`;
+  } else if (!normalized.startsWith('62')) {
+    normalized = `62${normalized}`;
+  }
+
+  const localNumber = normalized.slice(2);
+  if (!localNumber) return '+62';
+
+  const groups: string[] = [];
+  if (localNumber.length <= 3) {
+    groups.push(localNumber);
+  } else {
+    groups.push(localNumber.slice(0, 3));
+    let index = 3;
+    while (index < localNumber.length) {
+      groups.push(localNumber.slice(index, index + 4));
+      index += 4;
+    }
+  }
+
+  return `+62 ${groups.join(' ')}`.trim();
+}
+
 export function isTokenValid(token: string | null): boolean {
   if (!token) return false;
 

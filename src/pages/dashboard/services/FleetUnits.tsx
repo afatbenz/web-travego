@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Trash2, Search, RotateCcw, Sheet, FileSpreadsheet, MoreHorizontal } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Search, RotateCcw, Sheet, FileSpreadsheet, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
@@ -245,11 +245,11 @@ export const FleetUnits: React.FC = () => {
         <div className="flex items-center gap-2">
         {canCreate ? (
           <Button
-            className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-gray-200 hover:text-black transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
+            className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600"
             onClick={() => navigate(createUnitPath)}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Tambah unit baru
+            Tambah Unit Baru
           </Button>
         ) : null}
         <DropdownMenu>
@@ -258,10 +258,10 @@ export const FleetUnits: React.FC = () => {
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="h-10 w-10 rounded-2xl"
+                        className="h-10 w-10 rounded-2xl bg-blue-500 hover:bg-blue-700 no-border"
                         aria-label="Aksi armada"
                       >
-                        <MoreHorizontal className="h-4 w-4" />
+                        <Download className="h-4 w-4 text-white hover:transition scale-y-0.5" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-56 rounded-2xl">

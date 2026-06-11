@@ -928,11 +928,11 @@ export const GeneralExpenses: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="h-10 w-10 rounded-2xl"
+                      className="h-10 w-10 rounded-2xl bg-blue-500 hover:bg-blue-700 no-border"
                       disabled={loading || !exportSheetRows.length}
                       title="Download data"
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-4 w-4 text-white" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-[220px] rounded-xl">

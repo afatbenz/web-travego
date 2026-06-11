@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Trash2, Search, MoreHorizontal, FileSpreadsheet, RotateCcw } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Search, Download, FileSpreadsheet, RotateCcw, Sheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Star } from 'lucide-react';
@@ -82,6 +82,8 @@ export const ServicesArmada: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [armada, setArmada] = useState<ArmadaRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const addButtonClass =
+    "hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600";
 
   useEffect(() => {
     setCurrentPage(1);
@@ -397,6 +399,66 @@ export const ServicesArmada: React.FC = () => {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
+  const handleCopyToGoogleSheet = async () => {
+    if (!filteredArmada.length) {
+      void Swal.fire('Info', 'Tidak ada data armada untuk disalin.', 'info');
+      return;
+    }
+
+    const headers = ['No', 'Nama Armada', 'Tipe', 'Unit', 'Engine', 'Kapasitas', 'Rating', 'Total Ulasan', 'Published'];
+    const rows = filteredArmada.map((item, index) => [
+      startIndex + index + 1,
+      item.name,
+      item.type,
+      item.totalUnit,
+      item.engines,
+      item.capacities,
+      item.rating?.toFixed(1) ?? '0.0',
+      item.totalUlasan ?? 0,
+      item.active ? 'Aktif' : 'Tidak Aktif',
+    ]);
+    const tsv = [headers.join('\t'), ...rows.map((row) => row.map((cell) => String(cell ?? '')).join('\t'))].join('\n');
+
+    try {
+      const fallbackCopy = () => {
+        const textarea = document.createElement('textarea');
+        textarea.value = tsv;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.width = '1px';
+        textarea.style.height = '1px';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return ok;
+      };
+
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(tsv);
+        copied = true;
+      } catch {
+        copied = fallbackCopy();
+      }
+
+      if (!copied) throw new Error('COPY_FAILED');
+
+      window.open('https://sheet.new', '_blank', 'noopener,noreferrer');
+      await Swal.fire('Berhasil', 'Data sudah disalin. Tab Google Sheet dibuka, silakan tempelkan (Ctrl+V).', 'success');
+    } catch {
+      await Swal.fire(
+        'Gagal',
+        'Tidak dapat menyalin data ke clipboard. Pastikan website berjalan di HTTPS atau localhost, dan izinkan akses clipboard di browser.',
+        'error'
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -409,7 +471,7 @@ export const ServicesArmada: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-gray-200 hover:text-black transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
+            className={addButtonClass}
             onClick={() => navigate(`${basePrefix}/services/fleet/create`)}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -421,10 +483,10 @@ export const ServicesArmada: React.FC = () => {
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 rounded-2xl"
+                className="h-10 w-10 rounded-2xl bg-blue-500 hover:bg-blue-700"
                 aria-label="Aksi armada"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <Download className="h-4 w-4 text-white" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-56 rounded-2xl">
@@ -437,6 +499,16 @@ export const ServicesArmada: React.FC = () => {
               >
                 <FileSpreadsheet className="h-4 w-4 text-green-600" />
                 <span>Download Excel (.xlsx)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer gap-2"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleCopyToGoogleSheet();
+                }}
+              >
+                <Sheet className="h-4 w-4 text-green-600" />
+                <span>Copy ke Google Sheet</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

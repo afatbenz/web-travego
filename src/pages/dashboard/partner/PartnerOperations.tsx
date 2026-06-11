@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, Plus, MoreHorizontal, FileSpreadsheet, Sheet, Eye } from 'lucide-react';
+import { Search, RotateCcw, Plus, Download, FileSpreadsheet, Sheet, Eye } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatPhoneNumberId } from '@/lib/utils';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ type PartnerOperationRow = {
   partnerEmail: string;
   picName: string;
   totalUnit: number;
+  totalRevenue: number;
   createdAt: string;
   raw: Record<string, unknown>;
 };
@@ -37,6 +39,8 @@ export const PartnerOperations: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const addButtonClass =
+    "hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600";
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<PartnerOperationRow[]>([]);
@@ -44,6 +48,7 @@ export const PartnerOperations: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const formatRupiah = (n: number) => `Rp ${Math.round(n || 0).toLocaleString('id-ID')}`;
 
   useEffect(() => {
     (async () => {
@@ -74,8 +79,15 @@ export const PartnerOperations: React.FC = () => {
                 : typeof totalUnitRaw === 'string'
                   ? Number(totalUnitRaw) || 0
                   : 0;
+            const totalRevenueRaw = it.total_revenue ?? it.totalRevenue ?? it.revenue_total ?? it.revenueTotal ?? 0;
+            const totalRevenue =
+              typeof totalRevenueRaw === 'number'
+                ? totalRevenueRaw
+                : typeof totalRevenueRaw === 'string'
+                  ? Number(totalRevenueRaw) || 0
+                  : 0;
             const createdAt = String(it.created_at ?? it.createdAt ?? it.timestamp ?? '');
-            return { partnerId, partnerName, partnerAddress, partnerCityLabel, partnerPhone, partnerEmail, picName, totalUnit, createdAt, raw: it };
+            return { partnerId, partnerName, partnerAddress, partnerCityLabel, partnerPhone, partnerEmail, picName, totalUnit, totalRevenue, createdAt, raw: it };
           })
           .filter((r) => r.partnerId || r.partnerName);
 
@@ -114,9 +126,10 @@ export const PartnerOperations: React.FC = () => {
       No: index + 1,
       'Nama Partner': row.partnerName || '-',
       PIC: row.picName || '-',
+      'Total Pendapatan': row.totalRevenue ?? 0,
       Alamat: row.partnerAddress || '-',
       Kota: row.partnerCityLabel || '-',
-      'No. Telepon': row.partnerPhone || '-',
+      'No. Telepon': formatPhoneNumberId(row.partnerPhone),
       Email: row.partnerEmail || '-',
       'Jumlah Unit': row.totalUnit ?? 0,
       Timestamp: row.createdAt || '-',
@@ -229,7 +242,7 @@ export const PartnerOperations: React.FC = () => {
           <a
             href={`${basePrefix}/partner-operations/detail/${encodeURIComponent(row.partnerId)}`}
             rel="noopener noreferrer"
-            className="font-medium"
+            className="font-medium text-blue-800 hover:text-black"
           >
             {row.partnerName || '-'}</a>
         ),
@@ -245,9 +258,9 @@ export const PartnerOperations: React.FC = () => {
         },
       },
       {
-        label: 'Phone',
+        label: 'No Telpon',
         key: 'partnerPhone',
-        render: (row) => <span>{row.partnerPhone || '-'}</span>,
+        render: (row) => <span>{formatPhoneNumberId(row.partnerPhone)}</span>,
       },
       {
         label: 'PIC',
@@ -263,24 +276,12 @@ export const PartnerOperations: React.FC = () => {
         render: (row) => <span className="text-sm text-foreground whitespace-nowrap">{row.totalUnit ?? 0} unit</span>,
       },
       {
-        label: 'Action',
-        key: '__action__',
-        width: 120,
-        align: 'right',
-        sortable: false,
-        render: (row) => (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`${basePrefix}/partner-operations/detail/${encodeURIComponent(row.partnerId)}`)}
-            disabled={!row.partnerId}
-            className="gap-2"
-          >
-            <Eye className="h-4 w-4" />
-            Detail
-          </Button>
-        ),
+        label: 'Revenue',
+        key: 'totalRevenue',
+        sortable: true,
+        width: 140,
+        align: 'center',
+        render: (row) => <span className="text-sm text-foreground whitespace-nowrap">{formatRupiah(row.totalRevenue ?? 0)}</span>,
       },
     ],
     [basePrefix, navigate, startIndex]
@@ -295,7 +296,7 @@ export const PartnerOperations: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-gray-200 hover:text-black transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
+            className={addButtonClass}
             onClick={() => navigate(`${basePrefix}/partner-operations/create`)}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -307,10 +308,10 @@ export const PartnerOperations: React.FC = () => {
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 rounded-2xl"
+                className="h-10 w-10 rounded-2xl bg-blue-500 hover:bg-blue-700 no-border"
                 aria-label="Aksi mitra operasional"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <Download className="h-4 w-4 text-white" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-56 rounded-2xl">
@@ -368,32 +369,37 @@ export const PartnerOperations: React.FC = () => {
         </div>
       </div>
 
-      {/* <Card>
-        <CardContent className="pt-6"> */}
-          <DataTable
-            data={filteredRows}
-            columns={columns}
-            loading={loading}
-            stickyHeader
-            zebra
-            emptyTitle="Tidak ada data mitra operasional"
-            emptyDescription="Coba muat ulang atau periksa kembali."
-            pagination={{
-              page: currentPage,
-              pageSize: itemsPerPage,
-              totalItems: filteredRows.length,
-              onPageChange: setCurrentPage,
-              onPageSizeChange: (n) => {
-                setItemsPerPage(n);
-                setCurrentPage(1);
-              },
-              pageSizeOptions: [10, 20, 50, 100],
-            }}
-            sorting={{ initialSort: { key: 'partnerName', direction: 'asc' } }}
-            rowKey={(row) => row.partnerId || row.partnerName}
-          />
-        {/* </CardContent>
-      </Card> */}
+      <DataTable
+        data={filteredRows}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        emptyTitle="Tidak ada data mitra operasional"
+        emptyDescription="Coba muat ulang atau periksa kembali."
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          totalItems: filteredRows.length,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        sorting={{ initialSort: { key: 'partnerName', direction: 'asc' } }}
+        rowKey={(row) => row.partnerId || row.partnerName}
+      />
+
+      <Button
+        onClick={() => navigate(`${basePrefix}/partner-operations/create`)}
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-40 h-14 w-14 rounded-full bg-blue-600 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)] hover:bg-blue-700 md:hidden"
+        size="icon"
+        title="Tambah Mitra Baru"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };

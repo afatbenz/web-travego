@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { cn } from '@/lib/utils';
+import { cn, formatPhoneNumberId } from '@/lib/utils';
 import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
@@ -207,7 +207,7 @@ export const OrderDetail: React.FC = () => {
   const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
   const [scheduleDetail, setScheduleDetail] = useState<ScheduleDetailData | null>(null);
   const [loadingScheduleDetail, setLoadingScheduleDetail] = useState(false);
-  const [orderInfoTab, setOrderInfoTab] = useState<'overview' | 'itinerary' | 'facilities' | 'schedule'>('overview');
+  const [orderInfoTab, setOrderInfoTab] = useState<'overview' | 'itinerary' | 'facilities' | 'fleetunits'>('overview');
   const [paymentTab, setPaymentTab] = useState<'summary' | 'history'>('summary');
   const fetchedPaymentHistoryFor = useRef<string>('');
   const fetchedScheduleFor = useRef<string>('');
@@ -993,7 +993,7 @@ export const OrderDetail: React.FC = () => {
     try {
       const token = localStorage.getItem('token') ?? '';
       const res = await api.get<unknown>(
-        `/services/schedule/fleet/detail/${encodeURIComponent(resolvedOrderId)}`,
+        `/services/schedule/detail/${encodeURIComponent(resolvedOrderId)}`,
         token ? { Authorization: token } : undefined
       );
       if (res.status !== 'success') {
@@ -1091,7 +1091,7 @@ export const OrderDetail: React.FC = () => {
       setScheduleDetail(null);
       return;
     }
-    if (orderInfoTab !== 'schedule') return;
+    if (orderInfoTab !== 'fleetunits') return;
     if (fetchedScheduleFor.current === resolvedOrderId) return;
     fetchedScheduleFor.current = resolvedOrderId;
     loadScheduleDetail(resolvedOrderId);
@@ -1111,7 +1111,7 @@ export const OrderDetail: React.FC = () => {
   }, [orderId, orderData.id, routeOrderId]);
 
   useEffect(() => {
-    if (orderInfoTab === 'schedule' && !orderData.scheduled) {
+    if (orderInfoTab === 'fleetunits' && !orderData.scheduled) {
       setOrderInfoTab('overview');
     }
   }, [orderData.scheduled, orderInfoTab]);
@@ -1801,10 +1801,10 @@ export const OrderDetail: React.FC = () => {
                   {!isScheduled && hasPayment ? (
                     <>
                       <span className="hidden sm:inline-flex ml-2 h-5 w-5 items-center justify-center rounded-full bg-blue-100 animate-bounce">
-                        <AlertTriangle className="h-3.5 w-3.5 p-1 text-blue-900" />
+                        <AlertTriangle className="h-4 w-4 p-1 text-blue-900" />
                       </span>
-                      <span className="sm:hidden absolute -top-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-100 ring-2 ring-white dark:ring-slate-950">
-                        <AlertTriangle className="h-3 w-3 text-blue-900" />
+                      <span className="sm:hidden absolute -top-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 ring-2 ring-white dark:ring-slate-950">
+                        <AlertTriangle className="h-4 w-4 text-blue-900" />
                       </span>
                     </>
                   ) : null}
@@ -1907,7 +1907,7 @@ export const OrderDetail: React.FC = () => {
                     Nomor Telepon
                   </div>
                   <div className="mt-2 text-sm font-medium text-slate-900 dark:text-white">
-                    {orderData.customerPhone}
+                    {formatPhoneNumberId(orderData.customerPhone)}
                   </div>
                 </div>
                 <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-all duration-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30">
@@ -1940,7 +1940,7 @@ export const OrderDetail: React.FC = () => {
                       { key: 'overview', label: 'Overview', icon: Package },
                       { key: 'itinerary', label: 'Itinerary', icon: MapPin },
                       { key: 'facilities', label: 'Fasilitas', icon: Car },
-                      { key: 'schedule', label: 'Jadwal Perjalanan', icon: Calendar, hidden: !orderData.scheduled },
+                      { key: 'fleetunits', label: 'Unit Armada', icon: Calendar, hidden: !orderData.scheduled },
                     ] as const)
                       .filter((t) => !t.hidden)
                       .map((t) => {
@@ -2165,7 +2165,7 @@ export const OrderDetail: React.FC = () => {
                     )
                   ) : null}
 
-                  {orderInfoTab === 'schedule' && orderData.scheduled ? (
+                  {orderInfoTab === 'fleetunits' && orderData.scheduled ? (
                     <div className="space-y-4">
                       {loadingScheduleDetail ? (
                         <div className="text-sm text-slate-500 dark:text-slate-400">Memuat jadwal...</div>
@@ -2175,21 +2175,6 @@ export const OrderDetail: React.FC = () => {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
-                              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Jadwal Keberangkatan</div>
-                              <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                                {formatDateTime(scheduleDetail.departureTime)}
-                              </div>
-                            </div>
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/30">
-                              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Jadwal Kembali</div>
-                              <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                                {formatDateTime(scheduleDetail.arrivalTime)}
-                              </div>
-                            </div>
-                          </div>
-
                           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                             <div className="text-sm font-semibold text-slate-900 dark:text-white">Armada & Petugas</div>
                             <div className="mt-3 space-y-2">

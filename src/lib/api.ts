@@ -48,6 +48,27 @@ function extractData<T>(payload: unknown): T | undefined {
 
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
+const inFlightGetRequests = new Map<string, Promise<ApiResponse<unknown>>>();
+
+function normalizeHeaders(headers?: Record<string, string>): Record<string, string> {
+  if (!headers) return {};
+  return Object.fromEntries(
+    Object.entries(headers)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => [key, String(value)]),
+  );
+}
+
+function getRequestKey(path: string, init?: RequestInit): string {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const headers = normalizeHeaders(init?.headers as Record<string, string> | undefined);
+  const body = init?.body instanceof FormData ? '[formdata]' : typeof init?.body === 'string' ? init.body : '';
+  return JSON.stringify({ method, path, headers, body });
+}
+
+function clearInFlightGetRequest(key: string): void {
+  inFlightGetRequests.delete(key);
+}
 
 /**
  * Attempt to refresh the access token using the stored refresh_token.
@@ -112,120 +133,134 @@ function redirectToLogin(): void {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
-  try {
-    const defaultHeaders: Record<string, string> = { Accept: 'application/json' };
-    if (init?.body !== undefined && !(init.body instanceof FormData)) {
-      defaultHeaders['Content-Type'] = 'application/json';
-    }
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const isGetRequest = method === 'GET';
+  const requestKey = isGetRequest ? getRequestKey(path, init) : '';
 
-    // Auto-attach Authorization header from localStorage if not already provided
-    const token = localStorage.getItem('token');
-    if (token && !(init?.headers as Record<string, string> | undefined)?.['Authorization']) {
-      defaultHeaders['Authorization'] = `Bearer ${token}`;
-    }
+  if (isGetRequest) {
+    const existing = inFlightGetRequests.get(requestKey);
+    if (existing) return existing as Promise<ApiResponse<T>>;
+  }
 
-    const mergedHeaders: Record<string, string> = {
-      ...defaultHeaders,
-      ...(init?.headers as Record<string, string> | undefined) ?? {},
-    };
-    if (init?.body !== undefined && !(init.body instanceof FormData)) {
-      mergedHeaders['Content-Type'] = 'application/json';
-    }
-
-    const res = await fetch(toApiUrl(path), {
-      ...init,
-      headers: mergedHeaders,
-    });
-
-    let json: unknown = null;
+  const requestPromise = (async () => {
     try {
-      json = await res.json();
-    } catch {
-      json = null;
-    }
+      const defaultHeaders: Record<string, string> = { Accept: 'application/json' };
+      if (init?.body !== undefined && !(init.body instanceof FormData)) {
+        defaultHeaders['Content-Type'] = 'application/json';
+      }
 
-    if (res.ok) {
-      return {
-        status: 'success',
-        statusCode: 200,
-        data: extractData<T>(json),
-        message: extractMessage(json),
+      const token = localStorage.getItem('token');
+      if (token && !(init?.headers as Record<string, string> | undefined)?.['Authorization']) {
+        defaultHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
+      const mergedHeaders: Record<string, string> = {
+        ...defaultHeaders,
+        ...(init?.headers as Record<string, string> | undefined) ?? {},
       };
-    }
+      if (init?.body !== undefined && !(init.body instanceof FormData)) {
+        mergedHeaders['Content-Type'] = 'application/json';
+      }
 
-    if (res.status === 400) {
-      const message = extractMessage(json) ?? 'Bad request';
-      if (
-        message === 'DOWN_PAYMENT_NOT_FOUND' ||
-        message === 'DOWN_PAYMENT_ALREADY_EXIST' ||
-        message === 'PAYMENT_AMOUNT_UNREACHABLE' ||
-        message === 'PAYMENT_AMOUNT_MAX_EXCEEDED'
-      ) {
+      const res = await fetch(toApiUrl(path), {
+        ...init,
+        headers: mergedHeaders,
+      });
+
+      let json: unknown = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
+
+      if (res.ok) {
+        return {
+          status: 'success',
+          statusCode: 200,
+          data: extractData<T>(json),
+          message: extractMessage(json),
+        };
+      }
+
+      if (res.status === 400) {
+        const message = extractMessage(json) ?? 'Bad request';
+        if (
+          message === 'DOWN_PAYMENT_NOT_FOUND' ||
+          message === 'DOWN_PAYMENT_ALREADY_EXIST' ||
+          message === 'PAYMENT_AMOUNT_UNREACHABLE' ||
+          message === 'PAYMENT_AMOUNT_MAX_EXCEEDED'
+        ) {
+          return { status: 'error', statusCode: 400, message };
+        }
+        Swal.fire({
+          icon: 'warning',
+          title: 'Permintaan tidak valid',
+          text: message,
+        });
         return { status: 'error', statusCode: 400, message };
       }
-      Swal.fire({
-        icon: 'warning',
-        title: 'Permintaan tidak valid',
-        text: message,
-      });
-      return { status: 'error', statusCode: 400, message };
-    }
 
-    if (res.status === 401) {
-      // Skip auto-refresh for auth endpoints (login, register, refresh itself)
-      const isAuthEndpoint = path.startsWith('/auth/');
-      if (!isAuthEndpoint) {
-        // Attempt to refresh the access token
-        const refreshed = await refreshTokenOnce();
-        if (refreshed) {
-          // Retry the original request with the new token
-          const newToken = localStorage.getItem('token');
-          const retryHeaders: Record<string, string> = {
-            ...mergedHeaders,
-            Authorization: `Bearer ${newToken}`,
-          };
-          return request<T>(path, { ...init, headers: retryHeaders });
+      if (res.status === 401) {
+        const isAuthEndpoint = path.startsWith('/auth/');
+        if (!isAuthEndpoint) {
+          const refreshed = await refreshTokenOnce();
+          if (refreshed) {
+            const newToken = localStorage.getItem('token');
+            const retryHeaders: Record<string, string> = {
+              ...mergedHeaders,
+              Authorization: `Bearer ${newToken}`,
+            };
+            return request<T>(path, { ...init, headers: retryHeaders });
+          }
         }
+
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Sesi Habis',
+          text: 'Sesi Anda telah berakhir. Anda akan dialihkan ke halaman login.',
+          timer: 5000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        });
+
+        redirectToLogin();
+        return { status: 'error', statusCode: 401, message: 'Unauthorized' };
       }
 
-      // Refresh failed or not applicable — redirect to login
-      await Swal.fire({
-        icon: 'warning',
-        title: 'Sesi Habis',
-        text: 'Sesi Anda telah berakhir. Anda akan dialihkan ke halaman login.',
-        timer: 5000,
-        timerProgressBar: true,
-        showConfirmButton: false,
-        allowOutsideClick: false,
-        allowEscapeKey: false
-      });
+      if (res.status === 500) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Kesalahan Server',
+          text: 'Sepertinya ada masalah pada server. Ulangi beberapa saat lagi',
+        });
+        return { status: 'error', statusCode: 500, message: 'terjadi kesalahan' };
+      }
 
-      redirectToLogin();
-      return { status: 'error', statusCode: 401, message: 'Unauthorized' };
-    }
+      if (res.status === 404) {
+        const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';
+        showApi404Alert();
+        return { status: 'error', statusCode: 404, message: fallbackMessage };
+      }
 
-    if (res.status === 500) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Kesalahan Server',
-        text: 'Sepertinya ada masalah pada server. Ulangi beberapa saat lagi',
-      });
-      return { status: 'error', statusCode: 500, message: 'terjadi kesalahan' };
-    }
-
-    if (res.status === 404) {
       const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';
-      showApi404Alert();
-      return { status: 'error', statusCode: 404, message: fallbackMessage };
+      showAlert({ title: 'Gagal', description: fallbackMessage, type: 'error' });
+      return { status: 'error', statusCode: res.status, message: fallbackMessage };
+    } catch {
+      showAlert({ title: 'Jaringan bermasalah', description: 'terjadi kesalahan', type: 'error' });
+      return { status: 'error', statusCode: 0, message: 'terjadi kesalahan' };
+    } finally {
+      if (isGetRequest) clearInFlightGetRequest(requestKey);
     }
+  })();
 
-    const fallbackMessage = extractMessage(json) ?? res.statusText ?? 'terjadi kesalahan';
-    showAlert({ title: 'Gagal', description: fallbackMessage, type: 'error' });
-    return { status: 'error', statusCode: res.status, message: fallbackMessage };
-  } catch {
-    showAlert({ title: 'Jaringan bermasalah', description: 'terjadi kesalahan', type: 'error' });
-    return { status: 'error', statusCode: 0, message: 'terjadi kesalahan' };
+  if (isGetRequest) {
+    inFlightGetRequests.set(requestKey, requestPromise as Promise<ApiResponse<unknown>>);
   }
+
+  return requestPromise as Promise<ApiResponse<T>>;
 }
 
 export const api = {

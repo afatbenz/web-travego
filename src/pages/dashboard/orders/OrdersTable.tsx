@@ -60,24 +60,16 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [searchTerm, setSearchTerm] = useState('');
-  const [orderPeriod, setOrderPeriod] = useState<DateRange | undefined>();
+  const [orderPeriod, setOrderPeriod] = useState<DateRange | undefined>(() => getDefaultOrderPeriodRange());
   const [orderDate, setOrderDate] = useState<DateRange | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [summaryRevenue, setSummaryRevenue] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [initializedDefaultRange, setInitializedDefaultRange] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
   // client-side parsing helpers removed since filtering now handled by backend
-  useEffect(() => {
-    if (!initializedDefaultRange) {
-      setOrderPeriod(getDefaultOrderPeriodRange());
-      setOrderDate(undefined);
-      setInitializedDefaultRange(true);
-    }
-  }, [initializedDefaultRange]);
 
   const formatDdMmmmYyyyFromDate = (d: Date) => {
     const formatted = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -565,8 +557,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
   const downloadHeaderAction = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-2xl" title="Download">
-          <Download className="h-4 w-4" />
+        <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-2xl bg-blue-500 hover:bg-blue-700" title="Download">
+          <Download className="h-4 w-4 text-white" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[240px]">
@@ -937,7 +929,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         <div className="flex items-center gap-2">
           {canAddOrder ? (
             <Button type="button" 
-            className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-gray-200 hover:text-black transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40" onClick={() => navigate(createOrderPath)}>
+            className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600" onClick={() => navigate(createOrderPath)}>
               <Plus className="mr-2 h-4 w-4" />
               Pesanan Baru
             </Button>

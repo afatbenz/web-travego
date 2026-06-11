@@ -19,7 +19,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { ArrowLeft, BusFront, Check, ChevronsUpDown, Eye, Loader2, MapPinned, MessageSquareText, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BusFront, Check, ChevronsUpDown, Eye, Info, Loader2, MapPinned, MessageSquareText, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
@@ -1775,6 +1775,7 @@ export const FleetOrderForm: React.FC = () => {
                         getAddonUnitPrice(row) * digitsToNumber(row.qty)
                       )}
                     </div>
+                    
                     <Button
                       type="button"
                       variant="ghost"
@@ -1790,9 +1791,15 @@ export const FleetOrderForm: React.FC = () => {
                   </div>
                 </div>
               ))}
+                  <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-blue-100/50 px-4 py-3 text-sm text-blue-900/80">
+                    <span className="inline-flex items-center gap-2">
+                      <Info className="h-5 w-5 text-blue-700 mr-3 hover:scale-50 transition-all animate-bounce" />
+                      Pilih harga terdekat, kamu bisa sesuaikan dengan pemberian discount atau penambahan biaya lain.
+                    </span>
+                  </div>
             </div>
           </CardContent>
-          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center rounded-b-lg">
+          <div className="px-6 py-4 bg-orange-50 dark:bg-gray-900/50 border-t border-blue-100 dark:border-gray-800 flex justify-between items-center rounded-b-lg">
             <div className="text-lg font-bold">Total Tagihan</div>
             <div className="text-2xl font-bold text-primary">
               {formatRupiahFromNumber(computedTotalPrice)}
@@ -2003,17 +2010,17 @@ export const FleetOrderForm: React.FC = () => {
         </Card>
 
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => navigate(`${basePrefix}/orders/fleet`)}>
+          <Button type="button" variant="outline" className="rounded-2xl" onClick={() => navigate(`${basePrefix}/orders/fleet`)}>
             Batal
           </Button>
-          <Button type="button" variant="outline" onClick={onPreview} disabled={saving || !formReady}>
+          <Button type="button" variant="outline"  className="rounded-2xl" onClick={onPreview} disabled={saving || !formReady}>
             <span className="flex items-center">
-              <Eye className="h-4 w-4 mr-2" />
+              <Eye className="h-4 w-4 mr-4" />
               Preview Pesanan
             </span>
           </Button>
           {isEditMode ? (
-            <Button type="button" disabled={saving || !formReady} className="bg-blue-600 hover:bg-blue-700 text-white" onClick={onUpdate}>
+            <Button type="button" disabled={saving || !formReady} className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl" onClick={onUpdate}>
               {saving ? (
                 <span className="flex items-center">
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2021,13 +2028,13 @@ export const FleetOrderForm: React.FC = () => {
                 </span>
               ) : (
                 <span className="flex items-center">
-                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  <ShoppingCart className="h-6 w-6 mr-4" />
                   Update Pesanan
                 </span>
               )}
             </Button>
           ) : (
-            <Button type="submit" disabled={saving || !formReady} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button type="submit" disabled={saving || !formReady} className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl">
               {saving ? (
                 <span className="flex items-center">
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

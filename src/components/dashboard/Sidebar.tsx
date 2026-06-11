@@ -185,18 +185,19 @@ export const Sidebar: React.FC = () => {
           { title: 'Divisi', icon: Package, href: `${basePrefix}/organization/division` }
         ]
       },
-      {
-        label: 'Kupon',
-        items: [
-          { title: 'Semua Kupon', icon: Ticket, href: `${basePrefix}/coupons/all` },
-          { title: 'Tambah Kupon', icon: PlusCircle, href: `${basePrefix}/coupons/add` }
-        ]
-      },
+      // {
+      //   label: 'Kupon',
+      //   items: [
+      //     { title: 'Semua Kupon', icon: Ticket, href: `${basePrefix}/coupons/all` },
+      //     { title: 'Tambah Kupon', icon: PlusCircle, href: `${basePrefix}/coupons/add` }
+      //   ]
+      // },
       {
         label: 'Pengaturan',
         items: [
+          { title: 'AI Assistant', icon: Code, href: `${basePrefix}/organization/account-assistant` },
           { title: 'Organisasi', icon: Building2, href: `${basePrefix}/organization/settings` },
-          { title: 'Pengguna', icon: User, href: `${basePrefix}/organization/users` },
+          // { title: 'Pengguna', icon: User, href: `${basePrefix}/organization/users` },
           { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
           { title: 'Manajemen Konten', icon: SlidersHorizontal, href: `${basePrefix}/content` }
         ]

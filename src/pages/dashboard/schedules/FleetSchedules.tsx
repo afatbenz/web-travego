@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarCheck, ChevronLeft, ChevronRight, FileSpreadsheet, MoreHorizontal, Sheet } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight, Download, FileSpreadsheet, MoreHorizontal, Sheet } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -411,8 +411,8 @@ export const FleetSchedules: React.FC = () => {
         render: (row) => {
           const scheduleNumber = getScheduleNumber(row);
           const content = (
-            <span className="whitespace-nowrap text-blue-900 hover:text-blue-700">
-              {row.fleetName} - <b> {row.plateNumber}</b> ({row.vehicleId})
+            <span className="whitespace-nowrap text-blue-900 hover:text-blue-700 text-normal">
+              {row.fleetName} - {row.plateNumber} ({row.vehicleId})
             </span>
           );
 
@@ -499,10 +499,10 @@ export const FleetSchedules: React.FC = () => {
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 rounded-2xl"
+                className="h-10 w-10 rounded-2xl bg-blue-500 hover:bg-blue-700 no-border"
                 aria-label="Aksi jadwal armada"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <Download className="h-4 w-4 text-white" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-56 rounded-2xl">

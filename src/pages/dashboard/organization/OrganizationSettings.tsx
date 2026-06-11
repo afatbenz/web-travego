@@ -460,7 +460,7 @@ export const OrganizationSettings: React.FC = () => {
                       className={cn(
                         'inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-medium transition-all duration-300',
                         isActive
-                          ? 'bg-green-500 hover:bg-green-600 text-white shadow-md shadow-green-500/25'
+                          ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md shadow-blue-500/25'
                           : 'text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-white'
                       )}
                     >
@@ -568,7 +568,7 @@ export const OrganizationSettings: React.FC = () => {
                     <Button
                       type="submit"
                       disabled={saving || loading}
-                      className="h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-6 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-blue-500/40"
+                      className="h-10 rounded-2xl bg-blue-600 hover:bg-blue-700 px-6 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-blue-500/40"
                     >
                       <Save className="mr-2 h-4 w-4" />
                       {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
@@ -663,7 +663,7 @@ export const OrganizationSettings: React.FC = () => {
                     <Button
                       type="submit"
                       disabled={saving || loading}
-                      className="h-10 rounded-md bg-blue-600 hover:bg-blue-700 px-6 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-blue-500/40"
+                      className="h-10 rounded-2xl bg-blue-600 hover:bg-blue-700 px-6 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-blue-500/40"
                     >
                       <Save className="mr-2 h-4 w-4" />
                       {saving ? 'Menyimpan...' : 'Simpan Perubahan'}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { api } from '@/lib/api';
+import { formatPhoneNumberId } from '@/lib/utils';
 import { Building2 } from 'lucide-react';
 
 type CompanyInfo = {
@@ -182,7 +183,7 @@ export const OrganizationCompany: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Item label="Kode Organisasi" value={info.organization_code} />
               <Item label="Nama Perusahaan" value={info.company_name} />
-              <Item label="Telepon" value={info.phone} />
+              <Item label="Telepon" value={formatPhoneNumberId(info.phone)} />
               <Item label="Email" value={info.email} />
               <Item label="Contact Person" value={info.contact_person} />
               <Item label="Jenis Usaha" value={info.business_type} />

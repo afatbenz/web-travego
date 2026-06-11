@@ -956,7 +956,7 @@ export const PartnerPreferencesCities: React.FC = () => {
           </p>
         </div>
         <Button
-          className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-gray-200 hover:text-black transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
+          className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600"
           onClick={() => void openAdd()}
         >
           <Plus className="h-4 w-4 mr-2" />

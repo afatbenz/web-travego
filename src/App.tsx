@@ -101,6 +101,7 @@ import { PartnerChangePassword } from '@/pages/dashboard/partner/ChangePassword'
 import { PartnerInquiry } from '@/pages/dashboard/partner/Inquiry';
 import { PartnerPreferencesCities } from '@/pages/dashboard/partner/preferences/CitiesPreferences';
 import { PartnerOperations } from '@/pages/dashboard/partner/PartnerOperations';
+import { PartnerOperationCreate } from '@/pages/dashboard/partner/PartnerOperationCreate';
 import { PartnerOperationDetail } from '@/pages/dashboard/partner/PartnerOperationDetail';
 import PartnerContent from '@/pages/dashboard/partner/content/Content';
 import ContentMenu from '@/pages/dashboard/partner/content/ContentMenu';
@@ -999,6 +1000,16 @@ function App() {
           <Route path="/dashboard/partner-operations" element={
             <DashboardLayout>
               <PartnerOperations />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/partner-operations/create" element={
+            <DashboardLayout>
+              <PartnerOperationCreate />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner-operations/create" element={
+            <DashboardLayout>
+              <PartnerOperationCreate />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/partner-operations/detail/:partner_id" element={

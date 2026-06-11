@@ -729,8 +729,8 @@ export const Revenue: React.FC = () => {
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="outline" className="h-10 rounded-2xl px-3">
-                      <Download className="h-4 w-4" />
+                    <Button type="button" variant="outline" className="h-10 rounded-2xl px-3 bg-blue-500 hover:bg-blue-700 no-border" title="Download report">
+                      <Download className="h-4 w-4 text-white" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-[260px] rounded-2xl">
