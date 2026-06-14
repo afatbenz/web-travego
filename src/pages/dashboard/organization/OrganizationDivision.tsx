@@ -1,11 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Eye, Plus, Save, Trash2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination } from '@/components/common/Pagination';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,10 +21,12 @@ const toRecord = (v: unknown): Record<string, unknown> =>
 const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
 
 export const OrganizationDivision: React.FC = () => {
+  const addButtonClass =
+    "hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600";
   const [loading, setLoading] = useState(true);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -84,12 +84,7 @@ export const OrganizationDivision: React.FC = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [divisions.length]);
-
-  const totalPages = Math.max(1, Math.ceil(divisions.length / itemsPerPage));
-  const pageSafe = Math.min(currentPage, totalPages);
-  const startIndex = (pageSafe - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentDivisions = divisions.slice(startIndex, endIndex);
+  const startIndex = (currentPage - 1) * itemsPerPage;
 
   const handleCreate = async () => {
     const division_name = createForm.division_name.trim();
@@ -174,6 +169,32 @@ export const OrganizationDivision: React.FC = () => {
     }
   };
 
+  const columns = useMemo<Array<DataTableColumn<Division>>>(() => {
+    return [
+      {
+        label: 'No',
+        key: '__no__',
+        width: 72,
+        align: 'center',
+        sortable: false,
+        render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>,
+      },
+      {
+        label: 'Nama Divisi',
+        key: 'division_name',
+        sortable: true,
+        width: 260,
+        render: (division) => <span className="font-medium text-foreground">{division.division_name || '-'}</span>,
+      },
+      {
+        label: 'Deskripsi',
+        key: 'description',
+        sortable: true,
+        render: (division) => <span className="text-sm text-foreground">{division.description || '-'}</span>,
+      },
+    ];
+  }, [startIndex]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -181,84 +202,52 @@ export const OrganizationDivision: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Division</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">Daftar divisi organisasi.</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setCreateOpen(true)}>
+        <Button className={addButtonClass} onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Tambah Divisi
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Daftar Divisi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16 text-center">No</TableHead>
-                <TableHead>Nama Divisi</TableHead>
-                <TableHead>Deskripsi</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={`s-${i}`}>
-                    <TableCell className="text-center">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto animate-pulse" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-44 animate-pulse" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto animate-pulse" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : divisions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500 py-10">
-                    Belum ada data divisi.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                currentDivisions.map((d, idx) => (
-                  <TableRow key={d.division_id}>
-                    <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
-                      {startIndex + idx + 1}
-                    </TableCell>
-                    <TableCell className="font-medium">{d.division_name || '-'}</TableCell>
-                    <TableCell>{d.description || '-'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(d)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleOpenDetail(d)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-
-          {!loading && divisions.length > 0 ? (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, divisions.length)} dari {divisions.length} divisi
-              </div>
-              <Pagination currentPage={pageSafe} totalPages={totalPages} onPageChange={setCurrentPage} />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+      <DataTable
+        data={divisions}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        tableClassName="table-auto w-full min-w-[820px]"
+        emptyTitle="Belum ada data divisi"
+        emptyDescription="Tambahkan divisi baru untuk mulai menyusun struktur organisasi."
+        actions={{
+          actions: [
+            {
+              key: 'detail',
+              label: 'Detail',
+              icon: Eye,
+              onSelect: (division) => handleOpenDetail(division),
+            },
+            {
+              key: 'delete',
+              label: 'Hapus',
+              icon: Trash2,
+              variant: 'destructive',
+              onSelect: (division) => void handleDelete(division),
+            },
+          ],
+        }}
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          totalItems: divisions.length,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        sorting={{ initialSort: { key: 'division_name', direction: 'asc' } }}
+        rowKey={(division, index) => division.division_id || `${division.division_name}-${index}`}
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -273,6 +262,7 @@ export const OrganizationDivision: React.FC = () => {
                 value={createForm.division_name}
                 onChange={(e) => setCreateForm((p) => ({ ...p, division_name: e.target.value }))}
                 placeholder="Masukkan nama divisi"
+                className="rounded-2xl"
               />
             </div>
             <div className="space-y-2">
@@ -283,11 +273,12 @@ export const OrganizationDivision: React.FC = () => {
                 value={createForm.description}
                 onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
                 placeholder="Masukkan deskripsi divisi"
+                className="rounded-2xl"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreate} disabled={createSaving}>
+            <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreate} disabled={createSaving}>
               {createSaving ? (
                 'Menyimpan...'
               ) : (
@@ -322,6 +313,7 @@ export const OrganizationDivision: React.FC = () => {
                     value={editForm.division_name}
                     onChange={(e) => setEditForm((p) => (p ? { ...p, division_name: e.target.value } : p))}
                     placeholder="Masukkan nama divisi"
+                    className="rounded-2xl"
                   />
                 </div>
                 <div className="space-y-2">
@@ -332,11 +324,12 @@ export const OrganizationDivision: React.FC = () => {
                     value={editForm.description === '-' ? '' : editForm.description}
                     onChange={(e) => setEditForm((p) => (p ? { ...p, description: e.target.value } : p))}
                     placeholder="Masukkan deskripsi divisi"
+                    className="rounded-2xl"
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleUpdate} disabled={updateSaving}>
+                <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white" onClick={handleUpdate} disabled={updateSaving}>
                   {updateSaving ? (
                     'Menyimpan...'
                   ) : (
@@ -351,6 +344,15 @@ export const OrganizationDivision: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <Button
+        onClick={() => setCreateOpen(true)}
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-40 h-14 w-14 rounded-full bg-blue-600 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)] hover:bg-blue-700 md:hidden"
+        size="icon"
+        title="Tambah Divisi"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };

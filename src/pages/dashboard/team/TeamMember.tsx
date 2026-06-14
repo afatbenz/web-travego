@@ -1,54 +1,56 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Eye, Plus, Search, Trash2 } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, Plus, RotateCcw, Search, Sheet, Trash2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api, toFileUrl } from '@/lib/api';
 import avatarFallback from '@/assets/general/avatar.svg';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { formatPhoneNumberId } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination } from '@/components/common/Pagination';
+
+type EmployeeRow = {
+  uuid: string;
+  employee_id: string;
+  fullname: string;
+  division_name: string;
+  role_name: string;
+  phone: string;
+  avatar_url?: string;
+};
+
+const toRecord = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
+const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
+const toAvatarUrl = (raw: unknown): string => {
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw.trim();
+  if (typeof raw === 'number') return String(raw).trim();
+  if (typeof raw === 'object') {
+    const o = toRecord(raw);
+    return toStringSafe(o.url ?? o.photo_url ?? o.photoUrl ?? o.path ?? o.file ?? o.image ?? o.avatar).trim();
+  }
+  return '';
+};
 
 export const TeamMember: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const addButtonClass =
+    "hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600";
+
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
   const [divisionFilter, setDivisionFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
-
-  type EmployeeRow = {
-    uuid: string;
-    employee_id: string;
-    fullname: string;
-    division_name: string;
-    role_name: string;
-    phone: string;
-    avatar_url?: string;
-  };
-
-  const toRecord = (v: unknown): Record<string, unknown> =>
-    v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-
-  const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
-
-  const toAvatarUrl = (raw: unknown): string => {
-    if (!raw) return '';
-    if (typeof raw === 'string') return raw.trim();
-    if (typeof raw === 'number') return String(raw).trim();
-    if (typeof raw === 'object') {
-      const o = toRecord(raw);
-      const url =
-        toStringSafe(o.url ?? o.photo_url ?? o.photoUrl ?? o.path ?? o.file ?? o.image ?? o.avatar).trim();
-      return url;
-    }
-    return '';
-  };
 
   const handleDelete = async (member: EmployeeRow) => {
     const confirm = await Swal.fire({
@@ -111,20 +113,14 @@ export const TeamMember: React.FC = () => {
           const role_name = toStringSafe(
             obj.role_name ??
               obj.roleName ??
-              (obj.role && typeof obj.role === 'object' ? toStringSafe(toRecord(obj.role).role_name ?? toRecord(obj.role).name) : obj.role)
+              (obj.role && typeof obj.role === 'object'
+                ? toStringSafe(toRecord(obj.role).role_name ?? toRecord(obj.role).name)
+                : obj.role)
           ).trim();
           const phone = toStringSafe(obj.phone ?? obj.phone_number ?? obj.phoneNumber ?? obj.telephone ?? obj.no_telephone).trim();
-
-          const avatarRaw =
-            obj.avatar ??
-            obj.employee_photo ??
-            obj.employeePhoto ??
-            obj.photo ??
-            obj.photo_url ??
-            obj.photoUrl ??
-            obj.image;
+          const avatarRaw = obj.avatar ?? obj.employee_photo ?? obj.employeePhoto ?? obj.photo ?? obj.photo_url ?? obj.photoUrl ?? obj.image;
           const avatarMaybe = toAvatarUrl(avatarRaw);
-          const avatar_url = avatarMaybe ? toFileUrl(avatarMaybe) : avatarFallback;
+
           return {
             uuid,
             employee_id,
@@ -132,7 +128,7 @@ export const TeamMember: React.FC = () => {
             division_name: division_name || '-',
             role_name: role_name || '-',
             phone: phone || '-',
-            avatar_url,
+            avatar_url: avatarMaybe ? toFileUrl(avatarMaybe) : avatarFallback,
           };
         });
 
@@ -150,7 +146,15 @@ export const TeamMember: React.FC = () => {
     employees.forEach((e) => {
       if (e.division_name && e.division_name !== '-') set.add(e.division_name);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
+  }, [employees]);
+
+  const roleOptions = useMemo(() => {
+    const set = new Set<string>();
+    employees.forEach((e) => {
+      if (e.role_name && e.role_name !== '-') set.add(e.role_name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
   }, [employees]);
 
   const filteredMembers = useMemo(() => {
@@ -160,189 +164,329 @@ export const TeamMember: React.FC = () => {
         !q ||
         member.fullname.toLowerCase().includes(q) ||
         member.employee_id.toLowerCase().includes(q) ||
-        member.division_name.toLowerCase().includes(q) ||
-        member.role_name.toLowerCase().includes(q) ||
         member.phone.toLowerCase().includes(q);
       const matchesDivision = divisionFilter === 'all' || member.division_name === divisionFilter;
-      return matchesSearch && matchesDivision;
+      const matchesRole = roleFilter === 'all' || member.role_name === roleFilter;
+      return matchesSearch && matchesDivision && matchesRole;
     });
-  }, [employees, searchTerm, divisionFilter]);
+  }, [divisionFilter, employees, roleFilter, searchTerm]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filteredMembers.length]);
+  }, [searchTerm, divisionFilter, roleFilter, filteredMembers.length]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / itemsPerPage));
-  const pageSafe = Math.min(currentPage, totalPages);
-  const startIndex = (pageSafe - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentMembers = filteredMembers.slice(startIndex, endIndex);
+  const handleReset = () => {
+    setSearchTerm('');
+    setDivisionFilter('all');
+    setRoleFilter('all');
+    setCurrentPage(1);
+  };
+
+  const buildExportRows = () => {
+    const headers = ['No.', 'Nama Team Member', 'Employee ID', 'Divisi', 'Role', 'No. Telepon'];
+    const rows = filteredMembers.map((member, index) => [
+      index + 1,
+      member.fullname ?? '',
+      member.employee_id ?? '',
+      member.division_name ?? '',
+      member.role_name ?? '',
+      formatPhoneNumberId(member.phone),
+    ]);
+    return { headers, rows };
+  };
+
+  const handleDownloadExcel = () => {
+    if (!filteredMembers.length) {
+      void Swal.fire('Info', 'Tidak ada data team member untuk diunduh.', 'info');
+      return;
+    }
+
+    const { headers, rows } = buildExportRows();
+    const escapeCell = (value: unknown) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const tableHeader = headers.map((header) => `<th>${escapeCell(header)}</th>`).join('');
+    const tableBody = rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeCell(cell)}</td>`).join('')}</tr>`).join('');
+
+    const workbook = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="UTF-8" />
+          <style>
+            table { border-collapse: collapse; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; }
+            th { background: #f3f4f6; font-weight: 700; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <thead><tr>${tableHeader}</tr></thead>
+            <tbody>${tableBody}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', workbook], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `team-members-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  const handleCopyToGoogleSheet = async () => {
+    if (!filteredMembers.length) {
+      await Swal.fire('Info', 'Tidak ada data team member untuk disalin.', 'info');
+      return;
+    }
+
+    const { headers, rows } = buildExportRows();
+    const tsv = [headers.join('\t'), ...rows.map((row) => row.map((cell) => String(cell ?? '')).join('\t'))].join('\n');
+
+    try {
+      const fallbackCopy = () => {
+        const textarea = document.createElement('textarea');
+        textarea.value = tsv;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.width = '1px';
+        textarea.style.height = '1px';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return ok;
+      };
+
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(tsv);
+        copied = true;
+      } catch {
+        copied = fallbackCopy();
+      }
+
+      if (!copied) throw new Error('COPY_FAILED');
+
+      window.open('https://sheet.new', '_blank', 'noopener,noreferrer');
+      await Swal.fire('Berhasil', 'Data sudah disalin. Tab Google Sheet dibuka, silakan tempelkan (Ctrl+V).', 'success');
+    } catch {
+      await Swal.fire(
+        'Gagal',
+        'Tidak dapat menyalin data ke clipboard. Pastikan website berjalan di HTTPS atau localhost, dan izinkan akses clipboard di browser.',
+        'error'
+      );
+    }
+  };
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+
+  const columns = useMemo<Array<DataTableColumn<EmployeeRow>>>(() => {
+    return [
+      {
+        label: 'No',
+        key: '__no__',
+        width: 72,
+        align: 'center',
+        sortable: false,
+        render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>,
+      },
+      {
+        label: 'Nama',
+        key: 'fullname',
+        sortable: true,
+        width: 280,
+        render: (member) => (
+          <div className="flex items-center gap-3">
+            <img
+              src={member.avatar_url || avatarFallback}
+              alt={member.fullname}
+              className="h-10 w-10 rounded-full border border-gray-200 object-cover dark:border-gray-700"
+            />
+            <span className="font-medium text-foreground">{member.fullname}</span>
+          </div>
+        ),
+      },
+      {
+        label: 'Employee ID',
+        key: 'employee_id',
+        sortable: true,
+        width: 160,
+        render: (member) => <span className="text-sm text-foreground">{member.employee_id || '-'}</span>,
+      },
+      {
+        label: 'Divisi',
+        key: 'division_name',
+        sortable: true,
+        width: 180,
+        render: (member) => <span className="text-sm text-foreground">{member.division_name || '-'}</span>,
+      },
+      {
+        label: 'Role',
+        key: 'role_name',
+        sortable: true,
+        width: 180,
+        render: (member) => <span className="text-sm text-foreground">{member.role_name || '-'}</span>,
+      },
+      {
+        label: 'No. Telepon',
+        key: 'phone',
+        sortable: true,
+        width: 180,
+        render: (member) => <span className="text-sm text-foreground">{formatPhoneNumberId(member.phone)}</span>,
+      },
+    ];
+  }, [startIndex]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Team Member</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
-            Kelola anggota tim perusahaan
-          </p>
+          <p className="mt-1 text-gray-600 dark:text-gray-300">Kelola anggota tim perusahaan</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate(`${basePrefix}/organization/team-members/create`)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Tambah Team Member
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button className={addButtonClass} onClick={() => navigate(`${basePrefix}/organization/team-members/create`)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Team Member
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-2xl bg-blue-500 hover:bg-blue-700 no-border" aria-label="Download">
+                <Download className="h-4 w-4 text-white" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72 rounded-2xl">
+              <DropdownMenuItem
+                className="cursor-pointer gap-2"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  handleDownloadExcel();
+                }}
+              >
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                <span>Download ke excel (.xlsx)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer gap-2"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleCopyToGoogleSheet();
+                }}
+              >
+                <Sheet className="h-4 w-4 text-green-600" />
+                <span>Copy ke Google Sheet</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Search className="h-5 w-5 mr-2" />
-            Filter & Pencarian
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Cari nama, employee id, divisi, role, telepon..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={divisionFilter} onValueChange={setDivisionFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Divisi" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Divisi</SelectItem>
-                {divisionOptions.map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" className="w-full">
-              Export Data
-            </Button>
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(180px,0.7fr)_minmax(180px,0.7fr)_auto]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Cari nama, employee id, no. telepon..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-11 rounded-2xl pl-10"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+            <SelectTrigger className="h-11 rounded-2xl">
+              <SelectValue placeholder="Divisi" />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl">
+              <SelectItem value="all">Semua Divisi</SelectItem>
+              {divisionOptions.map((division) => (
+                <SelectItem key={division} value={division}>
+                  {division}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="h-11 rounded-2xl">
+              <SelectValue placeholder="Role" />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl">
+              <SelectItem value="all">Semua Role</SelectItem>
+              {roleOptions.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {role}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button type="button" variant="outline" className="h-11 rounded-2xl px-4" onClick={handleReset}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Reset
+          </Button>
+        </div>
+      </div>
 
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Team Member ({filteredMembers.length} total)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-100 dark:bg-gray-900">
-                  <TableHead className="w-16 text-center">No</TableHead>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Employee ID</TableHead>
-                  <TableHead>Divisi</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>No. telephone</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="bg-white dark:bg-gray-800">
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={`s-${i}`} className="animate-pulse">
-                      <TableCell className="text-center">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-44" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-auto" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : currentMembers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-gray-500">
-                      Tidak ada data karyawan
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  currentMembers.map((member, idx) => (
-                    <TableRow key={member.employee_id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
-                        {startIndex + idx + 1}
-                      </TableCell>
-                      <TableCell className="font-medium text-gray-900 dark:text-white">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={member.avatar_url || avatarFallback}
-                            alt={member.fullname}
-                            className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-700"
-                          />
-                          <span>{member.fullname}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-gray-900 dark:text-white">{member.employee_id}</TableCell>
-                      <TableCell className="text-gray-900 dark:text-white">{member.division_name}</TableCell>
-                      <TableCell className="text-gray-900 dark:text-white">{member.role_name}</TableCell>
-                      <TableCell className="text-gray-900 dark:text-white">{member.phone}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            type="button"
-                            onClick={() =>
-                              navigate(
-                                `${basePrefix}/organization/team-members/detail/${encodeURIComponent(member.uuid || member.employee_id)}`
-                              )
-                            }
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" type="button" onClick={() => handleDelete(member)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+      <DataTable
+        data={filteredMembers}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        tableClassName="table-auto w-full min-w-[980px]"
+        emptyTitle="Tidak ada data karyawan"
+        emptyDescription="Coba ubah pencarian atau filter."
+        actions={{
+          actions: [
+            {
+              key: 'detail',
+              label: 'Detail',
+              icon: Eye,
+              onSelect: (member) =>
+                navigate(`${basePrefix}/organization/team-members/detail/${encodeURIComponent(member.uuid || member.employee_id)}`),
+            },
+            {
+              key: 'delete',
+              label: 'Hapus',
+              icon: Trash2,
+              variant: 'destructive',
+              onSelect: (member) => void handleDelete(member),
+            },
+          ],
+        }}
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          totalItems: filteredMembers.length,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        sorting={{ initialSort: { key: 'fullname', direction: 'asc' } }}
+        rowKey={(member, index) => member.uuid || `${member.employee_id}-${index}`}
+      />
 
-          {/* Pagination */}
-          {!loading && filteredMembers.length > 0 ? (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} dari {filteredMembers.length} karyawan
-              </div>
-              <Pagination currentPage={pageSafe} totalPages={totalPages} onPageChange={setCurrentPage} />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
+      <Button
+        onClick={() => navigate(`${basePrefix}/organization/team-members/create`)}
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-40 h-14 w-14 rounded-full bg-blue-600 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)] hover:bg-blue-700 md:hidden"
+        size="icon"
+        title="Tambah Team Member"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };

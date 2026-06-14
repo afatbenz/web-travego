@@ -222,10 +222,18 @@ export function DataTable<T>({
 
   const pagedData = useMemo(() => {
     if (!paginationEnabled) return sortedData;
-    if (pagination?.totalItems !== undefined) return sortedData;
+
+    // If totalItems is provided and it's equal to or smaller than the current data length,
+    // we assume the data is already paged from the server.
+    // However, if data.length > pageSize, it's likely that the user provided full data
+    // and just happened to provide totalItems as well.
+    if (pagination?.totalItems !== undefined && data.length <= effectivePageSize) {
+      return sortedData;
+    }
+
     const start = (Math.max(1, effectivePage) - 1) * effectivePageSize;
     return sortedData.slice(start, start + effectivePageSize);
-  }, [effectivePage, effectivePageSize, pagination?.totalItems, paginationEnabled, sortedData]);
+  }, [effectivePage, effectivePageSize, pagination?.totalItems, paginationEnabled, sortedData, data.length]);
 
   const setSort = (next: DataTableSort | null) => {
     if (sorting?.onSortChange) {

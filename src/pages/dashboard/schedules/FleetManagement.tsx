@@ -452,8 +452,8 @@ export const FleetManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Fleet Management</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">Kelola jadwal berdasarkan pesanan per tanggal</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Kalender Armada</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm md:text-lg">Kelola jadwal berdasarkan pesanan per tanggal</p>
         </div>
       </div>
 
@@ -588,7 +588,7 @@ export const FleetManagement: React.FC = () => {
       </Card>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-5xl p-0 border-none bg-white overflow-hidden">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-5xl p-0 border-none bg-white dark:bg-[#080b11] overflow-hidden">
           <div className="p-8 space-y-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0">
@@ -614,8 +614,9 @@ export const FleetManagement: React.FC = () => {
             </div>
 
             <div className="space-y-4 max-h-[58vh] overflow-y-auto pr-2">
-              <div className="w-full overflow-x-auto overflow-hidden rounded-2xl border border-slate-200">
-                <Table className="text-xs sm:text-sm table-fixed min-w-[940px]">
+              <div className="w-full overflow-hidden rounded-2xl border border-slate-200">
+                <div className="overflow-x-auto">
+                  <Table className="text-xs sm:text-sm table-fixed min-w-[940px]">
                   <TableHeader className="bg-muted/30">
                     <TableRow>
                       <TableHead className="w-[64px] px-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground text-center whitespace-nowrap">No.</TableHead>
@@ -709,7 +710,8 @@ export const FleetManagement: React.FC = () => {
                       ))
                     )}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </div>
 
               {!modalLoading && modalRows.length > 0 ? (

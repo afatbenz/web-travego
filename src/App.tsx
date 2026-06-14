@@ -101,6 +101,7 @@ import { PartnerChangePassword } from '@/pages/dashboard/partner/ChangePassword'
 import { PartnerInquiry } from '@/pages/dashboard/partner/Inquiry';
 import { PartnerPreferencesCities } from '@/pages/dashboard/partner/preferences/CitiesPreferences';
 import { PartnerOperations } from '@/pages/dashboard/partner/PartnerOperations';
+import { PartnerOperationCreate } from '@/pages/dashboard/partner/PartnerOperationCreate';
 import { PartnerOperationDetail } from '@/pages/dashboard/partner/PartnerOperationDetail';
 import PartnerContent from '@/pages/dashboard/partner/content/Content';
 import ContentMenu from '@/pages/dashboard/partner/content/ContentMenu';
@@ -174,6 +175,8 @@ import { OperationalExpenses } from '@/pages/dashboard/finance/OperationalExpens
 // New Coupons Pages
 import { AllCoupons } from '@/pages/dashboard/coupons/AllCoupons';
 import { AddCoupon } from '@/pages/dashboard/coupons/AddCoupon';
+import { OrganizationAccountAssistant } from './pages/dashboard/organization/OrganizationAccountAssistant';
+import { NotificationsPage } from './pages/dashboard/NotificationsPage';
 
 // Layout wrapper for public pages
 const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -372,6 +375,11 @@ function App() {
           <Route path="/dashboard/organization/join" element={
             <DashboardLayout>
               <OrganizationJoinDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/account-assistant" element={
+            <DashboardLayout>
+              <OrganizationAccountAssistant />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/organization/settings" element={
@@ -1001,6 +1009,16 @@ function App() {
               <PartnerOperations />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/partner-operations/create" element={
+            <DashboardLayout>
+              <PartnerOperationCreate />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner-operations/create" element={
+            <DashboardLayout>
+              <PartnerOperationCreate />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/partner/partner-operations/detail/:partner_id" element={
             <DashboardLayout>
               <PartnerOperationDetail />
@@ -1099,6 +1117,18 @@ function App() {
           <Route path="/dashboard/partner/content/image-layout" element={
             <DashboardLayout>
               <ImageLayout />
+            </DashboardLayout>
+          } />
+          
+          {/* Notifications */}
+          <Route path="/dashboard/partner/notifications" element={
+            <DashboardLayout>
+              <NotificationsPage />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/notifications" element={
+            <DashboardLayout>
+              <NotificationsPage />
             </DashboardLayout>
           } />
 

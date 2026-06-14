@@ -2,10 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Eye, Plus, Save, Trash2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination } from '@/components/common/Pagination';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,12 +30,14 @@ const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === '
 
 export const OrganizationRoles: React.FC = () => {
   const token = localStorage.getItem('token') ?? '';
+  const addButtonClass =
+    "hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600";
 
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [divisionOptions, setDivisionOptions] = useState<DivisionOption[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -131,17 +131,13 @@ export const OrganizationRoles: React.FC = () => {
     setCurrentPage(1);
   }, [roles.length]);
 
-  const totalPages = Math.max(1, Math.ceil(roles.length / itemsPerPage));
-  const pageSafe = Math.min(currentPage, totalPages);
-  const startIndex = (pageSafe - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentRoles = roles.slice(startIndex, endIndex);
-
   const divisionNameById = useMemo(() => {
     const map = new Map<string, string>();
     divisionOptions.forEach((d) => map.set(d.division_id, d.division_name));
     return map;
   }, [divisionOptions]);
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
 
   const handleCreate = async () => {
     const division_id = createForm.division_id.trim();
@@ -238,96 +234,92 @@ export const OrganizationRoles: React.FC = () => {
     }
   };
 
+  const columns = useMemo<Array<DataTableColumn<RoleRow>>>(() => {
+    return [
+      {
+        label: 'No',
+        key: '__no__',
+        width: 72,
+        align: 'center',
+        sortable: false,
+        render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>,
+      },
+      {
+        label: 'Nama Role',
+        key: 'role_name',
+        sortable: true,
+        width: 220,
+        render: (role) => <span className="font-medium text-foreground">{role.role_name || '-'}</span>,
+      },
+      {
+        label: 'Divisi',
+        key: 'division_name',
+        sortable: true,
+        width: 220,
+        render: (role) => <span className="text-sm text-foreground">{role.division_name || divisionNameById.get(role.division_id) || '-'}</span>,
+      },
+      {
+        label: 'Deskripsi',
+        key: 'description',
+        sortable: true,
+        render: (role) => <span className="text-sm text-foreground">{role.description || '-'}</span>,
+      },
+    ];
+  }, [divisionNameById, startIndex]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Roles</h1>
-        <p className="text-gray-600 dark:text-gray-300 mt-1">Kelola peran dan izin akses organisasi</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Roles</h1>
+          <p className="mt-1 text-gray-600 dark:text-gray-300">Kelola peran dan izin akses organisasi</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setCreateOpen(true)}>
+        <Button className={addButtonClass} onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Tambah Role
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Daftar Role</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16 text-center">No</TableHead>
-                <TableHead>Nama Role</TableHead>
-                <TableHead>Divisi</TableHead>
-                <TableHead>Deskripsi</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={`s-${i}`}>
-                    <TableCell className="text-center">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-8 mx-auto animate-pulse" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-44 animate-pulse" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40 animate-pulse" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-72 animate-pulse" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-24 ml-auto animate-pulse" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : roles.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-gray-500 py-10">
-                    Belum ada data role.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                currentRoles.map((r, idx) => (
-                  <TableRow key={r.role_id}>
-                    <TableCell className="text-center text-sm text-gray-600 dark:text-gray-300">
-                      {startIndex + idx + 1}
-                    </TableCell>
-                    <TableCell className="font-medium">{r.role_name || '-'}</TableCell>
-                    <TableCell>{r.division_name || divisionNameById.get(r.division_id) || '-'}</TableCell>
-                    <TableCell>{r.description || '-'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(r)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleOpenDetail(r)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-
-          {!loading && roles.length > 0 ? (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, roles.length)} dari {roles.length} role
-              </div>
-              <Pagination currentPage={pageSafe} totalPages={totalPages} onPageChange={setCurrentPage} />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+      <DataTable
+        data={roles}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        tableClassName="table-auto w-full min-w-[900px]"
+        emptyTitle="Belum ada data role"
+        emptyDescription="Tambahkan role baru untuk mulai mengelola struktur organisasi."
+        actions={{
+          actions: [
+            {
+              key: 'detail',
+              label: 'Detail',
+              icon: Eye,
+              onSelect: (role) => handleOpenDetail(role),
+            },
+            {
+              key: 'delete',
+              label: 'Hapus',
+              icon: Trash2,
+              variant: 'destructive',
+              onSelect: (role) => void handleDelete(role),
+            },
+          ],
+        }}
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          totalItems: roles.length,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        sorting={{ initialSort: { key: 'role_name', direction: 'asc' } }}
+        rowKey={(role, index) => role.role_id || `${role.role_name}-${index}`}
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -338,10 +330,10 @@ export const OrganizationRoles: React.FC = () => {
             <div className="space-y-2">
               <Label>Pilih Divisi</Label>
               <Select value={createForm.division_id} onValueChange={(v) => setCreateForm((p) => ({ ...p, division_id: v }))}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-2xl">
                   <SelectValue placeholder="Pilih divisi" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-2xl">
                   {divisionOptions.map((d) => (
                     <SelectItem key={d.division_id} value={d.division_id}>
                       {d.division_name}
@@ -357,6 +349,7 @@ export const OrganizationRoles: React.FC = () => {
                 value={createForm.role_name}
                 onChange={(e) => setCreateForm((p) => ({ ...p, role_name: e.target.value }))}
                 placeholder="Masukkan nama role"
+                className="rounded-2xl"
               />
             </div>
             <div className="space-y-2">
@@ -367,11 +360,12 @@ export const OrganizationRoles: React.FC = () => {
                 value={createForm.description}
                 onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
                 placeholder="Masukkan deskripsi role"
+                className="rounded-2xl"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreate} disabled={createSaving}>
+            <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreate} disabled={createSaving}>
               {createSaving ? (
                 'Menyimpan...'
               ) : (
@@ -405,10 +399,10 @@ export const OrganizationRoles: React.FC = () => {
                     value={editForm.division_id}
                     onValueChange={(v) => setEditForm((p) => (p ? { ...p, division_id: v } : p))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-2xl">
                       <SelectValue placeholder="Pilih divisi" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-2xl">
                       {divisionOptions.map((d) => (
                         <SelectItem key={d.division_id} value={d.division_id}>
                           {d.division_name}
@@ -424,6 +418,7 @@ export const OrganizationRoles: React.FC = () => {
                     value={editForm.role_name}
                     onChange={(e) => setEditForm((p) => (p ? { ...p, role_name: e.target.value } : p))}
                     placeholder="Masukkan nama role"
+                    className="rounded-2xl"
                   />
                 </div>
                 <div className="space-y-2">
@@ -434,11 +429,12 @@ export const OrganizationRoles: React.FC = () => {
                     value={editForm.description === '-' ? '' : editForm.description}
                     onChange={(e) => setEditForm((p) => (p ? { ...p, description: e.target.value } : p))}
                     placeholder="Masukkan deskripsi role"
+                    className="rounded-2xl"
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleUpdate} disabled={updateSaving}>
+                <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white" onClick={handleUpdate} disabled={updateSaving}>
                   {updateSaving ? (
                     'Menyimpan...'
                   ) : (
@@ -453,6 +449,15 @@ export const OrganizationRoles: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <Button
+        onClick={() => setCreateOpen(true)}
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-40 h-14 w-14 rounded-full bg-blue-600 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)] hover:bg-blue-700 md:hidden"
+        size="icon"
+        title="Tambah Role"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };

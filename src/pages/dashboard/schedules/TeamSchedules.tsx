@@ -448,56 +448,53 @@ export const TeamSchedules: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          <Card className="rounded-2xl shadow-sm">
-            <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Periode</CardTitle>
-                <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{headerRangeLabel}</div>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                <div className="flex gap-2">
-                  <Select value={divisionId} onValueChange={setDivisionId}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Division" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Divisi</SelectItem>
-                      {divisionOptions.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          <div className="rounded-2xl border border-border/60 bg-transparent p-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Select value={divisionId} onValueChange={setDivisionId}>
+                  <SelectTrigger className="h-11 w-full rounded-2xl sm:w-[220px]">
+                    <SelectValue placeholder="Division" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="all">Semua Divisi</SelectItem>
+                    {divisionOptions.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-                  <Select value={roleId} onValueChange={setRoleId}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Role</SelectItem>
-                      {roleOptions.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" size="sm" onClick={() => shiftPeriod(-1)} disabled={loading}>
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => shiftPeriod(1)} disabled={loading}>
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
+                <Select value={roleId} onValueChange={setRoleId}>
+                  <SelectTrigger className="h-11 w-full rounded-2xl sm:w-[220px]">
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="all">Semua Role</SelectItem>
+                    {roleOptions.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </CardHeader>
-          </Card>
+
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" size="sm" className="rounded-2xl" onClick={() => shiftPeriod(-1)} disabled={loading}>
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <div className="min-w-[170px] rounded-2xl border border-border/60 px-4 py-2 text-center text-sm font-medium text-muted-foreground">
+                  {headerRangeLabel}
+                </div>
+                <Button variant="outline" size="sm" className="rounded-2xl" onClick={() => shiftPeriod(1)} disabled={loading}>
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </div>
 
           <Card className="rounded-2xl shadow-sm">
             <CardContent className="p-0">
