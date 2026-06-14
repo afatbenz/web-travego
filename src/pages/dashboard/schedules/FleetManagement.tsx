@@ -588,7 +588,7 @@ export const FleetManagement: React.FC = () => {
       </Card>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-5xl p-0 border-none bg-white overflow-hidden">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-5xl p-0 border-none bg-white dark:bg-[#080b11] overflow-hidden">
           <div className="p-8 space-y-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0">

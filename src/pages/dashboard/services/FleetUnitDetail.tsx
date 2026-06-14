@@ -800,7 +800,7 @@ export const FleetUnitDetail: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#F5F7FB]">
+    <div className="">
       <div className="space-y-5 p-2 sm:p-6">
         <div className="sm:hidden space-y-3">
           <div className="flex items-start justify-between gap-4">
@@ -928,16 +928,16 @@ export const FleetUnitDetail: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-white" />
+                  <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white dark:bg-[#080b11] dark:border-black dark:border-white/10 shadow-sm p-4 hover:shadow-md transition-shadow">
+                    <div className="absolute inset-0 bg-white dark:bg-[#1c2633]" />
                     <div className="relative">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-xs font-medium text-gray-600">Total Pesanan</div>
-                          <div className="mt-1 text-xs text-gray-500">{revenueSummary?.currentLabel ?? 'Periode saat ini'}</div>
-                          <div className="mt-2 text-2xl font-semibold text-gray-900">
+                          <div className="mt-1 text-xs text-gray-500 dark:text-white/60 dark:truncate truncate-title">{revenueSummary?.currentLabel ?? 'Periode saat ini'}</div>
+                          <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white dark:truncate truncate-title">
                             {revenueLoading ? (
-                              <span className="inline-flex items-center text-sm text-gray-500">
+                              <span className="inline-flex items-center text-sm text-gray-500 dark:text-white">
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Memuat...
                               </span>
@@ -946,8 +946,8 @@ export const FleetUnitDetail: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <div className="shrink-0 h-10 w-10 rounded-full bg-blue-100/70 flex items-center justify-center">
-                          <Route className="h-5 w-5 text-blue-700" />
+                        <div className="shrink-0 h-10 w-10 rounded-full bg-blue-100/70 dark:bg-black flex items-center justify-center">
+                          <Route className="h-5 w-5 text-blue-700 dark:text-[#D1D5DB]" />
                         </div>
                       </div>
 
@@ -974,14 +974,14 @@ export const FleetUnitDetail: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-white" />
+                  <div className="relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white dark:bg-[#080b11] dark:border-black dark:border-white/10 shadow-sm p-4 hover:shadow-md transition-shadow">
+                    <div className="absolute inset-0 bg-white dark:bg-[#1c2633]" />
                     <div className="relative">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-xs font-medium text-gray-600">Total Pendapatan</div>
-                          <div className="mt-1 text-xs text-gray-500">{revenueSummary?.currentLabel ?? 'Periode saat ini'}</div>
-                          <div className="mt-2 text-2xl font-semibold text-gray-900">
+                          <div className="mt-1 text-xs text-gray-500 dark:text-white/60 dark:truncate truncate-title">{revenueSummary?.currentLabel ?? 'Periode saat ini'}</div>
+                          <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white dark:truncate truncate-title">
                             {revenueLoading ? (
                               <span className="inline-flex items-center text-sm text-gray-500">
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -992,8 +992,8 @@ export const FleetUnitDetail: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <div className="shrink-0 h-10 w-10 rounded-full bg-emerald-100/70 flex items-center justify-center">
-                          <Wallet className="h-5 w-5 text-emerald-700" />
+                        <div className="shrink-0 h-10 w-10 rounded-full bg-emerald-100/70 dark:bg-black flex items-center justify-center">
+                          <Wallet className="h-5 w-5 text-emerald-700 dark:text-[#D1D5DB]" />
                         </div>
                       </div>
 
@@ -1029,10 +1029,10 @@ export const FleetUnitDetail: React.FC = () => {
                         <div className="flex items-start justify-between gap-3">
                           <div className="space-y-1 min-w-0">
                             <div className="text-xs text-gray-500">{m.label}</div>
-                            <div className="text-lg font-semibold text-blue-600 truncate">{m.value}</div>
+                            <div className="text-lg font-semibold text-blue-600 dark:text-white truncate">{m.value}</div>
                           </div>
-                          <div className="shrink-0 h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
-                            <Icon className="h-5 w-5 text-blue-600" />
+                          <div className="shrink-0 h-10 w-10 rounded-full bg-blue-50 dark:bg-black flex items-center justify-center">
+                            <Icon className="h-5 w-5 text-blue-600 dark:text-[#D1D5DB]" />
                           </div>
                         </div>
                         <div className="mt-3 text-xs text-gray-400">Berdasarkan jadwal armada</div>
@@ -1048,7 +1048,7 @@ export const FleetUnitDetail: React.FC = () => {
         <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm hover:shadow-md transition-shadow">
           <div className="px-4 sm:px-5 pt-4 sm:pt-5">
             <div className="border-b border-gray-200/70 pb-4">
-              <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
+              <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 dark:bg-black/50 dark:border-[#333] p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
                 <div className="flex items-center gap-1.5 overflow-x-auto scroll-smooth">
                   {([
                     { key: 'overview', label: 'Overview', icon: FileText },
@@ -1068,7 +1068,7 @@ export const FleetUnitDetail: React.FC = () => {
                           'outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BFF]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
                           isTabActive
                             ? 'text-white shadow-sm'
-                            : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] hover:-translate-y-[1px]',
+                            : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] dark:hover:bg-[#333] dark:hover:text-[#D1D5DB] hover:-translate-y-[1px]',
                         ].join(' ')}
                       >
                         {isTabActive ? (
@@ -1078,7 +1078,7 @@ export const FleetUnitDetail: React.FC = () => {
                             transition={{ duration: 0.25 }}
                           />
                         ) : null}
-                        <Icon className={['h-4 w-4', isTabActive ? 'text-white' : 'text-[#64748B]'].join(' ')} />
+                        <Icon className={['h-4 w-4', isTabActive ? 'text-white dark:text-[#D1D5DB]' : 'text-[#64748B] dark:text-[#D1D5DB]'].join(' ')} />
                         <span className="whitespace-nowrap">{t.label}</span>
                       </button>
                     );
@@ -1134,7 +1134,7 @@ export const FleetUnitDetail: React.FC = () => {
                               ].map((row) => (
                                 <tr key={row.label} className="bg-white">
                                   <td className="py-3 text-gray-500 w-1/2">{row.label}</td>
-                                  <td className="py-3 font-medium text-gray-900">{row.value}</td>
+                                  <td className="py-3 font-medium text-gray-900 dark:text-white">{row.value}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1150,9 +1150,9 @@ export const FleetUnitDetail: React.FC = () => {
                               (detail?.pickup_points ?? []).map((name, idx) => (
                                 <div
                                   key={`p-tech-${idx}`}
-                                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200/70 bg-white text-gray-800 hover:bg-gray-50 transition-colors"
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200/70 bg-white text-gray-800 dark:bg-[#333] dark:text-[#D1D5DB] hover:bg-gray-50 transition-colors"
                                 >
-                                  <MapPin className="h-4 w-4 text-gray-500" />
+                                  <MapPin className="h-4 w-4 text-gray-500 dark:text-[#D1D5DB]" />
                                   <span className="text-sm font-medium">{name}</span>
                                 </div>
                               ))
@@ -1171,7 +1171,7 @@ export const FleetUnitDetail: React.FC = () => {
                                 const ownerValue = isKo && detail.partner_id ? (
                                   <button
                                     type="button"
-                                    className="text-blue-600 hover:no-underline text-bold"
+                                    className="text-blue-600 dark:text-[#D1D5DB] hover:no-underline text-bold"
                                     onClick={() =>
                                       navigate(
                                         `${basePrefix}/partner-operations/detail/${encodeURIComponent(String(detail.partner_id ?? ''))}`,
@@ -1179,7 +1179,7 @@ export const FleetUnitDetail: React.FC = () => {
                                       )
                                     }
                                   >
-                                    {ownerLabel}
+                                    {ownerLabel} <Eye className="inline-block w-4 h-4 ml-1 dark:text-[#D1D5DB]" />
                                   </button>
                                 ) : (
                                   ownerLabel
@@ -1200,7 +1200,7 @@ export const FleetUnitDetail: React.FC = () => {
                               })().map((row) => (
                                 <tr key={row.label} className="bg-white">
                                   <td className="py-3 text-gray-500 w-1/2">{row.label}</td>
-                                  <td className="py-3 font-medium text-gray-900">{row.value}</td>
+                                  <td className="py-3 font-medium text-gray-900 dark:text-white">{row.value}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1313,9 +1313,9 @@ export const FleetUnitDetail: React.FC = () => {
                               return (
                                 <TableRow key={`${row.date}-${idx}`} className="hover:bg-gray-50">
                                   <TableCell className="px-4 text-gray-700">{availabilityPageStart + idx + 1}</TableCell>
-                                  <TableCell className="px-4 font-medium text-gray-900 whitespace-nowrap">{dateLabel}</TableCell>
-                                  <TableCell className="px-4 whitespace-nowrap">{row.order_id || '-'}</TableCell>
-                                  <TableCell className="px-4 whitespace-nowrap">{row.destinations || '-'}</TableCell>
+                                  <TableCell className="px-4 font-medium dark:text-[#D1D5DB] whitespace-nowrap">{dateLabel}</TableCell>
+                                  <TableCell className="px-4 dark:text-white/80 whitespace-nowrap">{row.order_id || '-'}</TableCell>
+                                  <TableCell className="px-4 dark:text-white/80 whitespace-nowrap">{row.destinations || '-'}</TableCell>
                                   <TableCell>
                                     {row.available ? (
                                       <Badge variant="outline" className="border-green-200 bg-green-500 text-white inline-flex items-center gap-1.5">
@@ -1323,7 +1323,7 @@ export const FleetUnitDetail: React.FC = () => {
                                         Tersedia
                                       </Badge>
                                     ) : (
-                                      <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700 inline-flex items-center gap-1.5">
+                                      <Badge variant="outline" className="border-rose-200 bg-rose-50 dark:text-white/80 text-rose-700 inline-flex items-center gap-1.5">
                                         <XCircle className="h-4 w-4" />
                                         Tidak Tersedia
                                       </Badge>
@@ -1432,14 +1432,14 @@ export const FleetUnitDetail: React.FC = () => {
 
                   <div className="overflow-x-auto border border-gray-200/70 rounded-2xl">
                     <table className="w-full min-w-[1100px] table-auto text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="">
                         <tr className="border-b border-gray-200/70 text-left">
-                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[160px]">Order Id</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[220px]">Tanggal Trip</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[220px]">Pickup Point</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[220px]">Tujuan</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap w-[200px]">Pengemudi</th>
-                          <th className="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap text-right w-[220px]">Action</th>
+                          <th className="py-3 px-4 font-semibold dark:text-[#D1D5DB] whitespace-nowrap w-[160px]">Order Id</th>
+                          <th className="py-3 px-4 font-semibold dark:text-[#D1D5DB] whitespace-nowrap w-[220px]">Tanggal Trip</th>
+                          <th className="py-3 px-4 font-semibold whitespace-nowrap w-[220px]">Pickup Point</th>
+                          <th className="py-3 px-4 font-semibold dark:text-[#D1D5DB] whitespace-nowrap w-[220px]">Tujuan</th>
+                          <th className="py-3 px-4 font-semibold dark:text-white/80 whitespace-nowrap w-[200px]">Pengemudi</th>
+                          <th className="py-3 px-4 font-semibold dark:text-white/80 whitespace-nowrap text-right w-[220px]">Action</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white">
@@ -1461,12 +1461,12 @@ export const FleetUnitDetail: React.FC = () => {
                           </tr>
                         ) : (
                           orderCurrent.map((row, idx) => (
-                            <tr key={`o-${row.order_id || idx}`} className="border-b border-gray-200/60 hover:bg-gray-50 transition-colors">
-                              <td className="py-3 px-4 font-medium text-gray-900 whitespace-nowrap">{row.order_id || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</td>
-                              <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{row.pickup_point || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{row.destination || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{row.driver_name || '-'}</td>
+                            <tr key={`o-${row.order_id || idx}`} className="border-b transition-colors">
+                              <td className="py-3 px-4 font-medium dark:text-white/80 whitespace-nowrap">{row.order_id || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</td>
+                              <td className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.pickup_point || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.destination || '-'}</td>
+                              <td className="py-3 px-4 text-gray-700 dark:text-white/80 whitespace-nowrap">{row.driver_name || '-'}<  /td>
                               <td className="py-3 px-4 text-right whitespace-nowrap">
                                 <Button
                                   variant="outline"
@@ -1668,12 +1668,12 @@ export const FleetUnitDetail: React.FC = () => {
                         ) : (
                           revenueHistoryRows.map((row, idx) => (
                             <TableRow key={`rev-${row.transaction_date}-${row.order_id}-${idx}`} className="hover:bg-gray-50">
-                              <TableCell className="text-gray-700 whitespace-nowrap">
+                              <TableCell className="text-gray-700 dark:text-white/80 whitespace-nowrap">
                                 {formatLongDate(row.transaction_date) !== '-' ? formatLongDate(row.transaction_date) : row.transaction_date || '-'}
                               </TableCell>
-                              <TableCell className="text-gray-700 whitespace-nowrap">{row.order_id || '-'}</TableCell>
-                              <TableCell className="text-gray-700 whitespace-nowrap">{row.payment_method_label || '-'}</TableCell>
-                              <TableCell className="text-right pr-4 font-semibold text-gray-900 whitespace-nowrap">
+                              <TableCell className=" dark:text-white/80 whitespace-nowrap">{row.order_id || '-'}</TableCell>
+                              <TableCell className=" dark:text-white/80 whitespace-nowrap">{row.payment_method_label || '-'}</TableCell>
+                              <TableCell className="text-right pr-4 font-semibold text-gray-900 dark:text-white/80 whitespace-nowrap">
                                 {formatRupiahFromNumber(row.amount)}
                               </TableCell>
                             </TableRow>

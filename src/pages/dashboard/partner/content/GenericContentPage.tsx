@@ -699,7 +699,7 @@ const GenericContentPage = ({ title, description, parent, initialSections = [] }
       </Dialog>
 
       <Dialog open={socialMediaModalOpen} onOpenChange={setSocialMediaModalOpen}>
-        <DialogContent className="max-w-5xl p-0 border-none bg-white overflow-hidden">
+        <DialogContent className="max-w-5xl p-0 border-none bg-white dark:bg-[#080b11] overflow-hidden">
           <div className="p-8 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">

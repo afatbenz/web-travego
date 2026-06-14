@@ -246,7 +246,7 @@ const KeyValueGrid: React.FC<{ items: Array<{ label: string; value: React.ReactN
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {items.map((item) => (
-        <div key={item.label} className="rounded-2xl border border-gray-200/70 bg-white/70 p-4">
+        <div key={item.label} className="rounded-2xl border border-gray-200/70 bg-white/70 p-4 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB]">
           <div className="text-[11px] font-medium text-muted-foreground">{item.label}</div>
           <div className="mt-1 text-sm font-semibold text-foreground break-words">{item.value}</div>
         </div>
@@ -783,7 +783,7 @@ export const FleetScheduleDetail: React.FC = () => {
           />
           <CardContent>
             <div className="mb-4 grid grid-cols-1 gap-3">
-              <div className="flex items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 p-4">
+              <div className="flex items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 p-4 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB]">
                 <Avatar className="h-14 w-14 rounded-xl">
                   <AvatarImage
                     src={fleetTrip?.fleetPhoto ? toFileUrl(fleetTrip.fleetPhoto) : ''}
@@ -816,7 +816,7 @@ export const FleetScheduleDetail: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200/70 bg-white/70 p-4">
+              <div className="rounded-2xl border border-gray-200/70 bg-white/70 p-4 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB]">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12">
@@ -863,7 +863,7 @@ export const FleetScheduleDetail: React.FC = () => {
             <KeyValueGrid items={financeItems} />
             <div className="mt-4 rounded-2xl border border-gray-200/70 bg-white/70 overflow-hidden">
               <Table>
-                <TableHeader className="bg-gray-50/80">
+                <TableHeader className="bg-gray-50/80 dark:bg-[#1c2633] dark:border-white/10 dark:text-[#D1D5DB]">
                   <TableRow>
                     <TableHead className="w-[56px] px-4">No</TableHead>
                     <TableHead className="px-4">Jenis Transaksi</TableHead>
@@ -951,15 +951,15 @@ export const FleetScheduleDetail: React.FC = () => {
           }
         }}
       >
-        <DialogContent className="max-w-2xl p-0 border-none bg-white overflow-hidden">
-          <div className="p-8 space-y-6">
+        <DialogContent className="max-w-2xl p-0 border-none bg-white dark:bg-[#090e1a] overflow-hidden max-h-[80vh] sm:max-h-[90vh] flex flex-col">
+          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
                   <ReceiptText className="w-6 h-6" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Tambah Pengeluaran</h2>
+                  <h2 className="text-2xl font-bold text-foreground dark:text-white/70">Tambah Pengeluaran</h2>
                   <p className="text-slate-500 text-sm">Tambahkan catatan pengeluaran untuk perjalanan ini</p>
                 </div>
               </div>
@@ -1024,7 +1024,7 @@ export const FleetScheduleDetail: React.FC = () => {
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <Label className="text-slate-700 font-semibold ml-1">Jenis Pengeluaran</Label>
+                  <Label className="text-foreground font-semibold ml-1 dark:text-white/70">Jenis Pengeluaran</Label>
                   <Popover open={transactionTypeOpen} onOpenChange={setTransactionTypeOpen}>
                     <PopoverTrigger asChild>
                       <Button
@@ -1066,26 +1066,26 @@ export const FleetScheduleDetail: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-slate-700 font-semibold ml-1">Nominal</Label>
+                  <Label htmlFor="amount" className="text-foreground font-semibold ml-1 dark:text-white/70">Nominal</Label>
                   <Input
                     id="amount"
                     inputMode="numeric"
                     value={formatRupiahInput(expenseDraft.amount)}
                     onChange={(e) => setExpenseDraft((p) => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))}
                     placeholder="Rp 0"
-                    className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all tabular-nums text-slate-700"
+                    className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all tabular-nums text-foreground dark:text-white/70"
                   />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="expense-description" className="text-slate-700 font-semibold ml-1">Deskripsi (Opsional)</Label>
+                  <Label htmlFor="expense-description" className="text-foreground font-semibold ml-1 dark:text-white/70">Deskripsi (Opsional)</Label>
                   <textarea
                     id="expense-description"
                     value={expenseDraft.description}
                     onChange={(e) => setExpenseDraft((p) => ({ ...p, description: e.target.value }))}
                     placeholder="Tulis catatan pengeluaran (opsional)"
                     rows={3}
-                    className="w-full min-h-[96px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all text-slate-700 resize-none"
+                    className="w-full min-h-[96px] rounded-xl border border-slate-200 bg-slate-50 dark:bg-[#295BFF]/10 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all text-foreground dark:text-white/70 resize-none"
                   />
                 </div>
 
@@ -1097,18 +1097,18 @@ export const FleetScheduleDetail: React.FC = () => {
                         type="button"
                         onClick={() => setExpenseDraft((p) => ({ ...p, payment_method: '1' }))}
                         className={cn(
-                          'text-left rounded-2xl border p-4 transition-all bg-slate-50 hover:bg-slate-100',
+                          'text-left rounded-2xl border p-4 transition-all bg-slate-50 hover:bg-slate-100 dark:bg-blue-950/20 dark:hover:dark:bg-blue-950',
                           expenseDraft.payment_method === '1'
-                            ? 'border-[#295BFF]/40 bg-[#295BFF]/10 ring-2 ring-blue-400'
-                            : 'border-slate-200'
+                            ? 'border-[#295BFF]/40 bg-[#295BFF]/10 ring-2 ring-blue-400 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20'
+                            : 'border-slate-200 dark:border-[#295BFF]/40'
                         )}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-800/10 flex items-center justify-center text-blue-600">
                             <CreditCard className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-slate-900">Biaya Operasional</div>
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white/70">Biaya Operasional</div>
                             <div className="mt-1 text-xs text-slate-500">Dibebankan dari biaya operasional perjalanan</div>
                           </div>
                         </div>
@@ -1118,19 +1118,19 @@ export const FleetScheduleDetail: React.FC = () => {
                         type="button"
                         onClick={() => setExpenseDraft((p) => ({ ...p, payment_method: '2' }))}
                         className={cn(
-                          'text-left rounded-2xl border p-4 transition-all bg-slate-50 hover:bg-slate-100',
+                          'text-left rounded-2xl border p-4 transition-all bg-slate-50 hover:bg-slate-100 dark:bg-blue-950/20 dark:hover:dark:bg-blue-950',
                           expenseDraft.payment_method === '2'
-                            ? 'border-[#295BFF]/40 bg-[#295BFF]/10 ring-2 ring-blue-400'
-                            : 'border-slate-200'
+                            ? 'border-[#295BFF]/40 bg-[#295BFF]/10 ring-2 ring-blue-400 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20'
+                            : 'border-slate-200 dark:border-[#295BFF]/40'
                         )}
-                      >
+                        >
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-700">
+                          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-[#295BFF]/10 flex items-center justify-center text-amber-700">
                             <HandCoins className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-slate-900">Reimburse</div>
-                            <div className="mt-1 text-xs text-slate-500">Dibebankan sementara kepada driver, dapat diklaim</div>
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white/70">Reimburse</div>
+                            <div className="mt-1 text-xs text-slate-500 dark:text-white/70">Dibebankan sementara kepada driver, dapat diklaim</div>
                           </div>
                         </div>
                       </button>
@@ -1139,19 +1139,19 @@ export const FleetScheduleDetail: React.FC = () => {
                 ) : null}
               </div>
 
-              <div className="flex items-center justify-end gap-3 w-full md:w-auto border-t border-slate-200 pt-4 mt-4">
+              <div className="flex items-center justify-end gap-3 w-full md:w-auto border-t border-slate-200 pt-4 mt-4 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setAddExpenseOpen(false)}
                   disabled={addExpenseSubmitting}
-                  className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={addExpenseSubmitting || !expenseDraft.transaction_item || Number(expenseDraft.amount || 0) <= 0}
-                  className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                  className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70"
                 >
                   {addExpenseSubmitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

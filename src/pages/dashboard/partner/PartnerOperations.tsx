@@ -242,7 +242,7 @@ export const PartnerOperations: React.FC = () => {
           <a
             href={`${basePrefix}/partner-operations/detail/${encodeURIComponent(row.partnerId)}`}
             rel="noopener noreferrer"
-            className="font-medium text-blue-800 hover:text-black"
+            className="font-medium text-blue-800 dark:text-white/80 hover:text-white/80 dark:hover:text-white"
           >
             {row.partnerName || '-'}</a>
         ),
@@ -260,12 +260,12 @@ export const PartnerOperations: React.FC = () => {
       {
         label: 'No Telpon',
         key: 'partnerPhone',
-        render: (row) => <span>{formatPhoneNumberId(row.partnerPhone)}</span>,
+        render: (row) => <span className="text-sm text-foreground dark:text-white/70">{formatPhoneNumberId(row.partnerPhone)}</span>,
       },
       {
         label: 'PIC',
         key: 'picName',
-        render: (row) => <span>{row.picName || '-'}</span>,
+        render: (row) => <span className="text-sm text-foreground dark:text-white/70">{row.picName || '-'}</span>,
       },
       {
         label: 'Jumlah Unit',
@@ -273,7 +273,7 @@ export const PartnerOperations: React.FC = () => {
         sortable: true,
         width: 140,
         align: 'center',
-        render: (row) => <span className="text-sm text-foreground whitespace-nowrap">{row.totalUnit ?? 0} unit</span>,
+        render: (row) => <span className="text-sm text-foreground dark:text-white/70 whitespace-nowrap">{row.totalUnit ?? 0} unit</span>,
       },
       {
         label: 'Revenue',
@@ -281,7 +281,7 @@ export const PartnerOperations: React.FC = () => {
         sortable: true,
         width: 140,
         align: 'center',
-        render: (row) => <span className="text-sm text-foreground whitespace-nowrap">{formatRupiah(row.totalRevenue ?? 0)}</span>,
+        render: (row) => <span className="text-sm text-foreground dark:text-white/70 whitespace-nowrap">{formatRupiah(row.totalRevenue ?? 0)}</span>,
       },
     ],
     [basePrefix, navigate, startIndex]

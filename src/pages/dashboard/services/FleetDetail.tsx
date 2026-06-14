@@ -552,7 +552,7 @@ export const FleetDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="bg-[#F5F7FB] p-4 sm:p-6">
+      <div className="p-4 sm:p-6">
         <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm p-5">
           <div className="flex items-center gap-3">
             <Skeleton className="h-10 w-10 rounded-xl" />
@@ -725,7 +725,7 @@ export const FleetDetail: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#F5F7FB]">
+    <div className="">
       <div className="space-y-5 p-2 sm:p-6">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap sm:flex-nowrap items-start justify-between gap-4">
@@ -740,7 +740,7 @@ export const FleetDetail: React.FC = () => {
               </Button>
               <div className="min-w-0 w-full sm:w-auto">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl sm:text-3xl font-semibold tracking-tight text-gray-900 truncate">{fleetTitle}</h1>
+                  <h1 className="text-xl sm:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white/60 dark:truncate truncate-title">{fleetTitle}</h1>
                   <span
                     className={clsx(
                       'hidden sm:inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium',
@@ -826,8 +826,8 @@ export const FleetDetail: React.FC = () => {
               <div className="order-1 rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-xs text-gray-500">Total Pesanan</div>
-                    <div className="mt-1 text-xs text-gray-400">{revenueSummary?.currentLabel || '-'}</div>
+                    <div className="text-xs text-gray-500 dark:text-white/60">Total Pesanan</div>
+                    <div className="mt-1 text-xs text-gray-400 dark:text-white">{revenueSummary?.currentLabel || '-'}</div>
                   </div>
                   {!revenueLoading && revenueSummary?.previous && revenueSummary.previous.totalBooking > 0 ? (
                     (() => {
@@ -850,8 +850,8 @@ export const FleetDetail: React.FC = () => {
                     })()
                   ) : null}
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-gray-900">
-                  {revenueLoading ? <Skeleton className="h-7 w-24" /> : String(revenueSummary?.current.totalBooking ?? 0)}
+                <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white/60">
+                  {revenueLoading ? <Skeleton className="h-7 w-24 dark:text-white" /> : String(revenueSummary?.current.totalBooking ?? 0)}
                 </div>
                 {!revenueLoading && revenueSummary?.previous ? (
                   <div className="mt-2 text-xs text-gray-500">
@@ -863,8 +863,8 @@ export const FleetDetail: React.FC = () => {
               <div className="order-3 col-span-2 sm:col-span-1 sm:order-2 rounded-2xl border border-gray-200/70 bg-white shadow-sm p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-xs text-gray-500">Total Pendapatan</div>
-                    <div className="mt-1 text-xs text-gray-400">{revenueSummary?.currentLabel || '-'}</div>
+                    <div className="text-xs text-gray-500 dark:text-white/60">Total Pendapatan</div>
+                    <div className="mt-1 text-xs text-gray-400 dark:text-white/60">{revenueSummary?.currentLabel || '-'}</div>
                   </div>
                   {!revenueLoading && revenueSummary?.previous && revenueSummary.previous.totalRevenue > 0 ? (
                     (() => {
@@ -887,8 +887,8 @@ export const FleetDetail: React.FC = () => {
                     })()
                   ) : null}
                 </div>
-                <div className="mt-2 text-md sm:text-2xl font-semibold text-blue-600">
-                  {revenueLoading ? <Skeleton className="h-7 w-40" /> : formatCurrency(revenueSummary?.current.totalRevenue ?? 0)}
+                <div className="mt-2 text-md sm:text-2xl font-semibold text-blue-600 dark:text-white/60">
+                  {revenueLoading ? <Skeleton className="h-7 w-40 dark:text-white/60" /> : formatCurrency(revenueSummary?.current.totalRevenue ?? 0)}
                 </div>
                 {!revenueLoading && revenueSummary?.previous ? (
                   <div className="mt-2 text-xs text-gray-500">
@@ -901,8 +901,8 @@ export const FleetDetail: React.FC = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-xs text-gray-500">Ulasan</div>
-                    <div className="mt-1 text-xs text-gray-400">Sepanjang waktu</div>
-                    <div className="mt-2 text-2xl font-semibold text-gray-900">
+                    <div className="mt-1 text-xs text-gray-400 dark:text-white/60">Sepanjang waktu</div>
+                    <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white/60">
                       {Number(fleet.meta.rating ?? 0).toFixed(1)}
                     </div>
                     <div className="mt-2 text-xs text-gray-500">{Number(fleet.meta.total_ulasan ?? 0)} ulasan</div>
@@ -914,10 +914,10 @@ export const FleetDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200/70 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-[#1F2937] bg-white shadow-sm hover:shadow-md transition-shadow">
               <div className="px-4 sm:px-5 pt-4 sm:pt-5">
                 <div className="border-b border-gray-200/70 pb-4">
-                  <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
+                  <div className="rounded-[22px] border border-[#E9EEF7] dark:border-[#1F2937] bg-white/80 p-1.5 dark:bg-[#1F2937] shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
                     <div className="flex items-center gap-1.5 overflow-x-auto scroll-smooth">
                       {([
                         { key: 'info', label: 'Informasi Armada', icon: FileText },
@@ -938,7 +938,7 @@ export const FleetDetail: React.FC = () => {
                               'outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BFF]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
                               isTabActive
                                 ? 'text-white shadow-sm'
-                                : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] hover:-translate-y-[1px]'
+                                : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] dark:hover:bg-[#1F2937] dark:hover:text-white hover:-translate-y-[1px]'
                             )}
                           >
                             {isTabActive ? (
@@ -974,52 +974,52 @@ export const FleetDetail: React.FC = () => {
                           { label: 'Spesifikasi', value: [fleet.meta.body, fleet.meta.engine].filter(Boolean).join(' - ') || '-' },
                           { label: 'Tipe', value: fleet.meta.fleet_type_label || '-' },
                         ].map((item) => (
-                          <div key={item.label} className="rounded-2xl border border-gray-200/60 bg-white px-4 py-3">
-                            <div className="text-xs text-gray-500">{item.label}</div>
-                            <div className="mt-1 font-medium text-gray-900">{item.value}</div>
+                          <div key={item.label} className="rounded-2xl border border-gray-200/60 bg-white px-4 py-3 dark:text-white">
+                            <div className="text-xs text-gray-500 dark:text-white/60">{item.label}</div>
+                            <div className="mt-1 font-medium text-gray-900 dark:text-white">{item.value}</div>
                           </div>
                         ))}
                       </div>
 
                       <div className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
-                        <div className="text-sm font-semibold text-gray-900">Deskripsi</div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white/60">Deskripsi</div>
                         {fleet.meta.description ? (
                           <div
-                            className="mt-3 max-h-[500px] overflow-auto scroll-smooth pr-2 text-sm text-gray-900"
+                            className="mt-3 max-h-[500px] overflow-auto scroll-smooth pr-2 text-sm text-gray-900 dark:text-white"
                             dangerouslySetInnerHTML={{ __html: fleet.meta.description || '' }}
                           />
                         ) : (
-                          <div className="mt-3 text-sm text-gray-500">-</div>
+                          <div className="mt-3 text-sm text-gray-500 dark:text-white/60">-</div>
                         )}
                       </div>
 
 
                       <div className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
-                        <div className="text-sm font-semibold text-gray-900">Fasilitas</div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white/60">Fasilitas</div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {fleet.facilities.length > 0 ? (
                             fleet.facilities.map((f, i) => (
-                              <span key={`${f}-${i}`} className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700">
+                              <span key={`${f}-${i}`} className="inline-flex items-center rounded-full border border-gray-200/70 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-[#0b111a] dark:text-white">
                                 {f}
                               </span>
                             ))
                           ) : (
-                            <div className="text-sm text-gray-500">-</div>
+                            <div className="text-sm text-gray-500 dark:text-white/60">-</div>
                           )}
                         </div>
                       </div>
 
                       <div className="rounded-2xl border border-gray-200/60 bg-white p-2 sm:p-4">
-                        <div className="text-sm font-semibold text-gray-900">Pickup Points</div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white/60">Pickup Points</div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {fleet.pickup.length > 0 ? (
                             fleet.pickup.map((p) => (
-                              <span key={p.uuid} className="inline-flex items-center rounded-full border border-gray-200/70 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors">
+                              <span key={p.uuid} className="inline-flex items-center rounded-full border border-gray-200/70 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors dark:bg-[#0b111a] dark:border-gray-600 dark:text-white">
                                 {p.city_name}
                               </span>
                             ))
                           ) : (
-                            <div className="text-sm text-gray-500">-</div>
+                            <div className="text-sm text-gray-500 dark:text-white/60">-</div>
                           )}
                         </div>
                       </div>
@@ -1071,7 +1071,7 @@ export const FleetDetail: React.FC = () => {
                               ))
                             ) : filteredUnits.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={7} className="py-10 text-center text-gray-500">
+                                <TableCell colSpan={7} className="py-10 text-center text-gray-500 dark:text-white/60">
                                   Tidak ada data unit
                                 </TableCell>
                               </TableRow>
@@ -1089,12 +1089,12 @@ export const FleetDetail: React.FC = () => {
                                           {u.vehicle_id}
                                         </Link>
                                       ) : (
-                                        <span className="text-gray-900">-</span>
+                                        <span className="text-gray-900 dark:text-white/60">-</span>
                                       )}
                                     </TableCell>
-                                    <TableCell className="text-gray-700">{u.plate_number || '-'}</TableCell>
-                                    <TableCell className="text-gray-700">{u.engine || '-'}</TableCell>
-                                    <TableCell className="text-center text-gray-700">{u.capacity || '-'} seat</TableCell>
+                                    <TableCell className="text-gray-700 dark:text-white/60">{u.plate_number || '-'}</TableCell>
+                                    <TableCell className="text-gray-700 dark:text-white/60">{u.engine || '-'}</TableCell>
+                                    <TableCell className="text-center text-gray-700 dark:text-white/60">{u.capacity || '-'} seat</TableCell>
                                     <TableCell>
                                       <span
                                         className={clsx(
@@ -1491,16 +1491,16 @@ export const FleetDetail: React.FC = () => {
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
                   <div className="text-xs text-gray-500">Dibuat Oleh</div>
-                  <div className="mt-1 font-medium text-xs sm:text-sm text-gray-900 truncate">{fleet.meta.created_by || '-'}</div>
+                  <div className="mt-1 font-medium text-xs sm:text-sm text-gray-900 truncate dark:text-white/60">{fleet.meta.created_by || '-'}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 sm:contents">
                   <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
                     <div className="text-xs text-gray-500">Tanggal Dibuat</div>
-                    <div className="text-xs sm:text-sm mt-1 font-medium text-gray-900 truncate">{formatDate(fleet.meta.created_at)}</div>
+                    <div className="text-xs sm:text-sm mt-1 font-medium text-gray-900 truncate dark:text-white/60">{formatDate(fleet.meta.created_at)}</div>
                   </div>
                   <div className="rounded-xl border border-gray-200/60 bg-white px-4 py-3">
                     <div className="text-xs text-gray-500">Tanggal Diperbarui</div>
-                    <div className="text-xs sm:text-sm mt-1 font-medium text-gray-900 truncate">{formatDate(fleet.meta.updated_at)}</div>
+                    <div className="text-xs sm:text-sm mt-1 font-medium text-gray-900 truncate dark:text-white/60">{formatDate(fleet.meta.updated_at)}</div>
                   </div>
                 </div>
               </div>

@@ -411,7 +411,7 @@ export const FleetSchedules: React.FC = () => {
         render: (row) => {
           const scheduleNumber = getScheduleNumber(row);
           const content = (
-            <span className="whitespace-nowrap text-blue-900 hover:text-blue-700 text-normal">
+            <span className="whitespace-nowrap text-blue-900 dark:text-blue-100 hover:text-blue-700 text-normal">
               {row.fleetName} - {row.plateNumber} ({row.vehicleId})
             </span>
           );

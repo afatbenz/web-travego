@@ -1934,7 +1934,7 @@ export const OrderDetail: React.FC = () => {
             />
             <CardContent className="pt-4">
               <Tabs value={orderInfoTab} onValueChange={(v) => setOrderInfoTab(v as typeof orderInfoTab)}>
-                <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
+                <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB] dark:hover:bg-gray-900">
                   <TabsList className="flex w-full items-center gap-1.5 overflow-x-auto scroll-smooth">
                     {([
                       { key: 'overview', label: 'Overview', icon: Package },
@@ -1955,13 +1955,13 @@ export const OrderDetail: React.FC = () => {
                               'outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BFF]/30 text-white focus-visible:ring-offset-2 focus-visible:ring-offset-white',
                               isTabActive
                                 ? 'text-white '
-                                : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] hover:-translate-y-[1px]',
+                                : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] hover:-translate-y-[1px] dark:hover:bg-[#0b0e16]',
                             ].join(' ')}
                           >
                             {isTabActive ? (
                               <motion.span
                                 layoutId="order-detail-info-active-pill"
-                                className="absolute inset-0 -z-10 rounded-full bg-blue-600 text-white"
+                                className="absolute inset-0 -z-10 rounded-full bg-blue-600 dark:bg-[#0b111a] text-white"
                                 transition={{ duration: 0.25 }}
                               />
                             ) : null}

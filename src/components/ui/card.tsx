@@ -41,7 +41,7 @@ const CardHeaderWithBadge = React.forwardRef<HTMLDivElement, CardHeaderWithBadge
     <CardHeader ref={ref} className={cn('pb-0', className)} {...props}>
       <div className="flex items-start justify-between gap-4 mb-5">
         <div className="flex min-w-0 flex-1 items-start gap-4">
-          <div className="flex h-8 w-8 md:h-12 md:w-12 mt-1 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+          <div className="flex h-8 w-8 md:h-12 md:w-12 mt-1 items-center justify-center rounded-2xl bg-blue-50 dark:bg-[#0b111a] dark:text-white text-blue-700 ring-1 ring-blue-100 dark:ring-gray-600">
             {React.isValidElement(badgeIcon)
               ? badgeIcon
               : badgeIcon && (typeof badgeIcon === 'function' || typeof badgeIcon === 'object')
@@ -49,9 +49,9 @@ const CardHeaderWithBadge = React.forwardRef<HTMLDivElement, CardHeaderWithBadge
                 : null}
           </div>
           <div className="min-w-0 flex-1">
-            <CardTitle className="border-0 pb-0 text-lg font-semibold text-gray-900">{title}</CardTitle>
+            <CardTitle className="border-0 pb-0 text-lg font-semibold text-gray-900 dark:text-white/80">{title}</CardTitle>
             <div className='border-b border-blue-200/50 mb-1'></div>
-            {subtitle ? <p className="mt-1 text-xs text-gray-500">{subtitle}</p> : null}
+            {subtitle ? <p className="mt-1 text-xs text-gray-500 dark:text-white/40">{subtitle}</p> : null}
           </div>
         </div>
         {actions ? <div className="shrink-0">{actions}</div> : null}

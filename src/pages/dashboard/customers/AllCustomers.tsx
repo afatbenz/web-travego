@@ -264,12 +264,12 @@ export const AllCustomers: React.FC = () => {
         sortable: true,
         width: 260,
         render: (row) => {
-          if (!row.id) return <span className="font-medium text-foreground">{row.name || '-'}</span>;
+          if (!row.id) return <span className="font-medium text-foreground dark:text-white/70">{row.name || '-'}</span>;
           const to = `${basePrefix}/customers/detail/${encodeURIComponent(row.id)}`;
           return (
             <Link
               to={to}
-              className="font-medium no-underline hover:no-underline hover:text-black transition-colors text-blue-900"
+              className="font-medium no-underline hover:no-underline hover:text-white/80 transition-colors text-blue-900 dark:text-white/80 dark:hover:text-white"
             >
               {row.name || '-'}
             </Link>
@@ -281,14 +281,14 @@ export const AllCustomers: React.FC = () => {
         key: 'email',
         sortable: true,
         width: 260,
-        render: (row) => <span className="text-sm text-foreground">{row.email || '-'}</span>,
+        render: (row) => <span className="text-sm text-foreground dark:text-white/70">{row.email || '-'}</span>,
       },
       {
         label: 'Phone',
         key: 'phone',
         sortable: true,
         width: 180,
-        render: (row) => <span className="text-sm text-foreground">{formatPhoneNumberId(row.phone)}</span>,
+        render: (row) => <span className="text-sm text-foreground dark:text-white/70">{formatPhoneNumberId(row.phone)}</span>,
       },
       {
         label: 'Alamat',
@@ -296,7 +296,7 @@ export const AllCustomers: React.FC = () => {
         sortable: false,
         width: 420,
         render: (row) => (
-          <span className="text-sm text-foreground">
+          <span className="text-sm text-foreground dark:text-white/70">
             {row.address && row.city ? `${row.address}, ${row.city}` : row.address || row.city || '-'}
           </span>
         ),
