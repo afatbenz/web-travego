@@ -522,7 +522,7 @@ export const ServicesArmada: React.FC = () => {
       {/* Filters */}
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-5">
-          <div className="relative sm:col-span-2 md:col-span-2">
+          <div className="relative col-span-1 sm:col-span-2 md:col-span-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Cari armada..."
@@ -531,6 +531,9 @@ export const ServicesArmada: React.FC = () => {
               className="h-11 rounded-2xl pl-10"
             />
           </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 md:grid-cols-3">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="h-11 rounded-2xl">
               <SelectValue placeholder="Tipe" />
