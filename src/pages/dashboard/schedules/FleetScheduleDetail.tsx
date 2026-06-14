@@ -711,7 +711,7 @@ export const FleetScheduleDetail: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-nowrap items-center justify-start gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible lg:justify-end">
           <Button
             type="button"
             variant="outline"
@@ -952,7 +952,7 @@ export const FleetScheduleDetail: React.FC = () => {
         }}
       >
         <DialogContent className="max-w-2xl p-0 border-none bg-white dark:bg-[#090e1a] overflow-hidden max-h-[80vh] sm:max-h-[90vh] flex flex-col">
-          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
+          <div className="p-6 sm:p-8 space-y-6 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
@@ -969,9 +969,12 @@ export const FleetScheduleDetail: React.FC = () => {
             </div>
 
             <div className="h-px bg-slate-100" />
+          </div>
 
+          <div className="px-6 sm:px-8 overflow-y-auto flex-1">
             <form
-              className="space-y-6"
+              id="expense-form"
+              className="space-y-6 pb-4"
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (!scheduleNumber) return;
@@ -1138,32 +1141,35 @@ export const FleetScheduleDetail: React.FC = () => {
                   </div>
                 ) : null}
               </div>
-
-              <div className="flex items-center justify-end gap-3 w-full md:w-auto border-t border-slate-200 pt-4 mt-4 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setAddExpenseOpen(false)}
-                  disabled={addExpenseSubmitting}
-                  className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70 text-sm md:text-lg"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={addExpenseSubmitting || !expenseDraft.transaction_item || Number(expenseDraft.amount || 0) <= 0}
-                  className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70 text-sm md:text-lg"
-                >
-                  {addExpenseSubmitting ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Save className="w-5 h-5" />
-                      Simpan Pengeluaran
-                    </>
-                  )}
-                </button>
-              </div>
             </form>
+          </div>
+
+          <div className="p-6 sm:p-8 border-t border-slate-200 flex-shrink-0">
+            <div className="flex items-center justify-end gap-3 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={() => setAddExpenseOpen(false)}
+                disabled={addExpenseSubmitting}
+                className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70 text-sm md:text-lg"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                form="expense-form"
+                disabled={addExpenseSubmitting || !expenseDraft.transaction_item || Number(expenseDraft.amount || 0) <= 0}
+                className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70 text-sm md:text-lg"
+              >
+                {addExpenseSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Simpan Pengeluaran
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
