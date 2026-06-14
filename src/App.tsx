@@ -175,6 +175,8 @@ import { OperationalExpenses } from '@/pages/dashboard/finance/OperationalExpens
 // New Coupons Pages
 import { AllCoupons } from '@/pages/dashboard/coupons/AllCoupons';
 import { AddCoupon } from '@/pages/dashboard/coupons/AddCoupon';
+import { OrganizationAccountAssistant } from './pages/dashboard/organization/OrganizationAccountAssistant';
+import { NotificationsPage } from './pages/dashboard/NotificationsPage';
 
 // Layout wrapper for public pages
 const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -373,6 +375,11 @@ function App() {
           <Route path="/dashboard/organization/join" element={
             <DashboardLayout>
               <OrganizationJoinDashboard />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/partner/organization/account-assistant" element={
+            <DashboardLayout>
+              <OrganizationAccountAssistant />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/organization/settings" element={
@@ -1110,6 +1117,18 @@ function App() {
           <Route path="/dashboard/partner/content/image-layout" element={
             <DashboardLayout>
               <ImageLayout />
+            </DashboardLayout>
+          } />
+          
+          {/* Notifications */}
+          <Route path="/dashboard/partner/notifications" element={
+            <DashboardLayout>
+              <NotificationsPage />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/notifications" element={
+            <DashboardLayout>
+              <NotificationsPage />
             </DashboardLayout>
           } />
 

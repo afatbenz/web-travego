@@ -2602,7 +2602,20 @@ export const OrderDetail: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Status Pembayaran</Label>
-                  <Select value={paymentForm.status} onValueChange={(v) => setPaymentForm((prev) => ({ ...prev, status: v }))}>
+                  <Select
+                    value={paymentForm.status}
+                    onValueChange={(v) => {
+                      const statusId = String(v).trim();
+                      const newAmount = (statusId === '1003' || statusId === '1004')
+                        ? formatRupiahInput(String(orderData.remainingAmount || 0))
+                        : '';
+                      setPaymentForm((prev) => ({
+                        ...prev,
+                        status: v,
+                        amount: newAmount,
+                      }));
+                    }}
+                  >
                     <SelectTrigger className="h-11 rounded-xl border-gray-200 focus:ring-blue-500">
                       <SelectValue placeholder="Pilih Status" />
                     </SelectTrigger>

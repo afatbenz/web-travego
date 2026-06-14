@@ -150,13 +150,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
       }
 
       const token = localStorage.getItem('token');
-      if (token && !(init?.headers as Record<string, string> | undefined)?.['Authorization']) {
+      const passedAuth = (init?.headers as Record<string, string> | undefined)?.['Authorization'];
+
+      if (passedAuth) {
+        if (!passedAuth.startsWith('Bearer ')) {
+          defaultHeaders['Authorization'] = `Bearer ${passedAuth}`;
+        } else {
+          defaultHeaders['Authorization'] = passedAuth;
+        }
+      } else if (token) {
         defaultHeaders['Authorization'] = `Bearer ${token}`;
       }
 
       const mergedHeaders: Record<string, string> = {
         ...defaultHeaders,
         ...(init?.headers as Record<string, string> | undefined) ?? {},
+        // Ensure Authorization from defaultHeaders (with Bearer) takes precedence if it was missing Bearer
+        ...(defaultHeaders['Authorization'] ? { Authorization: defaultHeaders['Authorization'] } : {}),
       };
       if (init?.body !== undefined && !(init.body instanceof FormData)) {
         mergedHeaders['Content-Type'] = 'application/json';

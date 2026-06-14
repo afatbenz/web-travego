@@ -267,7 +267,11 @@ export const ServicesArmada: React.FC = () => {
       key: 'type',
       sortable: true,
       width: 120,
-      render: (item) => <span className="text-sm text-foreground whitespace-nowrap">{item.type}</span>
+      render: (item) => (
+        <span className="inline-flex whitespace-nowrap rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+          {item.type}
+        </span>
+      )
     },
     {
       label: 'Unit',

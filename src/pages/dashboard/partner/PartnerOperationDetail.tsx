@@ -248,7 +248,7 @@ export const PartnerOperationDetail: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      const partnerId = decodeURIComponent(String(partnerIdParam ?? '').trim());
+      const partnerId = String(partnerIdParam ?? '').trim();
       if (!partnerId) {
         setLoading(false);
         return;
@@ -256,9 +256,7 @@ export const PartnerOperationDetail: React.FC = () => {
 
       setLoading(true);
       try {
-        const token = localStorage.getItem('token') ?? '';
-        const headers = token ? { Authorization: token } : undefined;
-        const res = await api.post<unknown>('/services/partnership/operations/detail', { partner_id: partnerId }, headers);
+        const res = await api.post<unknown>('/services/partnership/operations/detail', { partner_id: partnerId });
         if (res.status !== 'success') return;
 
         const root = record(res.data);
@@ -809,7 +807,6 @@ export const PartnerOperationDetail: React.FC = () => {
                 pagination={{
                   page: fleetPage,
                   pageSize: fleetPageSize,
-                  totalItems: armadaRows.length,
                   onPageChange: setFleetPage,
                   onPageSizeChange: (n) => {
                     setFleetPageSize(n);
