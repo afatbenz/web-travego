@@ -532,7 +532,7 @@ export const ServicesArmada: React.FC = () => {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:col-span-3">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:col-span-3 items-center">
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="h-11 rounded-2xl">
                 <SelectValue placeholder="Tipe" />
@@ -564,7 +564,7 @@ export const ServicesArmada: React.FC = () => {
               variant="destructive"
               onClick={handleResetFilters}
               size="icon"
-              className="h-11 w-11 rounded-2xl bg-transparent hover:bg-white text-red-600 hover:text-red-700 justify-self-start"
+              className="h-11 w-11 rounded-2xl bg-transparent hover:bg-white text-red-600 hover:text-red-700"
               title="Reset filter"
               aria-label="Reset filter"
             >
