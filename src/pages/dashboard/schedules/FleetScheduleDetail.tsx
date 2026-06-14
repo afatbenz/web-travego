@@ -702,10 +702,10 @@ export const FleetScheduleDetail: React.FC = () => {
         <div className="flex items-start gap-3">
           <BackButton to={`${basePrefix}/schedules/fleet-schedules`} />
           <div className="min-w-0">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
               Detail Jadwal Armada
             </h1>
-            <p className="mt-1 text-gray-600 dark:text-gray-300">
+            <p className="mt-1 text-xs md:text-2xl text-gray-600 dark:text-gray-300">
               {scheduleNumber ? `Schedule Number: ${scheduleNumber}` : '—'}
             </p>
           </div>
@@ -959,8 +959,8 @@ export const FleetScheduleDetail: React.FC = () => {
                   <ReceiptText className="w-6 h-6" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground dark:text-white/70">Tambah Pengeluaran</h2>
-                  <p className="text-slate-500 text-sm">Tambahkan catatan pengeluaran untuk perjalanan ini</p>
+                  <h2 className="text-md md:text-2xl font-bold text-foreground dark:text-white/70">Tambah Pengeluaran</h2>
+                  <p className="text-slate-500 text-xs md:text-lg">Tambahkan catatan pengeluaran untuk perjalanan ini</p>
                 </div>
               </div>
               <DialogClose className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
@@ -1144,14 +1144,14 @@ export const FleetScheduleDetail: React.FC = () => {
                   type="button"
                   onClick={() => setAddExpenseOpen(false)}
                   disabled={addExpenseSubmitting}
-                  className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70"
+                  className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70 text-sm md:text-lg"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={addExpenseSubmitting || !expenseDraft.transaction_item || Number(expenseDraft.amount || 0) <= 0}
-                  className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70"
+                  className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70 text-sm md:text-lg"
                 >
                   {addExpenseSubmitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
