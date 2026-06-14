@@ -928,7 +928,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </div>
         <div className="flex items-center gap-2">
           {canAddOrder ? (
-            <Button type="button" 
+            <Button type="button"
             className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600" onClick={() => navigate(createOrderPath)}>
               <Plus className="mr-2 h-4 w-4" />
               Pesanan Baru
@@ -938,7 +938,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3">
         <Button
           type="button"
           variant="outline"
@@ -950,18 +950,15 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         >
           <Filter className="h-4 w-4" />
         </Button>
-      </div>
-
-      <div className="md:hidden">
         <Button
           type="button"
           variant="outline"
-          className="h-10 w-full rounded-2xl"
+          className="h-10 flex-1 md:hidden rounded-2xl text-sm"
           onClick={() => setMobileSummaryOpen((prev) => !prev)}
           aria-expanded={mobileSummaryOpen}
         >
           {mobileSummaryOpen ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
-          Lihat Summary
+          <span className="truncate">Lihat Summary</span>
         </Button>
       </div>
 

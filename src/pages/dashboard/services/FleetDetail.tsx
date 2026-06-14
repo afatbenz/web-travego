@@ -938,7 +938,7 @@ export const FleetDetail: React.FC = () => {
                               'outline-none focus-visible:ring-2 focus-visible:ring-[#4F6BFF]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
                               isTabActive
                                 ? 'text-white shadow-sm'
-                                : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF3FF] dark:hover:bg-[#1F2937] dark:hover:text-white hover:-translate-y-[1px]'
+                                : 'text-[#64748B] dark:text-white/60 hover:text-[#1E293B] hover:bg-[#EEF3FF] dark:hover:bg-[#1F2937] dark:hover:text-white hover:-translate-y-[1px]'
                             )}
                           >
                             {isTabActive ? (
@@ -1342,7 +1342,7 @@ export const FleetDetail: React.FC = () => {
                                 return (
                                   <TableRow key={`${row.date}-${idx}`} className="hover:bg-gray-50">
                                     <TableCell className="px-4 text-gray-700">{schedulePageStart + idx + 1}</TableCell>
-                                    <TableCell className="font-medium text-gray-900 whitespace-nowrap">{dateLabel}</TableCell>
+                                    <TableCell className="font-medium text-gray-900 dark:text-white/80 whitespace-nowrap">{dateLabel}</TableCell>
                                     <TableCell className="whitespace-nowrap">
                                       {row.available ? (
                                         <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 inline-flex items-center gap-1.5">
@@ -1356,7 +1356,7 @@ export const FleetDetail: React.FC = () => {
                                         </Badge>
                                       )}
                                     </TableCell>
-                                    <TableCell className="text-center text-gray-700 whitespace-nowrap">{unitCount} unit</TableCell>
+                                    <TableCell className="text-center text-gray-700 dark:text-white/80 whitespace-nowrap">{unitCount} unit</TableCell>
                                     <TableCell className="text-right pr-4">
                                       {unitCount > 0 ? (
                                         <Button

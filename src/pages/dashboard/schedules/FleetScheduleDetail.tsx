@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, Car, Check, CheckCircle, ChevronsUpDown, Clock, CreditCard, DollarSign, HandCoins, MoreHorizontal, Plus, Printer, ReceiptText, Save, Trash2, UsersRound, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Car, Check, CheckCircle, ChevronRight, ChevronsUpDown, Clock, CreditCard, DollarSign, HandCoins, MoreHorizontal, Plus, Printer, ReceiptText, Save, Trash2, UsersRound, X, XCircle } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import BackButton from '@/components/common/BackButton';
 import defaultAvatar from '@/assets/general/avatar.svg';
@@ -698,20 +698,39 @@ export const FleetScheduleDetail: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-24 md:pb-0">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col md:flex-row items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <BackButton to={`${basePrefix}/schedules/fleet-schedules`} />
           <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <button
+                type="button"
+                onClick={() => navigate(`${basePrefix}`)}
+                className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+              >
+                Dashboard
+              </button>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => navigate(`${basePrefix}/orders`)}
+                className="transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+              >
+                Pesanan
+              </button>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+              <span className="text-slate-600 dark:text-slate-300">Detail</span>
+            </div>
             <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
               Detail Jadwal Armada
             </h1>
-            <p className="mt-1 text-xs md:text-2xl text-gray-600 dark:text-gray-300">
+            <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
               {scheduleNumber ? `Schedule Number: ${scheduleNumber}` : '—'}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-nowrap items-center justify-start gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible lg:justify-end">
+        <div className="flex flex-nowrap items-center justify-center gap-2 overflow-x-auto lg:justify-end w-full sm:w-auto">
           <Button
             type="button"
             variant="outline"
