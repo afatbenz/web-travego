@@ -829,7 +829,7 @@ export const ArmadaForm: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-28">
-      <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
+      <div className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <Button
@@ -837,12 +837,12 @@ export const ArmadaForm: React.FC = () => {
               variant="outline"
               size="icon"
               onClick={onCancel}
-              className="h-10 w-10 rounded-xl border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+              className="h-10 w-10 rounded-xl border-[#E9EEF7]hover:bg-[#EEF3FF]"
             >
-              <ArrowLeft className="h-4 w-4 text-[#1E293B]" />
+              <ArrowLeft className="h-4 w-4 text-[#1E293B] dark:text-white" />
             </Button>
             <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-semibold text-[#1E293B] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-[#1E293B] dark:text-white tracking-tight">
                 {isEdit ? 'Edit Armada' : 'Tambah Armada'}
               </h1>
               <p className="mt-1 text-sm text-[#64748B]">
@@ -1077,36 +1077,36 @@ export const ArmadaForm: React.FC = () => {
                     Deskripsi *
                   </label>
                   <div className={['mt-1 rounded-2xl border border-[#E9EEF7] bg-white overflow-hidden', errors.description ? 'border-red-500' : ''].join(' ')}>
-                    <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-2 border-b border-[#E9EEF7] bg-white/70 backdrop-blur">
+                    <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-2 border-b border-[#E9EEF7] bg-white/70 dark:bg-slate-900 dark:text-white backdrop-blur">
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF]"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF] dark:text-white"
                         onClick={() => executeCommand('bold')}
                         title="Bold"
                       >
-                        <span className="font-bold text-[#1E293B]">B</span>
+                        <span className="font-bold text-[#1E293B] dark:text-white">B</span>
                       </Button>
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF]"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF] dark:text-white"
                         onClick={() => executeCommand('italic')}
                         title="Italic"
                       >
-                        <span className="italic text-[#1E293B]">I</span>
+                        <span className="italic text-[#1E293B] dark:text-white">I</span>
                       </Button>
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF]"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF] dark:text-white"
                         onClick={() => executeCommand('underline')}
                         title="Underline"
                       >
-                        <span className="underline text-[#1E293B]">U</span>
+                        <span className="underline text-[#1E293B] dark:text-white">U</span>
                       </Button>
                       <Button 
                         type="button" 
@@ -1116,7 +1116,7 @@ export const ArmadaForm: React.FC = () => {
                         onClick={() => executeCommand('insertUnorderedList')}
                         title="Bullet List"
                       >
-                        <span className="text-[#1E293B]">•</span>
+                        <span className="text-[#1E293B] dark:text-white">•</span>
                       </Button>
                       <Button 
                         type="button" 
@@ -1126,12 +1126,12 @@ export const ArmadaForm: React.FC = () => {
                         onClick={() => executeCommand('insertOrderedList')}
                         title="Numbered List"
                       >
-                        <span className="text-[#1E293B]">1.</span>
+                        <span className="text-[#1E293B] dark:text-white">1.</span>
                       </Button>
                       <div className="flex items-center gap-1 ml-2">
-                        <Type className="h-4 w-4 text-[#64748B]" />
+                        <Type className="h-4 w-4 text-[#64748B] dark:text-white" />
                         <Select onValueChange={changeFontSize}>
-                          <SelectTrigger className="h-8 w-24 text-xs rounded-lg border-[#E9EEF7] bg-white">
+                          <SelectTrigger className="h-8 w-24 text-xs rounded-lg border-[#E9EEF7] bg-white dark:text-white">
                             <SelectValue placeholder="Size" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1148,7 +1148,7 @@ export const ArmadaForm: React.FC = () => {
                         ref={editorRef}
                         contentEditable
                         onInput={handleEditorChange}
-                        className="min-h-[170px] max-h-[340px] overflow-y-auto scroll-smooth p-4 text-sm text-[#1E293B] focus:outline-none"
+                        className="min-h-[170px] max-h-[340px] overflow-y-auto scroll-smooth p-4 text-sm text-[#1E293B] dark:text-white focus:outline-none"
                         data-placeholder="Deskripsikan armada secara detail..."
                       />
                       <div className="pointer-events-none absolute bottom-2 right-3 text-[11px] text-[#64748B]">
@@ -1220,9 +1220,9 @@ export const ArmadaForm: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-blue-100/50 px-4 py-3 text-sm text-blue-900/80">
-                  <span className="inline-flex items-center gap-2">
-                    <Info className="h-5 w-5 text-blue-700 mr-3 hover:scale-50 transition-all animate-bounce" />
+                <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-blue-100/50 dark:bg-transparent dark:border-[#226524] px-4 py-3 text-sm text-blue-900/80 dark:text-white">
+                  <span className="inline-flex items-center gap-2 dark:text-yellow-300/80">
+                    <Info className="h-5 w-5 text-blue-700 mr-3 hover:scale-50 transition-all animate-bounce dark:text-yellow-300/80" />
                     Kamu bisa menambahkan lebih dari 1 (satu) fasilitas
                   </span>
                 </div>
@@ -1265,7 +1265,7 @@ export const ArmadaForm: React.FC = () => {
                             placeholder="1"
                             className="flex-1 mt-1 h-11 rounded-l-xl rounded-r-none border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
                           />
-                          <div className="mt-1 h-11 px-4 flex items-center rounded-r-xl border border-l-0 border-[#E9EEF7] bg-[#F8FAFC] text-sm font-medium text-[#475569]">
+                          <div className="mt-1 h-11 px-4 flex items-center rounded-r-xl border border-l-0 border-[#E9EEF7] bg-[#F8FAFC] dark:bg-gray-800 dark:border-gray-800 dark:text-gray-200 text-sm font-medium text-[#475569]">
                             Hari
                           </div>
                         </div>
@@ -1316,9 +1316,9 @@ export const ArmadaForm: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-blue-100/50 px-4 py-3 text-sm text-blue-900/80">
-                  <span className="inline-flex items-center gap-2">
-                    <Info className="h-5 w-5 text-blue-700 mr-3 hover:scale-50 transition-all animate-bounce" />
+                <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-blue-100/50 dark:bg-transparent dark:border-[#226524] px-4 py-3 text-sm text-blue-900/80 dark:text-white">
+                  <span className="inline-flex items-center gap-2 dark:text-yellow-300/80">
+                    <Info className="h-5 w-5 text-blue-700 mr-3 hover:scale-50 transition-all animate-bounce dark:text-yellow-300/80" />
                     Masukkan harga rata-rata sebagai harga awal. <br />
                     Kamu bisa menambah atau mengurangi biaya layanan saat membuat pesanan.
                   </span>
@@ -1370,7 +1370,7 @@ export const ArmadaForm: React.FC = () => {
                           value={addon.description}
                           onChange={(e) => updateAddon(index, 'description', e.target.value)}
                           placeholder="Contoh: Driver profesional"
-                          className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
+                          className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white dark:bg-slate-700 focus-visible:ring-[#4F6BFF]/30"
                         />
                       </div>
                       <div>
@@ -1541,7 +1541,7 @@ export const ArmadaForm: React.FC = () => {
                           <Globe className="h-5 w-5 text-[#4F6BFF]" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-[#1E293B]">Publish</div>
+                          <div className="text-sm font-semibold text-[#1E293B] dark:text-white">Publish</div>
                           <div className="text-xs text-[#64748B]">Tampil di publik</div>
                         </div>
                       </div>
@@ -1567,8 +1567,8 @@ export const ArmadaForm: React.FC = () => {
           </div>
         </div>
 
-      <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-40">
-        <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70 px-3 py-3">
+      <div className="block mt-6 md:mt-2 md:fixed md:bottom-4 right-4 left-4 sm:left-auto z-40">
+        <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 dark:bg-transparent dark:border-[#1E293B] shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70 px-3 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:justify-end">
             {isEdit ? (
               <Button

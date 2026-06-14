@@ -1084,7 +1084,7 @@ export const FleetDetail: React.FC = () => {
                                       {u.vehicle_id ? (
                                         <Link
                                           to={`${basePrefix}/fleet-units/detail/${encodeURIComponent(u.id)}`}
-                                          className="text-blue-600 hover:no-underline hover:text-bold"
+                                          className="text-blue-600 dark:text-white hover:no-underline hover:text-bold"
                                         >
                                           {u.vehicle_id}
                                         </Link>
