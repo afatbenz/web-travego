@@ -934,7 +934,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
               Pesanan Baru
             </Button>
           ) : null}
-          {downloadHeaderAction}
+          <div className="hidden md:block">
+            {downloadHeaderAction}
+          </div>
         </div>
       </div>
 
@@ -960,6 +962,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
           {mobileSummaryOpen ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
           <span className="truncate">Lihat Summary</span>
         </Button>
+        <div className="md:hidden">
+          {downloadHeaderAction}
+        </div>
       </div>
 
       <div
