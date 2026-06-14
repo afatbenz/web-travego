@@ -522,7 +522,7 @@ export const ServicesArmada: React.FC = () => {
       {/* Filters */}
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-5">
-          <div className="relative col-span-1 sm:col-span-2 md:col-span-2">
+          <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Cari armada..."
@@ -531,46 +531,46 @@ export const ServicesArmada: React.FC = () => {
               className="h-11 rounded-2xl pl-10"
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 md:grid-cols-3">
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="h-11 rounded-2xl">
-              <SelectValue placeholder="Tipe" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl">
-              <SelectItem className="rounded-2xl" value="all">Semua Tipe</SelectItem>
-              {typeOptions.map((type) => (
-                <SelectItem className="rounded-2xl" key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={capacityFilter} onValueChange={setCapacityFilter}>
-            <SelectTrigger className="h-11 rounded-2xl">
-              <SelectValue placeholder="Kapasitas" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl">
-              <SelectItem className="rounded-2xl" value="all">Semua Kapasitas</SelectItem>
-              {capacityOptions.map((capacity) => (
-                <SelectItem className="rounded-2xl" key={capacity} value={capacity}>
-                  {capacity} seat
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleResetFilters}
-            size="icon"
-            className="h-11 w-11 rounded-2xl bg-transparent hover:bg-white text-red-600 hover:text-red-700"
-            title="Reset filter"
-            aria-label="Reset filter"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:col-span-3">
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="h-11 rounded-2xl">
+                <SelectValue placeholder="Tipe" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                <SelectItem className="rounded-2xl" value="all">Semua Tipe</SelectItem>
+                {typeOptions.map((type) => (
+                  <SelectItem className="rounded-2xl" key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={capacityFilter} onValueChange={setCapacityFilter}>
+              <SelectTrigger className="h-11 rounded-2xl">
+                <SelectValue placeholder="Kapasitas" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                <SelectItem className="rounded-2xl" value="all">Semua Kapasitas</SelectItem>
+                {capacityOptions.map((capacity) => (
+                  <SelectItem className="rounded-2xl" key={capacity} value={capacity}>
+                    {capacity} seat
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleResetFilters}
+              size="icon"
+              className="h-11 w-11 rounded-2xl bg-transparent hover:bg-white text-red-600 hover:text-red-700 justify-self-start"
+              title="Reset filter"
+              aria-label="Reset filter"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
