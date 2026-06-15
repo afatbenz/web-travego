@@ -816,11 +816,11 @@ export const FleetUnitDetail: React.FC = () => {
             {detail ? (
               <Button
                 variant="outline"
-                className="bg-white border-gray-200/70 hover:bg-white"
+                className="bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
                 onClick={() => navigate(`${basePrefix}/fleet-units/edit/${encodeURIComponent(detail.unit_id)}`)}
               >
                 <Edit className="h-4 w-4 mr-2" />
-                Edit
+                Edit Informasi
               </Button>
             ) : null}
           </div>
@@ -873,11 +873,11 @@ export const FleetUnitDetail: React.FC = () => {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                className="bg-white border-gray-200/70 hover:bg-white"
+                className="bg-blue-500 rounded-2xl text-white border-blue-500 hover:bg-blue-600"
                 onClick={() => navigate(`${basePrefix}/fleet-units/edit/${encodeURIComponent(detail.unit_id)}`)}
               >
                 <Edit className="h-4 w-4 mr-2" />
-                Edit
+                Edit Informasi
               </Button>
             </div>
           ) : null}
@@ -1235,7 +1235,7 @@ export const FleetUnitDetail: React.FC = () => {
                         }}
                       >
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start font-normal h-10 bg-white border-gray-200/70 hover:bg-white">
+                          <Button variant="outline" className="w-full justify-start font-normal h-10 bg-white border-gray-500/70 hover:bg-white rounded-2xl">
                             <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
                             {availabilityRangeLabel}
                           </Button>
@@ -1306,7 +1306,6 @@ export const FleetUnitDetail: React.FC = () => {
                             </TableRow>
                           ) : (
                             availabilityCurrent.map((row, idx) => {
-                              console.log({row})
                               const d = row.date ? new Date(row.date) : null;
                               const dateLabel = d && !isNaN(d.getTime()) ? format(d, 'dd MMMM yyyy', { locale: idLocale }) : row.date || '-';
                               const dateYmd = d && !isNaN(d.getTime()) ? toYmd(startOfDay(d)) : row.date;
@@ -1405,7 +1404,7 @@ export const FleetUnitDetail: React.FC = () => {
                         }}
                       >
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start font-normal h-10 bg-white border-gray-200/70 hover:bg-white">
+                          <Button variant="outline" className="w-full justify-start font-normal h-10 bg-white border-gray-500/70 hover:bg-white rounded-2xl">
                             <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
                             {orderRangeLabel || 'Pilih rentang tanggal'}
                           </Button>
@@ -1430,61 +1429,63 @@ export const FleetUnitDetail: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto border border-gray-200/70 rounded-2xl">
-                    <table className="w-full min-w-[1100px] table-auto text-sm">
-                      <thead className="">
-                        <tr className="border-b border-gray-200/70 text-left">
-                          <th className="py-3 px-4 font-semibold dark:text-[#D1D5DB] whitespace-nowrap w-[160px]">Order Id</th>
-                          <th className="py-3 px-4 font-semibold dark:text-[#D1D5DB] whitespace-nowrap w-[220px]">Tanggal Trip</th>
-                          <th className="py-3 px-4 font-semibold whitespace-nowrap w-[220px]">Pickup Point</th>
-                          <th className="py-3 px-4 font-semibold dark:text-[#D1D5DB] whitespace-nowrap w-[220px]">Tujuan</th>
-                          <th className="py-3 px-4 font-semibold dark:text-white/80 whitespace-nowrap w-[200px]">Pengemudi</th>
-                          <th className="py-3 px-4 font-semibold dark:text-white/80 whitespace-nowrap text-right w-[220px]">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white">
-                        {orderLoading ? (
-                          Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={`o-s-${i}`} className="border-b border-gray-200/60 animate-pulse">
-                              {Array.from({ length: 6 }).map((__, j) => (
-                                <td key={`o-s-${i}-${j}`} className="py-3 px-4">
-                                  <div className="h-4 bg-gray-100 rounded w-full" />
-                                </td>
-                              ))}
-                            </tr>
-                          ))
-                        ) : orderCurrent.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="py-10 text-center text-gray-500">
-                              Tidak ada data order
-                            </td>
-                          </tr>
-                        ) : (
-                          orderCurrent.map((row, idx) => (
-                            <tr key={`o-${row.order_id || idx}`} className="border-b transition-colors">
-                              <td className="py-3 px-4 font-medium dark:text-white/80 whitespace-nowrap">{row.order_id || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</td>
-                              <td className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.pickup_point || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.destination || '-'}</td>
-                              <td className="py-3 px-4 text-gray-700 dark:text-white/80 whitespace-nowrap">{row.driver_name || '-'}<  /td>
-                              <td className="py-3 px-4 text-right whitespace-nowrap">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="!w-auto !h-auto p-2 bg-blue-400 hover:bg-blue-500 border-gray-200/70 transition-transform duration-300 text-white whitespace-nowrap"
-                                  disabled={!row.order_id}
-                                  onClick={() =>
-                                    row.order_id ? navigate(`${basePrefix}/orders/fleet/detail/${encodeURIComponent(row.order_id)}`) : undefined
-                                  }
-                                >
-                                  <Eye className="h-4 w-4 mr-5 " /> Lihat Pesanan
-                                </Button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                  <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white">
+                    <div className="overflow-auto">
+                      <Table className="min-w-[1100px]">
+                        <TableHeader>
+                          <TableRow className="bg-gray-50 hover:bg-gray-50">
+                            <TableHead className="py-3 px-4 font-semibold whitespace-nowrap w-[160px]">Order Id</TableHead>
+                            <TableHead className="py-3 px-4 font-semibold whitespace-nowrap w-[220px]">Tanggal Trip</TableHead>
+                            <TableHead className="py-3 px-4 font-semibold whitespace-nowrap w-[220px]">Pickup Point</TableHead>
+                            <TableHead className="py-3 px-4 font-semibold whitespace-nowrap w-[220px]">Tujuan</TableHead>
+                            <TableHead className="py-3 px-4 font-semibold whitespace-nowrap w-[200px]">Pengemudi</TableHead>
+                            <TableHead className="py-3 px-4 font-semibold whitespace-nowrap text-right w-[220px] pr-4">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orderLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                              <TableRow key={`o-s-${i}`}>
+                                {Array.from({ length: 6 }).map((__, j) => (
+                                  <TableCell key={`o-s-${i}-${j}`} className="py-3 px-4">
+                                    <Skeleton className="h-4 w-full" />
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))
+                          ) : orderCurrent.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="py-10 text-center text-gray-500">
+                                Tidak ada data order
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            orderCurrent.map((row, idx) => (
+                              <TableRow key={`o-${row.order_id || idx}`} className="hover:bg-gray-50">
+                                <TableCell className="py-3 px-4 font-medium dark:text-white/80 whitespace-nowrap">{row.order_id || '-'}</TableCell>
+                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</TableCell>
+                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.pickup_point || '-'}</TableCell>
+                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.destination || '-'}</TableCell>
+                                <TableCell className="py-3 px-4 text-gray-700 dark:text-white/80 whitespace-nowrap">{row.driver_name || '-'}</TableCell>
+                                <TableCell className="py-3 px-4 text-right whitespace-nowrap pr-4">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="bg-white border-gray-200/70 hover:bg-white whitespace-nowrap"
+                                    disabled={!row.order_id}
+                                    onClick={() =>
+                                      row.order_id ? navigate(`${basePrefix}/orders/fleet/detail/${encodeURIComponent(row.order_id)}`) : undefined
+                                    }
+                                  >
+                                    <Eye className="h-4 w-4 mr-2 inline-block" /> Lihat Pesanan
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
 
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -1510,7 +1511,7 @@ export const FleetUnitDetail: React.FC = () => {
                         size="sm"
                         onClick={() => setOrderPage((p) => Math.min(orderTotalPages, p + 1))}
                         disabled={orderPageSafe >= orderTotalPages}
-                        className="bg-white border-gray-200/70 hover:bg-white"
+                        className="bg-white border-gray-500/70 hover:bg-white rounded-2xl"
                       >
                         Next
                         <ChevronRight className="h-4 w-4 ml-1" />
@@ -1584,7 +1585,7 @@ export const FleetUnitDetail: React.FC = () => {
                 />
                 <div className="flex justify-end gap-2">
                   <Select value={revenuePeriod} onValueChange={(v) => setRevenuePeriod(v as PeriodPreset)}>
-                    <SelectTrigger className="border-gray-200/70 bg-white h-9 w-[190px]">
+                    <SelectTrigger className="border-gray-500/70 bg-white h-9 w-[190px] rounded-2xl">
                       <SelectValue placeholder="Pilih periode" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1601,7 +1602,7 @@ export const FleetUnitDetail: React.FC = () => {
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="h-9 w-9 bg-white border-gray-200/70 hover:bg-white"
+                        className="h-9 w-9 bg-white border-gray-500/70 hover:bg-white"
                         aria-label="Export"
                       >
                         <Download className="h-4 w-4" />
@@ -1630,7 +1631,7 @@ export const FleetUnitDetail: React.FC = () => {
               </div>
 
               <div className="mt-3 flex-1 flex flex-col">
-                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200/70 bg-white flex-1 flex flex-col">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-500/70 bg-white flex-1 flex flex-col">
                   <div className="flex-1 overflow-auto">
                     <Table className="min-w-[460px]">
                       <TableHeader>
@@ -1696,7 +1697,7 @@ export const FleetUnitDetail: React.FC = () => {
                 />
                 <div className="flex justify-end gap-2">
                   <Select value={expensePeriod} onValueChange={(v) => setExpensePeriod(v as PeriodPreset)}>
-                    <SelectTrigger className="border-gray-200/70 bg-white h-9 w-[190px]">
+                    <SelectTrigger className="border-gray-500/70 bg-white h-9 w-[190px] rounded-2xl">
                       <SelectValue placeholder="Pilih periode" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1714,7 +1715,7 @@ export const FleetUnitDetail: React.FC = () => {
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="h-9 w-9 bg-white border-gray-200/70 hover:bg-white"
+                        className="h-9 w-9 bg-white border-gray-500/70 hover:bg-white"
                         aria-label="Export"
                       >
                         <Download className="h-4 w-4" />
