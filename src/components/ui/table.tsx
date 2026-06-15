@@ -23,7 +23,7 @@ const TableHeader = React.forwardRef<
   <thead
     ref={ref}
     className={cn(
-      '[&_tr]:border-b bg-gray-50/50 dark:bg-[#080b11] dark:border-black dark:border-white/10',
+      '[&_tr]:border-b bg-[#0f273f] text-white dark:bg-[#0f273f] dark:border-black dark:border-white/10',
       className
     )}
     {...props}
@@ -67,8 +67,8 @@ const TableRow = React.forwardRef<
     className={cn(
       'border-b transition-colors data-[state=selected]:bg-muted dark:border-white/10 dark:text-[#D1D5DB]',
       // Light Mode: Striped & Hover
-      'odd:bg-gray-200 even:bg-gray-100 even:hover:bg-gray-200 dark:bg-[#080b11] dark:hover:bg-[#1c2633]',
-      'odd:hover:bg-gray-100 even:hover:bg-gray-200/70',
+      'odd:bg-white even:bg-blue-200/50 even:hover:bg-blue-200 dark:bg-[#080b11] dark:hover:bg-[#1c2633]',
+      'odd:hover:bg-gray-100/50 even:hover:bg-blue-200/70',
       // Dark Mode: Striped & Hover
       'dark:odd:bg-[#1c2633] dark:even:bg-[#111827]',
       'dark:odd:hover:bg-[#151c26] dark:even:hover:bg-[#0b0f19]',
@@ -86,7 +86,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      'h-14 px-2 text-black text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
+      'h-14 px-2 text-inherit text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
       className
     )}
     {...props}
