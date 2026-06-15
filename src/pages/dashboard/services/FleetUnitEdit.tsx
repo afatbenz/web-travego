@@ -273,10 +273,11 @@ export const FleetUnitEdit: React.FC = () => {
         const production_year = getString(obj.production_year ?? obj.productionYear ?? obj.year);
         const transmission = getString(obj.transmission);
         const ownership_type = normalizeOwnershipType(getString(obj.ownership_type ?? obj.ownershipType ?? obj.owner_type ?? obj.ownerType));
-        const owner_name = getString(obj.owner_name ?? obj.ownerName ?? obj.owner ?? obj.pic_name ?? obj.picName);
-        const owner_contact = getString(obj.owner_contact ?? obj.ownerContact ?? obj.phone ?? obj.contact ?? obj.pic_phone ?? obj.picPhone);
-        const owner_email = getString(obj.owner_email ?? obj.ownerEmail ?? obj.email ?? obj.pic_email ?? obj.picEmail);
-        const partner_choice_id = getString(obj.partner_id ?? obj.partnerId);
+        const ownershipInfo = record(obj.ownership_information ?? obj.ownershipInformation);
+        const owner_name = getString(ownershipInfo.partner_name ?? obj.owner_name ?? obj.ownerName ?? obj.owner ?? obj.pic_name ?? obj.picName);
+        const owner_contact = getString(ownershipInfo.partner_phone ?? obj.owner_contact ?? obj.ownerContact ?? obj.phone ?? obj.contact ?? obj.pic_phone ?? obj.picPhone);
+        const owner_email = getString(ownershipInfo.partner_pic ?? obj.owner_email ?? obj.ownerEmail ?? obj.email ?? obj.pic_email ?? obj.picEmail);
+        const partner_choice_id = getString(ownershipInfo.partner_id ?? obj.partner_id ?? obj.partnerId);
 
         setFormData({
           unit_id,
