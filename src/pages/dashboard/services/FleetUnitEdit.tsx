@@ -95,6 +95,7 @@ type PartnerOption = {
   id: string;
   name: string;
   phone: string;
+  pic: string;
 };
 
 const normalizePartnershipOptions = (payload: unknown): PartnerOption[] => {
@@ -106,8 +107,10 @@ const normalizePartnershipOptions = (payload: unknown): PartnerOption[] => {
       const id = getString(it.partner_id ?? it.id).trim();
       const name = getString(it.partner_name ?? it.name ?? it.partner).trim();
       const phone = getString(it.partner_phone ?? it.phone).trim();
+      const pic = getString(it.pic_name ?? it.pic ?? it.picName).trim();
+      
       if (!id || !name) return null;
-      return { id, name, phone };
+      return { id, name, phone, pic };
     })
     .filter((x): x is PartnerOption => x !== null);
 };
@@ -143,9 +146,9 @@ export const FleetUnitEdit: React.FC = () => {
     capacity: '',
     production_year: '',
     ownership_type: 'Milik Sendiri',
-    owner_name: '',
-    owner_contact: '',
-    owner_email: '',
+    partner_name: '',
+    partner_phone: '',
+    partner_pic: '',
     partner_choice_id: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -171,7 +174,7 @@ export const FleetUnitEdit: React.FC = () => {
       Number.isFinite(year) &&
       year > 0 &&
       (!needsPartnerInfo ||
-        (Boolean(formData.owner_name.trim()) && Boolean(formData.owner_contact.trim()) && Boolean(formData.owner_email.trim())))
+        (Boolean(formData.partner_name.trim()) && Boolean(formData.partner_phone.trim()) && Boolean(formData.partner_pic.trim())))
     );
   }, [formData]);
 
@@ -272,11 +275,12 @@ export const FleetUnitEdit: React.FC = () => {
         const capacity = getString(obj.capacity);
         const production_year = getString(obj.production_year ?? obj.productionYear ?? obj.year);
         const transmission = getString(obj.transmission);
-        const ownership_type = normalizeOwnershipType(getString(obj.ownership_type ?? obj.ownershipType ?? obj.owner_type ?? obj.ownerType));
-        const owner_name = getString(obj.owner_name ?? obj.ownerName ?? obj.owner ?? obj.pic_name ?? obj.picName);
-        const owner_contact = getString(obj.owner_contact ?? obj.ownerContact ?? obj.phone ?? obj.contact ?? obj.pic_phone ?? obj.picPhone);
-        const owner_email = getString(obj.owner_email ?? obj.ownerEmail ?? obj.email ?? obj.pic_email ?? obj.picEmail);
-        const partner_choice_id = getString(obj.partner_id ?? obj.partnerId);
+        const ownership_type = normalizeOwnershipType(getString(obj.ownership_type ?? obj.ownershipType ?? obj.partner_type ?? obj.ownerType));
+        const ownershipInfo = record(obj.ownership_information ?? obj.ownershipInformation);
+        const partner_name = getString(ownershipInfo.partner_name ?? obj.partner_name ?? obj.ownerName ?? obj.owner ?? obj.pic_name ?? obj.picName);
+        const partner_phone = getString(ownershipInfo.partner_phone ?? obj.partner_phone ?? obj.ownerContact ?? obj.phone ?? obj.contact ?? obj.pic_phone ?? obj.picPhone);
+        const partner_pic = getString(ownershipInfo.partner_pic ?? obj.partner_pic ?? obj.ownerEmail ?? obj.email ?? obj.pic_email ?? obj.picEmail);
+        const partner_choice_id = getString(ownershipInfo.partner_id ?? obj.partner_id ?? obj.partnerId);
 
         setFormData({
           unit_id,
@@ -288,9 +292,9 @@ export const FleetUnitEdit: React.FC = () => {
           capacity,
           production_year,
           ownership_type,
-          owner_name,
-          owner_contact,
-          owner_email,
+          partner_name,
+          partner_phone,
+          partner_pic,
           partner_choice_id,
         });
       }
@@ -301,7 +305,7 @@ export const FleetUnitEdit: React.FC = () => {
   }, [unitIdParam]);
 
   const setField = (key: keyof typeof formData, value: string) => {
-    const nextValue = key === 'owner_contact' ? normalizePhone62(value) : value;
+    const nextValue = key === 'partner_phone' ? normalizePhone62(value) : value;
     setFormData((prev) => ({ ...prev, [key]: nextValue }));
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: '' }));
   };
@@ -318,9 +322,9 @@ export const FleetUnitEdit: React.FC = () => {
     const year = Number(formData.production_year);
     if (!Number.isFinite(year) || year <= 0) next.production_year = 'Production year harus berupa angka valid';
     if (formData.ownership_type === 'Kerjasama Operasional') {
-      if (!formData.owner_name.trim()) next.owner_name = 'Nama perusahaan wajib diisi';
-      if (!formData.owner_contact.trim()) next.owner_contact = 'Kontak perusahaan wajib diisi';
-      if (!formData.owner_email.trim()) next.owner_email = 'Owner perusahaan wajib diisi';
+      if (!formData.partner_name.trim()) next.partner_name = 'Nama perusahaan wajib diisi';
+      if (!formData.partner_phone.trim()) next.partner_phone = 'Kontak perusahaan wajib diisi';
+      if (!formData.partner_pic.trim()) next.partner_pic = 'Owner perusahaan wajib diisi';
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -346,10 +350,10 @@ export const FleetUnitEdit: React.FC = () => {
       production_year: Number(formData.production_year),
       transmission: formData.transmission.trim(),
       ownership_type: ownershipTypeToNumber(formData.ownership_type),
-      owner_name: needsPartnerInfo ? formData.owner_name.trim() : '',
-      owner_contact: needsPartnerInfo ? formData.owner_contact.trim() : '',
-      owner_email: needsPartnerInfo ? formData.owner_email.trim() : '',
-      ...(needsPartnerInfo ? (isApiPartner ? { partner_id: choiceId } : { partner_name: formData.owner_name.trim(), partner_phone: formData.owner_contact.trim() }) : {}),
+      partner_name: needsPartnerInfo ? formData.partner_name.trim() : '',
+      partner_phone: needsPartnerInfo ? formData.partner_phone.trim() : '',
+      partner_pic: needsPartnerInfo ? formData.partner_pic.trim() : '',
+      ...(needsPartnerInfo ? (isApiPartner ? { partner_id: choiceId } : { partner_name: formData.partner_name.trim(), partner_phone: formData.partner_phone.trim() }) : {}),
     };
 
     try {
@@ -629,14 +633,14 @@ export const FleetUnitEdit: React.FC = () => {
                               ...prev,
                               ownership_type: opt.key,
                               ...(opt.key === 'Milik Sendiri'
-                                ? { owner_name: '', owner_contact: '', owner_email: '' }
-                                : { owner_name: prev.owner_name, owner_contact: prev.owner_contact, owner_email: prev.owner_email }),
+                                ? { partner_name: '', partner_phone: '', partner_pic: '' }
+                                : { partner_name: prev.partner_name, partner_phone: prev.partner_phone, partner_pic: prev.partner_pic }),
                             }));
                             setErrors((prev) => ({
                               ...prev,
-                              owner_name: '',
-                              owner_contact: '',
-                              owner_email: '',
+                              partner_name: '',
+                              partner_phone: '',
+                              partner_pic: '',
                             }));
                           }}
                           className={cn(
@@ -700,7 +704,7 @@ export const FleetUnitEdit: React.FC = () => {
                             open={partnerPickerOpen}
                             onOpenChange={(open) => {
                               setPartnerPickerOpen(open);
-                              setPartnerQuery(open ? formData.owner_name : '');
+                              setPartnerQuery(open ? formData.partner_name : '');
                               if (!open) {
                                 setPartnerLoading(false);
                                 setPartnerOptions([]);
@@ -715,14 +719,14 @@ export const FleetUnitEdit: React.FC = () => {
                                 aria-expanded={partnerPickerOpen}
                                 className={cn(
                                   'h-12 w-full justify-between rounded-[18px] border-blue-200/60 bg-white px-4 font-normal text-gray-900 shadow-sm hover:bg-white focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
-                                  !formData.owner_name.trim() && 'text-gray-500',
-                                  errors.owner_name && 'border-red-500'
+                                  !formData.partner_name.trim() && 'text-gray-500',
+                                  errors.partner_name && 'border-red-500'
                                 )}
                               >
                                 <span className="flex min-w-0 items-center gap-2">
                                   <Building2 className="h-4 w-4 shrink-0 text-blue-700" />
                                   <span className="truncate">
-                                    {formData.owner_name.trim() ? formData.owner_name : 'Ketik min. 3 karakter untuk cari partner'}
+                                    {formData.partner_name.trim() ? formData.partner_name : 'Ketik min. 3 karakter untuk cari partner'}
                                   </span>
                                 </span>
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -738,8 +742,8 @@ export const FleetUnitEdit: React.FC = () => {
                                   value={partnerQuery}
                                   onValueChange={(v) => {
                                     setPartnerQuery(v);
-                                    setFormData((prev) => ({ ...prev, owner_name: v, partner_choice_id: '' }));
-                                    if (errors.owner_name) setErrors((prev) => ({ ...prev, owner_name: '' }));
+                                    setFormData((prev) => ({ ...prev, partner_name: v, partner_choice_id: '' }));
+                                    if (errors.partner_name) setErrors((prev) => ({ ...prev, partner_name: '' }));
                                   }}
                                 />
                                 <CommandList>
@@ -757,9 +761,9 @@ export const FleetUnitEdit: React.FC = () => {
                                         className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900"
                                         onSelect={() => {
                                           const v = partnerQuery.trim();
-                                          setFormData((prev) => ({ ...prev, owner_name: v, partner_choice_id: '' }));
+                                          setFormData((prev) => ({ ...prev, partner_name: v, partner_choice_id: '' }));
                                           setPartnerPickerOpen(false);
-                                          if (errors.owner_name) setErrors((prev) => ({ ...prev, owner_name: '' }));
+                                          if (errors.partner_name) setErrors((prev) => ({ ...prev, partner_name: '' }));
                                         }}
                                       >
                                         Gunakan: {partnerQuery.trim()}
@@ -775,14 +779,16 @@ export const FleetUnitEdit: React.FC = () => {
                                         onSelect={() => {
                                           setFormData((prev) => ({
                                             ...prev,
-                                            owner_name: o.name,
-                                            owner_contact: normalizePhone62(o.phone || prev.owner_contact),
+                                            partner_name: o.name,
+                                            partner_phone: normalizePhone62(o.phone || prev.partner_phone),
+                                            partner_pic: o.pic || prev.partner_pic,
                                             partner_choice_id: o.id,
                                           }));
+                                          console.log({o})
                                           setPartnerQuery(o.name);
                                           setPartnerPickerOpen(false);
-                                          if (errors.owner_name || errors.owner_contact) {
-                                            setErrors((prev) => ({ ...prev, owner_name: '', owner_contact: '' }));
+                                          if (errors.partner_name || errors.partner_phone) {
+                                            setErrors((prev) => ({ ...prev, partner_name: '', partner_phone: '' }));
                                           }
                                         }}
                                       >
@@ -805,7 +811,7 @@ export const FleetUnitEdit: React.FC = () => {
                               </Command>
                             </PopoverContent>
                           </Popover>
-                          {errors.owner_name && <p className="text-sm text-red-500">{errors.owner_name}</p>}
+                          {errors.partner_name && <p className="text-sm text-red-500">{errors.partner_name}</p>}
                         </div>
 
                         <div className="space-y-2">
@@ -813,18 +819,18 @@ export const FleetUnitEdit: React.FC = () => {
                           <div className="relative">
                             <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                             <Input
-                              value={formData.owner_contact}
-                              onChange={(e) => setField('owner_contact', e.target.value)}
+                              value={formData.partner_phone}
+                              onChange={(e) => setField('partner_phone', e.target.value)}
                               placeholder="Contoh: 62xxxxxxxxxxx"
                               inputMode="numeric"
                               pattern="[0-9]*"
                               className={cn(
                                 'h-12 rounded-[18px] border-blue-200/60 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
-                                errors.owner_contact && 'border-red-500'
+                                errors.partner_phone && 'border-red-500'
                               )}
                             />
                           </div>
-                          {errors.owner_contact && <p className="text-sm text-red-500">{errors.owner_contact}</p>}
+                          {errors.partner_phone && <p className="text-sm text-red-500">{errors.partner_phone}</p>}
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
@@ -832,16 +838,16 @@ export const FleetUnitEdit: React.FC = () => {
                           <div className="relative">
                             <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                             <Input
-                              value={formData.owner_email}
-                              onChange={(e) => setField('owner_email', e.target.value)}
+                              value={formData.partner_pic}
+                              onChange={(e) => setField('partner_pic', e.target.value)}
                               placeholder="Contoh: Budi Santoso"
                               className={cn(
                                 'h-12 rounded-[18px] border-blue-200/60 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
-                                errors.owner_email && 'border-red-500'
+                                errors.partner_pic && 'border-red-500'
                               )}
                             />
                           </div>
-                          {errors.owner_email && <p className="text-sm text-red-500">{errors.owner_email}</p>}
+                          {errors.partner_pic && <p className="text-sm text-red-500">{errors.partner_pic}</p>}
                         </div>
                       </div>
 

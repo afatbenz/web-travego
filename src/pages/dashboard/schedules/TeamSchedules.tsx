@@ -450,9 +450,9 @@ export const TeamSchedules: React.FC = () => {
         <div className="space-y-4">
           <div className="rounded-2xl border border-border/60 bg-transparent p-4">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:items-center">
                 <Select value={divisionId} onValueChange={setDivisionId}>
-                  <SelectTrigger className="h-11 w-full rounded-2xl sm:w-[220px]">
+                  <SelectTrigger className="h-11 rounded-2xl">
                     <SelectValue placeholder="Division" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl">
@@ -466,7 +466,7 @@ export const TeamSchedules: React.FC = () => {
                 </Select>
 
                 <Select value={roleId} onValueChange={setRoleId}>
-                  <SelectTrigger className="h-11 w-full rounded-2xl sm:w-[220px]">
+                  <SelectTrigger className="h-11 rounded-2xl">
                     <SelectValue placeholder="Role" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl">
@@ -481,16 +481,16 @@ export const TeamSchedules: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-end gap-2">
-                <Button variant="outline" size="sm" className="rounded-2xl" onClick={() => shiftPeriod(-1)} disabled={loading}>
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
+                <Button variant="outline" size="sm" className="rounded-2xl sm:px-3" onClick={() => shiftPeriod(-1)} disabled={loading}>
+                  <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Previous</span>
                 </Button>
                 <div className="min-w-[170px] rounded-2xl border border-border/60 px-4 py-2 text-center text-sm font-medium text-muted-foreground">
                   {headerRangeLabel}
                 </div>
-                <Button variant="outline" size="sm" className="rounded-2xl" onClick={() => shiftPeriod(1)} disabled={loading}>
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
+                <Button variant="outline" size="sm" className="rounded-2xl sm:px-3" onClick={() => shiftPeriod(1)} disabled={loading}>
+                  <span className="hidden sm:inline">Next</span>
+                  <ChevronRight className="h-4 w-4 sm:ml-1" />
                 </Button>
               </div>
             </div>

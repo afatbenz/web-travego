@@ -219,8 +219,8 @@ export const OrganizationDetail: React.FC = () => {
       <Card className="pb-0 dark:bg-gray-900 dark:border-gray-700">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Detail Organisasi</h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-1">Informasi organisasi anda</p>
+            <h1 className="text-lg sm:text-3xl font-bold text-gray-900 dark:text-white">Detail Organisasi</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm sm:text-md">Informasi organisasi anda</p>
           </div>
           <div className="w-full md:w-[360px] shrink-0">
             <div className="relative h-32 md:h-36 rounded-2xl overflow-hidden border border-blue-100/70 dark:border-gray-700 bg-gradient-to-br from-blue-50 via-white to-slate-100 dark:from-blue-950/40 dark:via-gray-900 dark:to-gray-800">
@@ -307,20 +307,6 @@ export const OrganizationDetail: React.FC = () => {
           title="Perbarui Informasi"
           subtitle="Edit informasi organisasi Anda"
           onClick={() => navigate(`${basePrefix}/organization/settings`)}
-        />
-        <ActionCard
-          tone="primary"
-          icon={<Lock className="h-5 w-5" />}
-          title="Ubah Password"
-          subtitle="Ganti password akun Anda"
-          onClick={() => navigate(`${basePrefix}/organization/settings?tab=password`)}
-        />
-        <ActionCard
-          tone="danger"
-          icon={<Trash2 className="h-5 w-5" />}
-          title="Hapus Akun"
-          subtitle="Hapus akun organisasi secara permanen. Tindakan ini tidak dapat dibatalkan."
-          onClick={handleDeleteAccount}
         />
       </div>
     </div>

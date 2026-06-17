@@ -13,9 +13,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
+  DialogContentScrollable,
+  DialogScrollableBody,
+  DialogStickyFooter,
+  DialogClose,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -78,6 +81,7 @@ type OrderData = {
   originalAmount: number;
   discount: number;
   createdAt: string;
+  updatedAt: string;
   paymentStatus: string;
   paymentMethod: string;
   paymentDate: string;
@@ -157,6 +161,7 @@ const createEmptyOrderData = (id: string): OrderData => ({
   originalAmount: 0,
   discount: 0,
   createdAt: '',
+  updatedAt: '',
   paymentStatus: 'pending',
   total_discount: 0,
   total_addon: 0,
@@ -222,6 +227,21 @@ export const OrderDetail: React.FC = () => {
     bankAccount: '',
   });
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [isCancelOrderOpen, setIsCancelOrderOpen] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [cancelOrderForm, setCancelOrderForm] = useState({
+    reason: '',
+    refundPercentage: '100',
+    paymentMethod: '',
+    bankId: '',
+    bankAccount: '',
+    bankAccountName: '',
+  });
+  const [cancelPaymentMethods, setCancelPaymentMethods] = useState<Array<{ value: string; label: string }>>([]);
+  const [cancelBankOptions, setCancelBankOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [cancelBankOpen, setCancelBankOpen] = useState(false);
+  const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
+  const [currentEvidenceUrl, setCurrentEvidenceUrl] = useState('');
 
   const showScheduleButton = (() => {
     const s = String(orderData.paymentStatus ?? '').toLowerCase().trim();
@@ -284,41 +304,166 @@ export const OrderDetail: React.FC = () => {
     navigate(`${basePrefix}/team/schedule-armada/add${scheduleUrlSuffix}`);
   };
 
-  const onCancelOrder = async () => {
-    const resolvedId = (orderData.id || orderId || routeOrderId || '').trim();
-    if (!resolvedId) return;
-    const result = await Swal.fire({
-      title: 'Batalkan pesanan?',
-      input: 'textarea',
-      inputLabel: 'Alasan pembatalan',
-      inputPlaceholder: 'Tulis alasan pembatalan...',
-      inputAttributes: { autocapitalize: 'off' },
-      showCancelButton: true,
-      confirmButtonText: 'Batalkan',
-      cancelButtonText: 'Batal',
-      preConfirm: (reason) => {
-        const v = String(reason ?? '').trim();
-        if (!v) {
-          Swal.showValidationMessage('Alasan wajib diisi');
-          return false;
+  const loadCancelOptions = async () => {
+    try {
+      const token = localStorage.getItem('token') ?? '';
+      const [methodRes, bankRes] = await Promise.all([
+        api.get<unknown>('/general/payment-method?type=general', token ? { Authorization: token } : undefined),
+        api.get<unknown>('/general/bank-list', token ? { Authorization: token } : undefined),
+      ]);
+
+      const record = (v: unknown): Record<string, unknown> =>
+        v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+      const toStringSafe = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
+      const normalizeList = (res: unknown) => {
+        const r = res as { status?: string; data?: unknown };
+        if (r?.status !== 'success') return [];
+        const payload = r.data as unknown;
+        if (Array.isArray(payload)) return payload;
+        if (payload && typeof payload === 'object') {
+          const root = payload as Record<string, unknown>;
+          const dataNode = root.data as unknown;
+          const listNode =
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).items : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).list : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).rows : undefined) ??
+            (dataNode && typeof dataNode === 'object' ? (dataNode as Record<string, unknown>).data : undefined) ??
+            root.items ??
+            root.list ??
+            root.rows;
+          if (Array.isArray(listNode)) return listNode;
+          if (Array.isArray(dataNode)) return dataNode;
         }
-        return v;
-      },
+        return [];
+      };
+
+      const mapOptions = (items: unknown[]) =>
+        items
+          .map((raw) => record(raw))
+          .map((o) => {
+            const value =
+              toStringSafe(o.code ?? o.value ?? o.key ?? o.id ?? o.payment_status ?? o.paymentStatus).trim();
+            const label =
+              toStringSafe(o.name ?? o.label ?? o.title ?? o.payment_status_name ?? o.paymentStatusName).trim() || value;
+            return value ? { value, label } : null;
+          })
+          .filter((x): x is { value: string; label: string } => Boolean(x));
+
+      const mapBankOptions = (items: unknown[]) =>
+        items
+          .map((raw) => record(raw))
+          .map((o) => {
+            const value = toStringSafe(o.bank_id ?? o.id ?? o.code ?? o.value ?? o.key).trim();
+            const label =
+              toStringSafe(o.bank_name ?? o.name ?? o.label ?? o.title).trim() ||
+              toStringSafe(o.account_name ?? '').trim() ||
+              value;
+            return value ? { value, label } : null;
+          })
+          .filter((x): x is { value: string; label: string } => Boolean(x));
+
+      const methodItems = normalizeList(methodRes);
+      const bankItems = normalizeList(bankRes);
+
+      if (methodItems.length > 0) setCancelPaymentMethods(mapOptions(methodItems));
+      if (bankItems.length > 0) setCancelBankOptions(mapBankOptions(bankItems));
+    } catch {
+      // ignore
+    }
+  };
+
+  const onCancelOrder = () => {
+    setCancelOrderForm({
+      reason: '',
+      refundPercentage: '100',
+      paymentMethod: '',
+      bankId: '',
+      bankAccount: '',
+      bankAccountName: '',
     });
-    if (!result.isConfirmed) return;
-    const reason = String(result.value ?? '').trim();
-    const token = localStorage.getItem('token') ?? '';
-    const res = await api.post<unknown>(
-      '/services/fleet/order/cancel',
-      { order_id: resolvedId, reason },
-      token ? { Authorization: token } : undefined
-    );
-    if (res && res.status === 'success') {
-      await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan dibatalkan.' });
-      navigate(`${basePrefix}/orders/fleet`);
+    setIsCancelOrderOpen(true);
+  };
+
+  const handleCancelOrderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const resolvedOrderId = (orderData.id || orderId || routeOrderId || '').trim();
+    if (!resolvedOrderId) return;
+
+    if (!cancelOrderForm.reason.trim()) {
+      await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Alasan pembatalan wajib diisi.' });
       return;
     }
-    await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal membatalkan pesanan.' });
+
+    if (canRefund) {
+      if (!cancelOrderForm.paymentMethod) {
+        await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Metode pembayaran wajib dipilih.' });
+        return;
+      }
+
+      const isTransfer = Number(cancelOrderForm.paymentMethod) === 1002;
+      if (isTransfer) {
+        if (!cancelOrderForm.bankId) {
+          await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Bank wajib dipilih.' });
+          return;
+        }
+        if (!cancelOrderForm.bankAccount.trim()) {
+          await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Nomor rekening wajib diisi.' });
+          return;
+        }
+        if (!cancelOrderForm.bankAccountName.trim()) {
+          await Swal.fire({ icon: 'warning', title: 'Validasi', text: 'Nama pemilik rekening wajib diisi.' });
+          return;
+        }
+      }
+    }
+
+    setIsCanceling(true);
+    try {
+      const token = localStorage.getItem('token') ?? '';
+
+      let payload: any = {
+        order_id: resolvedOrderId,
+        reason: cancelOrderForm.reason.trim(),
+      };
+
+      if (canRefund) {
+        const refundAmount = Math.round((orderData.paidAmount * Number(cancelOrderForm.refundPercentage)) / 100);
+        payload = {
+          ...payload,
+          refund_amount: refundAmount,
+          refund_percentage: Number(cancelOrderForm.refundPercentage),
+          payment_method: Number(cancelOrderForm.paymentMethod),
+        };
+
+        if (Number(cancelOrderForm.paymentMethod) === 1002) {
+          payload = {
+            ...payload,
+            bank_id: Number(cancelOrderForm.bankId),
+            bank_account: cancelOrderForm.bankAccount.trim(),
+            bank_account_name: cancelOrderForm.bankAccountName.trim(),
+          };
+        }
+      }
+
+      const res = await api.post<unknown>(
+        '/services/fleet/order/cancel',
+        payload,
+        token ? { Authorization: token } : undefined
+      );
+
+      if (res && res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan dibatalkan.' });
+        navigate(`${basePrefix}/orders/fleet`);
+        return;
+      }
+
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal membatalkan pesanan.' });
+    } catch {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal membatalkan pesanan.' });
+    } finally {
+      setIsCanceling(false);
+    }
   };
 
   const onPrintSuratPesanan = async () => {
@@ -540,6 +685,7 @@ export const OrderDetail: React.FC = () => {
   };
 
   const canRefund = (() => {
+    if (orderData.paidAmount > 0) return true;
     const status = String(orderData.paymentStatus ?? '').toLowerCase().trim();
     const isPaid = status === 'paid' || status === 'lunas' || status === 'success';
     if (!isPaid) return false;
@@ -654,8 +800,14 @@ export const OrderDetail: React.FC = () => {
     const root = record(response.data);
     const detail = record(root.order ?? root.transaction ?? root.detail ?? root);
 
-    const getString = (v: unknown, fallback: string) =>
-      typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : fallback;
+    const getString = (v: unknown, ...fallbacks: string[]) => {
+      if (typeof v === 'string' && v.trim()) return v;
+      if (typeof v === 'number') return String(v);
+      for (const fb of fallbacks) {
+        if (fb && fb.trim()) return fb;
+      }
+      return '';
+    };
     const getNumber = (v: unknown, fallback: number) => {
       if (typeof v === 'number') return Number.isFinite(v) ? v : fallback;
       if (typeof v === 'bigint') return Number(v);
@@ -738,6 +890,7 @@ export const OrderDetail: React.FC = () => {
     const startDate = getString(pickup.start_date ?? pickup.startDate, '');
     const endDate = getString(pickup.end_date ?? pickup.endDate, '');
     const createdAt = getString(detail.order_date ?? detail.created_at ?? detail.createdAt, startDate || endDate || '');
+    const updatedAt = getString(detail.updated_at ?? '');
     const paymentDate = getString(
       payment.payment_date ??
       payment.paymentDate ??
@@ -745,7 +898,8 @@ export const OrderDetail: React.FC = () => {
       paymentSummary.paymentDate ??
       detail.payment_date ??
       detail.paymentDate,
-      createdAt
+      createdAt,
+      updatedAt
     );
 
     const customerCity = getString(customer.city_label ?? customer.customer_city ?? customer.city, '');
@@ -928,6 +1082,7 @@ export const OrderDetail: React.FC = () => {
       originalAmount: originalSum,
       discount: discountSum,
       createdAt,
+      updatedAt,
       paymentStatus,
       paymentMethod: getString(
         payment.payment_method_label ??
@@ -974,6 +1129,12 @@ export const OrderDetail: React.FC = () => {
   useEffect(() => {
     fetchDetail();
   }, [fetchDetail]);
+
+  useEffect(() => {
+    if (isCancelOrderOpen) {
+      loadCancelOptions();
+    }
+  }, [isCancelOrderOpen]);
 
   useEffect(() => {
     const resolvedOrderId = (orderId || routeOrderId || orderData.id || '').trim();
@@ -1736,11 +1897,12 @@ export const OrderDetail: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-nowrap items-center justify-start gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible lg:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
+          <div className="flex flex-nowrap items-center pt-2 justify-start gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible lg:justify-end">
+            {orderData.rawStatus === 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
               className="h-10 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
               onClick={onEditOrder}
               disabled={isEditDisabled}
@@ -1748,6 +1910,7 @@ export const OrderDetail: React.FC = () => {
               <Pencil className="h-4 w-4 mr-2" />
               Edit Pesanan
             </Button>
+             )}
 
             {orderData.rawStatus === 1 && !isWaitingConfirmation && (
               <Button
@@ -1798,7 +1961,7 @@ export const OrderDetail: React.FC = () => {
                   className="relative h-10 w-10 px-0 sm:w-auto sm:px-3 rounded-2xl border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
                 >
                   <span className="hidden sm:inline">More Action</span>
-                  {!isScheduled && hasPayment ? (
+                  {orderData.rawStatus === 1 && !isScheduled && hasPayment ? (
                     <>
                       <span className="hidden sm:inline-flex ml-2 h-5 w-5 items-center justify-center rounded-full bg-blue-100 animate-bounce">
                         <AlertTriangle className="h-4 w-4 p-1 text-blue-900" />
@@ -1812,7 +1975,7 @@ export const OrderDetail: React.FC = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[240px]">
-                {!isScheduled && hasPayment && (
+                {orderData.rawStatus === 1 && !isScheduled && hasPayment && (
                   <DropdownMenuItem
                     className="cursor-pointer"
                     disabled={isScheduled}
@@ -1849,7 +2012,8 @@ export const OrderDetail: React.FC = () => {
                   Print Invoice
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
+                {orderData.rawStatus === 1 && (
+                  <DropdownMenuItem
                   className="cursor-pointer text-red-600 focus:text-red-600"
                   onSelect={(e) => {
                     e.preventDefault();
@@ -1859,6 +2023,7 @@ export const OrderDetail: React.FC = () => {
                   <Ban className="mr-2 h-4 w-4" />
                   Batalkan Pesanan
                 </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -2343,8 +2508,8 @@ export const OrderDetail: React.FC = () => {
                                   {(h.payment_method_label || getPaymentMethodLabel(h.payment_method))} • {formatDateTime(h.payment_date)}
                                 </div>
                                 {h.bank_name || h.bank_account ? (
-                                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                    {h.bank_name ? h.bank_name : '-'}{h.bank_account ? ` • ${h.bank_account}` : ''}
+                                 <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                   {h.bank_name ? h.bank_name : '-'}{h.bank_account ? ` • ${h.bank_account}` : ''}
                                   </div>
                                 ) : null}
                               </div>
@@ -2367,7 +2532,10 @@ export const OrderDetail: React.FC = () => {
                                   size="sm"
                                   variant="outline"
                                   className="h-9 rounded-2xl border-slate-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-lg/10 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
-                                  onClick={() => window.open(toFileUrl(h.evidence_file), '_blank', 'noopener,noreferrer')}
+                                  onClick={() => {
+                                    setCurrentEvidenceUrl(toFileUrl(h.evidence_file));
+                                    setIsEvidenceModalOpen(true);
+                                  }}
                                 >
                                   Lihat Bukti
                                 </Button>
@@ -2416,6 +2584,7 @@ export const OrderDetail: React.FC = () => {
                   ))
                 ) : null}
 
+                {orderData.rawStatus === 1 && (
                 <div className="relative flex gap-3 pl-7">
                   <div className="absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full bg-[#295BFF]" />
                   <div className="min-w-0">
@@ -2423,7 +2592,9 @@ export const OrderDetail: React.FC = () => {
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(orderData.startDate)}</div>
                   </div>
                 </div>
-
+                )}
+                
+                {orderData.rawStatus === 1 && (
                 <div className="relative flex gap-3 pl-7">
                   <div className="absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-700" />
                   <div className="min-w-0">
@@ -2431,6 +2602,17 @@ export const OrderDetail: React.FC = () => {
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(orderData.endDate)}</div>
                   </div>
                 </div>
+                )}
+
+                {orderData.rawStatus === 0 && (
+                <div className="relative flex gap-3 pl-7">
+                  <div className="absolute left-[7px] top-2 h-2.5 w-2.5 rounded-full bg-red-600" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Order Dibatalkan</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDate(orderData.updatedAt)}</div>
+                  </div>
+                </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -2471,7 +2653,8 @@ export const OrderDetail: React.FC = () => {
               </div>
             </div>
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-3">
+             <div className="p-6 sm:p-8 border-t-2 border-slate-200 flex-shrink-0">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full md:w-auto">
               <Button
                 variant="outline"
                 onClick={() => setIsConfirmPaymentOpen(false)}
@@ -2497,7 +2680,8 @@ export const OrderDetail: React.FC = () => {
               >
                 Konfirmasi Sekarang
               </Button>
-            </DialogFooter>
+            </div>
+             </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -2520,7 +2704,8 @@ export const OrderDetail: React.FC = () => {
               </div>
             </div>
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-3">
+             <div className="p-6 sm:p-8 border-t border-slate-200 flex-shrink-0">
+            <div className="flex flex-col items-center justify-end gap-3 w-full md:w-auto">
               <Button
                 variant="outline"
                 onClick={() => setIsConfirmOrderOpen(false)}
@@ -2582,7 +2767,8 @@ export const OrderDetail: React.FC = () => {
                   'Konfirmasi Pesanan'
                 )}
               </Button>
-            </DialogFooter>
+            </div>
+             </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -2851,7 +3037,8 @@ export const OrderDetail: React.FC = () => {
               </div>
             ) : null}
 
-            <DialogFooter className="flex gap-3 pt-4 border-t">
+             <div className="p-6 sm:p-8 border-t border-slate-200 flex-shrink-0">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full md:w-auto">
               <Button
                 type="button"
                 variant="outline"
@@ -2883,8 +3070,260 @@ export const OrderDetail: React.FC = () => {
                   canRefund ? 'Ajukan Refund' : 'Update Pembayaran'
                 )}
               </Button>
-            </DialogFooter>
+            </div>
+             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCancelOrderOpen} onOpenChange={setIsCancelOrderOpen}>
+        <DialogContentScrollable className="max-w-2xl p-0 border-none bg-white dark:bg-[#090e1a]">
+          <div className="p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                  <Ban className="w-6 h-6" />
+                </div>
+                <div className="text-lg text-slate-900">
+                  <h2 className="text-md md:text-2xl font-bold text-foreground dark:text-white/70">Pembatalan Pesanan</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {canRefund && orderData.paidAmount > 0 
+                      ? 'Isi alasan pembatalan dan informasi pengembalian dana.' 
+                      : 'Isi alasan pembatalan pesanan.'}
+                  </p>
+                </div>
+              </div>
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  onClick={() => setIsCancelOrderOpen(false)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Tutup modal"
+                  disabled={isCanceling}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </DialogClose>
+            </div>
+            <div className="mt-4 h-px bg-slate-100" />
+          </div>
+
+          <form className="flex flex-col flex-1 min-h-0" onSubmit={handleCancelOrderSubmit}>
+            <DialogScrollableBody className="px-6 space-y-6">
+              {canRefund && orderData.paidAmount > 0 && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-800">
+                      Persentase Pengembalian Dana <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {['0', '25', '50', '75', '100'].map(percent => (
+                        <button
+                          key={percent}
+                          type="button"
+                          onClick={() => setCancelOrderForm(prev => ({ ...prev, refundPercentage: percent }))}
+                          className={cn(
+                            'h-11 rounded-xl text-sm font-semibold transition-all duration-200',
+                            cancelOrderForm.refundPercentage === percent
+                              ? 'bg-blue-600 text-white shadow-md'
+                              : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
+                          )}
+                        >
+                          {percent}%
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
+                      <div className="text-xs text-blue-600 mb-1">Nominal dana yang dikembalikan berdasarkan presentasi dana yang sudah masuk</div>
+                      <div className="text-lg font-bold text-blue-900">
+                        {formatCurrency(Math.round((orderData.paidAmount * Number(cancelOrderForm.refundPercentage)) / 100))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`grid gap-4 ${Number(cancelOrderForm.paymentMethod) === 1002 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+                    <div className="space-y-2">
+                      <Label htmlFor="cancel-payment-method" className="text-sm font-medium text-slate-800">
+                        Metode Pengembalian <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={cancelOrderForm.paymentMethod}
+                        onValueChange={(value) => setCancelOrderForm(prev => ({ ...prev, paymentMethod: value }))}
+                        disabled={isCanceling}
+                      >
+                        <SelectTrigger className="h-11 rounded-xl border-slate-200">
+                          <SelectValue placeholder="Pilih metode pengembalian" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {cancelPaymentMethods.map(method => (
+                            <SelectItem key={method.value} value={method.value}>
+                              {method.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {Number(cancelOrderForm.paymentMethod) === 1002 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-800">
+                          Pilih Bank <span className="text-red-500">*</span>
+                        </Label>
+                        <Popover open={cancelBankOpen} onOpenChange={setCancelBankOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={cancelBankOpen}
+                              className="h-11 w-full justify-between rounded-xl border-slate-200"
+                              disabled={isCanceling}
+                            >
+                              {cancelOrderForm.bankId
+                                ? cancelBankOptions.find(bank => bank.value === cancelOrderForm.bankId)?.label
+                                : "Pilih Bank..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Cari bank..." className="h-11" />
+                              <CommandList>
+                                <CommandEmpty>Bank tidak ditemukan.</CommandEmpty>
+                                <CommandGroup>
+                                  {cancelBankOptions.map(bank => (
+                                    <CommandItem
+                                      key={bank.value}
+                                      value={bank.label}
+                                      onSelect={() => {
+                                        setCancelOrderForm(prev => ({ ...prev, bankId: bank.value }));
+                                        setCancelBankOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          cancelOrderForm.bankId === bank.value ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {bank.label}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
+                  </div>
+
+                  {Number(cancelOrderForm.paymentMethod) === 1002 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="cancel-bank-account" className="text-sm font-medium text-slate-800">
+                          Nomor Rekening <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="cancel-bank-account"
+                          type="text"
+                          value={cancelOrderForm.bankAccount}
+                          onChange={(e) => setCancelOrderForm(prev => ({ ...prev, bankAccount: e.target.value.replace(/\D/g, '') }))}
+                          placeholder="Masukkan nomor rekening"
+                          className="h-11 rounded-xl border-slate-200"
+                          disabled={isCanceling}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cancel-bank-account-name" className="text-sm font-medium text-slate-800">
+                          Nama Pemilik Rekening <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="cancel-bank-account-name"
+                          type="text"
+                          value={cancelOrderForm.bankAccountName}
+                          onChange={(e) => setCancelOrderForm(prev => ({ ...prev, bankAccountName: e.target.value }))}
+                          placeholder="Masukkan nama pemilik rekening"
+                          className="h-11 rounded-xl border-slate-200"
+                          disabled={isCanceling}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="cancel-reason" className="text-sm font-medium text-slate-800">
+                  Alasan Pembatalan <span className="text-red-500">*</span>
+                </Label>
+                <textarea
+                  id="cancel-reason"
+                  value={cancelOrderForm.reason}
+                  onChange={(e) => setCancelOrderForm(prev => ({ ...prev, reason: e.target.value }))}
+                  placeholder="Tulis alasan pembatalan..."
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isCanceling}
+                />
+              </div>
+            </DialogScrollableBody>
+
+            <div className="p-6 sm:p-4 mt-2 border-t-2 border-slate-200 flex-shrink-0">
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full md:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto h-11 rounded-xl border-slate-200 text-slate-700"
+                  onClick={() => setIsCancelOrderOpen(false)}
+                  disabled={isCanceling}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white"
+                  disabled={isCanceling}
+                >
+                  {isCanceling ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Memproses...
+                    </>
+                  ) : (
+                    'Batalkan Pesanan'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </DialogContentScrollable>
+      </Dialog>
+
+      {/* Modal Bukti Pembayaran */}
+      <Dialog open={isEvidenceModalOpen} onOpenChange={setIsEvidenceModalOpen}>
+        <DialogContent className="sm:max-w-[800px] sm:max-h-[80vh] p-0 overflow-hidden border-none bg-white dark:bg-gray-900 shadow-2xl rounded-2xl flex flex-col">
+          <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex-shrink-0">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              Bukti Pembayaran
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-6 flex-1 overflow-auto flex items-center justify-center">
+            <img
+              src={currentEvidenceUrl}
+              alt="Bukti Pembayaran"
+              className="max-h-full max-w-full object-contain rounded-xl"
+            />
+          </div>
+          <div className="p-6 border-t border-slate-200 flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsEvidenceModalOpen(false)}
+              className="w-full rounded-xl"
+            >
+              Tutup
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

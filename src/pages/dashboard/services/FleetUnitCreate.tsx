@@ -332,12 +332,12 @@ export const FleetUnitCreate: React.FC = () => {
     if (!fleetId) next.fleet_id = 'Jenis armada wajib dipilih';
 
     units.forEach((u, idx) => {
-      if (!u.vehicle_id.trim()) next[`units.${idx}.vehicle_id`] = 'Vehicle ID wajib diisi';
+      if (!u.vehicle_id.trim()) next[`units.${idx}.vehicle_id`] = 'Unit ID wajib diisi';
       if (!u.plate_number.trim()) next[`units.${idx}.plate_number`] = 'Plate number wajib diisi';
-      if (!u.engine.trim()) next[`units.${idx}.engine`] = 'Engine wajib diisi';
+      if (!u.engine.trim()) next[`units.${idx}.engine`] = 'Jenis Mesin wajib diisi';
       if (!u.transmission.trim()) next[`units.${idx}.transmission`] = 'Transmission wajib diisi';
       const capacity = Number(u.capacity);
-      if (!Number.isFinite(capacity) || capacity <= 0) next[`units.${idx}.capacity`] = 'Capacity harus berupa angka > 0';
+      if (!Number.isFinite(capacity) || capacity <= 0) next[`units.${idx}.capacity`] = 'Kapasitas harus berupa angka > 0';
       const year = Number(u.production_year);
       if (!Number.isFinite(year) || year <= 0) next[`units.${idx}.production_year`] = 'Production year harus berupa angka valid';
       if (u.ownership_type === 'Kerjasama Operasional') {
@@ -393,7 +393,7 @@ export const FleetUnitCreate: React.FC = () => {
       if (res.message === 'DUPLICATE_VEHICLE_ID') {
         await Swal.fire({
           icon: 'warning',
-          title: 'Vehicle ID tidak valid',
+          title: 'Unit ID tidak valid',
           text: 'Pastikan vehicle id unik dan tidak ada duplikasi',
         });
         return;
@@ -447,7 +447,7 @@ export const FleetUnitCreate: React.FC = () => {
                     variant="outline"
                     role="combobox"
                     aria-expanded={fleetPickerOpen}
-                    className={cn('w-full justify-between', !fleetId && 'text-muted-foreground', errors.fleet_id && 'border-red-500')}
+                    className={cn('w-full rounded-2xl justify-between', !fleetId && 'text-muted-foreground', errors.fleet_id && 'border-red-500')}
                     disabled={loadingFleetOptions}
                   >
                     {loadingFleetOptions ? 'Memuat...' : selectedFleetLabel || 'Pilih jenis armada'}
@@ -524,7 +524,7 @@ export const FleetUnitCreate: React.FC = () => {
 
                   <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Vehicle ID *</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-white/70">Unit ID *</label>
                       <div className="relative">
                         <IdCard className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                         <Input
@@ -541,7 +541,7 @@ export const FleetUnitCreate: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Plate Number *</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-white/70">Plat Nomor *</label>
                       <div className="relative">
                         <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                         <Input
@@ -558,7 +558,7 @@ export const FleetUnitCreate: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Engine *</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-white/70">Jenis Mesin *</label>
                       <div className="relative">
                         <Cpu className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                         <Input
@@ -575,7 +575,7 @@ export const FleetUnitCreate: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Transmission *</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-white/70">Transmisi *</label>
                       <div className="relative">
                         <Settings2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                         <Select value={unit.transmission} onValueChange={(v) => setUnitField(idx, 'transmission', v)}>
@@ -600,7 +600,7 @@ export const FleetUnitCreate: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Capacity *</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-white/70">Kapasitas *</label>
                       <div className="relative">
                         <Armchair className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                         <Input
@@ -608,7 +608,7 @@ export const FleetUnitCreate: React.FC = () => {
                           inputMode="numeric"
                           min={1}
                           value={unit.capacity}
-                          onChange={(e) => setUnitField(idx, 'capacity', e.target.value)}
+                          onChange={(e) => setUnitField(idx, 'capacity', e.target.value.replace(/[^0-9]/g, ''))}
                           placeholder="Contoh: 14"
                           className={cn(
                             'h-12 rounded-[18px] border-gray-200/70 bg-white pl-10 shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0',
@@ -621,7 +621,7 @@ export const FleetUnitCreate: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Production Year *</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-white/70">Tahun Produksi *</label>
                       <div className="relative">
                         <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                         <Input
@@ -649,8 +649,8 @@ export const FleetUnitCreate: React.FC = () => {
                 <div className="h-px bg-gray-200/70" />
 
                 <div>
-                  <div className="text-sm font-semibold text-gray-900">Status Kepemilikan</div>
-                  <div className="mt-0.5 text-sm text-gray-500">Pilih tipe kepemilikan untuk menentukan kebutuhan data tambahan.</div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white/70 dark:text-white">Status Kepemilikan</div>
+                  <div className="mt-0.5 text-sm text-gray-500 dark:text-white/70">Pilih tipe kepemilikan untuk menentukan kebutuhan data tambahan.</div>
 
                   <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                     {(
@@ -699,21 +699,21 @@ export const FleetUnitCreate: React.FC = () => {
                           className={cn(
                             'group relative flex w-full items-start gap-3 rounded-[22px] border p-4 text-left shadow-sm transition-all',
                             active
-                              ? 'border-blue-300/70 bg-blue-50/60 shadow-[0_0_0_4px_rgba(59,130,246,0.08)]'
-                              : 'border-gray-200/70 bg-white hover:border-blue-200/70 hover:shadow-[0_0_0_4px_rgba(59,130,246,0.05)]'
+                              ? 'border-blue-300/70 bg-blue-50/60 shadow-[0_0_0_4px_rgba(59,130,246,0.08)] dark:text-white dark:bg-gray-900'
+                              : 'border-gray-200/70 bg-white hover:border-blue-200/70 hover:shadow-[0_0_0_4px_rgba(59,130,246,0.05)] dark:bg-slate-900 dark:hover:bg-slate-800 dark:hover:shadow-[0_0_0_4px_rgba(59,130,246,0.05)]'
                           )}
                         >
                           <div
                             className={cn(
                               'flex h-10 w-10 items-center justify-center rounded-2xl ring-1 transition-colors',
-                              active ? 'bg-blue-100 text-blue-700 ring-blue-200/60' : 'bg-gray-50 text-gray-600 ring-gray-200/60'
+                              active ? 'bg-blue-100 text-blue-700 ring-blue-200/60 dark:bg-white dark:text-blue-800 dark:ring-blue-800/60' : 'bg-gray-50 text-gray-600 dark:bg-blue-600 dark:text-white dark:ring-0 ring-gray-200/60'
                             )}
                           >
                             <Icon className="h-5 w-5" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-3">
-                              <div className="text-sm font-semibold text-gray-900">{opt.title}</div>
+                              <div className="text-sm font-semibold text-gray-900 dark:text-white">{opt.title}</div>
                               <span
                                 className={cn(
                                   'flex h-5 w-5 items-center justify-center rounded-full border transition-colors',
@@ -739,20 +739,20 @@ export const FleetUnitCreate: React.FC = () => {
                     )}
                     aria-hidden={unit.ownership_type !== 'Kerjasama Operasional'}
                   >
-                    <div className="rounded-[22px] border border-blue-200/60 bg-blue-50/60 p-4 shadow-sm">
+                    <div className="rounded-[22px] border border-blue-200/60 bg-blue-50/60 p-4 shadow-sm dark:bg-gray-800 dark:border-gray-800">
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/70 text-blue-700 ring-1 ring-blue-200/60">
                           <Building2 className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-semibold text-gray-900">Informasi Perusahaan Mitra</div>
-                          <div className="mt-0.5 text-sm text-gray-600">Data ini membantu validasi dan administrasi unit kerjasama.</div>
+                          <div className="text-sm font-semibold text-gray-900 dark:text-white">Informasi Perusahaan Mitra</div>
+                          <div className="mt-0.5 text-sm text-gray-600 dark:text-gray-500">Data ini membantu validasi dan administrasi unit kerjasama.</div>
                         </div>
                       </div>
 
                       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Nama Partner *</label>
+                          <label className="text-sm font-medium text-gray-700 dark:text-white/70">Nama Partner *</label>
                           <Popover
                             open={partnerPickerOpen && partnerPickerUnitIndex === idx}
                             onOpenChange={(open) => {
@@ -840,7 +840,7 @@ export const FleetUnitCreate: React.FC = () => {
                                       <CommandItem
                                         key={o.id}
                                         value={`${o.name} ${o.phone} ${o.id}`}
-                                        className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900"
+                                        className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-800 dark:bg-gray-800/50 dark:text-white/800 dark:hover:bg-gray-800/70"
                                         onSelect={() => {
                                           setUnits((prev) =>
                                             prev.map((u, i) =>
@@ -866,23 +866,23 @@ export const FleetUnitCreate: React.FC = () => {
                                       >
                                         <Check
                                           className={cn(
-                                            'mr-2 h-4 w-4',
+                                            'mr-2 h-4 w-4 dark:text-white/80',
                                             unit.partner_choice_id === o.id ? 'opacity-100' : 'opacity-0'
                                           )}
                                         />
                                         <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
                                           <div className="min-w-0">
-                                            <div className="truncate text-sm font-medium text-gray-900">{o.name}</div>
+                                            <div className="truncate text-sm font-medium text-gray-900 dark:text-white">{o.name}</div>
                                             <div className="truncate text-xs text-gray-500">
                                               {o.source === 'manual' ? 'Custom' : 'Direktori partner'}
                                             </div>
                                           </div>
                                           <div className="flex shrink-0 items-center gap-2">
-                                            <span className="rounded-full border border-gray-200/70 bg-white px-2 py-0.5 text-xs text-gray-700">
+                                            <span className="rounded-full border border-gray-200/70 bg-white dark:bg-gray-800/70 px-2 py-0.5 text-xs text-gray-700 dark:text-white/80">
                                               {o.phone || '-'}
                                             </span>
                                             {o.source === 'manual' ? (
-                                              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+                                              <span className="rounded-full bg-blue-50 dark:bg-gray-800/50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
                                                 Custom
                                               </span>
                                             ) : null}
@@ -899,7 +899,7 @@ export const FleetUnitCreate: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">No. Telepon *</label>
+                          <label className="text-sm font-medium text-gray-700 dark:text-white/70">No. Telepon *</label>
                           <div className="relative">
                             <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-700" />
                             <Input
@@ -920,9 +920,9 @@ export const FleetUnitCreate: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-white/60 px-4 py-3 text-sm text-gray-700">
-                        <span className="inline-flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-blue-700" />
+                      <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-white/60 dark:bg-gray-800/60 px-4 py-3 text-sm text-gray-700">
+                        <span className="inline-flex items-center gap-2 dark:text-white/80">
+                          <Building2 className="h-4 w-4 text-blue-700 dark:text-white/80" />
                           Data kemitraan diperlukan untuk verifikasi, penagihan, dan audit operasional.
                         </span>
                       </div>

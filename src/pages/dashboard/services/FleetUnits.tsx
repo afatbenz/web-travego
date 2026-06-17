@@ -292,30 +292,43 @@ export const FleetUnits: React.FC = () => {
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <div className="relative w-full flex-1 sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Cari Unit ID, nama unit, atau plat nomor..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="h-11 rounded-2xl pl-10"
-          />
-        </div>
-
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:justify-end">
+        <div className="flex w-full gap-2 sm:flex-1">
+          <div className="relative flex-1 sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Cari Unit ID, nama unit, atau plat nomor..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-11 rounded-2xl pl-10"
+            />
+          </div>
           <Button
             type="button"
             variant="outline"
-            className="h-11 w-full rounded-2xl sm:w-11 sm:px-0"
+            size="icon"
+            className="h-11 w-11 rounded-2xl flex-shrink-0 sm:hidden"
             onClick={resetFilters}
             disabled={!searchTerm && currentPage === 1}
             title="Reset"
           >
-            <RotateCcw className="h-4 w-4 mr-2 sm:mr-0" />
-            <span className="sm:hidden">Reset</span>
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="hidden sm:flex sm:w-auto sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-2xl px-3 sm:w-auto"
+            onClick={resetFilters}
+            disabled={!searchTerm && currentPage === 1}
+            title="Reset"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            <span>Reset</span>
           </Button>
         </div>
       </div>
