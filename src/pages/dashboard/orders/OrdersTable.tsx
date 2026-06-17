@@ -322,7 +322,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
 
     if (order.status === 0) {
       return (
-        <Badge className="rounded-full border-transparent bg-zinc-500/10 px-3 py-1 font-medium text-zinc-800 hover:bg-zinc-500/10 dark:bg-zinc-400/15 dark:text-zinc-200">
+        <Badge className="rounded-full border-transparent bg-red-500 text-white px-3 py-1 font-medium hover:bg-zinc-500/10 dark:bg-zinc-400/15 dark:text-zinc-200">
           <XCircle className="mr-1.5 h-3.5 w-3.5" />
           Pesanan Dibatalkan
         </Badge>

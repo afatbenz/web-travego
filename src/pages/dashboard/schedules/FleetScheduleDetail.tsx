@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, Car, Check, CheckCircle, ChevronRight, ChevronsUpDown, Clock, CreditCard, DollarSign, HandCoins, MoreHorizontal, Plus, Printer, ReceiptText, Save, Trash2, UsersRound, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Car, Check, CheckCircle, ChevronRight, ChevronsUpDown, Clock, CreditCard, DollarSign, HandCoins, Hourglass, MoreHorizontal, Plus, Printer, ReceiptText, Save, Trash2, UsersRound, X, XCircle } from 'lucide-react';
 import { api, toFileUrl } from '@/lib/api';
 import BackButton from '@/components/common/BackButton';
 import defaultAvatar from '@/assets/general/avatar.svg';
@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
+import moment from 'moment';
 
 type Option = { value: string; label: string };
 
@@ -29,6 +30,9 @@ type FleetTripExpenseRow = {
   amount: number;
   paymentMethod: 1 | 2 | 0;
   paymentLabel: 'Lunas' | 'Tagihan';
+  createdAt: string | null;
+  status: number;
+  description: string;
 };
 
 type FleetTripExpenseTableRow = {
@@ -37,6 +41,8 @@ type FleetTripExpenseTableRow = {
   reporter: string;
   amount: number;
   paymentMethodLabel: string;
+  createdAt: string | null;
+  status: number;
   description: string;
 };
 
@@ -89,8 +95,9 @@ const parseFleetTripFinance = (payload: unknown, scheduleNumberFallback: string)
     const amount = toNumberSafe(o.amount ?? o.total_amount ?? o.totalAmount ?? o.nominal ?? o.value);
     const paymentMethodLabelRaw = pickString(o, ['payment_method_label', 'paymentMethodLabel', 'payment_label', 'paymentLabel']);
     const paymentMethodNum = toNumberSafe(o.payment_method ?? o.paymentMethod);
-    const paymentMethodLabel =
-      paymentMethodLabelRaw ||
+    const createdAt = o.created_at ?? o.createdAt;
+    const status = o.status ?? 0;
+    const paymentMethodLabel = paymentMethodLabelRaw ||
       (paymentMethodNum === 1 ? 'Biaya Operasional' : paymentMethodNum === 2 ? 'Reimburse' : '-');
 
     const row: FleetTripExpenseTableRow = {
@@ -99,7 +106,9 @@ const parseFleetTripFinance = (payload: unknown, scheduleNumberFallback: string)
       reporter,
       amount,
       paymentMethodLabel,
+      createdAt: createdAt ? moment(createdAt).format('DD MMM YYYY') : null,
       description,
+      status,
     };
     return row;
   });
@@ -108,8 +117,11 @@ const parseFleetTripFinance = (payload: unknown, scheduleNumberFallback: string)
   const totalExpenses = toNumberSafe(data.total_expenses ?? data.totalExpenses);
   const totalReimburse = toNumberSafe(data.total_reimburse ?? data.totalReimburse);
   const balance = toNumberSafe(data.balance ?? data.sisa_operasional ?? data.balance_amount ?? data.balanceAmount);
+  const totalClaimed = toNumberSafe(data.total_claimed ?? data.totalClaimed);
+  const totalItemReimburse = toNumberSafe(data.total_item_reimburse ?? data.totalItemReimburse);
+  const remainingClaim = toNumberSafe(data.remaining_claim ?? data.remainingClaim);
 
-  return { totalAmount, totalExpenses, totalReimburse, balance, expenses };
+  return { totalAmount, totalExpenses, totalReimburse, balance, totalClaimed, totalItemReimburse, remainingClaim, expenses };
 };
 
 const toRecord = (v: unknown): Record<string, unknown> =>
@@ -242,9 +254,9 @@ const parseFleetTripDetail = (payload: unknown, scheduleNumberFallback: string):
   };
 };
 
-const KeyValueGrid: React.FC<{ items: Array<{ label: string; value: React.ReactNode }> }> = ({ items }) => {
+const KeyValueGrid: React.FC<{ items: Array<{ label: string; value: React.ReactNode }>; className?: string }> = ({ items, className }) => {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <div className={className || "grid grid-cols-1 gap-3 md:grid-cols-2"}>
       {items.map((item) => (
         <div key={item.label} className="rounded-2xl border border-gray-200/70 bg-white/70 p-4 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB]">
           <div className="text-[11px] font-medium text-muted-foreground">{item.label}</div>
@@ -275,7 +287,7 @@ export const FleetScheduleDetail: React.FC = () => {
   const [transactionTypes, setTransactionTypes] = useState<Option[]>([]);
   const [transactionTypeOpen, setTransactionTypeOpen] = useState(false);
   const [expenseDraft, setExpenseDraft] = useState({ transaction_item: '', amount: '', description: '', payment_method: '1' as '1' | '2' });
-  const [financeTotalsOverride, setFinanceTotalsOverride] = useState<null | { totalAmount: number; totalExpenses: number; totalReimburse: number; balance?: number }>(null);
+  const [financeTotalsOverride, setFinanceTotalsOverride] = useState<null | { totalAmount: number; totalExpenses: number; totalReimburse: number; balance?: number; totalClaimed?: number; totalItemReimburse?: number; remainingClaim?: number }>(null);
   const [financeExpenses, setFinanceExpenses] = useState<FleetTripExpenseTableRow[]>([]);
   const [financeLoaded, setFinanceLoaded] = useState(false);
 
@@ -286,6 +298,17 @@ export const FleetScheduleDetail: React.FC = () => {
   const [crewDraft, setCrewDraft] = useState({ driver_id: '', crew_id: '' });
 
   const [deletingExpenseId, setDeletingExpenseId] = useState<string>('');
+
+  // Reimbursement states
+  const [reimbursementOpen, setReimbursementOpen] = useState(false);
+  const [reimbursementSubmitting, setReimbursementSubmitting] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<Option[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const [reimbursementDraft, setReimbursementDraft] = useState({
+    recipient_id: '',
+    transaction_date: new Date().toISOString().split('T')[0],
+    payment_method_id: '',
+  });
 
   const onPrintSuratJalan = async () => {
     if (!scheduleNumber) return;
@@ -423,6 +446,9 @@ export const FleetScheduleDetail: React.FC = () => {
           totalExpenses: parsed.totalExpenses,
           totalReimburse: parsed.totalReimburse,
           balance: parsed.balance,
+          totalClaimed: parsed.totalClaimed,
+          totalItemReimburse: parsed.totalItemReimburse,
+          remainingClaim: parsed.remainingClaim,
         });
       } else {
         setFinanceLoaded(false);
@@ -556,6 +582,48 @@ export const FleetScheduleDetail: React.FC = () => {
     })();
   }, [crewModalOpen, fleetTrip?.arrivalTime, fleetTrip?.departureTime, fleetTrip?.endDate, fleetTrip?.crewId, fleetTrip?.driverId, token]);
 
+  useEffect(() => {
+    if (!reimbursementOpen) return;
+    (async () => {
+      setPaymentMethodsLoading(true);
+      try {
+        const res = await api.get<unknown>(
+          '/general/payment-method?type=general',
+          token ? { Authorization: token } : undefined
+        );
+        if (res.status !== 'success') {
+          setPaymentMethods([]);
+          return;
+        }
+        const payload = res.data as unknown;
+        const root = toRecord(payload);
+        const dataNode = root.data;
+        const dataObj = toRecord(dataNode);
+        const listNode =
+          (Array.isArray(payload) ? payload : undefined) ??
+          (Array.isArray(dataNode) ? dataNode : undefined) ??
+          (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
+          (Array.isArray(dataObj.rows) ? dataObj.rows : undefined) ??
+          (Array.isArray(dataObj.data) ? dataObj.data : undefined) ??
+          (Array.isArray(root.items) ? root.items : undefined) ??
+          (Array.isArray(root.rows) ? root.rows : undefined) ??
+          (Array.isArray(root.data) ? root.data : undefined) ??
+          [];
+        const mapped = (listNode as unknown[])
+          .map((raw) => toRecord(raw))
+          .map((o) => {
+            const value = pickString(o, ['uuid', 'id', 'value', 'payment_method_id']);
+            const label = pickString(o, ['label', 'name', 'payment_method_name']);
+            return value ? { value, label: label || value } : null;
+          })
+          .filter((x): x is Option => Boolean(x));
+        setPaymentMethods(mapped);
+      } finally {
+        setPaymentMethodsLoading(false);
+      }
+    })();
+  }, [reimbursementOpen, token]);
+
   const arrivalNode = useMemo(() => {
     const arrival = (fleetTrip?.arrivalTime ?? '').trim();
     if (arrival) return tryFormatDateTime(arrival);
@@ -661,14 +729,17 @@ export const FleetScheduleDetail: React.FC = () => {
       const total = financeTotalsOverride.totalExpenses;
       const reimburse = financeTotalsOverride.totalReimburse;
       const sisaOperasional = Number.isFinite(financeTotalsOverride.balance ?? NaN) ? (financeTotalsOverride.balance as number) : operasional - total;
-      return { operasional, reimburse, total, sisaOperasional };
+      const totalClaimed = financeTotalsOverride.totalClaimed ?? 0;
+      const totalItemReimburse = financeTotalsOverride.totalItemReimburse ?? 0;
+      const remainingClaim = financeTotalsOverride.remainingClaim ?? 0;
+      return { operasional, reimburse, total, sisaOperasional, totalClaimed, totalItemReimburse, remainingClaim };
     }
     const expenses = fleetTrip?.expenses ?? [];
     const operasional = expenses.reduce((sum, x) => sum + (x.paymentMethod === 1 ? x.amount : 0), 0);
     const reimburse = expenses.reduce((sum, x) => sum + (x.paymentMethod === 2 ? x.amount : 0), 0);
     const total = expenses.reduce((sum, x) => sum + x.amount, 0);
     const sisaOperasional = expenses.reduce((sum, x) => sum + (x.paymentMethod === 1 && x.paymentLabel === 'Tagihan' ? x.amount : 0), 0);
-    return { operasional, reimburse, total, sisaOperasional };
+    return { operasional, reimburse, total, sisaOperasional, totalClaimed: 0, totalItemReimburse: 0, remainingClaim: 0 };
   }, [financeTotalsOverride, fleetTrip?.expenses]);
 
   const expenseTableRows = useMemo(() => {
@@ -681,20 +752,13 @@ export const FleetScheduleDetail: React.FC = () => {
         reporter: row.reporter || '-',
         amount: row.amount,
         paymentMethodLabel,
-        description: '-',
+        createdAt: row.createdAt ? moment(row.createdAt).format('DD MMM YYYY') : null,
+        status: row.status,
+        description: row.description || '-',
       };
       return mapped;
     });
   }, [financeExpenses, financeLoaded, fleetTrip?.expenses]);
-
-  const financeItems = useMemo(() => {
-    return [
-      { label: 'Biaya Operasional', value: formatCurrency(financeSummary.operasional) },
-      { label: 'Total Pengeluaran', value: formatCurrency(financeSummary.total) },
-      { label: 'Sisa Operasional', value: formatCurrency(financeSummary.sisaOperasional) },
-      { label: 'Klaim / Reimbursement', value: formatCurrency(financeSummary.reimburse) },
-    ];
-  }, [financeSummary.operasional, financeSummary.reimburse, financeSummary.sisaOperasional, financeSummary.total]);
 
   return (
     <div className="space-y-6 pb-24 md:pb-0">
@@ -730,7 +794,7 @@ export const FleetScheduleDetail: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-nowrap items-center justify-center gap-2 overflow-x-auto lg:justify-end w-full sm:w-auto">
+        <div className="flex flex-nowrap items-center pt-2 justify-center gap-2 overflow-x-auto lg:justify-end w-full sm:w-auto">
           <Button
             type="button"
             variant="outline"
@@ -766,6 +830,25 @@ export const FleetScheduleDetail: React.FC = () => {
                 <UsersRound className="mr-2 h-4 w-4" />
                 Ubah Driver / Crew
               </DropdownMenuItem>
+              {financeSummary.reimburse > 0 && (
+                <DropdownMenuItem
+                  className="cursor-pointer text-emerald-700 dark:text-emerald-300"
+                  disabled={!scheduleNumber}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    // Set initial recipient to driver if available
+                    setReimbursementDraft({
+                      recipient_id: (fleetTrip?.driverId && fleetTrip.driverId !== '-') ? fleetTrip.driverId : (fleetTrip?.crewId && fleetTrip.crewId !== '-' ? fleetTrip.crewId : ''),
+                      transaction_date: new Date().toISOString().split('T')[0],
+                      payment_method_id: '',
+                    });
+                    setReimbursementOpen(true);
+                  }}
+                >
+                  <HandCoins className="mr-2 h-4 w-4" />
+                  Selesaikan Klaim / Reimbursement
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className="cursor-pointer"
                 disabled={!scheduleNumber}
@@ -879,16 +962,125 @@ export const FleetScheduleDetail: React.FC = () => {
             badgeIcon={DollarSign}
           />
           <CardContent>
-            <KeyValueGrid items={financeItems} />
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+              {/* Biaya Operasional */}
+              <div className="rounded-2xl border border-gray-200/70 bg-white/70 p-4 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB]">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                    <DollarSign className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground">Biaya Operasional</span>
+                </div>
+                <div className="mt-2 text-lg font-bold text-foreground">{formatCurrency(financeSummary.operasional)}</div>
+                <div className="mt-1 text-xs text-muted-foreground">Total biaya dianggarkan</div>
+              </div>
+
+              {/* Total Pengeluaran */}
+              <div className="rounded-2xl border border-gray-200/70 bg-white/70 p-4 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB]">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300">
+                    <CreditCard className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground">Total Pengeluaran</span>
+                </div>
+                <div className="mt-2 text-lg font-bold text-foreground">{formatCurrency(financeSummary.total)}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full dark:bg-gray-700">
+                    <div
+                      className="h-2 bg-red-500 rounded-full"
+                      style={{
+                        width: `${financeSummary.operasional > 0 ? Math.min((financeSummary.total / financeSummary.operasional) * 100, 100) : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {financeSummary.operasional > 0 ? Math.round(Math.min((financeSummary.total / financeSummary.operasional) * 100, 100)) : 0}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Sisa Operasional */}
+              <div className="rounded-2xl border border-gray-200/70 bg-white/70 p-4 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB]">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300">
+                    <Save className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground">Sisa Operasional</span>
+                </div>
+                <div className="mt-2 text-lg font-bold text-foreground">{formatCurrency(financeSummary.sisaOperasional)}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full dark:bg-gray-700">
+                    <div
+                      className="h-2 bg-green-500 rounded-full"
+                      style={{
+                        width: `${financeSummary.operasional > 0 ? Math.min((financeSummary.sisaOperasional / financeSummary.operasional) * 100, 100) : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {financeSummary.operasional > 0 ? Math.round(Math.min((financeSummary.sisaOperasional / financeSummary.operasional) * 100, 100)) : 0}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Klaim / Reimbursement */}
+              <div className="rounded-2xl border border-gray-200/70 bg-white/70 p-4 dark:bg-[#1c2633] dark:border-[#334155] dark:text-[#D1D5DB]">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300">
+                    <HandCoins className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground">Klaim / Reimbursement</span>
+                </div>
+                <div className="mt-2 text-lg font-bold text-foreground">{formatCurrency(financeSummary.reimburse)}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Telah dibayar {formatCurrency(financeSummary.totalClaimed)}
+                </div>
+              </div>
+            </div>
+
+            {/* Alert Banner */}
+            {financeSummary.reimburse > 0 && (
+              <div className="mt-4 flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 dark:bg-yellow-900/30 dark:border-yellow-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-yellow-50 border border-yellow-600 text-yellow-700 dark:bg-yellow-800 dark:text-yellow-200">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-yellow-800 dark:text-yellow-200">
+                      Reimbursement menunggu pembayaran
+                    </div>
+                    <div className="text-xs text-yellow-700 dark:text-yellow-300">
+                      {financeSummary.totalItemReimburse} item menunggu konfirmasi pembayaran
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1" />
+                <div className="font-bold text-yellow-800 dark:text-yellow-200">
+                  {formatCurrency(financeSummary.remainingClaim)}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-yellow-800 text-white rounded-2xl hover:bg-yellow-900 hover:text-white"
+                  onClick={() => setReimbursementOpen(true)}
+                  disabled={!scheduleNumber}
+                >
+                  Konfirmasi Pembayaran
+                </Button>
+              </div>
+            )}
+
             <div className="mt-4 rounded-2xl border border-gray-200/70 bg-white/70 overflow-hidden">
               <Table>
                 <TableHeader className="bg-gray-50/80 dark:bg-[#1c2633] dark:border-white/10 dark:text-[#D1D5DB]">
                   <TableRow>
                     <TableHead className="w-[56px] px-4">No</TableHead>
+                    <TableHead className="w-[100px] px-2">Tanggal</TableHead>
                     <TableHead className="px-4">Jenis Transaksi</TableHead>
                     <TableHead className="px-4">Deskripsi</TableHead>
                     <TableHead className="px-4 text-right w-[160px]">Nominal</TableHead>
-                    <TableHead className="px-4 w-[160px]">Jenis Pembayaran</TableHead>
+                    <TableHead className="px-4 w-[160px]">Pembayaran</TableHead>
                     <TableHead className="px-4">Reporter</TableHead>
                     <TableHead className="px-4 text-right w-[90px]">Action</TableHead>
                   </TableRow>
@@ -904,6 +1096,7 @@ export const FleetScheduleDetail: React.FC = () => {
                     expenseTableRows.map((row, idx) => (
                       <TableRow key={row.id}>
                         <TableCell className="px-4 text-muted-foreground tabular-nums">{idx + 1}</TableCell>
+                        <TableCell className="px-2 text-foreground">{row.createdAt}</TableCell>
                         <TableCell className="px-4 font-medium text-foreground">{row.transactionItemLabel || '-'}</TableCell>
                         <TableCell className="px-4 text-foreground">{row.description || '-'}</TableCell>
                         <TableCell className="px-4 text-right font-semibold text-foreground tabular-nums">
@@ -911,7 +1104,7 @@ export const FleetScheduleDetail: React.FC = () => {
                         </TableCell>
                         <TableCell className="px-4">
                           <Badge variant="outline" className="rounded-full">
-                            {row.paymentMethodLabel || '-'}
+                            {row.paymentMethodLabel || '-'} {row.status === 0 ? <Hourglass className="h-3 w-3 ml-2" /> : ''}
                           </Badge>
                         </TableCell>
                         <TableCell className="px-4 text-foreground">{row.reporter || '-'}</TableCell>
@@ -1164,12 +1357,12 @@ export const FleetScheduleDetail: React.FC = () => {
           </div>
 
           <div className="p-6 sm:p-8 border-t border-slate-200 flex-shrink-0">
-            <div className="flex items-center justify-end gap-3 w-full md:w-auto">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full md:w-auto">
               <button
                 type="button"
                 onClick={() => setAddExpenseOpen(false)}
                 disabled={addExpenseSubmitting}
-                className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70 text-sm md:text-lg"
+                className="w-full sm:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70 text-sm md:text-md border border-gray-400"
               >
                 Batal
               </button>
@@ -1177,7 +1370,7 @@ export const FleetScheduleDetail: React.FC = () => {
                 type="submit"
                 form="expense-form"
                 disabled={addExpenseSubmitting || !expenseDraft.transaction_item || Number(expenseDraft.amount || 0) <= 0}
-                className="flex-1 md:flex-none h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70 text-sm md:text-lg"
+                className="w-full sm:w-auto h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70 text-sm md:text-md"
               >
                 {addExpenseSubmitting ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1246,13 +1439,13 @@ export const FleetScheduleDetail: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={() => setCrewModalOpen(false)}>
+          <DialogFooter className="gap-2 sm:gap-2 flex-col sm:flex-row">
+            <Button type="button" variant="outline" className="h-10 rounded-xl w-full sm:w-auto" onClick={() => setCrewModalOpen(false)}>
               Batal
             </Button>
             <Button
               type="button"
-              className="h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+              className="h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
               disabled={
                 crewSubmitting ||
                 !fleetTrip?.scheduleUnitId ||
@@ -1284,6 +1477,176 @@ export const FleetScheduleDetail: React.FC = () => {
               {crewSubmitting ? 'Menyimpan…' : 'Simpan'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={reimbursementOpen}
+        onOpenChange={(open) => {
+          setReimbursementOpen(open);
+          if (!open) {
+            setReimbursementDraft({
+              recipient_id: '',
+              transaction_date: new Date().toISOString().split('T')[0],
+              payment_method_id: '',
+            });
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl p-0 border-none bg-white dark:bg-[#090e1a] overflow-hidden max-h-[80vh] flex flex-col">
+          <div className="p-6 sm:p-8 space-y-6 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                  <HandCoins className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-md md:text-xl font-bold text-foreground dark:text-white/70">Form Reimbursement</h2>
+                  <p className="text-slate-500 text-xs md:text-sm">Konfirmasi pembayaran klaim untuk perjalanan ini</p>
+                </div>
+              </div>
+              <DialogClose className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                <X className="w-5 h-5" />
+              </DialogClose>
+            </div>
+
+            <div className="h-px bg-slate-100" />
+          </div>
+
+          <div className="px-6 sm:px-8 overflow-y-auto flex-1">
+            <form
+              id="reimbursement-form"
+              className="space-y-6 pb-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!scheduleNumber) return;
+                if (!reimbursementDraft.recipient_id) {
+                  await Swal.fire({ icon: 'warning', title: 'Gagal', text: 'Penerima dana wajib dipilih.' });
+                  return;
+                }
+                if (!reimbursementDraft.transaction_date) {
+                  await Swal.fire({ icon: 'warning', title: 'Gagal', text: 'Tanggal dibayar wajib diisi.' });
+                  return;
+                }
+                if (!reimbursementDraft.payment_method_id) {
+                  await Swal.fire({ icon: 'warning', title: 'Gagal', text: 'Metode pembayaran wajib dipilih.' });
+                  return;
+                }
+                setReimbursementSubmitting(true);
+                try {
+                  await api.post<unknown>(
+                    '/transactions/fleet-trip/reimbursement/submit',
+                    {
+                      schedule_number: scheduleNumber,
+                      recipient_id: reimbursementDraft.recipient_id,
+                      transaction_date: reimbursementDraft.transaction_date,
+                      payment_method_id: reimbursementDraft.payment_method_id,
+                      amount: financeSummary.reimburse,
+                    },
+                    token ? { Authorization: token } : undefined
+                  );
+                  setReimbursementOpen(false);
+                  await loadFleetTrip();
+                } finally {
+                  setReimbursementSubmitting(false);
+                }
+              }}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-foreground font-semibold ml-1 dark:text-white/70">Nominal Reimbursement</Label>
+                  <Input
+                    type="text"
+                    value={formatCurrency(financeSummary.remainingClaim)}
+                    disabled
+                    className="h-12 rounded-2xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-emerald-100 transition-all tabular-nums text-foreground dark:text-white/70"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-foreground font-semibold ml-1 dark:text-white/70">Penerima Dana</Label>
+                  <Select
+                    value={reimbursementDraft.recipient_id}
+                    onValueChange={(v) => setReimbursementDraft((p) => ({ ...p, recipient_id: v }))}
+                  >
+                    <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-emerald-100 transition-all">
+                      <SelectValue placeholder="Pilih penerima dana" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fleetTrip?.driverId && fleetTrip.driverId !== '-' && (
+                        <SelectItem key={fleetTrip.driverId} value={fleetTrip.driverId}>
+                          {fleetTrip.driverName} (Driver)
+                        </SelectItem>
+                      )}
+                      {fleetTrip?.crewId && fleetTrip.crewId !== '-' && (
+                        <SelectItem key={fleetTrip.crewId} value={fleetTrip.crewId}>
+                          {fleetTrip.crewName} (Crew)
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-foreground font-semibold ml-1 dark:text-white/70">Tanggal Dibayar</Label>
+                  <Input
+                    type="date"
+                    value={reimbursementDraft.transaction_date}
+                    onChange={(e) => setReimbursementDraft((p) => ({ ...p, transaction_date: e.target.value }))}
+                    className="h-12 rounded-2xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-emerald-100 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-foreground font-semibold ml-1 dark:text-white/70">Metode Pembayaran</Label>
+                  <Select
+                    value={reimbursementDraft.payment_method_id}
+                    onValueChange={(v) => setReimbursementDraft((p) => ({ ...p, payment_method_id: v }))}
+                    disabled={paymentMethodsLoading}
+                  >
+                    <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-emerald-100 transition-all">
+                      <SelectValue placeholder={paymentMethodsLoading ? 'Memuat…' : 'Pilih metode pembayaran'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div className="p-6 sm:p-8 border-t border-slate-200 flex-shrink-0">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={() => setReimbursementOpen(false)}
+                disabled={reimbursementSubmitting}
+                className="w-full sm:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70 text-sm md:text-md border border-gray-400"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                form="reimbursement-form"
+                disabled={reimbursementSubmitting}
+                className="w-full sm:w-auto h-12 px-8 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 text-sm md:text-md"
+              >
+                {reimbursementSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Konfirmasi Pembayaran
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

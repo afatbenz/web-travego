@@ -253,6 +253,9 @@ export const FleetUnitDetail: React.FC = () => {
   const [expensePeriod, setExpensePeriod] = useState<PeriodPreset>('this_month');
   const [expenseLoading, setExpenseLoading] = useState(false);
   const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>([]);
+  const [revenuePage, setRevenuePage] = useState(1);
+  const [expensePage, setExpensePage] = useState(1);
+  const itemsPerPage = 10;
 
   const periodOptions = useMemo(
     () => [
@@ -403,6 +406,7 @@ export const FleetUnitDetail: React.FC = () => {
       const unitId = decodeURIComponent(unitIdParam);
       if (!unitId) return;
       setRevenueLoading(true);
+      setRevenuePage(1); // Reset page on period change
       try {
         const now = new Date();
         const meta = getPeriodMeta(revenuePeriod, now);
@@ -622,6 +626,7 @@ export const FleetUnitDetail: React.FC = () => {
       const unitId = decodeURIComponent(unitIdParam);
       if (!unitId) return;
       setExpenseLoading(true);
+      setExpensePage(1); // Reset page on period change
       try {
         const now = new Date();
         const meta = getPeriodMeta(expensePeriod, now);
@@ -708,6 +713,20 @@ export const FleetUnitDetail: React.FC = () => {
   const availabilityPageEnd = availabilityPageStart + availabilityItemsPerPage;
   const availabilityCurrent = availabilityRows.slice(availabilityPageStart, availabilityPageEnd);
   console.log({availabilityCurrent});
+
+  // Revenue pagination
+  const revenueTotalPages = Math.max(1, Math.ceil(revenueHistoryRows.length / itemsPerPage));
+  const revenuePageSafe = Math.min(revenuePage, revenueTotalPages);
+  const revenuePageStart = (revenuePageSafe - 1) * itemsPerPage;
+  const revenuePageEnd = revenuePageStart + itemsPerPage;
+  const revenueCurrent = revenueHistoryRows.slice(revenuePageStart, revenuePageEnd);
+
+  // Expense pagination
+  const expenseTotalPages = Math.max(1, Math.ceil(expenseRows.length / itemsPerPage));
+  const expensePageSafe = Math.min(expensePage, expenseTotalPages);
+  const expensePageStart = (expensePageSafe - 1) * itemsPerPage;
+  const expensePageEnd = expensePageStart + itemsPerPage;
+  const expenseCurrent = expenseRows.slice(expensePageStart, expensePageEnd);
 
   const unitCode = detail?.vehicle_id || unitIdParam || 'BB001';
   const ownershipBadge = (() => {
@@ -1631,58 +1650,88 @@ export const FleetUnitDetail: React.FC = () => {
               </div>
 
               <div className="mt-3 flex-1 flex flex-col">
-                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-500/70 bg-white flex-1 flex flex-col">
-                  <div className="flex-1 overflow-auto">
-                    <Table className="min-w-[460px]">
-                      <TableHeader>
-                        <TableRow className="bg-gray-50 hover:bg-gray-50">
-                          <TableHead className="whitespace-nowrap w-[160px]">Tanggal</TableHead>
-                          <TableHead className="whitespace-nowrap w-[100px]">Order ID</TableHead>
-                          <TableHead className="whitespace-nowrap w-[120px]">Metode</TableHead>
-                          <TableHead className="text-right pr-4 whitespace-nowrap w-[100px]">Nominal</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {revenueLoading ? (
-                          Array.from({ length: 6 }).map((_, i) => (
-                            <TableRow key={`rev-s-${i}`}>
-                              <TableCell>
-                                <Skeleton className="h-4 w-28" />
-                              </TableCell>
-                              <TableCell>
-                                <Skeleton className="h-4 w-44" />
-                              </TableCell>
-                              <TableCell>
-                                <Skeleton className="h-4 w-28" />
-                              </TableCell>
-                              <TableCell className="text-right pr-4">
-                                <Skeleton className="h-4 w-28 ml-auto" />
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : revenueHistoryRows.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={4} className="py-10 text-center text-gray-500">
-                              Tidak ada riwayat pendapatan
+                <div className="mt-4 rounded-2xl border border-gray-200/70 bg-white/70 overflow-hidden flex-1 flex flex-col">
+                  <Table className="min-w-[460px]">
+                    <TableHeader className="bg-gray-50/80 dark:bg-[#1c2633] dark:border-white/10 dark:text-[#D1D5DB]">
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap px-4">Tanggal</TableHead>
+                        <TableHead className="whitespace-nowrap px-4">Order ID</TableHead>
+                        <TableHead className="whitespace-nowrap px-4">Metode</TableHead>
+                        <TableHead className="text-right px-4 whitespace-nowrap">Nominal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {revenueLoading ? (
+                        Array.from({ length: 6 }).map((_, i) => (
+                          <TableRow key={`rev-s-${i}`}>
+                            <TableCell className="px-4">
+                              <Skeleton className="h-4 w-28" />
+                            </TableCell>
+                            <TableCell className="px-4">
+                              <Skeleton className="h-4 w-44" />
+                            </TableCell>
+                            <TableCell className="px-4">
+                              <Skeleton className="h-4 w-28" />
+                            </TableCell>
+                            <TableCell className="text-right px-4">
+                              <Skeleton className="h-4 w-28 ml-auto" />
                             </TableCell>
                           </TableRow>
-                        ) : (
-                          revenueHistoryRows.map((row, idx) => (
-                            <TableRow key={`rev-${row.transaction_date}-${row.order_id}-${idx}`} className="hover:bg-gray-50">
-                              <TableCell className="text-gray-700 dark:text-white/80 whitespace-nowrap">
-                                {formatLongDate(row.transaction_date) !== '-' ? formatLongDate(row.transaction_date) : row.transaction_date || '-'}
-                              </TableCell>
-                              <TableCell className=" dark:text-white/80 whitespace-nowrap">{row.order_id || '-'}</TableCell>
-                              <TableCell className=" dark:text-white/80 whitespace-nowrap">{row.payment_method_label || '-'}</TableCell>
-                              <TableCell className="text-right pr-4 font-semibold text-gray-900 dark:text-white/80 whitespace-nowrap">
-                                {formatRupiahFromNumber(row.amount)}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                        ))
+                      ) : revenueHistoryRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-10 text-center text-sm text-gray-500">
+                            Tidak ada riwayat pendapatan
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        revenueCurrent.map((row, idx) => (
+                          <TableRow key={`rev-${row.transaction_date}-${row.order_id}-${idx}`}>
+                            <TableCell className="px-4 text-foreground whitespace-nowrap">
+                              {formatLongDate(row.transaction_date) !== '-' ? formatLongDate(row.transaction_date) : row.transaction_date || '-'}
+                            </TableCell>
+                            <TableCell className="px-4 text-foreground whitespace-nowrap">{row.order_id || '-'}</TableCell>
+                            <TableCell className="px-4 text-foreground whitespace-nowrap">{row.payment_method_label || '-'}</TableCell>
+                            <TableCell className="px-4 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">
+                              {formatRupiahFromNumber(row.amount)}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                  {!revenueLoading && revenueHistoryRows.length > 0 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200/70 dark:border-white/10">
+                      <div className="text-sm text-gray-500">
+                        Showing {revenuePageStart + 1} to {Math.min(revenuePageEnd, revenueHistoryRows.length)} of {revenueHistoryRows.length} entries
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={revenuePageSafe <= 1}
+                          onClick={() => setRevenuePage(prev => Math.max(1, prev - 1))}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 min-w-[60px] text-center">
+                          {revenuePageSafe} / {revenueTotalPages}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={revenuePageSafe >= revenueTotalPages}
+                          onClick={() => setRevenuePage(prev => Math.min(revenueTotalPages, prev + 1))}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1744,49 +1793,79 @@ export const FleetUnitDetail: React.FC = () => {
               </div>
               
               <div className="mt-3 flex-1 flex flex-col">
-                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200/70 bg-white flex-1 flex flex-col">
-                  <div className="flex-1 overflow-auto">
-                    <Table className="min-w-[480px]">
-                      <TableHeader>
-                        <TableRow className="bg-gray-50 hover:bg-gray-50">
-                          <TableHead className="whitespace-nowrap w-[160px]">Item Transaksi</TableHead>
-                          <TableHead className="whitespace-nowrap w-[160px]">Tanggal Transaksi</TableHead>
-                          <TableHead className="text-right pr-4 whitespace-nowrap w-[100px]">Nominal</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {expenseLoading ? (
-                          Array.from({ length: 6 }).map((_, i) => (
-                            <TableRow key={`ex-s-${i}`}>
-                              <TableCell>
-                                <Skeleton className="h-4 w-44" />
-                              </TableCell>
-                              <TableCell>
-                                <Skeleton className="h-4 w-32" />
-                              </TableCell>
-                              <TableCell className="text-right pr-4">
-                                <Skeleton className="h-4 w-28 ml-auto" />
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : expenseRows.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={4} className="py-10 text-center text-gray-500">
-                              Tidak ada data pengeluaran
+                <div className="mt-4 rounded-2xl border border-gray-200/70 bg-white/70 overflow-hidden flex-1 flex flex-col">
+                  <Table className="min-w-[480px]">
+                    <TableHeader className="bg-gray-50/80 dark:bg-[#1c2633] dark:border-white/10 dark:text-[#D1D5DB]">
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap px-4">Item Transaksi</TableHead>
+                        <TableHead className="whitespace-nowrap px-4">Tanggal Transaksi</TableHead>
+                        <TableHead className="text-right px-4 whitespace-nowrap">Nominal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {expenseLoading ? (
+                        Array.from({ length: 6 }).map((_, i) => (
+                          <TableRow key={`ex-s-${i}`}>
+                            <TableCell className="px-4">
+                              <Skeleton className="h-4 w-44" />
+                            </TableCell>
+                            <TableCell className="px-4">
+                              <Skeleton className="h-4 w-32" />
+                            </TableCell>
+                            <TableCell className="text-right px-4">
+                              <Skeleton className="h-4 w-28 ml-auto" />
                             </TableCell>
                           </TableRow>
-                        ) : (
-                          expenseRows.map((row, idx) => (
-                            <TableRow key={`ex-${row.transaction_date}-${idx}`} className="hover:bg-gray-50">
-                              <TableCell className="text-gray-700 whitespace-nowrap">{row.transaction_item_label || '-'}</TableCell>
-                              <TableCell className="text-gray-700 whitespace-nowrap">{formatTripDate(row.transaction_date) !== '-' ? formatTripDate(row.transaction_date) : row.transaction_date || '-'}</TableCell>
-                              <TableCell className="text-right pr-4 font-semibold text-gray-900 whitespace-nowrap">{formatRupiahFromNumber(row.amount)}</TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                        ))
+                      ) : expenseRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="py-10 text-center text-sm text-gray-500">
+                            Tidak ada data pengeluaran
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        expenseCurrent.map((row, idx) => (
+                          <TableRow key={`ex-${row.transaction_date}-${idx}`}>
+                            <TableCell className="px-4 text-foreground whitespace-nowrap">{row.transaction_item_label || '-'}</TableCell>
+                            <TableCell className="px-4 text-foreground whitespace-nowrap">{formatTripDate(row.transaction_date) !== '-' ? formatTripDate(row.transaction_date) : row.transaction_date || '-'}</TableCell>
+                            <TableCell className="px-4 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">{formatRupiahFromNumber(row.amount)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                  {!expenseLoading && expenseRows.length > 0 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200/70 dark:border-white/10">
+                      <div className="text-sm text-gray-500">
+                        Showing {expensePageStart + 1} to {Math.min(expensePageEnd, expenseRows.length)} of {expenseRows.length} entries
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={expensePageSafe <= 1}
+                          onClick={() => setExpensePage(prev => Math.max(1, prev - 1))}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 min-w-[60px] text-center">
+                          {expensePageSafe} / {expenseTotalPages}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={expensePageSafe >= expenseTotalPages}
+                          onClick={() => setExpensePage(prev => Math.min(expenseTotalPages, prev + 1))}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
