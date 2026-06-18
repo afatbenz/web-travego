@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   ChevronLeft,
@@ -27,6 +27,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
+import { clearAuthStorage } from '@/lib/utils';
 import dashboardLogo from '@/assets/general/logo.svg';
 
 export const Sidebar: React.FC = () => {
@@ -39,38 +41,25 @@ export const Sidebar: React.FC = () => {
   });
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const [orgName, setOrgName] = useState('');
+  const { claims, hasEffectiveOrganization, isAdmin } = useEffectiveOrganization();
 
-  const decodeJwtPayload = React.useCallback((jwt: string) => {
-    try {
-      const payloadStr = jwt.split('.')[1];
-      if (!payloadStr) return null;
-      const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-      return JSON.parse(atob(padded));
-    } catch {
-      return null;
-    }
-  }, []);
+  const orgName = React.useMemo(() => {
+    const nameFromJwt = String(
+      claims?.organization_name ??
+      claims?.org_name ??
+      claims?.organizationName ??
+      claims?.orgName ??
+      ''
+    );
+    return nameFromJwt || (localStorage.getItem('organization_name') ?? '');
+  }, [claims]);
 
-  React.useEffect(() => {
-    const token = localStorage.getItem('token') ?? '';
-    let nameFromJwt = '';
-    const json = decodeJwtPayload(token);
-    if (json) {
-      nameFromJwt = String(
-        json.organization_name ?? json.org_name ?? json.organizationName ?? json.orgName ?? ''
-      );
-    }
-    const name = nameFromJwt || (localStorage.getItem('organization_name') ?? '');
-    setOrgName(name);
-  }, [decodeJwtPayload]);
-
-  const token = localStorage.getItem('token') ?? '';
-  const claims = decodeJwtPayload(token) ?? {};
-  const isAdmin = Boolean(claims.is_admin ?? claims.isAdmin ?? false);
   const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
   const profileHref = isAdmin ? '/dashboard/partner/profile' : `${basePrefix}/profile`;
+  const canUseDashboardMenus = hasEffectiveOrganization || isAdmin;
+  const taskbarThirdHref = canUseDashboardMenus ? profileHref : `${basePrefix}/organization/register`;
+  const taskbarThirdActive = canUseDashboardMenus ? '/dashboard/partner/profile' : `${basePrefix}/organization/register`;
+  const TaskbarThirdIcon = canUseDashboardMenus ? User : Building2;
 
   const isActive = (href: string) =>
     location.pathname === href || location.pathname.startsWith(`${href}/`);
@@ -98,7 +87,7 @@ export const Sidebar: React.FC = () => {
 
   const bottomMenuItems: NavItem[] = [{ title: 'Logout', icon: LogOut, href: '/auth/login' }];
 
-  const navSections: NavSection[] = useMemo(
+  const fullNavSections: NavSection[] = useMemo(
     () => [
       {
         label: 'Ringkasan',
@@ -169,11 +158,37 @@ export const Sidebar: React.FC = () => {
     [basePrefix, isAdmin]
   );
 
+  const organizationOnlySections: NavSection[] = useMemo(
+    () => [
+      {
+        label: 'Organisasi',
+        items: [
+          { title: 'Pilih Organisasi', icon: Building2, href: `${basePrefix}/organization/choice` },
+          { title: 'Buat Organisasi', icon: Building2, href: `${basePrefix}/organization/register` },
+          { title: 'Gabung Organisasi', icon: Users, href: `${basePrefix}/organization/join` },
+        ],
+      },
+    ],
+    [basePrefix],
+  );
+
+  const navSections = !hasEffectiveOrganization && !isAdmin
+    ? organizationOnlySections
+    : fullNavSections;
+
   const SidebarContent: React.FC<{
     collapsed: boolean;
     headerRight: React.ReactNode;
     onNavigate?: () => void;
   }> = ({ collapsed: collapsedValue, headerRight, onNavigate }) => {
+    const navRef = useRef<HTMLElement | null>(null);
+    
+    useEffect(() => {
+      const savedScrollTop = localStorage.getItem('sidebar_scroll_top');
+      if (savedScrollTop && navRef.current) {
+        navRef.current.scrollTop = parseInt(savedScrollTop, 10);
+      }
+    }, []);
     return (
       <>
         <div
@@ -209,6 +224,8 @@ export const Sidebar: React.FC = () => {
 
         <TooltipProvider delayDuration={150}>
           <nav
+            ref={navRef}
+            onScroll={(e) => localStorage.setItem('sidebar_scroll_top', String(e.currentTarget.scrollTop))}
             className={cn('flex-1 overflow-y-auto sidebar-scroll', collapsedValue ? 'px-2 pb-3' : 'px-3 pb-3')}
           >
             {navSections.map((section, sectionIdx) => (
@@ -288,10 +305,10 @@ export const Sidebar: React.FC = () => {
                 <Link
                   key={item.href}
                   to={item.href}
-                  onClick={() => {
+onClick={() => {
                     if (item.title === 'Logout') {
-                      localStorage.removeItem('user');
-                      localStorage.removeItem('token');
+                      clearAuthStorage();
+                      console.log('Auth storage cleared on logout');
                     }
                     onNavigate?.();
                   }}
@@ -321,8 +338,8 @@ export const Sidebar: React.FC = () => {
       <div
         className={cn(
           'hidden md:flex md:flex-col h-screen fixed left-0 top-0 z-10 transition-[width] duration-300 ease-out',
-          'bg-gradient-to-b from-slate-950 via-cyan-950 to-slate-950',
-          'text-slate-100 shadow-[0_18px_60px_rgba(0,0,0,0.45)]'
+          'bg-gradient-to-b from-slate-950 via-gray-950 to-slate-950',
+          'text-slate-100'
         )}
         style={{ width: collapsed ? '4rem' : '16rem' }}
       >
@@ -420,14 +437,14 @@ export const Sidebar: React.FC = () => {
             </Link>
 
             <Link
-              to={profileHref}
+              to={taskbarThirdHref}
               className={cn(
                 'h-12 w-full rounded-full grid place-items-center transition-colors',
                 'text-slate-200/85 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60',
-                isActive('/dashboard/partner/profile') ? 'bg-white/5 text-white' : ''
+                isActive(taskbarThirdActive) ? 'bg-white/5 text-white' : ''
               )}
             >
-              <User className="h-5 w-5" />
+              <TaskbarThirdIcon className="h-5 w-5" />
             </Link>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, LogOut, Search, Settings, User } from 'lucide-react';
+import { Bell, Building2, LogOut, Search, Settings, User, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import defaultAvatar from '@/assets/general/avatar.svg';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
+import { clearAuthStorage } from '@/lib/utils';
 
 // Helper function to format relative time
 const formatRelativeTime = (dateString: string): string => {
@@ -39,24 +41,18 @@ export const Topbar: React.FC = () => {
   const [user, setUser] = useState<{ name?: string; email?: string; avatar?: string } | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
-  const token = localStorage.getItem('token') ?? '';
+  const { hasEffectiveOrganization, isAdmin } = useEffectiveOrganization();
   const { notifications, unreadCount, loading, markAsRead } = useNotifications();
-  let isAdmin = false;
-  try {
-    const payloadStr = token.split('.')[1];
-    if (payloadStr) {
-      const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-      const json = JSON.parse(atob(padded));
-      isAdmin = Boolean(json.is_admin ?? json.isAdmin ?? false);
-    }
-  } catch {}
   const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
 
   useEffect(() => {
     const uStr = localStorage.getItem('user');
     if (uStr) {
-      try { setUser(JSON.parse(uStr)); } catch {}
+      try {
+        setUser(JSON.parse(uStr));
+      } catch {
+        return;
+      }
     } else {
       const token = localStorage.getItem('token');
       if (token) {
@@ -70,12 +66,20 @@ export const Topbar: React.FC = () => {
           const data = { name, email };
           localStorage.setItem('user', JSON.stringify(data));
           setUser(data);
-        } catch {}
+        } catch {
+          return;
+        }
       }
     }
   }, []);
 
-  const handleNotificationClick = async (notification: any) => {
+  type NotificationItem = {
+    notification_id: string;
+    reference_url: string;
+    is_read: boolean;
+  };
+
+  const handleNotificationClick = async (notification: NotificationItem) => {
     if (!notification.is_read) {
       await markAsRead(notification.notification_id);
     }
@@ -216,19 +220,37 @@ export const Topbar: React.FC = () => {
                   <User className="mr-2 h-4 w-4" />
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => navigate(`${basePrefix}/organization/detail`)}
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
+                {hasEffectiveOrganization || isAdmin ? (
+                  <DropdownMenuItem
+                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => navigate(`${basePrefix}/organization/detail`)}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </DropdownMenuItem>
+                ) : (
+                  <>
+                    <DropdownMenuItem
+                      className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                      onClick={() => navigate(`${basePrefix}/organization/register`)}
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Buat Organisasi
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                      onClick={() => navigate(`${basePrefix}/organization/join`)}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      Gabung Organisasi
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+<DropdownMenuItem
                   className="text-red-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                   onClick={() => {
-                    localStorage.removeItem('user');
-                    localStorage.removeItem('token');
+                    clearAuthStorage();
                     navigate('/auth/login');
                   }}
                 >

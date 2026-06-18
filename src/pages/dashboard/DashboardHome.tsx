@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Users, ShoppingBag, TrendingUp, Car, MapPin, DollarSign, ChartSpline, MapPinCheck, MapPinHouse, PersonStanding, ArrowDownRight, ArrowRight, ArrowUpRight, Minus } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Users, ShoppingBag, TrendingUp, Car, MapPin, DollarSign, ChartSpline, MapPinCheck, MapPinHouse, PersonStanding, ArrowDownRight, ArrowRight, ArrowUpRight, Minus, AlertTriangle, Building2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
+import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -26,6 +27,8 @@ interface DashboardData {
 }
 
 export const DashboardHome: React.FC = () => {
+  const { hasEffectiveOrganization, isAdmin, isChecking } = useEffectiveOrganization();
+  const shouldFetchDashboard = (isAdmin || hasEffectiveOrganization) && !isChecking;
   const [periodPreset, setPeriodPreset] = useState('Bulan Ini');
   const [totalOrders, setTotalOrders] = useState(0);
   const [previousTotalOrders, setPreviousTotalOrders] = useState(0);
@@ -43,14 +46,14 @@ export const DashboardHome: React.FC = () => {
   const [topDrivers, setTopDrivers] = useState<TopItem[]>([]);
   const [topCustomers, setTopCustomers] = useState<TopItem[]>([]);
 
-  const toYmd = (d: Date) => {
+  const toYmd = useCallback((d: Date) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
-  };
+  }, []);
 
-  const getPeriod = (preset: string): { start_date: string; end_date: string } => {
+  const getPeriod = useCallback((preset: string): { start_date: string; end_date: string } => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
@@ -80,9 +83,15 @@ export const DashboardHome: React.FC = () => {
 
     const start = new Date(year, month, 1);
     return { start_date: toYmd(start), end_date: toYmd(now) };
-  };
+  }, [toYmd]);
 
   useEffect(() => {
+    if (isChecking) return;
+    if (!shouldFetchDashboard) {
+      setLoadingDashboard(false);
+      return;
+    }
+
     const fetchDashboard = async () => {
       setLoadingDashboard(true);
       const token = localStorage.getItem('token');
@@ -246,7 +255,7 @@ export const DashboardHome: React.FC = () => {
       }
     };
     fetchDashboard();
-  }, [periodPreset]);
+  }, [periodPreset, getPeriod, shouldFetchDashboard, isChecking]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -701,29 +710,67 @@ export const DashboardHome: React.FC = () => {
     );
   };
 
-  return (
-    <div className="space-y-4 lg:space-y-6 pb-24 md:pb-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
+  const OrganizationRequiredState: React.FC = () => (
+    <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-yellow-900 dark:border-yellow-900/50 dark:bg-yellow-950/20 dark:text-yellow-100">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/40">
+          <AlertTriangle className="h-6 w-6 text-yellow-700 dark:text-yellow-200" />
         </div>
-        <div className="w-full sm:w-[220px]">
-          <Select value={periodPreset} onValueChange={setPeriodPreset}>
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Pilih periode" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Bulan Ini">Bulan Ini</SelectItem>
-              <SelectItem value="Bulan Lalu">Bulan Lalu</SelectItem>
-              <SelectItem value="3 Bulan Terakhir">3 Bulan Terakhir</SelectItem>
-              <SelectItem value="Tahun Ini">Tahun Ini</SelectItem>
-              <SelectItem value="Tahun Lalu">Tahun Lalu</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="min-w-0 space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Perlu tergabung dalam organisasi</h2>
+            <p className="mt-1 text-sm text-yellow-800/80 dark:text-yellow-100/70">
+              Dashboard belum dapat menampilkan data karena organization_id belum tersedia. Buat organisasi baru atau bergabung dengan organisasi yang sudah ada.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              to="/dashboard/partner/organization/register"
+              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              Buat Organisasi
+            </Link>
+            <Link
+              to="/dashboard/partner/organization/join"
+              className="inline-flex items-center justify-center rounded-lg border border-yellow-300 px-4 py-2 text-sm font-medium text-yellow-900 transition-colors hover:bg-yellow-100 dark:border-yellow-800 dark:text-yellow-100 dark:hover:bg-yellow-900/30"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Gabung Organisasi
+            </Link>
+          </div>
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4 lg:space-y-6 pb-24 md:pb-0">
+      {isChecking ? null : !hasEffectiveOrganization && !isAdmin ? (
+        <OrganizationRequiredState />
+      ) : (
+        <>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
+                Dashboard
+              </h1>
+            </div>
+            <div className="w-full sm:w-[220px]">
+              <Select value={periodPreset} onValueChange={setPeriodPreset}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Pilih periode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bulan Ini">Bulan Ini</SelectItem>
+                  <SelectItem value="Bulan Lalu">Bulan Lalu</SelectItem>
+                  <SelectItem value="3 Bulan Terakhir">3 Bulan Terakhir</SelectItem>
+                  <SelectItem value="Tahun Ini">Tahun Ini</SelectItem>
+                  <SelectItem value="Tahun Lalu">Tahun Lalu</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
       {loadingDashboard ? (
         <div className="space-y-4 lg:space-y-6">
@@ -795,6 +842,8 @@ export const DashboardHome: React.FC = () => {
             <TopListCard title="Pengemudi Tersibuk" data={topDrivers} orientation="vertical" icon={PersonStanding} />
             <TopListCard title="Customer Paling Loyal" data={topCustomers} orientation="vertical" icon={Users} />
           </div>
+        </>
+      )}
         </>
       )}
     </div>

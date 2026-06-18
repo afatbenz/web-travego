@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
 
 interface Notification {
   notification_id: string;
@@ -24,8 +25,10 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const { hasEffectiveOrganization, isAdmin } = useEffectiveOrganization();
+  const canFetchNotifications = hasEffectiveOrganization || isAdmin;
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get('/notifications/all');
@@ -41,7 +44,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -69,11 +72,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   useEffect(() => {
+    if (!canFetchNotifications) return;
     const token = localStorage.getItem('token');
     if (token) {
-      fetchNotifications();
+      void fetchNotifications();
     }
-  }, []);
+  }, [canFetchNotifications, fetchNotifications]);
 
   return (
     <NotificationContext.Provider

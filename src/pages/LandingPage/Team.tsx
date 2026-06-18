@@ -36,7 +36,7 @@ export const Team: React.FC = () => {
     },
   ] as const;
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 mb-20">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 mb-20">
       <section className="relative overflow-hidden bg-gradient-to-br from-[#03102b] via-[#0a2458] to-[#040d22] px-4 pt-20 pb-12 sm:px-6 sm:pb-16 lg:px-8 xl:px-12 2xl:px-16">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-20 left-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />

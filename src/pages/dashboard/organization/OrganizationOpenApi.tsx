@@ -424,7 +424,7 @@ export const OrganizationOpenApi: React.FC = () => {
               placeholder="https://example.com"
             />
           </div>
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="bg-transparent">
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={updatingDomain}>
                 Batal

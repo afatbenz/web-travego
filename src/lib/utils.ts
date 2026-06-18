@@ -66,3 +66,23 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   [PAYMENT_STATUS.PARTIALLY_PAID]: 'PARTIALLY PAID',
   [PAYMENT_STATUS.CANCELLED]: 'CANCELLED',
 };
+
+const AUTH_STORAGE_KEYS = [
+  'token',
+  'refresh_token',
+  'user',
+  'redirect_path',
+  'organization_id',
+  'organization_name',
+  'organization_code',
+] as const;
+
+export function clearAuthStorage(): void {
+  AUTH_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+}
+
+export function clearOrganizationStorage(): void {
+  localStorage.removeItem('organization_id');
+  localStorage.removeItem('organization_name');
+  localStorage.removeItem('organization_code');
+}
