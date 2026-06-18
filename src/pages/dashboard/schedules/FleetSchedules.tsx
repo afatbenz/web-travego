@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarCheck, ChevronLeft, ChevronRight, Download, FileSpreadsheet, MoreHorizontal, Sheet } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight, Download, FileSpreadsheet, Sheet } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

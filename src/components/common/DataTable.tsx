@@ -350,8 +350,8 @@ export function DataTable<T>({
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={`sk-${i}`} className={cn(zebra ? 'odd:bg-muted/20' : '')}>
-                    {normalizedColumns.map((col, j) => (
-                      <TableCell key={`sk-${i}-${j}`} className={cn('px-3 py-3')}>
+{normalizedColumns.map((_, j) => (
+                       <TableCell key={`sk-${i}-${j}`} className={cn('px-3 py-3')}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
                     ))}

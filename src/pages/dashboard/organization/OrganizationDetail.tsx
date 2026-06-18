@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api, toFileUrl } from '@/lib/api';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Landmark, MapPin, Phone, Mail, IdCard, Pencil, Lock, Trash2, ChevronRight } from 'lucide-react';
-import Swal from 'sweetalert2';
+import { Landmark, MapPin, Phone, Mail, IdCard, Pencil, ChevronRight } from 'lucide-react';
 
 type OrgDetail = {
   organization_name: string;
@@ -41,7 +40,6 @@ export const OrganizationDetail: React.FC = () => {
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
   const [data, setData] = useState<OrgDetail>(emptyDetail);
   const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token') ?? '';
@@ -145,74 +143,6 @@ export const OrganizationDetail: React.FC = () => {
       </button>
     );
   };
-
-  async function clearAuthAndCache(): Promise<void> {
-    try {
-      localStorage.clear();
-    } catch {}
-    try {
-      sessionStorage.clear();
-    } catch {}
-    try {
-      if ('caches' in window) {
-        const keys = await window.caches.keys();
-        await Promise.all(keys.map((k) => window.caches.delete(k)));
-      }
-    } catch {}
-  }
-
-  async function handleDeleteAccount(): Promise<void> {
-    if (deleting) return;
-
-    const confirm = await Swal.fire({
-      icon: 'warning',
-      title: 'Hapus akun?',
-      text: 'Hapus akun organisasi secara permanen. Tindakan ini tidak dapat dibatalkan.',
-      showCancelButton: true,
-      confirmButtonText: 'Ya, hapus',
-      cancelButtonText: 'Batal',
-      confirmButtonColor: '#dc2626',
-      reverseButtons: true,
-      allowOutsideClick: () => !Swal.isLoading(),
-    });
-
-    if (!confirm.isConfirmed) return;
-
-    const token = localStorage.getItem('token') ?? '';
-    setDeleting(true);
-    Swal.fire({
-      title: 'Menghapus akun...',
-      text: 'Mohon tunggu sebentar.',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
-    });
-
-    const res = await api.put<unknown>('/services/profile/delete', undefined, token ? { Authorization: token } : undefined);
-    setDeleting(false);
-    Swal.close();
-
-    if (res.status === 'success') {
-      await Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
-        text: res.message ?? 'Akun berhasil dihapus.',
-        confirmButtonText: 'OK',
-      });
-      await clearAuthAndCache();
-      window.location.href = '/auth/login';
-      return;
-    }
-
-    await Swal.fire({
-      icon: 'error',
-      title: 'Gagal menghapus akun',
-      text: res.message ?? 'Terjadi kesalahan. Silakan coba lagi.',
-    });
-  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pt-10">

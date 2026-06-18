@@ -145,7 +145,7 @@ function parseAssistantUsers(payload: unknown): AssistantUser[] {
         raw,
       };
     })
-    .filter((item): item is AssistantUser => Boolean(item && item.id));
+    .filter((item): item is NonNullable<typeof item> => Boolean(item && item.id));
 }
 
 function parseEmployees(payload: unknown): EmployeeOption[] {
@@ -170,7 +170,7 @@ function parseEmployees(payload: unknown): EmployeeOption[] {
         division_name: divisionName,
       };
     })
-    .filter((item): item is EmployeeOption => Boolean(item && item.id && item.name));
+    .filter((item): item is NonNullable<typeof item> => Boolean(item && item.id && item.name));
 }
 
 function formatDate(dateString: string): string {

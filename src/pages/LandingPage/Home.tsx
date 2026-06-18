@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Star, Shield, Clock, Headphones, Phone, Check, Users, LayoutDashboard, ShoppingCart, Truck, Quote, Bus, Sparkles, BarChart2, Receipt, CalendarDays } from 'lucide-react';
+import { Star, Shield, Clock, Headphones, Phone, Check, Users, LayoutDashboard, ShoppingCart, Truck, Quote, Sparkles, BarChart2, Receipt, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

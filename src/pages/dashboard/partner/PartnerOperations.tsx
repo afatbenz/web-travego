@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, Plus, Download, FileSpreadsheet, Sheet, Eye } from 'lucide-react';
+import { Search, RotateCcw, Plus, Download, FileSpreadsheet, Sheet } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatPhoneNumberId } from '@/lib/utils';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
@@ -284,7 +284,7 @@ export const PartnerOperations: React.FC = () => {
         render: (row) => <span className="text-sm text-foreground dark:text-white/70 whitespace-nowrap">{formatRupiah(row.totalRevenue ?? 0)}</span>,
       },
     ],
-    [basePrefix, navigate, startIndex]
+    [basePrefix, startIndex]
   );
 
   return (

@@ -8,7 +8,6 @@ import {
   Check,
   ChevronsUpDown,
   Cpu,
-  Gauge,
   Handshake,
   Hash,
   IdCard,
@@ -93,7 +92,7 @@ const normalizePartnershipOptions = (payload: unknown): PartnerOption[] => {
       if (!id || !name) return null;
       return { id, name, phone, source: 'api' as const };
     })
-    .filter((x): x is PartnerOption => x !== null);
+    .filter((x): x is NonNullable<typeof x> => x !== null) as PartnerOption[];
 };
 
 const normalizeFleetOptions = (payload: unknown): FleetOption[] => {
@@ -170,26 +169,6 @@ export const FleetUnitCreate: React.FC = () => {
     if (!query) return list;
     return list.filter((o) => o.name.toLowerCase().includes(query) || o.phone.toLowerCase().includes(query));
   }, [manualPartnerOptions, partnerApiOptions, partnerQuery]);
-
-  const submitReady = useMemo(() => {
-    if (!fleetId) return false;
-    if (!units.length) return false;
-    for (const u of units) {
-      const capacity = Number(u.capacity);
-      const year = Number(u.production_year);
-      if (!u.vehicle_id.trim()) return false;
-      if (!u.plate_number.trim()) return false;
-      if (!u.engine.trim()) return false;
-      if (!u.transmission.trim()) return false;
-      if (!Number.isFinite(capacity) || capacity <= 0) return false;
-      if (!Number.isFinite(year) || year <= 0) return false;
-      if (u.ownership_type === 'Kerjasama Operasional') {
-        if (!u.owner_name.trim()) return false;
-        if (!u.owner_contact.trim()) return false;
-      }
-    }
-    return true;
-  }, [fleetId, units]);
 
   useEffect(() => {
     if (!partnerPickerOpen) return;

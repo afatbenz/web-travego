@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Car, Users, Check, ChevronsUpDown, Plus, ShoppingCart, CarFront, Building2, MessageCircleWarning } from 'lucide-react';
+import { ArrowLeft, Save, X, Check, ChevronsUpDown, Plus, ShoppingCart, CarFront, MessageCircleWarning } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardHeaderWithBadge, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -701,10 +701,9 @@ export const AddSchedule: React.FC = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Jam Kembali Garasi *</label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <Select
-                        value={garageInDate}
-                        className={formFieldClass}
-                        onValueChange={(v) => {
+<Select
+                         value={garageInDate}
+                         onValueChange={(v) => {
                           setGarageInDate(v);
                           const nextValue = garageInClock && v ? `${v}T${garageInClock}` : '';
                           setGarageInTime(nextValue);

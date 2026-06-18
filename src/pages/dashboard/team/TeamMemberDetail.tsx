@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, IdCard, Pencil, Trash2, UserRound, MapPin, MoreVertical, Download, FileSpreadsheet, Map, Phone, Mail, Briefcase, CalendarDays, Bus, ShieldCheck, UserCheck, Calendar } from 'lucide-react';
+import { ArrowLeft, IdCard, Pencil, Trash2, MapPin, MoreVertical, Download, FileSpreadsheet, Map, Phone, Mail, CalendarDays } from 'lucide-react';
 import Swal from 'sweetalert2';
 import moment from 'moment';
 import { api, toFileUrl } from '@/lib/api';
 import avatarFallback from '@/assets/general/avatar.svg';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   Table,
@@ -145,6 +145,7 @@ export const TeamMemberDetail: React.FC = () => {
           setHistories([]);
         }
       } catch (err) {
+        console.log(err)
         setHistories([]);
       } finally {
         setHistoryLoading(false);
