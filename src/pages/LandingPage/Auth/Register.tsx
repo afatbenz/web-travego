@@ -151,7 +151,7 @@ export const Register: React.FC = () => {
   return (
     <AuthLayout
       title="Buat Akun Baru"
-      subtitle="Bergabunglah dengan TraveGO untuk pengalaman perjalanan terbaik"
+      subtitle="Bergabung dengan TraveGo sekarang"
       cardClassName="min-h-[560px] sm:min-h-[580px] lg:min-h-[600px] flex flex-col"
       contentWrapperClassName={`transition-[opacity,transform] duration-300 ease-out ${
         entered && !isLeaving
@@ -175,7 +175,7 @@ export const Register: React.FC = () => {
                 placeholder="Masukkan nama lengkap"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
+                className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20 rounded-2xl"
               />
             </div>
           </div>
@@ -195,7 +195,7 @@ export const Register: React.FC = () => {
                   placeholder="contoh@email.com"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
+                  className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20 rounded-2xl"
                 />
               </div>
             </div>
@@ -215,7 +215,7 @@ export const Register: React.FC = () => {
                   value={formData.phone}
                   onChange={handlePhoneChange}
                   onKeyDown={handlePhoneKeyDown}
-                  className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
+                  className="pl-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20 rounded-2xl"
                 />
               </div>
             </div>
@@ -236,7 +236,7 @@ export const Register: React.FC = () => {
                   placeholder="Password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
+                  className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20 rounded-2xl"
                 />
                 <button
                   type="button"
@@ -262,7 +262,7 @@ export const Register: React.FC = () => {
                   placeholder="Ulangi"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20"
+                  className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 dark:bg-gray-900/20 rounded-2xl"
                 />
                 <button
                   type="button"
@@ -333,7 +333,7 @@ export const Register: React.FC = () => {
             </label>
           </div>
 
-          <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white" disabled={!formData.acceptTerms || submitting}>
+          <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl" disabled={!formData.acceptTerms || submitting}>
             {submitting ? (
               <span className="flex items-center justify-center">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
