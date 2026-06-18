@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, Zap, TrendingUp, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -61,8 +61,6 @@ export const Login: React.FC = () => {
     window.setTimeout(() => navigate(to), 220);
   };
 
-  
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -81,10 +79,15 @@ export const Login: React.FC = () => {
         { email: formData.email, password: formData.password }
       );
       if (res.status === 'success') {
-        toast({ title: 'Login berhasil', description: 'Selamat datang kembali!' });
+        toast({
+          title: 'Login berhasil',
+          description: 'Selamat datang kembali!',
+          variant: 'success',
+          duration: 5000,
+        });
         if (res.data?.token) {
           localStorage.setItem('token', res.data.token);
-          // Store refresh token for auto-refresh
+          localStorage.setItem('isLoggedIn', 'true');
           if (res.data.refresh_token) {
             localStorage.setItem('refresh_token', res.data.refresh_token);
           }
@@ -144,22 +147,22 @@ export const Login: React.FC = () => {
   return (
     <AuthLayout
       title="Selamat Datang Kembali"
-      subtitle="Masuk dan kelola operasional travel Anda hari ini"
-      cardClassName="min-h-[560px] sm:min-h-[580px] lg:min-h-[600px] flex flex-col"
+      subtitle="Masuk dan kelola operasional hari ini"
+      cardClassName="min-h-[520px] sm:min-h-[540px] lg:min-h-[560px] flex flex-col"
       contentWrapperClassName={`transition-[opacity,transform] duration-300 ease-out ${
         entered && !isLeaving
           ? 'opacity-100 translate-x-0'
           : `opacity-0 ${leaveDirection === 'right' ? 'translate-x-3' : '-translate-x-3'}`
       }`}
     >
-      <form id="login-form" onSubmit={handleSubmit} className="flex flex-1 flex-col mt-10">
+      <form id="login-form" onSubmit={handleSubmit} className="flex flex-1 flex-col mt-8">
         <div className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="email" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
               Email
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <Input
                 id="email"
                 name="email"
@@ -169,17 +172,17 @@ export const Login: React.FC = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 autoComplete="email"
-                className="pl-10 h-12"
+                className="pl-11 h-12 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500/20 rounded-2xl"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="password" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <Input
                 id="password"
                 name="password"
@@ -189,7 +192,7 @@ export const Login: React.FC = () => {
                 value={formData.password}
                 onChange={handleInputChange}
                 autoComplete="current-password"
-                className="pl-10 pr-10 h-12"
+                className="pl-11 pr-11 h-12 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500/20 rounded-2xl"
               />
               <button
                 type="button"
@@ -202,37 +205,53 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-auto pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
+        <div className="mt-auto pt-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="rememberMe"
                 checked={formData.rememberMe}
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, rememberMe: checked as boolean }))}
-                className="bg-transparent data-[state=checked]:bg-transparent data-[state=checked]:border-blue-600 data-[state=checked]:text-blue-600"
+                className="bg-transparent data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
               />
               <label htmlFor="rememberMe" className="text-sm text-gray-700 dark:text-gray-300">
                 Ingat saya
               </label>
             </div>
-            <Link to="/auth/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:no-underline text-bold">
+            <Link to="/auth/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:no-underline font-semibold">
               Lupa password?
             </Link>
           </div>
 
-          <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white" disabled={submitting}>
+          <Button
+            type="submit"
+            className="w-full h-12 text-white font-semibold rounded-3xl shadow-lg bg-[#3B5BDB] hover:bg-[#2B4BC0]"
+            disabled={submitting}
+          >
             {submitting ? (
               <span className="flex items-center justify-center">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Memproses...
               </span>
             ) : (
-              'Masuk'
+              <span className="flex items-center justify-center gap-1">
+                Masuk
+                <ArrowRight className="h-4 w-4" />
+              </span>
             )}
           </Button>
 
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+            </div>
+            <div className="relative bg-white dark:bg-gray-800 px-3">
+              <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">atau</span>
+            </div>
+          </div>
+
           <div className="text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Belum punya akun?{' '}
               <Link
                 to="/auth/register"
@@ -240,7 +259,7 @@ export const Login: React.FC = () => {
                   e.preventDefault();
                   navigateWithTransition('/auth/register', 'left');
                 }}
-                className="font-medium text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
+                className="font-semibold text-blue-600 dark:text-blue-400 hover:no-underline"
               >
                 Daftar sekarang
               </Link>
