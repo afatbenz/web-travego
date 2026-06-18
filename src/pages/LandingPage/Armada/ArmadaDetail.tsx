@@ -145,7 +145,7 @@ export const ArmadaDetail: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       {/* Header Banner with Blue Tosca Background */}
       <section className="relative h-96 w-full text-white overflow-hidden">
         <div

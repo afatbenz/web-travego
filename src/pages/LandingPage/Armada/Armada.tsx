@@ -182,7 +182,7 @@ const Armada = () => {
   }, [searchTerm, selectedCategory, selectedLocation, sortBy]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       {/* Header Section with Parallax Background */}
       <section className="relative h-80 w-full text-white overflow-hidden">
         {/* Background Image dengan Parallax Effect */}

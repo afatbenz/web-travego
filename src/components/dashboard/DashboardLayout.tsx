@@ -12,12 +12,13 @@ export const DashboardLayout: FC<DashboardLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { effectiveOrgId, isAdmin, isChecking } = useEffectiveOrganization();
+  const hasEffectiveOrganization = effectiveOrgId !== '';
 
   useEffect(() => {
     if (isChecking) return;
     if (location.pathname.startsWith('/auth/')) return;
 
-    const noOrg = isAdmin === false && effectiveOrgId === '';
+    const noOrg = !isAdmin && !hasEffectiveOrganization;
     const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
     const allowedNoOrgPaths = [
       `${basePrefix}/organization/choice`,
@@ -33,6 +34,30 @@ export const DashboardLayout: FC<DashboardLayoutProps> = ({ children }) => {
       return;
     }
 
+    if (hasEffectiveOrganization) {
+      const orgOnlyPaths = [
+        `${basePrefix}/organization/choice`,
+        `${basePrefix}/organization/register`,
+        `${basePrefix}/organization/join`,
+      ];
+      const onOrgOnlyPath = orgOnlyPaths.some((path) =>
+        location.pathname === path || location.pathname.startsWith(`${path}/`),
+      );
+if (onOrgOnlyPath) {
+        console.log('User has organization, redirecting from org-only path:', location.pathname);
+        navigate(`${basePrefix}`, { replace: true });
+        return;
+      }
+
+      const onDashboardHome = location.pathname === '/dashboard/partner' || location.pathname === '/dashboard/partner/';
+      if (noOrg && onDashboardHome) {
+        navigate('/dashboard/partner/organization/choice');
+      } else if (!isAdmin && location.pathname.startsWith('/dashboard/') && !location.pathname.startsWith('/dashboard/partner')) {
+        const target = location.pathname.replace('/dashboard/', '/dashboard/partner/');
+        navigate(target);
+      }
+    }
+
     const onDashboardHome = location.pathname === '/dashboard/partner' || location.pathname === '/dashboard/partner/';
     if (noOrg && onDashboardHome) {
       navigate('/dashboard/partner/organization/choice');
@@ -45,7 +70,7 @@ export const DashboardLayout: FC<DashboardLayoutProps> = ({ children }) => {
   }, [effectiveOrgId, isAdmin, isChecking, navigate, location.pathname]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
       <Sidebar />
       <div className="flex flex-col min-w-0 md:ml-[var(--sidebar-width,4rem)] transition-all duration-300">
         <Topbar />

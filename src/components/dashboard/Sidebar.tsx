@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   ChevronLeft,
@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
+import { clearAuthStorage } from '@/lib/utils';
 import dashboardLogo from '@/assets/general/logo.svg';
 
 export const Sidebar: React.FC = () => {
@@ -162,6 +163,7 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Organisasi',
         items: [
+          { title: 'Pilih Organisasi', icon: Building2, href: `${basePrefix}/organization/choice` },
           { title: 'Buat Organisasi', icon: Building2, href: `${basePrefix}/organization/register` },
           { title: 'Gabung Organisasi', icon: Users, href: `${basePrefix}/organization/join` },
         ],
@@ -179,6 +181,14 @@ export const Sidebar: React.FC = () => {
     headerRight: React.ReactNode;
     onNavigate?: () => void;
   }> = ({ collapsed: collapsedValue, headerRight, onNavigate }) => {
+    const navRef = useRef<HTMLElement | null>(null);
+    
+    useEffect(() => {
+      const savedScrollTop = localStorage.getItem('sidebar_scroll_top');
+      if (savedScrollTop && navRef.current) {
+        navRef.current.scrollTop = parseInt(savedScrollTop, 10);
+      }
+    }, []);
     return (
       <>
         <div
@@ -214,6 +224,8 @@ export const Sidebar: React.FC = () => {
 
         <TooltipProvider delayDuration={150}>
           <nav
+            ref={navRef}
+            onScroll={(e) => localStorage.setItem('sidebar_scroll_top', String(e.currentTarget.scrollTop))}
             className={cn('flex-1 overflow-y-auto sidebar-scroll', collapsedValue ? 'px-2 pb-3' : 'px-3 pb-3')}
           >
             {navSections.map((section, sectionIdx) => (
@@ -293,10 +305,10 @@ export const Sidebar: React.FC = () => {
                 <Link
                   key={item.href}
                   to={item.href}
-                  onClick={() => {
+onClick={() => {
                     if (item.title === 'Logout') {
-                      localStorage.removeItem('user');
-                      localStorage.removeItem('token');
+                      clearAuthStorage();
+                      console.log('Auth storage cleared on logout');
                     }
                     onNavigate?.();
                   }}
@@ -326,8 +338,8 @@ export const Sidebar: React.FC = () => {
       <div
         className={cn(
           'hidden md:flex md:flex-col h-screen fixed left-0 top-0 z-10 transition-[width] duration-300 ease-out',
-          'bg-gradient-to-b from-slate-950 via-cyan-950 to-slate-950',
-          'text-slate-100 shadow-[0_18px_60px_rgba(0,0,0,0.45)]'
+          'bg-gradient-to-b from-slate-950 via-gray-950 to-slate-950',
+          'text-slate-100'
         )}
         style={{ width: collapsed ? '4rem' : '16rem' }}
       >

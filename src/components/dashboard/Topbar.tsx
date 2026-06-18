@@ -18,6 +18,7 @@ import defaultAvatar from '@/assets/general/avatar.svg';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
+import { clearAuthStorage } from '@/lib/utils';
 
 // Helper function to format relative time
 const formatRelativeTime = (dateString: string): string => {
@@ -246,11 +247,10 @@ export const Topbar: React.FC = () => {
                   </>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+<DropdownMenuItem
                   className="text-red-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                   onClick={() => {
-                    localStorage.removeItem('user');
-                    localStorage.removeItem('token');
+                    clearAuthStorage();
                     navigate('/auth/login');
                   }}
                 >

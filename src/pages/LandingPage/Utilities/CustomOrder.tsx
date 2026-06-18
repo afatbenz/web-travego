@@ -88,7 +88,7 @@ export const CustomOrder: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       {/* Header */}
       <PageHeader
         title="Ajukan Custom Order"

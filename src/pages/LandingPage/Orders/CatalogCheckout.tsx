@@ -100,7 +100,7 @@ export const CatalogCheckout: React.FC = () => {
   const totalPrice = basePrice * totalParticipants;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       {/* Header */}
       <PageHeader
         title="Checkout Paket Wisata"

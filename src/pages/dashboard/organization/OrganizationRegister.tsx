@@ -118,22 +118,37 @@ export const OrganizationRegisterDashboard: React.FC = () => {
     const res = await api.post('/organization/create', payload, headers);
     setSubmitting(false);
     if (res.status === 'success') {
-      const orgId = (res.data as unknown as { organization_id?: number })?.organization_id;
+      const newToken = (res.data as unknown as { token?: string })?.token;
+      const orgId = (res.data as unknown as { organization_id?: string })?.organization_id;
+      const orgCode = (res.data as unknown as { organization_code?: string })?.organization_code;
+
+      if (newToken) {
+        localStorage.setItem('token', newToken);
+        console.log('Token updated in localStorage');
+      }
       if (orgId !== undefined && orgId !== null) {
         localStorage.setItem('organization_id', String(orgId));
+        console.log('organization_id saved:', orgId);
       }
-      const orgCode = (res.data as unknown as { organization_code?: string })?.organization_code;
       if (form.organization_name) {
         localStorage.setItem('organization_name', String(form.organization_name));
+        console.log('organization_name saved:', form.organization_name);
       }
       if (orgCode) {
         localStorage.setItem('organization_code', String(orgCode));
+        console.log('organization_code saved:', orgCode);
       }
+
+      console.log('Register organization response:', res.data);
+
       showAlert({
         title: 'Organisasi dibuat',
         description: orgCode ? `Kode Organisasi: ${orgCode}` : 'Anda dapat melanjutkan ke dashboard',
         type: 'success',
-        onConfirm: () => navigate('/dashboard/partner'),
+        onConfirm: () => {
+          window.dispatchEvent(new StorageEvent('storage', { key: 'organization_id' }));
+          navigate('/dashboard/partner');
+        },
       });
     }
   };
