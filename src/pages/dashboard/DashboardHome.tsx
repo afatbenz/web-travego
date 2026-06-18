@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, ShoppingBag, TrendingUp, Car, MapPin, DollarSign, ChartSpline, MapPinCheck, MapPinHouse, TreePalm, PersonStanding, ArrowDownRight, ArrowRight, ArrowUpRight, Minus } from 'lucide-react';
+import { Users, ShoppingBag, TrendingUp, Car, MapPin, DollarSign, ChartSpline, MapPinCheck, MapPinHouse, PersonStanding, ArrowDownRight, ArrowRight, ArrowUpRight, Minus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,7 +40,6 @@ export const DashboardHome: React.FC = () => {
   const [topDestinations, setTopDestinations] = useState<TopItem[]>([]);
   const [topPickupCity, setTopPickupCity] = useState<TopItem[]>([]);
   const [topFleets, setTopFleets] = useState<{ plate_number: string; vehicle_id: string; total: number }[]>([]);
-  const [topTourPackages, setTopTourPackages] = useState<TopItem[]>([]);
   const [topDrivers, setTopDrivers] = useState<TopItem[]>([]);
   const [topCustomers, setTopCustomers] = useState<TopItem[]>([]);
 
@@ -187,7 +186,6 @@ export const DashboardHome: React.FC = () => {
           destinationsRes,
           pickupCityRes,
           fleetsRes,
-          tourPackagesRes,
           driversRes,
           customersRes,
         ] = await Promise.all([
@@ -234,9 +232,9 @@ export const DashboardHome: React.FC = () => {
         if (fleetsRes.status === 'success') {
           setTopFleets(parseTopFleets(fleetsRes.data).slice(0, 10));
         }
-        if (tourPackagesRes.status === 'success') {
-          setTopTourPackages(parseTopItems(tourPackagesRes.data, 'package_name').slice(0, 10));
-        }
+        // if (tourPackagesRes.status === 'success') {
+        //   setTopTourPackages(parseTopItems(tourPackagesRes.data, 'package_name').slice(0, 10));
+        // }
         if (driversRes.status === 'success') {
           setTopDrivers(parseTopItems(driversRes.data, 'fullname').slice(0, 10));
         }
@@ -343,7 +341,7 @@ export const DashboardHome: React.FC = () => {
       title: 'Total Pesanan',
       value: totalOrders.toLocaleString('id-ID'),
       change: `${orderPercentage >= 0 ? '+' : ''}${orderPercentage}%`,
-      changeType: orderPercentage > 0 ? 'increase' : orderPercentage < 0 ? 'decrease' : 'neutral',
+      changeType: (orderPercentage > 0 ? 'increase' : orderPercentage < 0 ? 'decrease' : 'neutral') as 'increase' | 'decrease' | 'neutral',
       icon: ShoppingBag,
       color: 'text-blue-600 dark:text-blue-400',
       previousPeriodText: `periode sebelumnya ${previousTotalOrders}`,
@@ -354,7 +352,7 @@ export const DashboardHome: React.FC = () => {
       title: 'Jumlah Pelanggan',
       value: totalCustomers.toLocaleString('id-ID'),
       change: `${customerPercentage >= 0 ? '+' : ''}${customerPercentage}%`,
-      changeType: customerPercentage > 0 ? 'increase' : customerPercentage < 0 ? 'decrease' : 'neutral',
+      changeType: (customerPercentage > 0 ? 'increase' : customerPercentage < 0 ? 'decrease' : 'neutral') as 'increase' | 'decrease' | 'neutral',
       icon: Users,
       color: 'text-green-600 dark:text-green-400',
       previousPeriodText: `periode sebelumnya ${previousTotalCustomers.toLocaleString('id-ID')}`,
@@ -369,7 +367,7 @@ export const DashboardHome: React.FC = () => {
         title: 'Pemasukan Bulan Ini',
         value: formatCurrency(current),
         change: `${change.pct > 0 ? '+' : ''}${change.pct}%`,
-        changeType: change.direction === 'flat' ? 'neutral' : change.pct > 0 ? 'increase' : 'decrease',
+        changeType: (change.direction === 'flat' ? 'neutral' : change.pct > 0 ? 'increase' : 'decrease') as 'increase' | 'decrease' | 'neutral',
         icon: TrendingUp,
         color: 'text-orange-600 dark:text-orange-400',
         previousPeriodText: `periode sebelumnya ${formatCurrency(previous)}`,
@@ -385,7 +383,7 @@ export const DashboardHome: React.FC = () => {
         title: 'Pengeluaran Bulan Ini',
         value: formatCurrency(current),
         change: `${change.pct > 0 ? '+' : ''}${change.pct}%`,
-        changeType: change.direction === 'flat' ? 'neutral' : change.pct > 0 ? 'increase' : 'decrease',
+        changeType: (change.direction === 'flat' ? 'neutral' : change.pct > 0 ? 'increase' : 'decrease') as 'increase' | 'decrease' | 'neutral',
         icon: DollarSign,
         color: 'text-red-600 dark:text-red-400',
         previousPeriodText: `periode sebelumnya ${formatCurrency(previous)}`,
@@ -779,7 +777,8 @@ export const DashboardHome: React.FC = () => {
           <FinanceChart data={financeData} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-            <TransactionMetricsChart data={revenueStat?.transaction_metrics ?? []} title="Transaksi Pemasukan" />
+            {/* <TransactionMetricsChart data={revenueStat?.transaction_metrics ?? []} title="Transaksi Pemasukan" /> */}
+            <TopFleetsCard data={topFleets} icon={Car} />
             <TransactionMetricsChart data={expensesStat?.transaction_metrics ?? []} title="Transaksi Pengeluaran" />
           </div>
 
@@ -788,10 +787,9 @@ export const DashboardHome: React.FC = () => {
             <TopListCard title="Kota Penjemputan Terpopuler" data={topPickupCity} orientation="vertical" icon={MapPinHouse} />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-            <TopFleetsCard data={topFleets} icon={Car} />
+          {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             <TopListCard title=" Paket Tour Terpopuler" data={topTourPackages} orientation="vertical" icon={TreePalm} />
-          </div>
+          </div> */}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             <TopListCard title="Pengemudi Tersibuk" data={topDrivers} orientation="vertical" icon={PersonStanding} />

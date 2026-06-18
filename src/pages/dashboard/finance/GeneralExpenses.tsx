@@ -437,7 +437,7 @@ export const GeneralExpenses: React.FC = () => {
     };
 
     loadMeta();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   useEffect(() => {

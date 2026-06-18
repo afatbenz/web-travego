@@ -96,7 +96,7 @@ const parseFleetTripFinance = (payload: unknown, scheduleNumberFallback: string)
     const paymentMethodLabelRaw = pickString(o, ['payment_method_label', 'paymentMethodLabel', 'payment_label', 'paymentLabel']);
     const paymentMethodNum = toNumberSafe(o.payment_method ?? o.paymentMethod);
     const createdAt = o.created_at ?? o.createdAt;
-    const status = o.status ?? 0;
+    const status = toNumberSafe(o.status ?? 0);
     const paymentMethodLabel = paymentMethodLabelRaw ||
       (paymentMethodNum === 1 ? 'Biaya Operasional' : paymentMethodNum === 2 ? 'Reimburse' : '-');
 
@@ -148,13 +148,6 @@ const pickString = (obj: Record<string, unknown>, keys: string[]): string => {
     if (s) return s;
   }
   return '';
-};
-
-const tryFormatDate = (value: string): string => {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 };
 
 const tryFormatDateTime = (value: string): string => {
@@ -223,7 +216,7 @@ const parseFleetTripDetail = (payload: unknown, scheduleNumberFallback: string):
     const paymentLabel: 'Lunas' | 'Tagihan' =
       statusNum === 1 || normalized.includes('lunas') || normalized.includes('paid') || normalized.includes('settled') ? 'Lunas' : 'Tagihan';
 
-    return { id, transactionItem, reporter, amount, paymentMethod, paymentLabel } satisfies FleetTripExpenseRow;
+    return { id, transactionItem, reporter, amount, paymentMethod, paymentLabel, createdAt: null, status: statusNum, description: '' } satisfies FleetTripExpenseRow;
   });
 
   return {

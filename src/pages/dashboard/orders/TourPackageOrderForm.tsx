@@ -150,7 +150,7 @@ async function fetchTourPackageList(token: string): Promise<Option[]> {
       const label = typeof nameRaw === 'string' ? nameRaw : '';
       return id && label ? ({ id, label, raw: x } satisfies Option) : null;
     })
-    .filter((o): o is Option => Boolean(o));
+    .filter((o): o is NonNullable<typeof o> => Boolean(o)) as Option[];
 }
 
 function formatCurrency(amount: number) {

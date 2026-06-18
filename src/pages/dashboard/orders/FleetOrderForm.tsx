@@ -396,13 +396,6 @@ export const FleetOrderForm: React.FC = () => {
     return `${y}-${m}-${day} ${hh}:${mm}`;
   }, []);
 
-  const primaryFleetId = useMemo(() => armadaEntries.find((e) => e.armada_id)?.armada_id ?? '', [armadaEntries]);
-  const primaryFleetLabel = useMemo(() => {
-    const idx = armadaEntries.findIndex((e) => e.armada_id);
-    if (idx < 0) return '';
-    return armadaEntryOptions[idx]?.label ?? '';
-  }, [armadaEntries, armadaEntryOptions]);
-
   const getAddonUnitPrice = useCallback((row: ArmadaEntry) => {
     const ids = (row.addon_ids ?? []).map((x) => String(x ?? '').trim()).filter((x) => x);
     if (ids.length <= 0) return 0;
@@ -471,7 +464,7 @@ export const FleetOrderForm: React.FC = () => {
             const label = typeof labelRaw === 'string' ? labelRaw : id;
             return id && label ? { id, label, raw: it } : null;
           })
-          .filter((o): o is Option => Boolean(o));
+          .filter((o): o is NonNullable<typeof o> => Boolean(o)) as Option[];
       };
 
       const [customers, fleets] = await Promise.all([fetchOptions('/services/customers', token), fetchAvailability()]);
@@ -567,7 +560,7 @@ export const FleetOrderForm: React.FC = () => {
             const label = baseLabel ? (price > 0 ? `${baseLabel} - ${descRaw} (${formatRupiahFromNumber(price)})` : baseLabel) : id;
             return id && label ? { id, label, raw: it } : null;
           })
-          .filter((o): o is Option => Boolean(o));
+          .filter((o): o is NonNullable<typeof o> => Boolean(o)) as Option[];
       } catch (error) {
         console.error('Error fetching addons:', error);
         return [];
@@ -592,20 +585,7 @@ export const FleetOrderForm: React.FC = () => {
         const label = baseLabel ? (price > 0 ? `${baseLabel} - ${descRaw} (${formatRupiahFromNumber(price)})` : baseLabel) : id;
         return id && label ? { id, label, raw: it } : null;
       })
-      .filter((o): o is Option => Boolean(o));
-  }, []);
-
-  const parseAddonIdsFromResponse = useCallback((addonsRaw: unknown): string[] => {
-    if (!Array.isArray(addonsRaw)) return [];
-    return addonsRaw
-      .map((x) => {
-        if (x && typeof x === 'object') {
-          const obj = x as Record<string, unknown>;
-          return toStringSafe(obj.addon_id ?? obj.id ?? obj.uuid ?? '');
-        }
-        return toStringSafe(x).trim();
-      })
-      .filter((x) => x);
+      .filter((o): o is NonNullable<typeof o> => Boolean(o)) as Option[];
   }, []);
 
   useEffect(() => {

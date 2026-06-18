@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, MapPin, Save, ChevronsUpDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -28,8 +27,6 @@ const MARKER_ZOOM = 15;
 
 const INPUT_CLS =
   'h-14 rounded-2xl border-slate-200 bg-slate-50 pl-11 transition-all duration-300 focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-slate-700 dark:bg-slate-900/50';
-const TEXTAREA_CLS =
-  'min-h-[120px] rounded-2xl border-slate-200 bg-slate-50 transition-all duration-300 focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-slate-700 dark:bg-slate-900/50';
 const COMBO_CLS =
   'h-14 w-full justify-between rounded-2xl border-slate-200 bg-slate-50 font-normal transition-all duration-300 hover:border-blue-200 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50';
 

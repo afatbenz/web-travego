@@ -8,7 +8,6 @@ import {
   Phone,
   Mail,
   IdCard,
-  ChevronsUpDown,
   Pencil,
   Upload,
   Lightbulb,
@@ -24,19 +23,6 @@ import {
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OrganizationPinLocationTab } from './OrganizationPinLocationTab';
 

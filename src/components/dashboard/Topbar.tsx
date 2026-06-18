@@ -40,7 +40,7 @@ export const Topbar: React.FC = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
   const token = localStorage.getItem('token') ?? '';
-  const { notifications, unreadCount, loading, markAsRead, fetchNotifications } = useNotifications();
+  const { notifications, unreadCount, loading, markAsRead } = useNotifications();
   let isAdmin = false;
   try {
     const payloadStr = token.split('.')[1];

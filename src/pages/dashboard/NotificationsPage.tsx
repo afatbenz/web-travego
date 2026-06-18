@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,28 +24,10 @@ const formatRelativeTime = (dateString: string): string => {
 };
 
 export const NotificationsPage: React.FC = () => {
-  const [user, setUser] = useState<{ name?: string; email?: string; avatar?: string } | null>(null);
   const navigate = useNavigate();
-  const token = localStorage.getItem('token') ?? '';
   const { notifications, unreadCount, loading, markAsRead, fetchNotifications } = useNotifications();
-  let isAdmin = false;
-  try {
-    const payloadStr = token.split('.')[1];
-    if (payloadStr) {
-      const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-      const json = JSON.parse(atob(padded));
-      isAdmin = Boolean(json.is_admin ?? json.isAdmin ?? false);
-    }
-  } catch {}
-  const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
 
   useEffect(() => {
-    const uStr = localStorage.getItem('user');
-    if (uStr) {
-      try { setUser(JSON.parse(uStr)); } catch {}
-    }
-    // Refresh notifications when page loads
     fetchNotifications();
   }, [fetchNotifications]);
 

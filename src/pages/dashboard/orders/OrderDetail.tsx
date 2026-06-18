@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn, formatPhoneNumberId } from '@/lib/utils';
@@ -15,7 +16,6 @@ import {
   DialogContent,
   DialogContentScrollable,
   DialogScrollableBody,
-  DialogStickyFooter,
   DialogClose,
   DialogHeader,
   DialogTitle,
@@ -278,7 +278,7 @@ export const OrderDetail: React.FC = () => {
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     console.log({ orderData, isScheduled, hasPayment });
-  }, [orderData.id, orderData.scheduled, orderData.rawStatus, orderData.rawPaymentStatus]);
+  }, [orderData.id, orderData.scheduled, orderData.rawStatus, orderData.rawPaymentStatus, orderData, isScheduled, hasPayment]);
   const isWaitingOrderConfirmation = orderData.rawStatus === 2 && orderData.rawPaymentStatus === 2;
 
   const scheduleUrlSuffix = (() => {
@@ -1060,10 +1060,10 @@ export const OrderDetail: React.FC = () => {
       : Math.max(0, totalFromRes - remainingAmount);
     const paidAmount = Math.max(0, Math.min(paidAmountFromRes, totalFromRes));
 
-    const next: OrderData = {
-      ...createEmptyOrderData(orderId),
-      id: getString(detail.order_id ?? detail.id, orderId),
-      fleetId: getString(detail.fleet_id ?? detail.fleetId, ''),
+const next: OrderData = {
+       ...createEmptyOrderData((orderId ?? '') || '-'),
+       id: getString(detail.order_id ?? detail.id, orderId ?? ''),
+       fleetId: getString(detail.fleet_id ?? detail.fleetId, ''),
       customerName: getString(customer.customer_name ?? customer.customerName, '-'),
       customerEmail: getString(customer.customer_email ?? customer.customerEmail, '-'),
       customerPhone: getString(customer.customer_phone ?? customer.customerPhone, '-'),
@@ -1102,7 +1102,7 @@ export const OrderDetail: React.FC = () => {
       facilities: facilities.length ? facilities : Array.isArray(detail.facilities) ? (detail.facilities as string[]) : [],
       additionalRequests: getString(detail.additional_request ?? detail.additional_requests ?? detail.additionalRequests, '-'),
       notes: getString(detail.notes, '-'),
-      order_id: getString(detail.order_id ?? detail.id, orderId),
+      order_id: getString(detail.order_id ?? detail.id, orderId ?? ''),
       rent_type_label: getString(detail.rent_type_label ?? detail.rentTypeLabel, ''),
       fleets,
       pickup: {
@@ -1630,10 +1630,6 @@ export const OrderDetail: React.FC = () => {
 
       const getStringSafe = (v: unknown, fallback: string) =>
         typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : fallback;
-      const getNumberSafe = (v: unknown, fallback: number) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : fallback;
-      };
 
       const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
       const payData = record(payRes.data);
@@ -2105,9 +2101,9 @@ export const OrderDetail: React.FC = () => {
                       { key: 'overview', label: 'Overview', icon: Package },
                       { key: 'itinerary', label: 'Itinerary', icon: MapPin },
                       { key: 'facilities', label: 'Fasilitas', icon: Car },
-                      { key: 'fleetunits', label: 'Unit Armada', icon: Calendar, hidden: !orderData.scheduled },
+                      ...(orderData.scheduled ? [{ key: 'fleetunits', label: 'Unit Armada', icon: Calendar }] : []),
                     ] as const)
-                      .filter((t) => !t.hidden)
+                      .flat()
                       .map((t) => {
                         const isTabActive = orderInfoTab === t.key;
                         const Icon = t.icon;

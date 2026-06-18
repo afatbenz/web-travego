@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon, BusFront, Tags, Layers, Package2, SlidersHorizontal, Globe, ShieldCheck, Building2, Info } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon, BusFront, Tags, Layers, Package2, SlidersHorizontal, Globe, ShieldCheck, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
@@ -66,25 +66,6 @@ export const ArmadaForm: React.FC = () => {
   const [bodySuggestions, setBodySuggestions] = useState<string[]>([]);
   const [showBodyDropdown, setShowBodyDropdown] = useState(false);
   const [loadingBody, setLoadingBody] = useState(false);
-  const publicationStatusMeta: Record<
-    string,
-    { title: string; subtitle: string; icon: React.ElementType; iconBg: string; iconColor: string }
-  > = {
-    active: {
-      title: 'Publish',
-      subtitle: 'Tampil di publik',
-      icon: Globe,
-      iconBg: 'bg-[#EEF3FF]',
-      iconColor: 'text-[#4F6BFF]',
-    },
-    inactive: {
-      title: 'Hanya Internal',
-      subtitle: 'Hanya untuk kebutuhan internal',
-      icon: ShieldCheck,
-      iconBg: 'bg-[#F1F5F9]',
-      iconColor: 'text-[#475569]',
-    },
-  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -1527,7 +1508,6 @@ export const ArmadaForm: React.FC = () => {
                 <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
                   <SelectTrigger className="w-full h-auto min-h-[64px] rounded-2xl border-[#E9EEF7] bg-white px-4 py-3">
                     {(() => {
-                      const meta = publicationStatusMeta[formData.status] ?? publicationStatusMeta.active;
                       return (
                         <div className="flex gap-3"></div>
                       );

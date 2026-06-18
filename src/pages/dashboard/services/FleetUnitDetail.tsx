@@ -16,6 +16,7 @@ import {
   Loader2,
   MapPin,
   MessageCircleMore,
+  Receipt,
   Route,
   Star,
   TrendingDown,
@@ -225,11 +226,9 @@ export const FleetUnitDetail: React.FC = () => {
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderRows, setOrderRows] = useState<OrderHistoryRow[]>([]);
-  const [totalSchedule, setTotalSchedule] = useState(0);
   const [latestScheduleEndDate, setLatestScheduleEndDate] = useState<string>('');
   const [upcomingScheduleStartDate, setUpcomingScheduleStartDate] = useState<string>('');
   const [reviews, setReviews] = useState<UnitReview[]>([]);
-  const [rating, setRating] = useState<number>(0);
   const [orderPage, setOrderPage] = useState(1);
   const orderItemsPerPage = 10;
 
@@ -253,6 +252,8 @@ export const FleetUnitDetail: React.FC = () => {
   const [expensePeriod, setExpensePeriod] = useState<PeriodPreset>('this_month');
   const [expenseLoading, setExpenseLoading] = useState(false);
   const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>([]);
+  const [totalExpenses, setTotalExpenses] = useState<number | null>(null);
+  const [expensePeriodLabel, setExpensePeriodLabel] = useState<string>('');
   const [revenuePage, setRevenuePage] = useState(1);
   const [expensePage, setExpensePage] = useState(1);
   const itemsPerPage = 10;
@@ -514,13 +515,11 @@ export const FleetUnitDetail: React.FC = () => {
               if (!customer_name && !review && !created_at) return null;
               return { customer_name: customer_name || '-', star, created_at: created_at || undefined, review };
             })
-            .filter((v): v is UnitReview => Boolean(v));
+            .filter((v): v is NonNullable<typeof v> => Boolean(v));
 
-          setTotalSchedule(total_schedule);
           setLatestScheduleEndDate(latestEndDate);
           setUpcomingScheduleStartDate(upcomingStartDate);
           setReviews(mappedReviews);
-          setRating(getNumber(dataObj.rating ?? deepDataObj.rating ?? dataObj.ratings ?? deepDataObj.ratings));
 
           const itemsNode =
             (Array.isArray(dataObj.history) ? dataObj.history : undefined) ??
@@ -537,7 +536,6 @@ export const FleetUnitDetail: React.FC = () => {
 
             const pickupCityLabel = getString(obj.pickup_city_label ?? obj.pickupCityLabel ?? obj.pickup_city_name ?? obj.pickupCityName).trim();
             const pickup_point = pickupCityLabel || '-';
-            const driver_name = getString(obj.driver_name ?? obj.driverName ?? obj.driver).trim();
 
             const destinationsRaw = obj.destination_city;
             const destination =
@@ -554,14 +552,13 @@ export const FleetUnitDetail: React.FC = () => {
                       .filter((x) => x)
                       .join(', ')
                   : '';
-            return { order_id, trip_start, trip_end, pickup_point, driver_name: driver_name || '-', destination: destination || '-' };
+            return { order_id, start_date: trip_start, end_date: trip_end, pickup_city_label: pickup_point, destination_city_label: destination || '-' } satisfies OrderHistoryRow;
           });
 
           setOrderRows(mapped);
           setOrderPage(1);
         } else {
           setOrderRows([]);
-          setTotalSchedule(0);
           setLatestScheduleEndDate('');
           setUpcomingScheduleStartDate('');
           setReviews([]);
@@ -605,9 +602,9 @@ export const FleetUnitDetail: React.FC = () => {
                       ? false
                       : Boolean(availableRaw);
               if (!date) return null;
-              return { date, unit_id: unit_id || undefined, vehicle_id: vehicle_id || undefined, available, order_id: obj.order_id || '-', destinations: obj.destination || '-' } satisfies AvailabilityRow;
+              return { date, unit_id: unit_id || undefined, vehicle_id: vehicle_id || undefined, available, order_id: typeof obj.order_id === 'string' ? obj.order_id : undefined, destination: typeof obj.destination === 'string' ? obj.destination : undefined } satisfies AvailabilityRow;
             })
-            .filter((v: any): v is AvailabilityRow => Boolean(v));
+            .filter((v): v is NonNullable<typeof v> => Boolean(v));
             console.log("mapped here ", {mapped})
           setAvailabilityRows(mapped);
         } else {
@@ -649,6 +646,10 @@ export const FleetUnitDetail: React.FC = () => {
           (Array.isArray(root.items) ? (root.items as unknown[]) : undefined) ??
           [];
 
+        const totalExpensesRaw = getNumber(dataObj.total_expenses ?? dataObj.totalExpenses ?? dataObj.total);
+        setTotalExpenses(totalExpensesRaw);
+        setExpensePeriodLabel(getString(dataObj.period ?? meta.currentLabel).trim());
+
         const mapped = arr
           .map((raw) => {
             const obj = record(raw);
@@ -680,7 +681,7 @@ export const FleetUnitDetail: React.FC = () => {
     const start = range.start.getTime();
     const end = range.end.getTime();
     return orderRows.filter((r) => {
-      const ds = r.trip_start ? new Date(r.trip_start) : null;
+      const ds = r.start_date ? new Date(r.start_date) : null;
       if (!ds || isNaN(ds.getTime())) return false;
       const t = ds.getTime();
       return t >= start && t <= end;
@@ -729,25 +730,20 @@ export const FleetUnitDetail: React.FC = () => {
   const expenseCurrent = expenseRows.slice(expensePageStart, expensePageEnd);
 
   const unitCode = detail?.vehicle_id || unitIdParam || 'BB001';
-  const ownershipBadge = (() => {
-    const t = Number(detail?.ownership_type);
-    if (t === 0) return { label: 'Owned', tone: 'blue' as const };
-    if (t === 1) return { label: 'Kerjasama Operasional', tone: 'amber' as const };
-    return { label: '-', tone: 'muted' as const };
-  })();
-
   const metrics = [
     {
-      key: 'lastTrip',
-      label: 'Perjalanan Sebelumnya',
-      value: latestScheduleEndDate ? formatTripDate(latestScheduleEndDate) : '-',
-      icon: Clock,
+      key: 'totalExpenses',
+      label: 'Total Pengeluaran',
+      value: expenseLoading ? 'Memuat...' : totalExpenses !== null ? formatRupiahFromNumber(totalExpenses) : '-',
+      icon: Receipt,
+      periodLabel: expensePeriodLabel,
     },
     {
       key: 'nextTrip',
       label: 'Perjalanan Selanjutnya',
       value: upcomingScheduleStartDate ? formatTripDate(upcomingScheduleStartDate) : '-',
       icon: CalendarDays,
+      periodLabel: latestScheduleEndDate ? formatTripDate(latestScheduleEndDate) : '-',
     },
   ] as const;
 
@@ -768,15 +764,6 @@ export const FleetUnitDetail: React.FC = () => {
     const percent = previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
     return { delta, percent, up: delta >= 0, current, previous };
   }, [revenueSummary]);
-
-  const handleReservasi = (date: Date) => {
-    const ymd = toYmd(date);
-    if (!ymd) return;
-    const q = new URLSearchParams();
-    q.set('unit_id', detail?.unit_id || unitIdParam);
-    q.set('date', ymd);
-    navigate(`${basePrefix}/orders/fleet/create?${q.toString()}`);
-  };
 
   const handleReservasiYmd = (dateYmd: string, unitIdOverride?: string) => {
     const q = new URLSearchParams();
@@ -1048,13 +1035,16 @@ export const FleetUnitDetail: React.FC = () => {
                         <div className="flex items-start justify-between gap-3">
                           <div className="space-y-1 min-w-0">
                             <div className="text-xs text-gray-500">{m.label}</div>
-                            <div className="text-lg font-semibold text-blue-600 dark:text-white truncate">{m.value}</div>
+                            <div className={`text-lg ${m.key == 'nextTrip' ? 'text-blue-600 font-semibold' : 'text-blue-800 font-bold'} dark:text-white truncate`}>{m.value}</div>
+                            {m.periodLabel ? (
+                              <div className="text-xs text-gray-500">{m.key == 'nextTrip' ? 'Sebelumnya: ' : 'Periode: '}: {m.periodLabel}</div>
+                            ) : null}
                           </div>
                           <div className="shrink-0 h-10 w-10 rounded-full bg-blue-50 dark:bg-black flex items-center justify-center">
                             <Icon className="h-5 w-5 text-blue-600 dark:text-[#D1D5DB]" />
                           </div>
                         </div>
-                        <div className="mt-3 text-xs text-gray-400">Berdasarkan jadwal armada</div>
+                        <div className="mt-3 text-xs text-gray-400">{m.key == 'nextTrip' ? 'Berdasarkan jadwal armada' : 'Berdasarkan catatan pengeluaran'}</div>
                       </div>
                     );
                   })}
@@ -1333,7 +1323,7 @@ export const FleetUnitDetail: React.FC = () => {
                                   <TableCell className="px-4 text-gray-700">{availabilityPageStart + idx + 1}</TableCell>
                                   <TableCell className="px-4 font-medium dark:text-[#D1D5DB] whitespace-nowrap">{dateLabel}</TableCell>
                                   <TableCell className="px-4 dark:text-white/80 whitespace-nowrap">{row.order_id || '-'}</TableCell>
-                                  <TableCell className="px-4 dark:text-white/80 whitespace-nowrap">{row.destinations || '-'}</TableCell>
+                                  <TableCell className="px-4 dark:text-white/80 whitespace-nowrap">{row.destination || '-'}</TableCell>
                                   <TableCell>
                                     {row.available ? (
                                       <Badge variant="outline" className="border-green-200 bg-green-500 text-white inline-flex items-center gap-1.5">
@@ -1482,10 +1472,10 @@ export const FleetUnitDetail: React.FC = () => {
                             orderCurrent.map((row, idx) => (
                               <TableRow key={`o-${row.order_id || idx}`} className="hover:bg-gray-50">
                                 <TableCell className="py-3 px-4 font-medium dark:text-white/80 whitespace-nowrap">{row.order_id || '-'}</TableCell>
-                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{formatTripRange(row.trip_start, row.trip_end || row.trip_start)}</TableCell>
-                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.pickup_point || '-'}</TableCell>
-                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.destination || '-'}</TableCell>
-                                <TableCell className="py-3 px-4 text-gray-700 dark:text-white/80 whitespace-nowrap">{row.driver_name || '-'}</TableCell>
+                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{formatTripRange(row.start_date, row.end_date || row.start_date)}</TableCell>
+                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.pickup_city_label || '-'}</TableCell>
+                                <TableCell className="py-3 px-4 text-gray-700 dark:text-[#D1D5DB] whitespace-nowrap">{row.destination_city_label || '-'}</TableCell>
+                                <TableCell className="py-3 px-4 text-gray-700 dark:text-white/80 whitespace-nowrap">-</TableCell>
                                 <TableCell className="py-3 px-4 text-right whitespace-nowrap pr-4">
                                   <Button
                                     size="sm"

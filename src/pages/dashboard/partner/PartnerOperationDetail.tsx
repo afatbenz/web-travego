@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardHeaderWithBadge, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -734,7 +734,7 @@ export const PartnerOperationDetail: React.FC = () => {
                     </Button>
                     <Button
                       type="button"
-                      className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-gray-200 hover:text-black transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40 border-blue-500"
+                      className="hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-gray-200 hover:text-black transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-blue-500/40"
                       onClick={openForm}
                     >
                       <Pencil className="h-4 w-4 mr-2" />

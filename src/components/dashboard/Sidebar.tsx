@@ -4,24 +4,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Home,
-  DollarSign,
-  FileText,
   LogOut,
   ShoppingBag,
-  Clock,
   Package,
   Car,
-  Settings,
   User,
   Users,
   Code,
   Shield,
-  Calendar,
-  UserCheck,
-  Gift,
   CalendarClock,
-  Ticket,
-  PlusCircle,
   Menu,
   X,
   Handshake,
@@ -30,6 +21,7 @@ import {
   SlidersHorizontal,
   Building2,
   CalendarCheck,
+  CalendarArrowUp,
   HandCoinsIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,10 +40,6 @@ export const Sidebar: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const [orgName, setOrgName] = useState('');
-  const desktopNavRef = React.useRef<HTMLElement | null>(null);
-  const desktopActiveItemRef = React.useRef<HTMLAnchorElement | null>(null);
-  const mobileNavRef = React.useRef<HTMLElement | null>(null);
-  const mobileActiveItemRef = React.useRef<HTMLAnchorElement | null>(null);
 
   const decodeJwtPayload = React.useCallback((jwt: string) => {
     try {
@@ -104,20 +92,6 @@ export const Sidebar: React.FC = () => {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  React.useEffect(() => {
-    const scrollIfNeeded = (container: HTMLElement | null, el: HTMLAnchorElement | null) => {
-      if (!container || !el) return;
-      const c = container.getBoundingClientRect();
-      const r = el.getBoundingClientRect();
-      const isVisible = r.top >= c.top && r.bottom <= c.bottom;
-      if (isVisible) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    };
-
-    scrollIfNeeded(desktopNavRef.current, desktopActiveItemRef.current);
-    if (mobileOpen) scrollIfNeeded(mobileNavRef.current, mobileActiveItemRef.current);
-  }, [location.pathname, mobileOpen]);
-
   type IconType = React.ComponentType<{ className?: string }>;
   type NavItem = { title: string; href: string; icon: IconType };
   type NavSection = { label: string; items: NavItem[] };
@@ -134,13 +108,12 @@ export const Sidebar: React.FC = () => {
         label: 'Orders',
         items: [
           { title: 'Armad Pariwisata', icon: Car, href: `${basePrefix}/orders/fleet` },
-          // { title: 'Pesanan Wisata', icon: Package, href: `${basePrefix}/orders/tour` },
         ]
       },
       {
         label: 'Layanan',
         items: [
-          { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
+          // { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
           { title: 'Daftar Armada', icon: Car, href: `${basePrefix}/services/fleet` },
           { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units` },
         ]
@@ -148,7 +121,6 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Preferensi',
         items: [
-          // { title: 'Preferensi Harga', icon: Package, href: `${basePrefix}/services/preferences/fleet-prices` },
           ...(!isAdmin ? [{ title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities` }] : [])
         ]
       },
@@ -157,8 +129,7 @@ export const Sidebar: React.FC = () => {
         items: [
           { title: 'Jadwal Tim', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
           { title: 'Kalender Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-management` },
-          { title: 'Jadwal Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-schedules` },
-          // { title: 'Manajemen Cuti', icon: Calendar, href: `${basePrefix}/schedules/leave-management` }
+          { title: 'Jadwal Armada', icon: CalendarArrowUp, href: `${basePrefix}/schedules/fleet-schedules` },
         ]
       },
       {
@@ -185,19 +156,11 @@ export const Sidebar: React.FC = () => {
           { title: 'Divisi', icon: Package, href: `${basePrefix}/organization/division` }
         ]
       },
-      // {
-      //   label: 'Kupon',
-      //   items: [
-      //     { title: 'Semua Kupon', icon: Ticket, href: `${basePrefix}/coupons/all` },
-      //     { title: 'Tambah Kupon', icon: PlusCircle, href: `${basePrefix}/coupons/add` }
-      //   ]
-      // },
       {
         label: 'Pengaturan',
         items: [
           { title: 'AI Assistant', icon: Code, href: `${basePrefix}/organization/account-assistant` },
           { title: 'Organisasi', icon: Building2, href: `${basePrefix}/organization/settings` },
-          // { title: 'Pengguna', icon: User, href: `${basePrefix}/organization/users` },
           { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
           { title: 'Manajemen Konten', icon: SlidersHorizontal, href: `${basePrefix}/content` }
         ]
@@ -206,19 +169,11 @@ export const Sidebar: React.FC = () => {
     [basePrefix, isAdmin]
   );
 
-  const SidebarContent = ({
-    collapsed: collapsedValue,
-    headerRight,
-    onNavigate,
-    navRef,
-    activeItemRef
-  }: {
+  const SidebarContent: React.FC<{
     collapsed: boolean;
     headerRight: React.ReactNode;
     onNavigate?: () => void;
-    navRef: React.RefObject<HTMLElement | null>;
-    activeItemRef: React.RefObject<HTMLAnchorElement | null>;
-  }) => {
+  }> = ({ collapsed: collapsedValue, headerRight, onNavigate }) => {
     return (
       <>
         <div
@@ -254,7 +209,6 @@ export const Sidebar: React.FC = () => {
 
         <TooltipProvider delayDuration={150}>
           <nav
-            ref={navRef}
             className={cn('flex-1 overflow-y-auto sidebar-scroll', collapsedValue ? 'px-2 pb-3' : 'px-3 pb-3')}
           >
             {navSections.map((section, sectionIdx) => (
@@ -277,13 +231,6 @@ export const Sidebar: React.FC = () => {
                         key={item.href}
                         to={item.href}
                         onClick={onNavigate}
-                        ref={
-                          active
-                            ? (el) => {
-                              activeItemRef.current = el;
-                            }
-                            : undefined
-                        }
                         className={cn(
                           'group flex items-center gap-3 rounded-full transition-all duration-200',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-0',
@@ -381,8 +328,6 @@ export const Sidebar: React.FC = () => {
       >
         <SidebarContent
           collapsed={collapsed}
-          navRef={desktopNavRef}
-          activeItemRef={desktopActiveItemRef}
           headerRight={
             <Button
               variant="ghost"
@@ -424,8 +369,6 @@ export const Sidebar: React.FC = () => {
           <div className="flex h-full flex-col">
             <SidebarContent
               collapsed={false}
-              navRef={mobileNavRef}
-              activeItemRef={mobileActiveItemRef}
               onNavigate={() => setMobileOpen(false)}
               headerRight={
                 <Button

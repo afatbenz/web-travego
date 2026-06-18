@@ -4,7 +4,7 @@ import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
 import avatarFallback from '@/assets/general/avatar.svg';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Pagination } from '@/components/common/Pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -538,7 +538,7 @@ export const TeamSchedules: React.FC = () => {
                         );
                       })}
                       <TableHead
-                        className="w-[80px] px-2 text-center bg-gray-50 dark:bg-gray-900/40 border-l border-gray-200 dark:border-gray-800 text-xs font-semibold tracking-wide uppercase cursor-pointer select-none hover:text-foreground"
+                        className="w-[80px] px-2 text-center bg-blue-900 dark:bg-blue-950 border-l border-gray-200 dark:border-gray-800 text-white text-xs font-semibold tracking-wide uppercase cursor-pointer select-none hover:text-white"
                         onClick={() => onSortClick('totalWorkday')}
                         role="button"
                       >
@@ -547,11 +547,11 @@ export const TeamSchedules: React.FC = () => {
                             <span className="truncate">On Duty</span>
                             <span className="shrink-0">{renderSortIcon('totalWorkday')}</span>
                           </div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400">{majorityMonthLabel}</div>
+                          <div className="text-[11px] text-blue-200 dark:text-blue-200">{majorityMonthLabel}</div>
                         </div>
                       </TableHead>
                       <TableHead
-                        className="w-[80px] px-2 text-center bg-gray-50 dark:bg-gray-900/40 border-l border-gray-200 dark:border-gray-800 text-xs font-semibold tracking-wide uppercase cursor-pointer select-none hover:text-foreground"
+                        className="w-[80px] px-2 text-center bg-blue-900 dark:bg-blue-950 border-l border-gray-200 dark:border-gray-800 text-white text-xs font-semibold tracking-wide uppercase cursor-pointer select-none hover:text-white"
                         onClick={() => onSortClick('totalOffday')}
                         role="button"
                       >
@@ -560,7 +560,7 @@ export const TeamSchedules: React.FC = () => {
                             <span className="truncate">Off Duty</span>
                             <span className="shrink-0">{renderSortIcon('totalOffday')}</span>
                           </div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400">{majorityMonthLabel}</div>
+                          <div className="text-[11px] text-blue-200 dark:text-blue-200">{majorityMonthLabel}</div>
                         </div>
                       </TableHead>
                     </TableRow>
