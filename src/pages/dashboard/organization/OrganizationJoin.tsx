@@ -12,20 +12,28 @@ export const OrganizationJoinDashboard: React.FC = () => {
   const [joining, setJoining] = useState(false);
 
   const handleJoin = async () => {
+    console.log("handleJoin ", code)
     if (!code.trim()) {
       showAlert({ title: 'Kode diperlukan', description: 'Masukkan kode organisasi untuk bergabung', type: 'warning' });
       return;
     }
     setJoining(true);
     const token = localStorage.getItem('token') ?? '';
-    const res = await request('/organization/join', {
-      method: 'GET',
-      body: JSON.stringify({ organization_code: code.trim() }),
-      headers: { Authorization: token },
-    });
-    setJoining(false);
-    if (res.status === 'success') {
-      navigate('/auth/organization/pending');
+    console.log({token})
+    try {
+
+      const res = await request('/organization/join', {
+        method: 'POST',
+        body: JSON.stringify({ organization_code: code.trim() }),
+        headers: { Authorization: token },
+      });
+      console.log(res)
+      setJoining(false);
+      if (res.status === 'success') {
+        navigate('/auth/organization/pending');
+      }
+    } catch (err) {
+      console.log(err)
     }
   };
 

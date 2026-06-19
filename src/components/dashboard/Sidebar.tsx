@@ -100,10 +100,11 @@ export const Sidebar: React.FC = () => {
         ]
       },
       {
-        label: 'Layanan',
+        label: 'Data Master',
         items: [
           // { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
           { title: 'Daftar Armada', icon: Car, href: `${basePrefix}/services/fleet` },
+          { title: 'Daftar Garasi', icon: Building2, href: `${basePrefix}/organization/garages` },
           { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units` },
         ]
       },
@@ -129,6 +130,14 @@ export const Sidebar: React.FC = () => {
         ]
       },
       {
+        label: 'Inventories',
+        items: [
+          { title: 'Asset Tersedia', icon: Package, href: `${basePrefix}/inventories/items` },
+          { title: 'Permintaan Asset', icon: ShoppingBag, href: `${basePrefix}/inventories/request` },
+          { title: 'Pemesanan Asset', icon: Package, href: `${basePrefix}/inventories/orders` }
+        ]
+      },
+      {
         label: 'CRM',
         items: [
           { title: 'Daftar Pelanggan', icon: Users, href: `${basePrefix}/customers` },
@@ -150,6 +159,7 @@ export const Sidebar: React.FC = () => {
         items: [
           { title: 'AI Assistant', icon: Code, href: `${basePrefix}/organization/account-assistant` },
           { title: 'Organisasi', icon: Building2, href: `${basePrefix}/organization/settings` },
+          { title: 'User', icon: Users, href: `${basePrefix}/organization/users`},
           { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
           { title: 'Manajemen Konten', icon: SlidersHorizontal, href: `${basePrefix}/content` }
         ]
@@ -338,7 +348,7 @@ onClick={() => {
       <div
         className={cn(
           'hidden md:flex md:flex-col h-screen fixed left-0 top-0 z-10 transition-[width] duration-300 ease-out',
-          'bg-gradient-to-b from-slate-950 via-gray-950 to-slate-950',
+          'bg-gradient-to-b from-[#020617] via-[#133537] to-[#020617]',
           'text-slate-100'
         )}
         style={{ width: collapsed ? '4rem' : '16rem' }}

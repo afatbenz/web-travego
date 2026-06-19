@@ -353,7 +353,7 @@ export const Register: React.FC = () => {
                   e.preventDefault();
                   navigateWithTransition('/auth/login', 'right');
                 }}
-                className="font-medium text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
+                className="font-bold text-blue-600 dark:text-blue-400 hover:no-underline text-bold"
               >
                 Masuk di sini
               </Link>

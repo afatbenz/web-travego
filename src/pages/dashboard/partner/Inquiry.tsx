@@ -528,8 +528,8 @@ export const PartnerInquiry: React.FC = () => {
             </div>
           ) : null}
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setDialogOpen(false)}>
               Tutup
             </Button>
           </DialogFooter>

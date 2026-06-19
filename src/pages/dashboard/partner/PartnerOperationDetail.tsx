@@ -970,7 +970,7 @@ export const PartnerOperationDetail: React.FC = () => {
 
             <DialogStickyFooter className="flex flex-col-reverse gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
               <Button
-                className="rounded-xl shadow-none border-gray-200 border-2 transition-all text-gray-800"
+                className="w-full sm:w-auto rounded-xl shadow-none border-gray-200 border-2 transition-all text-gray-800"
                 type="button"
                 variant="outline"
                 onClick={closeForm}
@@ -980,16 +980,14 @@ export const PartnerOperationDetail: React.FC = () => {
               </Button>
               <Button
                 type="submit"
-                className="rounded-xl shadow-none bg-blue-500 hover:bg-blue-600 transition-all text-white"
+                className="w-full sm:w-auto rounded-xl shadow-none bg-blue-500 hover:bg-blue-600 transition-all text-white"
                 disabled={isSubmitting || citiesLoading}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Menyimpan...
                   </>
-                ) : formMode === 'edit' ? (
-                  'Simpan Perubahan'
                 ) : (
                   'Simpan Informasi'
                 )}
