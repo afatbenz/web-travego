@@ -91,6 +91,7 @@ import { OrganizationJoinDashboard } from '@/pages/dashboard/organization/Organi
 import { OrganizationSettings } from '@/pages/dashboard/organization/OrganizationSettings';
 import { OrganizationDetail } from '@/pages/dashboard/organization/OrganizationDetail';
 import { OrganizationUsers } from '@/pages/dashboard/organization/OrganizationUsers';
+import { Garages } from '@/pages/dashboard/organization/Garages';
 import { OrganizationOpenApi } from '@/pages/dashboard/organization/OrganizationOpenApi';
 import { OrganizationCompany } from '@/pages/dashboard/organization/OrganizationCompany';
 import { OrganizationRoles } from '@/pages/dashboard/organization/OrganizationRoles';
@@ -177,6 +178,14 @@ import { AllCoupons } from '@/pages/dashboard/coupons/AllCoupons';
 import { AddCoupon } from '@/pages/dashboard/coupons/AddCoupon';
 import { OrganizationAccountAssistant } from './pages/dashboard/organization/OrganizationAccountAssistant';
 import { NotificationsPage } from './pages/dashboard/NotificationsPage';
+
+// Inventory Pages
+import { InventoryItems } from '@/pages/dashboard/inventories/InventoryItems';
+import { InventoryItemDetail } from '@/pages/dashboard/inventories/InventoryItemDetail';
+import { InventoryRequest } from '@/pages/dashboard/inventories/InventoryRequest';
+import { InventoryOrders } from '@/pages/dashboard/inventories/InventoryOrders';
+import { InventoryRequestCreate } from '@/pages/dashboard/inventories/InventoryRequestCreate';
+import { InventoryOrdersCreate } from '@/pages/dashboard/inventories/InventoryOrdersCreate';
 
 // Layout wrapper for public pages
 const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -447,6 +456,11 @@ function App() {
               <TeamMemberDetail />
             </DashboardLayout>
           } />
+          <Route path="/dashboard/partner/organization/garages" element={
+            <DashboardLayout>
+              <Garages />
+            </DashboardLayout>
+          } />
           <Route path="/dashboard/organization/team-members" element={
             <DashboardLayout>
               <TeamMember />
@@ -465,6 +479,11 @@ function App() {
           <Route path="/dashboard/organization/team-members/detail/:uuid" element={
             <DashboardLayout>
               <TeamMemberDetail />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/organization/garages" element={
+            <DashboardLayout>
+              <Garages />
             </DashboardLayout>
           } />
           <Route path="/dashboard/partner/organization/customers" element={
@@ -1126,13 +1145,27 @@ function App() {
               <NotificationsPage />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/notifications" element={
-            <DashboardLayout>
-              <NotificationsPage />
-            </DashboardLayout>
-          } />
+<Route path="/dashboard/notifications" element={
+             <DashboardLayout>
+               <NotificationsPage />
+             </DashboardLayout>
+           } />
 
-          <Route path="/dashboard/partner/*" element={
+{/* Inventory Routes */}
+            <Route path="/dashboard/partner/inventories/items" element={<DashboardLayout><InventoryItems /></DashboardLayout>} />
+            <Route path="/dashboard/inventories/items" element={<DashboardLayout><InventoryItems /></DashboardLayout>} />
+            <Route path="/dashboard/partner/inventories/items/detail/:item_id" element={<DashboardLayout><InventoryItemDetail /></DashboardLayout>} />
+            <Route path="/dashboard/inventories/items/detail/:item_id" element={<DashboardLayout><InventoryItemDetail /></DashboardLayout>} />
+            <Route path="/dashboard/partner/inventories/request" element={<DashboardLayout><InventoryRequest /></DashboardLayout>} />
+            <Route path="/dashboard/inventories/request" element={<DashboardLayout><InventoryRequest /></DashboardLayout>} />
+            <Route path="/dashboard/partner/inventories/request/create" element={<DashboardLayout><InventoryRequestCreate /></DashboardLayout>} />
+            <Route path="/dashboard/inventories/request/create" element={<DashboardLayout><InventoryRequestCreate /></DashboardLayout>} />
+            <Route path="/dashboard/partner/inventories/orders" element={<DashboardLayout><InventoryOrders /></DashboardLayout>} />
+            <Route path="/dashboard/inventories/orders" element={<DashboardLayout><InventoryOrders /></DashboardLayout>} />
+            <Route path="/dashboard/partner/inventories/orders/create" element={<DashboardLayout><InventoryOrdersCreate /></DashboardLayout>} />
+            <Route path="/dashboard/inventories/orders/create" element={<DashboardLayout><InventoryOrdersCreate /></DashboardLayout>} />
+
+           <Route path="/dashboard/partner/*" element={
             <DashboardLayout>
               <PartnerNotFound />
             </DashboardLayout>

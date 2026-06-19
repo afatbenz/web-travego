@@ -1078,17 +1078,18 @@ export const OrganizationAccountAssistant: React.FC = () => {
 
             <DialogStickyFooter className="border-t border-border px-6 py-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Sisa kuota: <span className="font-medium text-foreground">{remainingLimit}</span> akun
+                <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2 md:max-w-[calc(100%-180px)]">
+                  <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-xs text-slate-700">Sisa kuota: <span className="font-medium text-foreground">{remainingLimit}</span> akun</span>
                 </div>
-                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                  <Button type="button" variant="outline" className="h-11 rounded-xl" onClick={closeDialog} disabled={isSubmitting}>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" className="w-full sm:w-auto h-11 rounded-xl" onClick={closeDialog} disabled={isSubmitting}>
                     <X className="mr-2 h-4 w-4" />
                     Batal
                   </Button>
                   <Button
                     type="submit"
-                    className="h-11 rounded-xl bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+                    className="w-full sm:w-auto h-11 rounded-xl bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
                     disabled={isSubmitting || employeePhoneLoading || !canSubmitAddAccess}
                   >
                     Simpan
@@ -1159,28 +1160,16 @@ export const OrganizationAccountAssistant: React.FC = () => {
 
             <DialogStickyFooter className="border-t border-border px-6 py-5">
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700"
-                  onClick={() =>
-                    handleDelete(
-                      users.find((u) => u.assistant_id === editFormValues.assistantId) ||
-                        ({ fullname: 'Akun ini', assistant_id: editFormValues.assistantId } as AssistantUser),
-                    )
-                  }
-                  disabled={isSubmitting}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </Button>
-
+                <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2 md:max-w-[calc(100%-180px)]">
+                  <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-xs text-slate-700">Perbarui informasi akses untuk nomor WhatsApp ini.</span>
+                </div>
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                  <Button type="button" variant="outline" className="h-11 rounded-xl" onClick={closeDialog} disabled={isSubmitting}>
+                  <Button type="button" variant="outline" className="w-full sm:w-auto h-11 rounded-xl" onClick={closeDialog} disabled={isSubmitting}>
                     <X className="mr-2 h-4 w-4" />
                     Batal
                   </Button>
-                  <Button type="submit" className="h-11 rounded-xl bg-green-600 text-white shadow-sm hover:bg-green-700" disabled={isSubmitting}>
+                  <Button type="submit" className="w-full sm:w-auto h-11 rounded-xl bg-green-600 text-white shadow-sm hover:bg-green-700" disabled={isSubmitting}>
                     Simpan Perubahan
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>

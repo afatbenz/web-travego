@@ -1349,33 +1349,33 @@ export const FleetScheduleDetail: React.FC = () => {
             </form>
           </div>
 
-          <div className="p-6 sm:p-8 border-t border-slate-200 flex-shrink-0">
-            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full md:w-auto">
-              <button
-                type="button"
-                onClick={() => setAddExpenseOpen(false)}
-                disabled={addExpenseSubmitting}
-                className="w-full sm:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70 text-sm md:text-md border border-gray-400"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                form="expense-form"
-                disabled={addExpenseSubmitting || !expenseDraft.transaction_item || Number(expenseDraft.amount || 0) <= 0}
-                className="w-full sm:w-auto h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70 text-sm md:text-md"
-              >
-                {addExpenseSubmitting ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Save className="w-5 h-5" />
-                    Simpan Pengeluaran
-                  </>
-                )}
-              </button>
+<div className="p-6 sm:p-8 border-t border-slate-200 flex-shrink-0">
+              <div className="flex flex-col-reverse gap-3 md:flex-row md:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setAddExpenseOpen(false)}
+                  disabled={addExpenseSubmitting}
+                  className="w-full md:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 dark:bg-[#295BFF]/10 dark:hover:bg-[#295BFF]/20 transition-colors disabled:opacity-50 dark:text-white/70 text-sm md:text-md border border-gray-400"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  form="expense-form"
+                  disabled={addExpenseSubmitting || !expenseDraft.transaction_item || Number(expenseDraft.amount || 0) <= 0}
+                  className="w-full md:w-auto h-10 px-8 rounded-lg bg-blue-500 dark:bg-blue-800/100 dark:hover:bg-blue-900/100 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 dark:text-white/70 text-sm md:text-md"
+                >
+                  {addExpenseSubmitting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      Simpan Pengeluaran
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
         </DialogContent>
       </Dialog>
 

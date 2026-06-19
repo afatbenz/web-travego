@@ -757,7 +757,7 @@ export const LeaveManagement: React.FC = () => {
       >
         <DialogContent className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-[720px] p-0 border-none bg-white dark:bg-[#080b11] overflow-hidden">
           <div className="p-8 space-y-6 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between gap-4">
+<div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0">
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
                   <Plus className="w-6 h-6" />
@@ -776,98 +776,75 @@ export const LeaveManagement: React.FC = () => {
 
             <form onSubmit={onSaveCreate} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-semibold ml-1">Pilih Karyawan</Label>
-                <Select
-                  value={createForm.employeeId}
-                  onValueChange={(v) =>
-                    setCreateForm((p) => ({
-                      ...p,
-                      employeeId: v,
-                      replacementEmployeeId: p.replacementEmployeeId === v ? '' : p.replacementEmployeeId,
-                    }))
-                  }
-                  disabled={employeesLoading}
-                >
-                  <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
-                    <SelectValue placeholder={employeesLoading ? 'Memuat...' : 'Pilih karyawan'} />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                    {employees.map((o) => (
-                      <SelectItem key={o.value} value={o.value} className="rounded-lg">
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-semibold ml-1">Karyawan Pengganti</Label>
-                <Select
-                  value={createForm.replacementEmployeeId}
-                  onValueChange={(v) => setCreateForm((p) => ({ ...p, replacementEmployeeId: v }))}
-                  disabled={employeesLoading || !createForm.employeeId}
-                >
-                  <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
-                    <SelectValue placeholder={employeesLoading ? 'Memuat...' : 'Pilih karyawan pengganti'} />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                    {replacementOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value} className="rounded-lg">
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold ml-1">Pilih Karyawan</Label>
+                  <Select
+                    value={createForm.employeeId}
+                    onValueChange={(v) =>
+                      setCreateForm((p) => ({
+                        ...p,
+                        employeeId: v,
+                        replacementEmployeeId: p.replacementEmployeeId === v ? '' : p.replacementEmployeeId,
+                      }))
+                    }
+                    disabled={employeesLoading}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
+                      <SelectValue placeholder={employeesLoading ? 'Memuat...' : 'Pilih karyawan'} />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                      {employees.map((o) => (
+                        <SelectItem key={o.value} value={o.value} className="rounded-lg">
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-semibold ml-1">Tanggal Mulai</Label>
-                <Input
-                  type="date"
-                  className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
-                  value={createForm.startDate}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, startDate: e.target.value }))}
-                />
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold ml-1">Karyawan Pengganti</Label>
+                  <Select
+                    value={createForm.replacementEmployeeId}
+                    onValueChange={(v) => setCreateForm((p) => ({ ...p, replacementEmployeeId: v }))}
+                    disabled={employeesLoading || !createForm.employeeId}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
+                      <SelectValue placeholder={employeesLoading ? 'Memuat...' : 'Pilih karyawan pengganti'} />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                      {replacementOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value} className="rounded-lg">
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-semibold ml-1">Tanggal Selesai</Label>
-                <Input
-                  type="date"
-                  className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
-                  value={createForm.endDate}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, endDate: e.target.value }))}
-                />
-              </div>
-            </div>
 
-            <div className="space-y-3">
-              {renderScheduleAlert('employee')}
-              {renderScheduleAlert('replacement')}
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold ml-1">Tanggal Mulai</Label>
+                  <Input
+                    type="date"
+                    value={createForm.startDate}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, startDate: e.target.value }))}
+                    className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all"
+                  />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-semibold ml-1">Jenis Cuti</Label>
-                <Select
-                  value={createForm.leaveType}
-                  onValueChange={(v) => setCreateForm((p) => ({ ...p, leaveType: v }))}
-                  disabled={leaveTypesLoading}
-                >
-                  <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
-                    <SelectValue placeholder={leaveTypesLoading ? 'Memuat...' : 'Pilih jenis cuti'} />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                    {leaveTypes.map((o) => (
-                      <SelectItem key={o.value} value={o.value} className="rounded-lg">
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold ml-1">Tanggal Selesai</Label>
+                  <Input
+                    type="date"
+                    value={createForm.endDate}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, endDate: e.target.value }))}
+                    className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all"
+                  />
+                </div>
               </div>
+
               <div className="space-y-2">
                 <Label className="text-slate-700 font-semibold ml-1">Lampiran</Label>
                 <Input
@@ -884,39 +861,36 @@ export const LeaveManagement: React.FC = () => {
                   <div className="text-xs text-emerald-700">Lampiran terunggah</div>
                 ) : null}
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label className="text-slate-700 font-semibold ml-1">Alasan Cuti</Label>
-              <Textarea
-                value={createForm.reason}
-                onChange={(e) => setCreateForm((p) => ({ ...p, reason: e.target.value }))}
-                placeholder="Tulis alasan cuti..."
-                className="min-h-[96px] rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-semibold ml-1">Alasan Cuti</Label>
+                <Textarea
+                  value={createForm.reason}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, reason: e.target.value }))}
+                  placeholder="Tulis alasan cuti..."
+                  className="min-h-[96px] rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
+                />
+              </div>
 
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
-                  <div className="text-blue-600">
-                    <Info className="w-4 h-4" />
-                  </div>
-                  <p className="text-xs text-blue-700 font-medium">Pastikan tanggal dan karyawan pengganti sudah sesuai sebelum menyimpan.</p>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 border-t border-slate-100">
+                <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2 md:max-w-[calc(100%-180px)]">
+                  <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-xs text-slate-700">Pastikan semua informasi sudah benar sebelum menyimpan data pengeluaran.</span>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end mt-3 md:mt-0">
                   <button
                     type="button"
                     onClick={() => setCreateOpen(false)}
                     disabled={creating || attachmentUploading}
-                    className="flex-1 md:flex-none h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    className="w-full md:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 border-2 border-slate-200"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
                     disabled={!canSave}
-                    className="flex-1 md:flex-none h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_25px_rgba(37,99,235,0.3)] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                    className="w-full md:w-auto h-12 px-8 rounded-xl bg-blue-500 text-white font-bold flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
                   >
                     {creating ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

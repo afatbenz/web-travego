@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Check, ChevronRight, ChevronsUpDown, CreditCard, Download, FileSpreadsheet, LogOut, MoreHorizontal, Pencil, Plus, Receipt, Save, Trash2, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, ChevronRight, ChevronsUpDown, CreditCard, Download, FileSpreadsheet, Info, LogOut, MoreHorizontal, Pencil, Plus, Receipt, Save, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
@@ -184,7 +184,7 @@ export const GeneralExpenses: React.FC = () => {
   };
 
   const createDefaultManualForm = (): ManualFormValues => ({
-    transaction_date: toYmdLocal(new Date()),
+    transaction_date: '',
     transaction_type: '',
     order_type: '',
     order_id: '',
@@ -663,11 +663,11 @@ export const GeneralExpenses: React.FC = () => {
     setManualOpen(true);
   };
 
-  const openEditModal = (row: TransactionRow) => {
+const openEditModal = (row: TransactionRow) => {
     setManualMode('edit');
     setActiveTransactionId(row.id);
     setManualForm({
-      transaction_date: row.transactionDate || toYmdLocal(new Date()),
+      transaction_date: row.transactionDate || '',
       transaction_type: row.transactionTypeId,
       order_type: row.transactionCategoryId || String(row.orderType || ''),
       order_id: row.unitId || row.orderId,
@@ -682,7 +682,6 @@ export const GeneralExpenses: React.FC = () => {
     setTransactionDateOpen(false);
     setTransactionTypeOpen(false);
     setOrderOpen(false);
-    setManualOpen(true);
   };
 
   const columns: Array<DataTableColumn<TransactionRow>> = [
@@ -1111,18 +1110,20 @@ export const GeneralExpenses: React.FC = () => {
               </div>
 
               <div className="mt-6 h-px bg-slate-100" />
+
+              <h3 className="text-sm font-bold text-slate-900 mt-4 mb-2">Informasi Transaksi</h3>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 col-span-1 md:col-span-2">
                   <div className="space-y-2">
-                    <Label className="text-slate-700 font-semibold ml-1">Tanggal Transaksi</Label>
+                    <Label className="text-slate-700 font-semibold ml-1">Tanggal Transaksi *</Label>
                     <Popover open={transactionDateOpen} onOpenChange={setTransactionDateOpen}>
                       <PopoverTrigger asChild>
                         <Button type="button" variant="outline" className="w-full h-12 justify-start text-left font-normal rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all">
                           <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
-                          <span className="text-slate-700">
+                          <span className={cn('text-slate-700', !manualForm.transaction_date && 'text-slate-400')}>
                             {manualForm.transaction_date
                               ? (tryParseDate(manualForm.transaction_date)?.toLocaleDateString('id-ID', {
                                   day: '2-digit',
@@ -1151,16 +1152,15 @@ export const GeneralExpenses: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-slate-700 font-semibold ml-1">Jenis Transaksi</Label>
+                    <Label className="text-slate-700 font-semibold ml-1">Jenis Transaksi *</Label>
                     <Select
                       value={manualForm.order_type}
                       onValueChange={(v) => setManualForm((prev) => ({ ...prev, order_type: v, order_id: '' }))}
                     >
                       <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
-                        <SelectValue placeholder="Pilih jenis order" />
+                        <SelectValue placeholder="Pilih jenis transaksi" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                        {/* <SelectItem value="0" className="rounded-lg">Tanpa Order</SelectItem> */}
                         {orderTypes.map((o) => (
                           <SelectItem key={o.id} value={String(o.id)} className="rounded-lg">
                             {o.label}
@@ -1225,102 +1225,105 @@ export const GeneralExpenses: React.FC = () => {
                   </div>
                 ) : null}
 
-                <div className="space-y-2">
-                  <Label className="text-slate-700 font-semibold ml-1">Jenis Pengeluaran</Label>
-                  <Popover open={transactionTypeOpen} onOpenChange={setTransactionTypeOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={transactionTypeOpen}
-                        className="w-full h-12 justify-between rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all font-normal text-slate-700"
-                      >
-                        <span className={cn('truncate text-left', manualForm.transaction_type ? 'text-slate-900' : 'text-slate-400')}>
-                          {manualForm.transaction_type
-                            ? (transactionTypes.find((x) => String(x.id) === String(manualForm.transaction_type))?.label ?? 'Pilih jenis pengeluaran')
-                            : 'Pilih jenis pengeluaran'}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl border-slate-200 shadow-xl" align="start">
-                      <Command>
-                        <CommandInput placeholder="Cari jenis transaksi..." />
-                        <CommandList>
-                          <CommandEmpty>Tidak ada data.</CommandEmpty>
-                          <CommandGroup>
-                            {transactionTypes.map((o) => {
-                              const selected = String(o.id) === String(manualForm.transaction_type);
-                              return (
-                                <CommandItem
-                                  key={o.id}
-                                  value={o.label}
-                                  onSelect={() => {
-                                    const nextId = String(o.id);
-                                    setManualForm((prev) => ({
-                                      ...prev,
-                                      transaction_type: nextId,
-                                    }));
-                                    setTransactionTypeOpen(false);
-                                  }}
-                                  className="rounded-lg"
-                                >
-                                  <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
-                                  <span className="truncate">{o.label}</span>
-                                </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
+<div className="space-y-2">
+                    <Label className="text-slate-700 font-semibold ml-1">Jenis Pengeluaran *</Label>
+                    <Popover open={transactionTypeOpen} onOpenChange={setTransactionTypeOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={transactionTypeOpen}
+                          className="w-full h-12 justify-between rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all font-normal text-slate-700"
+                        >
+                          <span className={cn('truncate text-left', manualForm.transaction_type ? 'text-slate-900' : 'text-slate-400')}>
+                            {manualForm.transaction_type
+                              ? (transactionTypes.find((x) => String(x.id) === String(manualForm.transaction_type))?.label ?? 'Pilih jenis pengeluaran')
+                              : 'Pilih jenis pengeluaran'}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl border-slate-200 shadow-xl" align="start">
+                        <Command>
+                          <CommandInput placeholder="Cari jenis transaksi..." />
+                          <CommandList>
+                            <CommandEmpty>Tidak ada data.</CommandEmpty>
+                            <CommandGroup>
+                              {transactionTypes.map((o) => {
+                                const selected = String(o.id) === String(manualForm.transaction_type);
+                                return (
+                                  <CommandItem
+                                    key={o.id}
+                                    value={o.label}
+                                    onSelect={() => {
+                                      const nextId = String(o.id);
+                                      setManualForm((prev) => ({
+                                        ...prev,
+                                        transaction_type: nextId,
+                                      }));
+                                      setTransactionTypeOpen(false);
+                                    }}
+                                    className="rounded-lg"
+                                  >
+                                    <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                                    <span className="truncate">{o.label}</span>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label className="text-slate-700 font-semibold ml-1">Status Pembayaran</Label>
-                  <Select value={manualForm.status} onValueChange={(v) => setManualForm((prev) => ({ ...prev, status: v }))}>
-                    <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
-                      <SelectValue placeholder="Pilih status" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                      {paymentStatuses.map((o) => (
-                        <SelectItem key={o.id} value={String(o.id)} className="rounded-lg">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 font-semibold ml-1">Status Pembayaran *</Label>
+                    <Select value={manualForm.status} onValueChange={(v) => setManualForm((prev) => ({ ...prev, status: v }))}>
+                      <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
+                        <SelectValue placeholder="Pilih status pembayaran" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                        {paymentStatuses.map((o) => (
+                          <SelectItem key={o.id} value={String(o.id)} className="rounded-lg">
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label className="text-slate-700 font-semibold ml-1">Metode Pembayaran</Label>
-                  <Select value={manualForm.payment_method} onValueChange={(v) => setManualForm((prev) => ({ ...prev, payment_method: v }))}>
-                    <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
-                      <SelectValue placeholder="Pilih metode" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                      {paymentMethods.map((o) => (
-                        <SelectItem key={o.id} value={String(o.id)} className="rounded-lg">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 font-semibold ml-1">Metode Pembayaran *</Label>
+                    <Select value={manualForm.payment_method} onValueChange={(v) => setManualForm((prev) => ({ ...prev, payment_method: v }))}>
+                      <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700">
+                        <SelectValue placeholder="Pilih metode pembayaran" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                        {paymentMethods.map((o) => (
+                          <SelectItem key={o.id} value={String(o.id)} className="rounded-lg">
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-slate-700 font-semibold ml-1">Nominal Pembayaran</Label>
-                  <Input
-                    id="amount"
-                    inputMode="numeric"
-                    value={formatRupiahInput(manualForm.amount)}
-                    onChange={(e) => setManualForm((prev) => ({ ...prev, amount: e.target.value.replace(/\D/g, '') }))}
-                    placeholder="Rp 0"
-                    className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all tabular-nums text-slate-700"
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amount" className="text-slate-700 font-semibold ml-1">Nominal Pembayaran *</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-600 bg-slate-100 border-r border-slate-200 px-2 py-1 rounded-l-lg">Rp</span>
+                      <Input
+                        id="amount"
+                        inputMode="numeric"
+                        value={formatRupiahInput(manualForm.amount)}
+                        onChange={(e) => setManualForm((prev) => ({ ...prev, amount: e.target.value.replace(/\D/g, '') }))}
+                        placeholder="0"
+                        className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all tabular-nums text-slate-700 pl-12"
+                      />
+                    </div>
+                  </div>
 
                 {showBankFields ? (
                   <>
@@ -1368,32 +1371,39 @@ export const GeneralExpenses: React.FC = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-slate-700 font-semibold ml-1">Keterangan</Label>
-                <Textarea
-                  id="description"
-                  value={manualForm.description}
-                  onChange={(e) => setManualForm((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Masukkan keterangan"
-                  rows={3}
-                  className="rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700"
-                />
+                <div className="relative">
+                  <Textarea
+                    id="description"
+                    value={manualForm.description}
+                    onChange={(e) => setManualForm((prev) => ({ ...prev, description: e.target.value.slice(0, 250) }))}
+                    placeholder="Masukkan keterangan (opsional)"
+                    rows={3}
+                    className="rounded-xl border-slate-200 bg-slate-50 focus:ring-4 focus:ring-blue-100 transition-all text-slate-700 pr-12"
+                  />
+                  <span className="absolute bottom-2 right-3 text-[11px] text-slate-400">{manualForm.description.length}/250</span>
+                </div>
               </div>
             </div>
 
             <div className="px-6 sm:px-8 pb-6 pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2 md:max-w-[calc(100%-180px)]">
+                <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <span className="text-xs text-slate-700">Pastikan semua informasi sudah benar sebelum menyimpan data pengeluaran.</span>
+              </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+              <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end mt-3 md:mt-0">
                 <button
                   type="button"
                   onClick={() => setManualOpen(false)}
                   disabled={manualSubmitting}
-                  className="w-full sm:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 border-2 border-slate-200"
+                  className="w-full md:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 border-2 border-slate-200"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={manualSubmitting}
-                  className="w-full sm:w-auto h-12 px-8 rounded-lg bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                  className="w-full md:w-auto h-12 px-8 rounded-xl bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
                 >
                   {manualSubmitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

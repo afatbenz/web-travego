@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { formatPhoneNumberId } from '@/lib/utils';
-import { Building2, Lock, Check, Phone, User, Globe, Mail, FileText } from 'lucide-react';
+import { Building2, Copy, Lock, Phone, User, Globe, Mail, FileText } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 type OrganizationData = {
   address: string;
@@ -39,6 +40,24 @@ export const OrganizationCompany: React.FC = () => {
       }
     })();
   }, []);
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: 'Kode organisasi berhasil disalin' });
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      toast({ title: 'Kode organisasi berhasil disalin' });
+    }
+  };
 
   const displayValue = (value: string | null | undefined): string => {
     if (!value || value === '') return '-';
@@ -123,12 +142,21 @@ export const OrganizationCompany: React.FC = () => {
               )}
               <div className="flex items-center gap-2 mt-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{data.organization_name}</h3>
-                <Check className="h-5 w-5 text-blue-600" />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Kode Organisasi</p>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 mt-2">
-                {data.organization_code}
-              </span>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                  {data.organization_code}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void copyText(data.organization_code)}
+                  className="inline-flex items-center justify-center rounded-md bg-blue-100 p-1.5 text-blue-600 transition-colors hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60"
+                  aria-label="Salin kode organisasi"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">

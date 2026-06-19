@@ -9,8 +9,7 @@ export const OrganizationPending: React.FC = () => {
   return (
     <AuthLayout
       title="Menunggu Persetujuan"
-      subtitle={`Permintaan bergabung organisasi sedang menunggu approval admin.
-Anda akan menerima email jika sudah disetujui, lalu silakan login kembali.`}
+      subtitle={`Anda akan menerima email jika sudah disetujui, lalu silakan login kembali.`}
     >
       <div className="space-y-6 text-center">
         <div className="flex items-center justify-center space-x-2 text-yellow-600">
@@ -22,7 +21,7 @@ Anda akan menerima email jika sudah disetujui, lalu silakan login kembali.`}
           <span className="text-sm">Notifikasi akan dikirimkan melalui email</span>
         </div>
         <Button variant="outline" onClick={() => navigate('/auth/login')} className="h-12 w-full max-w-xs mx-auto">
-          Kembali ke Login
+          Kembali ke halaman sebelumnya
         </Button>
       </div>
     </AuthLayout>
