@@ -1,20 +1,32 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Box, ArrowLeftRight, Plus, Minus, Pencil, Clock } from 'lucide-react';
+import { ArrowLeft, Box, ArrowLeftRight, Plus, Pencil, Clock, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import Swal from 'sweetalert2';
 
 type LocationRow = {
+   garage_name: string;
+   garage_address: string;
+   garage_city: string;
+   garage_city_label: string;
+   stock: number;
+   updated_at: string;
+};
+
+type GarageOption = {
+  id: string;
   garage_name: string;
-  garage_address: string;
-  garage_city: string;
-  garage_city_label: string;
-  stock: number;
-  updated_at: string;
 };
 
 type ItemDetail = {
@@ -115,8 +127,26 @@ export const InventoryItemDetail: React.FC = () => {
   const [movements, setMovements] = useState<MovementRow[]>([]);
   const [movementTotal, setMovementTotal] = useState(0);
   const [movementPage, setMovementPage] = useState(1);
-  const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date())));
-  const [endDate, setEndDate] = useState(formatDateOnly(new Date()));
+const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date())));
+   const [endDate, setEndDate] = useState(formatDateOnly(new Date()));
+   const [editModalOpen, setEditModalOpen] = useState(false);
+   const [editSaving, setEditSaving] = useState(false);
+   const [editFormData, setEditFormData] = useState({
+     item_name: '',
+     item_category: '1',
+   });
+   const [transferModalOpen, setTransferModalOpen] = useState(false);
+   const [transferSaving, setTransferSaving] = useState(false);
+   const [garageOptions, setGarageOptions] = useState<GarageOption[]>([]);
+   const [garageFromPickerOpen, setGarageFromPickerOpen] = useState(false);
+   const [garageFromQuery, setGarageFromQuery] = useState('');
+   const [garageDestPickerOpen, setGarageDestPickerOpen] = useState(false);
+   const [garageDestQuery, setGarageDestQuery] = useState('');
+   const [transferFormData, setTransferFormData] = useState({
+     garage_from: '',
+     garage_destination: '',
+     stock: '',
+   });
 
   const totalStock = detail?.locations.reduce((sum, loc) => sum + loc.stock, 0) ?? 0;
 
@@ -213,10 +243,35 @@ export const InventoryItemDetail: React.FC = () => {
     }
   }, [detail, fetchMovements]);
 
-  const movementStartIndex = (movementPage - 1) * 10;
+const movementStartIndex = (movementPage - 1) * 10;
 
   const handleApplyFilter = () => {
     fetchMovements(1);
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editSaving || !detail) return;
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      setEditSaving(true);
+      const res = await api.post<unknown>(
+        '/inventories/items/update',
+        {
+          item_id: detail.item_id,
+          item_name: editFormData.item_name,
+          item_category: Number(editFormData.item_category),
+        },
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Item berhasil diperbarui.' });
+        setEditModalOpen(false);
+        setDetail((prev) => prev ? { ...prev, item_name: editFormData.item_name, item_category: Number(editFormData.item_category) } : null);
+      }
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const movementColumns: Array<DataTableColumn<MovementRow>> = [
@@ -447,7 +502,7 @@ export const InventoryItemDetail: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm">
+          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm" onClick={() => setTransferModalOpen(true)}>
             <ArrowLeftRight className="h-4 w-4 mr-1.5" />
             <span className="hidden sm:inline">Transfer Stok</span>
           </Button>
@@ -455,14 +510,15 @@ export const InventoryItemDetail: React.FC = () => {
             <Plus className="h-4 w-4 mr-1.5" />
             <span className="hidden sm:inline">Tambah Stok</span>
           </Button>
-          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm text-amber-600 border-amber-200 hover:text-amber-700">
-            <Minus className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">Kurangi Stok</span>
-          </Button>
-          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm">
-            <Pencil className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">Edit Item</span>
-          </Button>
+<Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm" onClick={() => {
+                if (detail) {
+                  setEditFormData({ item_name: detail.item_name, item_category: String(detail.item_category) });
+                  setEditModalOpen(true);
+                }
+              }}>
+                <Pencil className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Edit Item</span>
+              </Button>
         </div>
       </div>
 
@@ -578,63 +634,130 @@ export const InventoryItemDetail: React.FC = () => {
         </div>
       ) : null}
 
-      {loading ? (
-        <BottomSkeleton />
-      ) : detail ? (
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
-          <div className="lg:col-span-2 rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
-            <div className="p-5 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Riwayat Mutasi Terbaru</h3>
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Dari</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 dark:text-white dark:bg-gray-800"
-                  />
+{loading ? (
+         <BottomSkeleton />
+       ) : detail ? (
+         <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
+           <div className="lg:col-span-2 rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
+             <div className="p-5 sm:p-6">
+               <div className="flex items-center justify-between mb-4">
+                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">Riwayat Mutasi Terbaru</h3>
+               </div>
+               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4">
+                 <div className="flex items-center gap-2">
+                   <span className="text-xs text-muted-foreground">Dari</span>
+                   <input
+                     type="date"
+                     value={startDate}
+                     onChange={(e) => setStartDate(e.target.value)}
+                     className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 dark:text-white dark:bg-gray-800"
+                   />
+                 </div>
+                 <div className="flex items-center gap-2">
+                   <span className="text-xs text-muted-foreground">Sampai</span>
+                   <input
+                     type="date"
+                     value={endDate}
+                     onChange={(e) => setEndDate(e.target.value)}
+                     className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 dark:text-white dark:bg-gray-800"
+                   />
+                 </div>
+                 <Button
+                   size="sm"
+                   className="h-9 rounded-full bg-blue-600 px-4 text-xs font-medium text-white hover:bg-blue-700"
+                   onClick={handleApplyFilter}
+                   disabled={movementLoading}
+                 >
+                   Terapkan
+                 </Button>
+               </div>
+               <DataTable
+                 data={movements}
+                 columns={movementColumns}
+                 loading={movementLoading}
+                 tableClassName="table-auto w-full"
+                 emptyTitle="Tidak ada riwayat mutasi"
+                 emptyDescription="Coba ubah rentang tanggal."
+                 pagination={{
+                   enabled: true,
+                   page: movementPage,
+                   pageSize: 10,
+                   totalItems: movementTotal,
+                   onPageChange: (p) => fetchMovements(p),
+                   pageSizeOptions: [10, 20, 50],
+                 }}
+               />
+             </div>
+           </div>
+         </div>
+       ) : null}
+
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
+          <form onSubmit={handleEdit} className="flex flex-col flex-1 min-h-0">
+            <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Pencil className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Edit Item</h2>
+                    <p className="text-slate-500 text-xs sm:text-sm">
+                      Perbarui informasi item inventaris
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Sampai</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 dark:text-white dark:bg-gray-800"
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  className="h-9 rounded-full bg-blue-600 px-4 text-xs font-medium text-white hover:bg-blue-700"
-                  onClick={handleApplyFilter}
-                  disabled={movementLoading}
-                >
-                  Terapkan
-                </Button>
+                <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                  <X className="w-3 h-3 sm:w-5 sm:h-5" />
+                </DialogClose>
               </div>
-              <DataTable
-                data={movements}
-                columns={movementColumns}
-                loading={movementLoading}
-                tableClassName="table-auto w-full"
-                emptyTitle="Tidak ada riwayat mutasi"
-                emptyDescription="Coba ubah rentang tanggal."
-                pagination={{
-                  enabled: true,
-                  page: movementPage,
-                  pageSize: 10,
-                  totalItems: movementTotal,
-                  onPageChange: (p) => fetchMovements(p),
-                  pageSizeOptions: [10, 20, 50],
-                }}
-              />
+              <div className="h-px bg-slate-100 mt-4" />
             </div>
-          </div>
-        </div>
-      ) : null}
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-white/70">Nama Item *</label>
+                <Input
+                  value={editFormData.item_name}
+                  onChange={(e) => setEditFormData((p) => ({ ...p, item_name: e.target.value }))}
+                  placeholder="Masukkan nama item"
+                  className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-white/70">Jenis Asset *</label>
+                <RadioGroup value={editFormData.item_category} onValueChange={(v) => setEditFormData((p) => ({ ...p, item_category: v }))} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label className={`flex items-start gap-3 rounded-[22px] border p-4 cursor-pointer transition-all ${editFormData.item_category === '1' ? 'border-blue-500 bg-blue-50/60' : 'border-gray-200 bg-white'}`}>
+                    <RadioGroupItem value="1" id="edit-category-1" className="mt-0.5 border-blue-300" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-gray-900">Kebutuhan Armada</div>
+                      <div className="mt-1 text-xs text-gray-600">Asset yang digunakan untuk kebutuhan operasional armada.</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-start gap-3 rounded-[22px] border p-4 cursor-pointer transition-all ${editFormData.item_category === '2' ? 'border-blue-500 bg-blue-50/60' : 'border-gray-200 bg-white'}`}>
+                    <RadioGroupItem value="2" id="edit-category-2" className="mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-gray-900">Kebutuhan Umum</div>
+                      <div className="mt-1 text-xs text-gray-600">Asset yang digunakan untuk kebutuhan umum / kantor.</div>
+                    </div>
+                  </label>
+                </RadioGroup>
+              </div>
+            </div>
+
+            <div className="w-full px-6 sm:px-8 py-4 border-t border-slate-100 flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+              <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)} className="w-full md:w-auto h-11 rounded-2xl">
+                Batal
+              </Button>
+              <Button type="submit" disabled={editSaving} className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white">
+                {editSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
