@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Eye, Search, Download, FileSpreadsheet, RotateCcw, Sheet } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Plus, Eye, Search, Download, FileSpreadsheet, RotateCcw, Sheet, Check, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
@@ -9,12 +9,24 @@ import { api } from '@/lib/api';
 import { showAlert } from '@/hooks/use-alert';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
+import { Badge } from '@/components/ui/badge';
 
 type InventoryOrder = {
   id: string | number;
+  purchase_id: string;
   item_name: string;
-  request_id: string | number;
+  item_sku: string;
+  transaction_date: string;
+  item_category: number;
+  item_category_label: string;
   quantity: number;
+  item_uom: string;
+  amount: number;
+  total_amount: number;
+  suplier_name: string;
+  Status: number;
+  created_at: string;
+  request_id: string | number;
   garage_name: string;
 };
 
@@ -57,11 +69,22 @@ export const InventoryOrders: React.FC = () => {
           const obj = record(raw);
           const idRaw = obj.order_id ?? obj.id;
           const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? idRaw : i;
+          const purchase_id = typeof obj.purchase_id === 'string' ? obj.purchase_id : '';
           const item_name = typeof obj.item_name === 'string' ? obj.item_name : '';
-          const request_id = typeof obj.request_id === 'string' || typeof obj.request_id === 'number' ? obj.request_id : undefined;
+          const item_sku = typeof obj.item_sku === 'string' ? obj.item_sku : '';
+          const transaction_date = typeof obj.transaction_date === 'string' ? obj.transaction_date : '';
+          const item_category = typeof obj.item_category === 'number' ? obj.item_category : 0;
+          const item_category_label = typeof obj.item_category_label === 'string' ? obj.item_category_label : '';
           const quantity = typeof obj.quantity === 'number' ? obj.quantity : 0;
+          const item_uom = typeof obj.item_uom === 'string' ? obj.item_uom : '';
+          const amount = typeof obj.amount === 'number' ? obj.amount : 0;
+          const total_amount = typeof obj.total_amount === 'number' ? obj.total_amount : 0;
+          const suplier_name = typeof obj.suplier_name === 'string' ? obj.suplier_name : '';
+          const Status = typeof obj.status === 'number' ? obj.status : 0;
+          const created_at = typeof obj.created_at === 'string' ? obj.created_at : '';
+          const request_id = typeof obj.request_id === 'string' || typeof obj.request_id === 'number' ? obj.request_id : undefined;
           const garage_name = typeof obj.garage_name === 'string' ? obj.garage_name : '';
-          return { id, item_name, request_id, quantity, garage_name };
+          return { id, purchase_id, item_name, item_sku, transaction_date, item_category, item_category_label, quantity, item_uom, amount, total_amount, suplier_name, Status, created_at, request_id, garage_name };
         });
         setOrders(mapped);
         if (Array.isArray(payload)) {
@@ -81,13 +104,49 @@ export const InventoryOrders: React.FC = () => {
 
   const startIndex = (currentPage - 1) * itemsPerPage;
 
+  const formatDate = (value: string): string => {
+    if (!value) return '-';
+    const m = moment(value);
+    if (!m.isValid()) return value;
+    return m.format('DD MMMM YYYY');
+  };
+
+  const formatCurrency = (value: number): string => {
+    return value.toLocaleString('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    });
+  };
+
+  const statusBadge = (status: number) => {
+    if (status === 1) return <Badge className="rounded-full bg-green-100 text-green-700 hover:bg-green-100"><CheckCircle className="h-4 w-4 mr-1.5" />Selesai</Badge>;
+    if (status === 2) return <Badge className="rounded-full bg-blue-100 text-blue-700 hover:bg-blue-100">Diproses</Badge>;
+    return <Badge className="rounded-full bg-red-100 text-red-700 hover:bg-red-100">Dibatalkan</Badge>;
+  };
+
+  const categoryBadge = (label: string) => {
+    if (!label) return <span className="text-foreground">-</span>;
+    const normalized = label.toLowerCase();
+    const cls = normalized.includes('armada')
+      ? 'bg-orange-100 text-orange-700 hover:bg-orange-100'
+      : 'bg-purple-100 text-purple-700 hover:bg-purple-100';
+    return <Badge className={`rounded-full ${cls}`}>{label}</Badge>;
+  };
+
   const exportRows = useMemo(() => {
     return orders.map((row, index) => ({
       No: startIndex + index + 1,
-      'Item Name': row.item_name || '-',
-      'Request ID': row.request_id ?? '-',
-      Quantity: row.quantity ?? 0,
-      Garasi: row.garage_name || '-',
+      'Purchase ID': row.purchase_id || '-',
+      'Nama Item': row.item_name || '-',
+      'Tgl Transaksi': row.transaction_date ?? '-',
+      Kategori: row.item_category_label || '-',
+      Qty: `${row.quantity ?? 0} ${row.item_uom || ''}`,
+      Harga: row.amount ?? 0,
+      Total: row.total_amount ?? 0,
+      Suplier: row.suplier_name || '-',
+      Status: row.Status === 1 ? 'Diterima' : row.Status === 2 ? 'Diproses' : 'Dibatalkan',
+      Timestamp: row.created_at ?? '-',
     }));
   }, [startIndex, orders]);
 
@@ -107,8 +166,8 @@ export const InventoryOrders: React.FC = () => {
       showAlert({ title: 'Info', description: 'Tidak ada data untuk disalin.', type: 'warning' });
       return;
     }
-    const headers = ['No', 'Item Name', 'Request ID', 'Quantity', 'Garasi'];
-    const rowsTsv = exportRows.map((row) => [row.No, row['Item Name'], row['Request ID'], row.Quantity, row.Garasi]);
+    const headers = ['No', 'Purchase ID', 'Nama Item', 'Tgl Transaksi', 'Kategori', 'Qty', 'Harga', 'Total', 'Suplier', 'Status', 'Timestamp'];
+    const rowsTsv = exportRows.map((row) => [row.No, row['Purchase ID'], row['Nama Item'], row['Tgl Transaksi'], row.Kategori, row.Qty, row.Harga, row.Total, row.Suplier, row.Status, row.Timestamp]);
     const tsv = [headers, ...rowsTsv]
       .map((cols) => cols.map((value) => String(value ?? '').replace(/\t/g, ' ')).join('\t'))
       .join('\n');
@@ -130,10 +189,65 @@ export const InventoryOrders: React.FC = () => {
       sortable: false,
       render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
     },
-    { label: 'Nama Item', key: 'item_name', sortable: true, width: 280, render: (row) => <span className="text-foreground">{row.item_name || '-'}</span> },
-    { label: 'Request ID', key: 'request_id', sortable: true, width: 180, render: (row) => <span className="text-foreground">{row.request_id ?? '-'}</span> },
-    { label: 'Jumlah', key: 'quantity', sortable: true, width: 120, render: (row) => <span className="text-foreground">{row.quantity}</span> },
-    { label: 'Garasi', key: 'garage_name', sortable: true, width: 200, render: (row) => <span className="text-foreground">{row.garage_name || '-'}</span> },
+    {
+      label: 'Purchase ID',
+      key: 'purchase_id',
+      sortable: true,
+      width: 240,
+      render: (row) => (
+        <Link
+          to={`${basePrefix}/inventories/orders/detail/${encodeURIComponent(String(row.purchase_id))}`}
+          className="font-semibold text-blue-800 hover:no-underline hover:text-bold dark:text-blue-400"
+        >
+          {row.purchase_id || '-'}
+        </Link>
+      )
+    },
+    {
+      label: 'Nama Item',
+      key: 'item_name',
+      sortable: true,
+      width: 260,
+      render: (row) => (
+        <div>
+          <span className="text-foreground">{row.item_name || '-'}</span>
+          {row.item_sku ? <div className="text-xs text-muted-foreground">SKU: {row.item_sku}</div> : null}
+        </div>
+      )
+    },
+    {
+      label: 'Tanggal Transaksi',
+      key: 'transaction_date',
+      sortable: true,
+      width: 180,
+      render: (row) => <span className="text-foreground">{formatDate(row.transaction_date)}</span>
+    },
+    {
+      label: 'Kategori',
+      key: 'item_category_label',
+      sortable: true,
+      width: 150,
+      render: (row) => categoryBadge(row.item_category_label)
+    },
+    {
+      label: 'Qty',
+      key: 'quantity',
+      sortable: true,
+      width: 200,
+      render: (row) => (
+        <div>
+          <span className="text-foreground"><span className="font-semibold ">{row.quantity} {row.item_uom || 'Pcs'}</span></span>
+          <div className="text-xs text-muted-foreground">{formatCurrency(row.amount)} /{row.item_uom || 'Pcs'}</div>
+        </div>
+      )
+    },
+    {
+      label: 'Status',
+      key: 'Status',
+      sortable: true,
+      width: 140,
+      render: (row) => statusBadge(row.Status)
+    },
   ];
 
   const resetFilters = () => {
@@ -217,17 +331,6 @@ export const InventoryOrders: React.FC = () => {
         tableClassName="table-auto w-full"
         emptyTitle="Tidak ada data pemesanan"
         emptyDescription="Coba ubah pencarian."
-        actions={{
-          label: 'Aksi',
-          actions: [
-            {
-              key: 'detail',
-              label: 'Detail',
-              icon: Eye,
-              onSelect: (row) => navigate(`${basePrefix}/inventories/orders/detail/${encodeURIComponent(String(row.id))}`)
-            }
-          ]
-        }}
         pagination={{
           page: currentPage,
           pageSize: itemsPerPage,
