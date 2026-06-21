@@ -92,6 +92,10 @@ const getMonthStart = (date: Date) => {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 };
 
+const getEndOfMonth = (date: Date) => {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+};
+
 const activityVariant = (type: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
   const normalized = type.toLowerCase();
   if (normalized.includes('masuk') || normalized.includes('in')) return 'default';
@@ -128,7 +132,7 @@ export const InventoryItemDetail: React.FC = () => {
   const [movementTotal, setMovementTotal] = useState(0);
   const [movementPage, setMovementPage] = useState(1);
 const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date())));
-   const [endDate, setEndDate] = useState(formatDateOnly(new Date()));
+   const [endDate, setEndDate] = useState(formatDateOnly(getEndOfMonth(new Date())));
    const [editModalOpen, setEditModalOpen] = useState(false);
    const [editSaving, setEditSaving] = useState(false);
    const [editFormData, setEditFormData] = useState({
@@ -137,16 +141,18 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
    });
    const [transferModalOpen, setTransferModalOpen] = useState(false);
    const [transferSaving, setTransferSaving] = useState(false);
-   const [garageOptions, setGarageOptions] = useState<GarageOption[]>([]);
-   const [garageFromPickerOpen, setGarageFromPickerOpen] = useState(false);
-   const [garageFromQuery, setGarageFromQuery] = useState('');
-   const [garageDestPickerOpen, setGarageDestPickerOpen] = useState(false);
-   const [garageDestQuery, setGarageDestQuery] = useState('');
-   const [transferFormData, setTransferFormData] = useState({
-     garage_from: '',
-     garage_destination: '',
-     stock: '',
-   });
+    const [garageOptions, setGarageOptions] = useState<GarageOption[]>([]);
+    const [garageFromOptions, setGarageFromOptions] = useState<GarageOption[]>([]);
+    const [garageFromPickerOpen, setGarageFromPickerOpen] = useState(false);
+    const [garageFromQuery, setGarageFromQuery] = useState('');
+    const [garageDestPickerOpen, setGarageDestPickerOpen] = useState(false);
+    const [garageDestQuery, setGarageDestQuery] = useState('');
+    const [transferFormData, setTransferFormData] = useState({
+      garage_from: '',
+      garage_destination: '',
+      stock: '',
+    });
+    const [reloadDetail, setReloadDetail] = useState(0);
 
   const totalStock = detail?.locations.reduce((sum, loc) => sum + loc.stock, 0) ?? 0;
 
@@ -155,10 +161,11 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
     setMovementLoading(true);
     const token = localStorage.getItem('token') ?? '';
     const headers = token ? { Authorization: token } : undefined;
+    const endOfMonth = formatDateOnly(getEndOfMonth(new Date(startDate)));
     try {
       const res = await api.post<unknown>(
         '/inventories/items/movement',
-        { item_id: itemId, start_date: startDate, end_date: endDate, page, limit: 10 },
+        { item_id: itemId, start_date: startDate, end_date: endOfMonth, page, limit: 10 },
         headers
       );
       if (res.status === 'success') {
@@ -235,7 +242,7 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
       setLoading(false);
     };
     load();
-  }, [itemId]);
+  }, [itemId, reloadDetail]);
 
   useEffect(() => {
     if (detail) {
@@ -243,9 +250,63 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
     }
   }, [detail, fetchMovements]);
 
-const movementStartIndex = (movementPage - 1) * 10;
+  useEffect(() => {
+    const loadGarages = async () => {
+      if (!transferModalOpen || !itemId) return;
+      const token = localStorage.getItem('token') ?? '';
+      const [fromRes, allRes] = await Promise.all([
+        api.get<unknown>(`/organization/garage/list?item_id=${encodeURIComponent(itemId)}`, token ? { Authorization: token } : undefined),
+        api.get<unknown>('/organization/garage/list', token ? { Authorization: token } : undefined),
+      ]);
+
+      const mapGarage = (payload: unknown): GarageOption[] => {
+        const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+        const list: unknown[] = Array.isArray(root.items) ? root.items : Array.isArray(payload) ? payload : [];
+        return list
+          .filter((x): x is Record<string, unknown> => x && typeof x === 'object')
+          .map((x) => {
+            const idRaw = x.garage_id ?? x.id;
+            const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+            const garage_name = typeof x.garage_name === 'string' ? x.garage_name : '';
+            return id && garage_name ? { id, garage_name } : null;
+          })
+          .filter((x): x is GarageOption => x !== null);
+      };
+
+      const fromOptions = mapGarage(fromRes.data);
+      setGarageFromOptions(fromOptions);
+      if (fromOptions.length > 0 && !transferFormData.garage_from) {
+        setTransferFormData((p) => ({ ...p, garage_from: fromOptions[0].id }));
+      }
+
+      const allOptions = mapGarage(allRes.data);
+      setGarageOptions(allOptions);
+    };
+    loadGarages();
+  }, [transferModalOpen, itemId, detail?.locations]);
+
+  const movementStartIndex = (movementPage - 1) * 10;
+
+  const filteredGarageDestOptions = useMemo(() => {
+    return garageOptions.filter((o) => o.id !== transferFormData.garage_from);
+  }, [garageOptions, transferFormData.garage_from]);
+
+  const filteredGarageFromOptions = useMemo(() => {
+    return garageFromOptions.filter((o) => o.id !== transferFormData.garage_destination);
+  }, [garageFromOptions, transferFormData.garage_destination]);
+
+  const selectedGarageFromName = useMemo(() => {
+    const found = garageFromOptions.find((o) => o.id === transferFormData.garage_from);
+    return found?.garage_name ?? '';
+  }, [garageFromOptions, transferFormData.garage_from]);
+
+  const selectedGarageDestName = useMemo(() => {
+    const found = garageOptions.find((o) => o.id === transferFormData.garage_destination);
+    return found?.garage_name ?? '';
+  }, [garageOptions, transferFormData.garage_destination]);
 
   const handleApplyFilter = () => {
+    setEndDate(formatDateOnly(getEndOfMonth(new Date(startDate))));
     fetchMovements(1);
   };
 
@@ -271,6 +332,33 @@ const movementStartIndex = (movementPage - 1) * 10;
       }
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (transferSaving || !itemId) return;
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      setTransferSaving(true);
+      const res = await api.post<unknown>(
+        '/inventories/items/transfer',
+        {
+          item_id: itemId,
+          garage_from: transferFormData.garage_from,
+          garage_destination: transferFormData.garage_destination,
+          stock: Number(transferFormData.stock),
+        },
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Stok berhasil ditransfer.' });
+        setTransferModalOpen(false);
+        setTransferFormData({ garage_from: '', garage_destination: '', stock: '' });
+        setReloadDetail((p) => p + 1);
+      }
+    } finally {
+      setTransferSaving(false);
     }
   };
 
@@ -490,7 +578,7 @@ const movementStartIndex = (movementPage - 1) * 10;
           </Button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl sm:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">Detail Inventory Item</h1>
+              <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Detail Asset</h1>
             </div>
             <div className="mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-300">
               <span className="text-gray-500">Asset</span>
@@ -536,7 +624,7 @@ const movementStartIndex = (movementPage - 1) * 10;
             {loading ? 'Memuat...' : detail ? statusToLabel(detail.status) : '-'}
           </Badge>
         </div>
-        <h2 className="mt-3 text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Detail Inventory Item</h2>
+        <h2 className="mt-3 text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Detail Asset</h2>
         <div className="mt-2 text-xs text-gray-500 dark:text-gray-300">
           Asset / Inventories / <span className="text-gray-900 dark:text-white font-medium truncate">{detail?.item_name || '...'}</span>
         </div>
@@ -753,6 +841,175 @@ const movementStartIndex = (movementPage - 1) * 10;
               </Button>
               <Button type="submit" disabled={editSaving} className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white">
                 {editSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={transferModalOpen} onOpenChange={setTransferModalOpen}>
+        <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
+          <form onSubmit={handleTransfer} className="flex flex-col flex-1 min-h-0">
+            <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <ArrowLeftRight className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Transfer Stok</h2>
+                    <p className="text-slate-500 text-xs sm:text-sm">
+                      Pindah stok antar lokasi garasi
+                    </p>
+                  </div>
+                </div>
+                <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                  <X className="w-3 h-3 sm:w-5 sm:h-5" />
+                </DialogClose>
+              </div>
+              <div className="h-px bg-slate-100 mt-4" />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-white/70">Lokasi Asal *</label>
+                <Popover open={garageFromPickerOpen} onOpenChange={setGarageFromPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className={`w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50`}
+                    >
+                      <span className={transferFormData.garage_from ? '' : 'text-muted-foreground'}>
+                        {transferFormData.garage_from ? selectedGarageFromName : 'Pilih garasi asal'}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                    <Command shouldFilter={false} className="rounded-xl">
+                      <CommandInput
+                        placeholder="Cari garasi..."
+                        value={garageFromQuery}
+                        onValueChange={setGarageFromQuery}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {garageFromQuery.trim().length < 3
+                            ? 'Ketik minimal 3 karakter untuk mencari garasi.'
+                            : 'Tidak ada hasil.'}
+                        </CommandEmpty>
+                        <CommandGroup heading="Garasi">
+                          {filteredGarageFromOptions.map((opt) => (
+                            <CommandItem
+                              key={opt.id}
+                              value={opt.garage_name}
+                              onSelect={() => {
+                                setTransferFormData((p) => ({ ...p, garage_from: opt.id }));
+                                setGarageFromPickerOpen(false);
+                                setGarageFromQuery('');
+                              }}
+                            >
+                              <Check className={transferFormData.garage_from === opt.id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                              {opt.garage_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-white/70">Lokasi Tujuan *</label>
+                <Popover open={garageDestPickerOpen} onOpenChange={(open) => {
+                  setGarageDestPickerOpen(open);
+                  setGarageDestQuery(open ? '' : '');
+                }}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className={`w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50`}
+                    >
+                      <span className={transferFormData.garage_destination ? '' : 'text-muted-foreground'}>
+                        {transferFormData.garage_destination ? selectedGarageDestName : 'Pilih garasi tujuan'}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                    <Command shouldFilter={false} className="rounded-xl">
+                      <CommandInput
+                        placeholder="Cari garasi..."
+                        value={garageDestQuery}
+                        onValueChange={setGarageDestQuery}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {garageDestQuery.trim().length < 3
+                            ? 'Ketik minimal 3 karakter untuk mencari garasi.'
+                            : 'Tidak ada hasil.'}
+                        </CommandEmpty>
+                        <CommandGroup heading="Garasi">
+                          {filteredGarageDestOptions.map((opt) => (
+                            <CommandItem
+                              key={opt.id}
+                              value={opt.garage_name}
+                              onSelect={() => {
+                                setTransferFormData((p) => ({ ...p, garage_destination: opt.id }));
+                                setGarageDestPickerOpen(false);
+                                setGarageDestQuery('');
+                              }}
+                            >
+                              <Check className={transferFormData.garage_destination === opt.id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                              {opt.garage_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-white/70">Jumlah Stok *</label>
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={transferFormData.stock}
+                      onChange={(e) => setTransferFormData((p) => ({ ...p, stock: e.target.value.replace(/[^0-9]/g, '') }))}
+                      placeholder="0"
+                      className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
+                      style={{ appearance: 'textfield' }}
+                    />
+                  </div>
+                  <div className="w-16">
+                    <Input
+                      value={detail?.item_uom || ''}
+                      readOnly
+                      placeholder="Satuan"
+                      className="h-11 rounded-2xl border-gray-300 bg-white text-sm text-center px-2"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full px-6 sm:px-8 py-4 border-t border-slate-100 flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+              <Button type="button" variant="outline" onClick={() => setTransferModalOpen(false)} className="w-full md:w-auto h-11 rounded-2xl">
+                Batal
+              </Button>
+              <Button type="submit" disabled={transferSaving} className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white">
+                {transferSaving ? 'Mengirim...' : 'Transfer Stok'}
               </Button>
             </div>
           </form>

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Eye, Edit, Trash2, Search, RotateCcw, Sheet, FileSpreadsheet, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { api } from '@/lib/api';
@@ -26,9 +27,10 @@ export const FleetUnits: React.FC = () => {
       plate_number: string;
       fleet_name: string;
       engine: string;
-      transmision: string;
+      transmission: string;
       production_year: string;
       capacity: number;
+      ownership_type: string | number;
       created_at: string;
     }>
   >([]);
@@ -78,11 +80,12 @@ export const FleetUnits: React.FC = () => {
           const plate_number = getString(obj.plate_number);
           const fleet_name = getString(obj.fleet_name);
           const engine = getString(obj.engine);
-          const transmision = getString(obj.transmision);
+          const transmission = getString(obj.transmission);
           const production_year = getYearString(obj.production_year);
           const capacity = getNumber(obj.capacity);
+          const ownership_type = getString(obj.ownership_type);
           const created_at = getString(obj.created_at);
-          return { id, vehicle_id, plate_number, fleet_name, engine, transmision, production_year, capacity, created_at };
+          return { id, vehicle_id, plate_number, fleet_name, engine, transmission, production_year, capacity, ownership_type, created_at };
         });
 
         setUnits(mapped);
@@ -113,9 +116,9 @@ export const FleetUnits: React.FC = () => {
       'Plat Nomor': row.plate_number || '-',
       'Nama Unit': row.fleet_name || '-',
       Mesin: row.engine || '-',
-      Transmisi: row.transmision || '-',
+      Transmisi: row.transmission || '-',
       'Tahun Produksi': row.production_year || '-',
-      Kapasitas: row.capacity ?? 0,
+      Status: row.ownership_type || '-',
       Timestamp: row.created_at || '-',
     }));
   }, [startIndex, units]);
@@ -139,8 +142,7 @@ export const FleetUnits: React.FC = () => {
       { wch: 28 },
       { wch: 22 },
       { wch: 16 },
-      { wch: 16 },
-      { wch: 12 },
+      { wch: 22 },
       { wch: 24 },
     ];
     const workbook = XLSX.utils.book_new();
@@ -154,7 +156,7 @@ export const FleetUnits: React.FC = () => {
       return;
     }
 
-    const headers = ['No', 'Unit ID', 'Plat Nomor', 'Nama Unit', 'Mesin', 'Transmisi', 'Tahun Produksi', 'Kapasitas', 'Timestamp'];
+    const headers = ['No', 'Unit ID', 'Plat Nomor', 'Nama Unit', 'Mesin', 'Transmisi', 'Tahun Produksi', 'Status', 'Timestamp'];
     const rowsTsv = exportSheetRows.map((row) => [
       row.No,
       row['Unit ID'],
@@ -163,7 +165,7 @@ export const FleetUnits: React.FC = () => {
       row.Mesin,
       row.Transmisi,
       row['Tahun Produksi'],
-      row.Kapasitas,
+      row.Status,
       row.Timestamp,
     ]);
     const tsv = [headers, ...rowsTsv]
@@ -188,6 +190,22 @@ export const FleetUnits: React.FC = () => {
     }
   };
 
+  const ownershipLabel = (ownershipType: string | number) => {
+    if (ownershipType === 0 || ownershipType === '0') return 'Inhouse Ownership';
+    if (ownershipType === 1 || ownershipType === '1') return 'Partnership (KSO)';
+    return ownershipType ? String(ownershipType) : '-';
+  };
+
+  const ownershipBadgeClass = (ownershipType: string | number) => {
+    if (ownershipType === 0 || ownershipType === '0') {
+      return 'rounded-full border-transparent bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-500/10 dark:bg-blue-400/15 dark:text-blue-300';
+    }
+    if (ownershipType === 1 || ownershipType === '1') {
+      return 'rounded-full border-transparent bg-green-500/10 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-500/10 dark:bg-green-400/15 dark:text-green-300';
+    }
+    return 'rounded-full border-transparent bg-gray-500/10 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-500/10 dark:bg-gray-400/15 dark:text-gray-300';
+  };
+
   const columns: Array<DataTableColumn<UnitRow>> = [
     {
       label: 'No',
@@ -198,22 +216,44 @@ export const FleetUnits: React.FC = () => {
       render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
     },
     {
-      label: 'Unit ID',
-      key: 'vehicle_id',
+      label: 'Plat Nomor',
+      key: 'plate_number',
       sortable: true,
-      width: 180,
+      width: 190,
       render: (unit) => (
-        <Link
-          to={`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(unit.id))}`}
-          className="font-medium text-blue-600 hover:no-underline hover:text-bold dark:text-blue-400"
+        <button
+          onClick={() => navigate(`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(unit.id))}`)}
+          className="leading-tight text-left hover:underline"
         >
-          <span className="whitespace-nowrap">{unit.vehicle_id}</span>
-        </Link>
+          <span className="text-foreground whitespace-nowrap">{unit.plate_number || '-'}</span>
+          <p className="text-xs text-muted-foreground">Vehicle ID : {unit.vehicle_id || '-'}</p>
+        </button>
       )
     },
-    { label: 'Plat Nomor', key: 'plate_number', sortable: true, width: 170, render: (unit) => <span className="text-foreground whitespace-nowrap">{unit.plate_number || '-'}</span> },
-    { label: 'Nama Unit', key: 'fleet_name', sortable: true, width: 320, render: (unit) => <span className="text-foreground whitespace-nowrap">{unit.fleet_name || '-'}</span> },
-    { label: 'Mesin', key: 'engine', sortable: true, width: 220, render: (unit) => <span className="text-foreground whitespace-nowrap">{unit.engine || '-'}</span> },
+    {
+      label: 'Jenis Unit',
+      key: 'fleet_name',
+      sortable: true,
+      width: 320,
+      render: (unit) => (
+        <div className="leading-tight">
+          <span className="text-foreground whitespace-nowrap">{unit.fleet_name || '-'}</span>
+          <p className="text-xs text-muted-foreground">Kapasitas: {unit.capacity} seats</p>
+        </div>
+      )
+    },
+    {
+      label: 'Mesin',
+      key: 'engine',
+      sortable: true,
+      width: 240,
+      render: (unit) => (
+        <div className="leading-tight">
+          <span className="text-foreground whitespace-nowrap">{unit.engine || '-'}</span>
+          <p className="text-xs text-muted-foreground">Transmisi: {unit.transmission || '-'}</p>
+        </div>
+      )
+    },
     {
       label: 'Tahun Produksi',
       key: 'production_year',
@@ -223,12 +263,15 @@ export const FleetUnits: React.FC = () => {
       render: (unit) => <span className="text-foreground whitespace-nowrap">{unit.production_year || '-'}</span>
     },
     {
-      label: 'Kapasitas',
-      key: 'capacity',
+      label: 'Status',
+      key: 'ownership_type',
       sortable: true,
-      width: 140,
-      align: 'center',
-      render: (unit) => <span className="text-foreground">{unit.capacity} Pax</span>
+      width: 220,
+      render: (unit) => (
+        <Badge className={ownershipBadgeClass(unit.ownership_type)}>
+          {ownershipLabel(unit.ownership_type)}
+        </Badge>
+      )
     },
   ];
 

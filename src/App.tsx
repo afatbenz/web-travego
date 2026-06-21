@@ -186,6 +186,7 @@ import { InventoryRequest } from '@/pages/dashboard/inventories/InventoryRequest
 import { InventoryOrders } from '@/pages/dashboard/inventories/InventoryOrders';
 import { InventoryRequestCreate } from '@/pages/dashboard/inventories/InventoryRequestCreate';
 import { InventoryOrdersCreate } from '@/pages/dashboard/inventories/InventoryOrdersCreate';
+import { InventoryOrderDetail } from '@/pages/dashboard/inventories/InventoryOrderDetail';
 
 // Layout wrapper for public pages
 const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -1162,8 +1163,10 @@ function App() {
             <Route path="/dashboard/inventories/request/create" element={<DashboardLayout><InventoryRequestCreate /></DashboardLayout>} />
             <Route path="/dashboard/partner/inventories/orders" element={<DashboardLayout><InventoryOrders /></DashboardLayout>} />
             <Route path="/dashboard/inventories/orders" element={<DashboardLayout><InventoryOrders /></DashboardLayout>} />
-            <Route path="/dashboard/partner/inventories/orders/create" element={<DashboardLayout><InventoryOrdersCreate /></DashboardLayout>} />
-            <Route path="/dashboard/inventories/orders/create" element={<DashboardLayout><InventoryOrdersCreate /></DashboardLayout>} />
+<Route path="/dashboard/partner/inventories/orders/create" element={<DashboardLayout><InventoryOrdersCreate /></DashboardLayout>} />
+             <Route path="/dashboard/inventories/orders/create" element={<DashboardLayout><InventoryOrdersCreate /></DashboardLayout>} />
+             <Route path="/dashboard/partner/inventories/orders/detail/:purchaseid" element={<DashboardLayout><InventoryOrderDetail /></DashboardLayout>} />
+             <Route path="/dashboard/inventories/orders/detail/:purchaseid" element={<DashboardLayout><InventoryOrderDetail /></DashboardLayout>} />
 
            <Route path="/dashboard/partner/*" element={
             <DashboardLayout>
