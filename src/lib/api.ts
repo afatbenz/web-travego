@@ -6,6 +6,8 @@ export type ApiResponse<T> = {
 };
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3100/api';
+
+export { BASE_URL };
 import { showAlert, showApi404Alert } from '@/hooks/use-alert';
 import Swal from 'sweetalert2';
 
@@ -297,6 +299,7 @@ export const api = {
 
 export { request };
 export type UploadCommonResponse = { files?: string[]; count?: number; first_url?: string };
+export { toApiUrl };
 
 async function postMultipart<T>(path: string, formData: FormData, headers?: Record<string, string>): Promise<ApiResponse<T>> {
   try {

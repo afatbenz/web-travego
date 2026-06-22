@@ -48,6 +48,8 @@ type OrderDetail = {
   status: number;
   created_by: string;
   created_at: string;
+  updated_by: string;
+  updated_at: string;
 };
 
 type StatusConfig = {
@@ -207,10 +209,19 @@ const SummaryRow = ({ label, value }: SummaryRowProps) => (
   </div>
 );
 
-const HeaderPill = ({ label, value }: HeaderPillProps) => (
+const HeaderPill = ({ label, value, href, isLink }: HeaderPillProps) => (
   <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/70 dark:bg-gray-900/40">
-    <div className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">{label}</div>
-    <div className="mt-1 break-words text-sm font-semibold text-gray-900 dark:text-white">{value || '-'}</div>
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">{label}</div>
+        <div className="mt-1 break-words text-sm font-semibold text-gray-900 dark:text-white">{value || '-'}</div>
+      </div>
+      {isLink && href && (
+        <Link to={href} className="shrink-0 mt-0.5 text-gray-400 hover:text-blue-600">
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      )}
+    </div>
   </div>
 );
 
@@ -251,6 +262,7 @@ export const InventoryOrderDetail: React.FC = () => {
           suplier_name: getString(data, 'suplier_name') || getString(data, 'supplier_name'),
           item_name: getString(data, 'item_name'),
           item_sku: getString(data, 'item_sku'),
+          item_id: getString(data, 'item_id'),
           item_uom: getString(data, 'item_uom'),
           item_category: itemCategory,
           item_category_label: categoryLabel(itemCategory, itemCategoryLabel),
@@ -263,6 +275,8 @@ export const InventoryOrderDetail: React.FC = () => {
           status: getNumber(data, 'status'),
           created_by: getString(data, 'created_by'),
           created_at: getString(data, 'created_at'),
+          updated_by: getString(data, 'updated_by'),
+          updated_at: getString(data, 'updated_at'),
         });
       } else {
         setDetail(null);
@@ -287,12 +301,12 @@ export const InventoryOrderDetail: React.FC = () => {
 
     const result = await Swal.fire({
       title: 'Konfirmasi',
-      text: 'Apakah Anda yakin ingin menerima item ini?',
+      text: 'Apakah Anda yakin ingin selesaikan pesanan item ini?',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Ya, Terima',
+      confirmButtonText: 'Selesaikan Pesanan',
       cancelButtonText: 'Batal',
-      confirmButtonColor: '#10b981',
+      confirmButtonColor: '#3b82f6',
     });
 
     if (!result.isConfirmed) return;
@@ -302,7 +316,7 @@ export const InventoryOrderDetail: React.FC = () => {
 
     try {
       const res = await api.post<unknown>(
-        '/inventories/orders/received',
+        '/inventories/orders/completed',
         { purchase_id: purchaseId },
         token ? { Authorization: token } : undefined
       );
@@ -424,6 +438,15 @@ export const InventoryOrderDetail: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
+              className="h-10 rounded-2xl bg-blue-500 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-600 disabled:opacity-50"
+              onClick={handleReceive}
+              disabled={actionLoading}
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Selesaikan Order
+            </Button>
+            <Button
+              type="button"
               variant="outline"
               className="h-10 rounded-2xl border border-red-200 bg-white px-4 text-sm font-medium text-red-600 shadow-sm hover:bg-red-50 hover:text-red-700 disabled:opacity-50 dark:bg-gray-900 dark:hover:bg-red-950/30"
               onClick={handleCancel}
@@ -431,15 +454,6 @@ export const InventoryOrderDetail: React.FC = () => {
             >
               <X className="h-4 w-4 mr-2" />
               Batalkan Pesanan
-            </Button>
-            <Button
-              type="button"
-              className="h-10 rounded-2xl bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
-              onClick={handleReceive}
-              disabled={actionLoading}
-            >
-              <Check className="h-4 w-4 mr-2" />
-              Terima Item
             </Button>
           </div>
         )}
@@ -453,7 +467,7 @@ export const InventoryOrderDetail: React.FC = () => {
             </Badge>
             <h2 className="mt-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{detail.item_name || 'Detail Pemesanan'}</h2>
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <HeaderPill label="SKU" value={detail.item_sku} />
+              <HeaderPill label="SKU" value={detail.item_sku} isLink href={`${basePrefix}/inventories/items/detail/${detail.item_id}`} />
               <HeaderPill label="Satuan" value={detail.item_uom || 'Pcs'} />
               <HeaderPill label="Kategori" value={detail.item_category_label} />
             </div>
@@ -540,7 +554,7 @@ export const InventoryOrderDetail: React.FC = () => {
         <CardContent>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <DetailMetric label="Dibuat Oleh" value={detail.created_by} date={formatDateTime(detail.created_at)} icon={User} />
-            <DetailMetric label="Tanggal Dibuat" value={formatDateTime(detail.created_at)} icon={Calendar} />
+            <DetailMetric label={detail.status === 1 ? "Diselesaikan Oleh" : detail.status === 2 ? "-" : "Dibatalkan Oleh"} value={detail.updated_by} date={formatDateTime(detail.updated_at)} icon={Calendar} />
             <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-700/70 dark:bg-gray-800/60">
               <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:text-blue-300 dark:ring-gray-700">
                 <Copy className="h-4 w-4" />

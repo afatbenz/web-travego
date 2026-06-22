@@ -3,7 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { AlertCenter } from '@/components/ui/alert-center';
-import { isTokenValid } from '@/lib/utils';
+import { isTokenValid, clearAuthStorage } from '@/lib/utils';
+import { toApiUrl } from '@/lib/api';
 
 // Layouts
 import { Navbar } from '@/components/layout/Navbar';
@@ -21,23 +22,72 @@ const ScrollToTop: React.FC = () => {
   return null;
 };
 
+// --- Refresh token logic for AuthGuard ---
+let authRefreshPromise: Promise<boolean> | null = null;
+
+async function refreshTokenForAuth(): Promise<boolean> {
+  if (authRefreshPromise) return authRefreshPromise;
+  
+  authRefreshPromise = (async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) return false;
+
+    try {
+      const res = await fetch(toApiUrl('/auth/refresh'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!res.ok) return false;
+
+      const json = (await res.json()) as Record<string, unknown>;
+      const data = json.data as Record<string, unknown> | undefined;
+      const newToken = data?.token as string | undefined;
+      const newRefreshToken = data?.refresh_token as string | undefined;
+
+      if (newToken && newRefreshToken) {
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('refresh_token', newRefreshToken);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  })();
+
+  try {
+    return await authRefreshPromise;
+  } finally {
+    authRefreshPromise = null;
+  }
+}
+
 const AuthGuard: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const path = location.pathname;
       const protectedExact = new Set(['/myprofile', '/myorders', '/edit-profile']);
       const requiresAuth = protectedExact.has(path) || path === '/dashboard' || path.startsWith('/dashboard/');
       if (!requiresAuth) return;
 
       const token = localStorage.getItem('token');
+      const refreshToken = localStorage.getItem('refresh_token');
+      
       if (!token || !isTokenValid(token)) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        const currentPath = location.pathname + location.search;
-        localStorage.setItem('redirect_path', currentPath);
+        if (refreshToken) {
+          const refreshed = await refreshTokenForAuth();
+          if (refreshed) return;
+        }
+        clearAuthStorage();
+        localStorage.setItem('redirect_path', location.pathname + location.search);
         navigate('/auth/login', { replace: true });
       }
     };
@@ -183,6 +233,7 @@ import { NotificationsPage } from './pages/dashboard/NotificationsPage';
 import { InventoryItems } from '@/pages/dashboard/inventories/InventoryItems';
 import { InventoryItemDetail } from '@/pages/dashboard/inventories/InventoryItemDetail';
 import { InventoryRequest } from '@/pages/dashboard/inventories/InventoryRequest';
+import { InventoryRequestDetail } from '@/pages/dashboard/inventories/InventoryRequestDetail';
 import { InventoryOrders } from '@/pages/dashboard/inventories/InventoryOrders';
 import { InventoryRequestCreate } from '@/pages/dashboard/inventories/InventoryRequestCreate';
 import { InventoryOrdersCreate } from '@/pages/dashboard/inventories/InventoryOrdersCreate';
@@ -1159,6 +1210,8 @@ function App() {
             <Route path="/dashboard/inventories/items/detail/:item_id" element={<DashboardLayout><InventoryItemDetail /></DashboardLayout>} />
             <Route path="/dashboard/partner/inventories/request" element={<DashboardLayout><InventoryRequest /></DashboardLayout>} />
             <Route path="/dashboard/inventories/request" element={<DashboardLayout><InventoryRequest /></DashboardLayout>} />
+            <Route path="/dashboard/partner/inventories/request/detail/:request_id" element={<DashboardLayout><InventoryRequestDetail /></DashboardLayout>} />
+            <Route path="/dashboard/inventories/request/detail/:request_id" element={<DashboardLayout><InventoryRequestDetail /></DashboardLayout>} />
             <Route path="/dashboard/partner/inventories/request/create" element={<DashboardLayout><InventoryRequestCreate /></DashboardLayout>} />
             <Route path="/dashboard/inventories/request/create" element={<DashboardLayout><InventoryRequestCreate /></DashboardLayout>} />
             <Route path="/dashboard/partner/inventories/orders" element={<DashboardLayout><InventoryOrders /></DashboardLayout>} />
