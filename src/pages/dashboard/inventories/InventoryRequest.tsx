@@ -15,6 +15,9 @@ import { showAlert } from '@/hooks/use-alert';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 
+const toRecord = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
 type ItemOption = {
   id: string;
   item_name: string;
@@ -27,21 +30,34 @@ type GarageOption = {
 
 type InventoryRequest = {
   id: string | number;
+  request_id: string;
   item_name: string;
+  item_sku: string;
+  item_category: number;
   garage_name: string;
   quantity: number;
+  item_uom: string;
+  employee_name: string;
   status: number;
+};
+
+const categoryToLabel = (category: number): string => {
+  if (category === 1) return 'Kebutuhan Armada';
+  if (category === 2) return 'Kebutuhan Umum';
+  return '-';
 };
 
 const statusToLabel = (status: number): string => {
   if (status === 1) return 'Sedang Diproses';
   if (status === 2) return 'Menunggu Persetujuan';
+  if (status === 3) return 'Disetujui';
   return '-';
 };
 
 const statusToBadgeClass = (status: number): string => {
   if (status === 1) return 'bg-blue-50 text-blue-700 border-blue-200';
   if (status === 2) return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (status === 3) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   return 'bg-gray-50 text-gray-700 border-gray-200';
 };
 
@@ -54,6 +70,9 @@ type CreateFormData = {
   quantity: string;
   item_uom: string;
   item_category: string;
+  notes: string;
+  unit_id: string;
+  employee_id: string;
 };
 
 export const InventoryRequest: React.FC = () => {
@@ -76,16 +95,27 @@ export const InventoryRequest: React.FC = () => {
     quantity: '',
     item_uom: 'Pcs',
     item_category: '1',
+    notes: '',
+    unit_id: '',
+    employee_id: '',
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [itemOptions, setItemOptions] = useState<ItemOption[]>([]);
+   const [itemOptions, setItemOptions] = useState<ItemOption[]>([]);
   const [itemPickerOpen, setItemPickerOpen] = useState(false);
   const [itemQuery, setItemQuery] = useState('');
 
   const [garageOptions, setGarageOptions] = useState<GarageOption[]>([]);
   const [garagePickerOpen, setGaragePickerOpen] = useState(false);
   const [garageQuery, setGarageQuery] = useState('');
+
+  const [fleetOptions, setFleetOptions] = useState<{ unit_id: string; vehicle_id: string; plate_number: string; fleet_name: string }[]>([]);
+  const [fleetPickerOpen, setFleetPickerOpen] = useState(false);
+  const [fleetQuery, setFleetQuery] = useState('');
+
+  const [employeeOptions, setEmployeeOptions] = useState<{ uuid: string; fullname: string }[]>([]);
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
+  const [employeeQuery, setEmployeeQuery] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -114,11 +144,16 @@ export const InventoryRequest: React.FC = () => {
           const obj = record(raw);
           const idRaw = obj.request_id ?? obj.id;
           const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? idRaw : i;
+          const request_id = typeof obj.request_id === 'string' ? obj.request_id : String(idRaw ?? '');
           const item_name = typeof obj.item_name === 'string' ? obj.item_name : '';
+          const item_sku = typeof obj.item_sku === 'string' ? obj.item_sku : '';
+          const item_category = typeof obj.item_category === 'number' ? obj.item_category : 0;
           const garage_name = typeof obj.garage_name === 'string' ? obj.garage_name : '';
           const quantity = typeof obj.quantity === 'number' ? obj.quantity : 0;
+          const item_uom = typeof obj.item_uom === 'string' ? obj.item_uom : '';
+          const employee_name = typeof obj.employee_name === 'string' ? obj.employee_name : '';
           const status = typeof obj.status === 'number' ? obj.status : 0;
-          return { id, item_name, garage_name, quantity, status };
+          return { id, request_id, item_name, item_sku, item_category, garage_name, quantity, item_uom, employee_name, status };
         });
         setRequests(mapped);
         if (Array.isArray(payload)) {
@@ -134,30 +169,13 @@ export const InventoryRequest: React.FC = () => {
       setLoading(false);
     };
     load();
-}, [currentPage, itemsPerPage, searchTerm]);
+  }, [currentPage, itemsPerPage, searchTerm]);
 
   useEffect(() => {
     if (createModalOpen) {
       const loadOptions = async () => {
         const token = localStorage.getItem('token') ?? '';
-        const [itemsRes, garagesRes] = await Promise.all([
-          api.get<unknown>('/inventories/items', token ? { Authorization: token } : undefined),
-          api.get<unknown>('/organization/garage/list', token ? { Authorization: token } : undefined),
-        ]);
-
-        if (itemsRes.status === 'success') {
-          const raw = Array.isArray(itemsRes.data) ? itemsRes.data : [];
-          const mapped = raw
-            .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
-            .map((it) => {
-              const idRaw = it.item_id ?? it.id;
-              const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
-              const item_name = typeof it.item_name === 'string' ? it.item_name : '';
-              return id && item_name ? { id, item_name } : null;
-            })
-            .filter((x): x is ItemOption => x !== null);
-          setItemOptions(mapped);
-        }
+        const garagesRes = await api.get<unknown>('/organization/garage/list', token ? { Authorization: token } : undefined);
 
         if (garagesRes.status === 'success') {
           const payload = garagesRes.data as unknown;
@@ -184,14 +202,132 @@ export const InventoryRequest: React.FC = () => {
     }
   }, [createModalOpen]);
 
+  useEffect(() => {
+    if (createModalOpen && formData.item_category) {
+      const loadItemsByCategory = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const query = new URLSearchParams();
+        query.set('item_category', formData.item_category);
+        const itemsRes = await api.get<unknown>(
+          `/inventories/items?${query.toString()}`,
+          token ? { Authorization: token } : undefined
+        );
+
+        if (itemsRes.status === 'success') {
+          const raw = Array.isArray(itemsRes.data) ? itemsRes.data : [];
+          const mapped = raw
+            .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
+            .map((it) => {
+              const idRaw = it.item_id ?? it.id;
+              const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+              const item_name = typeof it.item_name === 'string' ? it.item_name : '';
+              return id && item_name ? { id, item_name } : null;
+            })
+            .filter((x): x is ItemOption => x !== null);
+          setItemOptions(mapped);
+        }
+      };
+      loadItemsByCategory();
+    }
+  }, [createModalOpen, formData.item_category]);
+
+  useEffect(() => {
+    if (createModalOpen && formData.item_category === '1') {
+      const loadFleetUnits = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/services/fleet-units', token ? { Authorization: token } : undefined);
+
+        if (res.status === 'success') {
+          const payload = res.data as unknown;
+          const list: unknown[] = Array.isArray(payload)
+            ? payload
+            : payload && typeof payload === 'object'
+              ? Array.isArray((payload as Record<string, unknown>).items)
+                ? ((payload as Record<string, unknown>).items as unknown[])
+                : []
+              : [];
+          const mapped = list
+            .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
+            .map((it) => {
+              const unit_id = typeof it.unit_id === 'string' || typeof it.unit_id === 'number' ? String(it.unit_id) : '';
+              const vehicle_id = typeof it.vehicle_id === 'string' ? it.vehicle_id : '';
+              const plate_number = typeof it.plate_number === 'string' ? it.plate_number : '';
+              const fleet_name = typeof it.fleet_name === 'string' ? it.fleet_name : '';
+              return unit_id && vehicle_id && plate_number && fleet_name ? { unit_id, vehicle_id, plate_number, fleet_name } : null;
+            })
+            .filter((x): x is { unit_id: string; vehicle_id: string; plate_number: string; fleet_name: string } => x !== null);
+          setFleetOptions(mapped);
+        }
+      };
+      loadFleetUnits();
+    }
+  }, [createModalOpen, formData.item_category]);
+
+  useEffect(() => {
+    if (createModalOpen) {
+      const loadEmployees = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/services/employee/all', token ? { Authorization: token } : undefined);
+
+        if (res.status === 'success') {
+          const payload = res.data as unknown;
+          const list: unknown[] = Array.isArray(payload)
+            ? payload
+            : payload && typeof payload === 'object'
+              ? Array.isArray((payload as Record<string, unknown>).items)
+                ? ((payload as Record<string, unknown>).items as unknown[])
+                : []
+              : [];
+          const mapped = list
+            .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
+            .map((it) => {
+              const uuid = typeof it.uuid === 'string' ? it.uuid : '';
+              const fullname = typeof it.fullname === 'string' ? it.fullname : '';
+              return uuid && fullname ? { uuid, fullname } : null;
+            })
+            .filter((x): x is { uuid: string; fullname: string } => x !== null);
+          setEmployeeOptions(mapped);
+        }
+      };
+      loadEmployees();
+    }
+  }, [createModalOpen]);
+
+  useEffect(() => {
+    if (formData.item_id) {
+      const fetchItemDetail = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.post<unknown>(
+          '/inventories/items/detail',
+          { item_id: formData.item_id },
+          token ? { Authorization: token } : undefined
+        );
+        if (res.status === 'success') {
+          const payload = res.data as unknown;
+          const obj = toRecord(payload);
+          const item_uom = typeof obj.item_uom === 'string' ? obj.item_uom : '';
+          if (item_uom) {
+            setFormData((p) => ({ ...p, item_uom }));
+          }
+        }
+      };
+      void fetchItemDetail();
+    }
+  }, [formData.item_id]);
+
   const startIndex = (currentPage - 1) * itemsPerPage;
 
   const exportRows = useMemo(() => {
     return requests.map((row, index) => ({
       No: startIndex + index + 1,
+      'Request ID': row.request_id || '-',
       'Nama Item': row.item_name || '-',
-      'Garasi': row.garage_name || '-',
+      SKU: row.item_sku || '-',
+      Kategori: categoryToLabel(row.item_category),
+      Garasi: row.garage_name || '-',
       Jumlah: row.quantity ?? 0,
+      Satuan: row.item_uom || '',
+      User: row.employee_name || '-',
       Status: statusToLabel(row.status),
     }));
   }, [startIndex, requests]);
@@ -212,8 +348,8 @@ export const InventoryRequest: React.FC = () => {
       showAlert({ title: 'Info', description: 'Tidak ada data untuk disalin.', type: 'warning' });
       return;
     }
-    const headers = ['No', 'Nama Item', 'Garasi', 'Jumlah', 'Status'];
-    const rowsTsv = exportRows.map((row) => [row.No, row['Nama Item'], row['Garasi'], row.Jumlah, row.Status]);
+    const headers = ['No', 'Request ID', 'Nama Item', 'SKU', 'Kategori', 'Garasi', 'Jumlah', 'Satuan', 'User', 'Status'];
+    const rowsTsv = exportRows.map((row) => [row.No, row['Request ID'], row['Nama Item'], row.SKU, row.Kategori, row.Garasi, row.Jumlah, row.Satuan, row.User, row.Status]);
     const tsv = [headers, ...rowsTsv]
       .map((cols) => cols.map((value) => String(value ?? '').replace(/\t/g, ' ')).join('\t'))
       .join('\n');
@@ -235,14 +371,55 @@ export const InventoryRequest: React.FC = () => {
       sortable: false,
       render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
     },
-    { label: 'Nama Item', key: 'item_name', sortable: true, width: 280, render: (row) => <span className="text-foreground">{row.item_name || '-'}</span> },
+    {
+      label: 'Request ID',
+      key: 'request_id',
+      sortable: true,
+      width: 140,
+      render: (row) => (
+        <button
+          type="button"
+          onClick={() => navigate(`${basePrefix}/inventories/request/detail/${encodeURIComponent(String(row.request_id))}`)}
+          className="text-blue-600 hover:underline text-sm font-medium"
+        >
+          {row.request_id || '-'}
+        </button>
+      )
+    },
+    {
+      label: 'Nama Item',
+      key: 'item_name',
+      sortable: true,
+      width: 280,
+      render: (row) => (
+        <div className="min-w-0">
+          <div className="text-foreground truncate">{row.item_name || '-'}</div>
+          {row.item_sku && <div className="text-xs text-muted-foreground">SKU: {row.item_sku}</div>}
+        </div>
+      )
+    },
+    {
+      label: 'Kategori',
+      key: 'item_category',
+      sortable: true,
+      width: 160,
+      render: (row) => <span className="text-foreground">{categoryToLabel(row.item_category)}</span>
+    },
     { label: 'Garasi', key: 'garage_name', sortable: true, width: 200, render: (row) => <span className="text-foreground">{row.garage_name || '-'}</span> },
-    { label: 'Jumlah', key: 'quantity', sortable: true, width: 120, render: (row) => <span className="text-foreground">{row.quantity}</span> },
+    {
+      label: 'Qty',
+      key: 'quantity',
+      sortable: true,
+      width: 100,
+      align: 'right',
+      render: (row) => <span className="text-foreground">{row.quantity} {row.item_uom || ''}</span>
+    },
+    { label: 'User', key: 'employee_name', sortable: true, width: 180, render: (row) => <span className="text-foreground">{row.employee_name || '-'}</span> },
     {
       label: 'Status',
       key: 'status',
       sortable: true,
-      width: 180,
+      width: 160,
       render: (row) => (
         <span className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold ${statusToBadgeClass(row.status)}`}>
           {statusToLabel(row.status)}
@@ -278,11 +455,34 @@ export const InventoryRequest: React.FC = () => {
     return found?.garage_name ?? '';
   }, [garageOptions, formData.garage_id]);
 
+  const filteredFleets = useMemo(() => {
+    if (!fleetQuery) return fleetOptions;
+    return fleetOptions.filter((o) => {
+      const label = `${o.vehicle_id} - ${o.plate_number} - ${o.fleet_name}`.toLowerCase();
+      return label.includes(fleetQuery.toLowerCase());
+    });
+  }, [fleetOptions, fleetQuery]);
+
+  const selectedFleetLabel = useMemo(() => {
+    const found = fleetOptions.find((o) => o.unit_id === formData.unit_id);
+    return found ? `${found.vehicle_id} - ${found.plate_number} - ${found.fleet_name}` : '';
+  }, [fleetOptions, formData.unit_id]);
+
+  const filteredEmployees = useMemo(() => {
+    if (!employeeQuery) return employeeOptions;
+    return employeeOptions.filter((o) => o.fullname.toLowerCase().includes(employeeQuery.toLowerCase()));
+  }, [employeeOptions, employeeQuery]);
+
+  const selectedEmployeeName = useMemo(() => {
+    const found = employeeOptions.find((o) => o.uuid === formData.employee_id);
+    return found?.fullname ?? '';
+  }, [employeeOptions, formData.employee_id]);
+
   const validate = () => {
     const next: Record<string, string> = {};
-    if (!formData.item_id && !formData.item_name_manual.trim()) {
-      next.item_id = 'Item harus dipilih atau ditulis manual';
-    }
+    // if (!formData.item_id && !formData.item_name_manual.trim()) {
+    //   next.item_id = 'Item harus dipilih atau ditulis manual';
+    // }
     if (!formData.garage_id) {
       next.garage_id = 'Garasi wajib dipilih';
     }
@@ -291,6 +491,9 @@ export const InventoryRequest: React.FC = () => {
     }
     if (!formData.item_uom) {
       next.item_uom = 'Satuan wajib dipilih';
+    }
+    if (formData.item_category === '1' && !formData.unit_id) {
+      next.unit_id = 'Armada wajib dipilih';
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -311,6 +514,7 @@ export const InventoryRequest: React.FC = () => {
         item_category: Number(formData.item_category),
         quantity: Number(formData.quantity),
         item_uom: formData.item_uom,
+        notes: formData.notes.trim(),
       };
       if (formData.item_id) {
         payload.item_id = formData.item_id;
@@ -319,6 +523,12 @@ export const InventoryRequest: React.FC = () => {
       }
       if (formData.garage_id) {
         payload.garage_id = formData.garage_id;
+      }
+      if (formData.item_category === '1' && formData.unit_id) {
+        payload.unit_id = formData.unit_id;
+      }
+      if (formData.employee_id) {
+        payload.employee_id = formData.employee_id;
       }
 
       const res = await api.post<unknown>(
@@ -337,6 +547,9 @@ export const InventoryRequest: React.FC = () => {
           quantity: '',
           item_uom: 'Pcs',
           item_category: '1',
+          notes: '',
+          unit_id: '',
+          employee_id: '',
         });
         setErrors({});
         setLoading(true);
@@ -360,11 +573,16 @@ export const InventoryRequest: React.FC = () => {
             const obj = record(raw);
             const idRaw = obj.request_id ?? obj.id;
             const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? idRaw : i;
+            const request_id = typeof obj.request_id === 'string' ? obj.request_id : String(idRaw ?? '');
             const item_name = typeof obj.item_name === 'string' ? obj.item_name : '';
+            const item_sku = typeof obj.item_sku === 'string' ? obj.item_sku : '';
+            const item_category = typeof obj.item_category === 'number' ? obj.item_category : 0;
             const garage_name = typeof obj.garage_name === 'string' ? obj.garage_name : '';
             const quantity = typeof obj.quantity === 'number' ? obj.quantity : 0;
+            const item_uom = typeof obj.item_uom === 'string' ? obj.item_uom : '';
+            const employee_name = typeof obj.employee_name === 'string' ? obj.employee_name : '';
             const status = typeof obj.status === 'number' ? obj.status : 0;
-            return { id, item_name, garage_name, quantity, status };
+            return { id, request_id, item_name, item_sku, item_category, garage_name, quantity, item_uom, employee_name, status };
           });
           setRequests(mapped);
           if (Array.isArray(payload)) {
@@ -475,7 +693,7 @@ export const InventoryRequest: React.FC = () => {
               key: 'approve',
               label: 'Approve',
               icon: Check,
-              onSelect: () => void 0
+              onSelect: (row) => navigate(`${basePrefix}/inventories/request/detail/${encodeURIComponent(String(row.request_id))}`)
             }
           ]
         }}
@@ -504,14 +722,17 @@ export const InventoryRequest: React.FC = () => {
         setCreateModalOpen(open);
         if (!open) {
           setErrors({});
-          setFormData({
-            item_id: '',
-            item_name_manual: '',
-            garage_id: '',
-            quantity: '',
-            item_uom: 'Pcs',
-            item_category: '1',
-          });
+        setFormData({
+          item_id: '',
+          item_name_manual: '',
+          garage_id: '',
+          quantity: '',
+          item_uom: 'Pcs',
+          item_category: '1',
+          notes: '',
+          unit_id: '',
+          employee_id: '',
+        });
         }
       }}>
         <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
@@ -538,8 +759,196 @@ export const InventoryRequest: React.FC = () => {
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6">
-              <div className="grid grid-cols-1 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Kategori Item *</label>
+                  <RadioGroup value={formData.item_category} onValueChange={(v) => {
+                    setFormData((p) => ({ ...p, item_category: v, item_id: '', item_name_manual: '', unit_id: '', employee_id: '' }));
+                    setItemQuery('');
+                    setFleetQuery('');
+                    setEmployeeQuery('');
+                  }} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label className={`flex items-start gap-3 rounded-[22px] border p-4 cursor-pointer transition-all ${formData.item_category === '1' ? 'border-blue-500 bg-blue-50/60' : 'border-gray-200 bg-white'}`}>
+                      <RadioGroupItem value="1" id="req-category-1" className="mt-0.5 border-blue-300" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-gray-900">Kebutuhan Armada</div>
+                        <div className="mt-1 text-xs text-gray-600">Asset yang digunakan untuk kebutuhan operasional armada.</div>
+                      </div>
+                    </label>
+                    <label className={`flex items-start gap-3 rounded-[22px] border p-4 cursor-pointer transition-all ${formData.item_category === '2' ? 'border-blue-500 bg-blue-50/60' : 'border-gray-200 bg-white'}`}>
+                      <RadioGroupItem value="2" id="req-category-2" className="mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-gray-900">Kebutuhan Umum</div>
+                        <div className="mt-1 text-xs text-gray-600">Asset yang digunakan untuk kebutuhan umum / kantor.</div>
+                      </div>
+                    </label>
+                  </RadioGroup>
+                </div>
+
+                {formData.item_category === '1' && (
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Pilih Armada </label>
+                    <Popover open={fleetPickerOpen} onOpenChange={(open) => {
+                      setFleetPickerOpen(open);
+                      setFleetQuery(open ? '' : '');
+                      if (!open) {
+                        setFleetQuery('');
+                      }
+                    }}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          className={`w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50 ${errors.unit_id ? 'border-red-500' : ''}`}
+                        >
+                          <span className={formData.unit_id ? '' : 'text-muted-foreground'}>
+                            {formData.unit_id ? selectedFleetLabel : 'Pilih armada'}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                        <Command shouldFilter={false} className="rounded-xl">
+                          <CommandInput
+                            placeholder="Cari armada..."
+                            value={fleetQuery}
+                            onValueChange={setFleetQuery}
+                          />
+                          <CommandList>
+                            <CommandEmpty>Tidak ada hasil.</CommandEmpty>
+                            <CommandGroup>
+                              {filteredFleets.map((opt) => (
+                                <CommandItem
+                                  key={opt.unit_id}
+                                  value={`${opt.vehicle_id} ${opt.plate_number} ${opt.fleet_name}`}
+                                  className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-800"
+                                  onSelect={() => {
+                                    setFormData((p) => ({ ...p, unit_id: opt.unit_id }));
+                                    setFleetQuery('');
+                                    setFleetPickerOpen(false);
+                                    const errKey = 'unit_id';
+                                    if (errors[errKey]) setErrors((prev) => ({ ...prev, [errKey]: '' }));
+                                  }}
+                                >
+                                  <Check className={formData.unit_id === opt.unit_id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                                  {opt.vehicle_id} - {opt.plate_number} - {opt.fleet_name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    {errors.unit_id && <p className="text-sm text-red-500">{errors.unit_id}</p>}
+                  </div>
+                )}
+
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Pilih Karyawan</label>
+                  <Popover open={employeePickerOpen} onOpenChange={(open) => {
+                    setEmployeePickerOpen(open);
+                    setEmployeeQuery(open ? '' : '');
+                    if (!open) {
+                      setEmployeeQuery('');
+                    }
+                  }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className={`w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50 ${errors.employee_id ? 'border-red-500' : ''}`}
+                      >
+                        <span className={formData.employee_id ? '' : 'text-muted-foreground'}>
+                          {formData.employee_id ? selectedEmployeeName : 'Pilih karyawan'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                      <Command shouldFilter={false} className="rounded-xl">
+                        <CommandInput
+                          placeholder="Cari karyawan..."
+                          value={employeeQuery}
+                          onValueChange={setEmployeeQuery}
+                        />
+                        <CommandList>
+                          <CommandEmpty>Tidak ada hasil.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredEmployees.map((opt) => (
+                              <CommandItem
+                                key={opt.uuid}
+                                value={opt.fullname}
+                                className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-800"
+                                onSelect={() => {
+                                  setFormData((p) => ({ ...p, employee_id: opt.uuid }));
+                                  setEmployeeQuery('');
+                                  setEmployeePickerOpen(false);
+                                  const errKey = 'employee_id';
+                                  if (errors[errKey]) setErrors((prev) => ({ ...prev, [errKey]: '' }));
+                                }}
+                              >
+                                <Check className={formData.employee_id === opt.uuid ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                                {opt.fullname}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {errors.employee_id && <p className="text-sm text-red-500">{errors.employee_id}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Pilih Garasi *</label>
+                  <Popover open={garagePickerOpen} onOpenChange={setGaragePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className={`w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50 ${errors.garage_id ? 'border-red-500' : ''}`}
+                      >
+                        <span className={formData.garage_id ? '' : 'text-muted-foreground'}>
+                          {formData.garage_id ? selectedGarageName : 'Pilih garasi'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput
+                          placeholder="Cari garasi..."
+                          value={garageQuery}
+                          onValueChange={setGarageQuery}
+                        />
+                        <CommandList>
+                          <CommandEmpty>Tidak ada hasil.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredGarages.map((opt) => (
+                              <CommandItem
+                                key={opt.id}
+                                value={opt.garage_name}
+                                onSelect={() => {
+                                  setFormData((p) => ({ ...p, garage_id: opt.id }));
+                                  setGaragePickerOpen(false);
+                                }}
+                              >
+                                <Check className={formData.garage_id === opt.id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                                {opt.garage_name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {errors.garage_id && <p className="text-sm text-red-500">{errors.garage_id}</p>}
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-white/70">Nama Item *</label>
                   <Popover open={itemPickerOpen} onOpenChange={(open) => {
                     setItemPickerOpen(open);
@@ -628,102 +1037,44 @@ export const InventoryRequest: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Jenis Asset *</label>
-                  <RadioGroup value={formData.item_category} onValueChange={(v) => setFormData((p) => ({ ...p, item_category: v }))} className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label className={`flex items-start gap-3 rounded-[22px] border p-4 cursor-pointer transition-all ${formData.item_category === '1' ? 'border-blue-500 bg-blue-50/60' : 'border-gray-200 bg-white'}`}>
-                      <RadioGroupItem value="1" id="req-category-1" className="mt-0.5 border-blue-300" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-gray-900">Kebutuhan Armada</div>
-                        <div className="mt-1 text-xs text-gray-600">Asset yang digunakan untuk kebutuhan operasional armada.</div>
-                      </div>
-                    </label>
-                    <label className={`flex items-start gap-3 rounded-[22px] border p-4 cursor-pointer transition-all ${formData.item_category === '2' ? 'border-blue-500 bg-blue-50/60' : 'border-gray-200 bg-white'}`}>
-                      <RadioGroupItem value="2" id="req-category-2" className="mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-gray-900">Kebutuhan Umum</div>
-                        <div className="mt-1 text-xs text-gray-600">Asset yang digunakan untuk kebutuhan umum / kantor.</div>
-                      </div>
-                    </label>
-                  </RadioGroup>
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Jumlah Item *</label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData((p) => ({ ...p, quantity: e.target.value.replace(/[^0-9]/g, '') }))}
+                    placeholder="0"
+                    className={`h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30 ${errors.quantity ? 'border-red-500' : ''}`}
+                    style={{ appearance: 'textfield' }}
+                  />
+                  {errors.quantity && <p className="text-sm text-red-500">{errors.quantity}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Pilih Garasi *</label>
-                  <Popover open={garagePickerOpen} onOpenChange={setGaragePickerOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        role="combobox"
-                        className={`w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50 ${errors.garage_id ? 'border-red-500' : ''}`}
-                      >
-                        <span className={formData.garage_id ? '' : 'text-muted-foreground'}>
-                          {formData.garage_id ? selectedGarageName : 'Pilih garasi'}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput
-                          placeholder="Cari garasi..."
-                          value={garageQuery}
-                          onValueChange={setGarageQuery}
-                        />
-                        <CommandList>
-                          <CommandEmpty>Tidak ada hasil.</CommandEmpty>
-                          <CommandGroup>
-                            {filteredGarages.map((opt) => (
-                              <CommandItem
-                                key={opt.id}
-                                value={opt.garage_name}
-                                onSelect={() => {
-                                  setFormData((p) => ({ ...p, garage_id: opt.id }));
-                                  setGaragePickerOpen(false);
-                                }}
-                              >
-                                <Check className={formData.garage_id === opt.id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
-                                {opt.garage_name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  {errors.garage_id && <p className="text-sm text-red-500">{errors.garage_id}</p>}
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Satuan *</label>
+                  <Select value={formData.item_uom} onValueChange={(v) => setFormData((p) => ({ ...p, item_uom: v }))}>
+                    <SelectTrigger className={`h-11 rounded-2xl border-gray-300 bg-white ${errors.item_uom ? 'border-red-500' : ''}`}>
+                      <SelectValue placeholder="Pilih satuan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitOptions.map((unit) => (
+                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.item_uom && <p className="text-sm text-red-500">{errors.item_uom}</p>}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Jumlah Item *</label>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={formData.quantity}
-                      onChange={(e) => setFormData((p) => ({ ...p, quantity: e.target.value.replace(/[^0-9]/g, '') }))}
-                      placeholder="0"
-                      className={`h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30 ${errors.quantity ? 'border-red-500' : ''}`}
-                      style={{ appearance: 'textfield' }}
-                    />
-                    {errors.quantity && <p className="text-sm text-red-500">{errors.quantity}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Satuan *</label>
-                    <Select value={formData.item_uom} onValueChange={(v) => setFormData((p) => ({ ...p, item_uom: v }))}>
-                      <SelectTrigger className={`h-11 rounded-2xl border-gray-300 bg-white ${errors.item_uom ? 'border-red-500' : ''}`}>
-                        <SelectValue placeholder="Pilih satuan" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {unitOptions.map((unit) => (
-                          <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.item_uom && <p className="text-sm text-red-500">{errors.item_uom}</p>}
-                  </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Catatan</label>
+                  <Input
+                    type="text"
+                    value={formData.notes}
+                    onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
+                    placeholder="Tambahkan catatan..."
+                    className="h-11 rounded-2xl border-gray-300 bg-white"
+                  />
                 </div>
               </div>
             </div>
@@ -733,7 +1084,7 @@ export const InventoryRequest: React.FC = () => {
                 Batal
               </Button>
               <Button type="submit" disabled={saving} className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white">
-                {saving ? 'Menyimpan...' : 'Simpan Permintaan'}
+                {saving ? 'Mengajukan...' : 'Ajukan Permintaan'}
               </Button>
             </div>
           </form>

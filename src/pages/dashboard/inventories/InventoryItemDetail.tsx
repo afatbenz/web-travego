@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Box, ArrowLeftRight, Plus, Pencil, Clock, X } from 'lucide-react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { ArrowLeft, Box, ArrowLeftRight, Plus, Pencil, Clock, X, ShoppingCart, MapPin } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -16,12 +17,13 @@ import { Input } from '@/components/ui/input';
 import Swal from 'sweetalert2';
 
 type LocationRow = {
-   garage_name: string;
-   garage_address: string;
-   garage_city: string;
-   garage_city_label: string;
-   stock: number;
-   updated_at: string;
+  garage_id: string;
+  garage_name: string;
+  garage_address: string;
+  garage_city: string;
+  garage_city_label: string;
+  stock: number;
+  updated_at: string;
 };
 
 type GarageOption = {
@@ -47,6 +49,23 @@ type MovementRow = {
   qty: number;
   stock: number;
   label: string;
+  notes: string;
+};
+
+type OrderHistoryRow = {
+  purchase_id: string;
+  quantity: number;
+  item_price: number;
+  total_amount: number;
+};
+
+type GarageMovementRow = {
+  transaction_date: string;
+  movement_type: string;
+  quantity: number;
+  item_uom: string;
+  stock_final: number;
+  stock_before: number;
   notes: string;
 };
 
@@ -81,12 +100,23 @@ const formatDateTimeTable = (value?: string) => {
   });
 };
 
-const formatDateOnly = (date: Date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
+  const formatDateOnlyTable = (value?: string) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  const formatDateOnly = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
 const getMonthStart = (date: Date) => {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -140,19 +170,33 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
      item_category: '1',
    });
    const [transferModalOpen, setTransferModalOpen] = useState(false);
-   const [transferSaving, setTransferSaving] = useState(false);
-    const [garageOptions, setGarageOptions] = useState<GarageOption[]>([]);
-    const [garageFromOptions, setGarageFromOptions] = useState<GarageOption[]>([]);
-    const [garageFromPickerOpen, setGarageFromPickerOpen] = useState(false);
-    const [garageFromQuery, setGarageFromQuery] = useState('');
-    const [garageDestPickerOpen, setGarageDestPickerOpen] = useState(false);
-    const [garageDestQuery, setGarageDestQuery] = useState('');
-    const [transferFormData, setTransferFormData] = useState({
-      garage_from: '',
-      garage_destination: '',
-      stock: '',
-    });
-    const [reloadDetail, setReloadDetail] = useState(0);
+  const [transferSaving, setTransferSaving] = useState(false);
+  const [garageOptions, setGarageOptions] = useState<GarageOption[]>([]);
+  const [garageFromOptions, setGarageFromOptions] = useState<GarageOption[]>([]);
+  const [garageFromPickerOpen, setGarageFromPickerOpen] = useState(false);
+  const [garageFromQuery, setGarageFromQuery] = useState('');
+  const [garageDestPickerOpen, setGarageDestPickerOpen] = useState(false);
+  const [garageDestQuery, setGarageDestQuery] = useState('');
+  const [transferFormData, setTransferFormData] = useState({
+    garage_from: '',
+    garage_destination: '',
+    stock: '',
+  });
+  const [reloadDetail, setReloadDetail] = useState(0);
+  
+  // Order History state
+  const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
+  const [orderHistoryData, setOrderHistoryData] = useState<OrderHistoryRow[]>([]);
+  const [orderHistoryPage, setOrderHistoryPage] = useState(1);
+  const [orderHistoryTotal, setOrderHistoryTotal] = useState(0);
+  
+  // Garage Movement History state
+  const [garageMovementModalOpen, setGarageMovementModalOpen] = useState(false);
+  const [selectedGarage, setSelectedGarage] = useState<LocationRow | null>(null);
+  const [garageMovementLoading, setGarageMovementLoading] = useState(false);
+  const [garageMovementData, setGarageMovementData] = useState<GarageMovementRow[]>([]);
+  const [garageMovementPage, setGarageMovementPage] = useState(1);
+  const [garageMovementTotal, setGarageMovementTotal] = useState(0);
 
   const totalStock = detail?.locations.reduce((sum, loc) => sum + loc.stock, 0) ?? 0;
 
@@ -202,6 +246,91 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
     }
   }, [itemId, startDate, endDate]);
 
+  const fetchOrderHistory = useCallback(async (page: number) => {
+    if (!itemId) return;
+    setOrderHistoryLoading(true);
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    try {
+      const res = await api.post<unknown>(
+        '/inventories/items/order-history',
+        { item_id: itemId, page, limit: 10 },
+        headers
+      );
+      if (res.status === 'success') {
+        const payload = res.data as unknown;
+        const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+        const listRaw = root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).items : root;
+        const list: unknown[] = Array.isArray(listRaw) ? listRaw : [];
+        const mapped = list.map((raw) => {
+          const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+          return {
+            purchase_id: typeof obj.purchase_id === 'string' ? obj.purchase_id : '',
+            quantity: typeof obj.quantity === 'number' ? obj.quantity : 0,
+            item_price: typeof obj.item_price === 'number' ? obj.item_price : 0,
+            total_amount: typeof obj.total_amount === 'number' ? obj.total_amount : 0,
+          };
+        });
+        setOrderHistoryData(mapped);
+        const totalRaw = root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).total : undefined;
+        setOrderHistoryTotal(typeof totalRaw === 'number' ? totalRaw : mapped.length);
+        setOrderHistoryPage(page);
+      } else {
+        setOrderHistoryData([]);
+        setOrderHistoryTotal(0);
+      }
+    } catch {
+      setOrderHistoryData([]);
+      setOrderHistoryTotal(0);
+    } finally {
+      setOrderHistoryLoading(false);
+    }
+  }, [itemId]);
+
+  const fetchGarageMovementHistory = useCallback(async (garage: LocationRow, page: number) => {
+    if (!itemId) return;
+    setGarageMovementLoading(true);
+    const token = localStorage.getItem('token') ?? '';
+    const headers = token ? { Authorization: token } : undefined;
+    try {
+      const res = await api.post<unknown>(
+        '/inventories/items/movement',
+        { item_id: itemId, garage_id: garage.garage_id, page, limit: 10 },
+        headers
+      );
+      if (res.status === 'success') {
+        const payload = res.data as unknown;
+        const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+        const listRaw = root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).items : root;
+        const list: unknown[] = Array.isArray(listRaw) ? listRaw : [];
+        const mapped = list.map((raw) => {
+          const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+          return {
+            transaction_date: typeof obj.movement_date === 'string' ? obj.movement_date : '',
+            movement_type: typeof obj.movement_type === 'string' ? obj.movement_type : '-',
+            quantity: typeof obj.quantity === 'number' ? obj.quantity : 0,
+            item_uom: typeof obj.item_uom === 'string' ? obj.item_uom : 'Pcs',
+            stock_final: typeof obj.stock_final === 'number' ? obj.stock_final : 0,
+            stock_before: typeof obj.stock_before === 'number' ? obj.stock_before : 0,
+            notes: typeof obj.notes === 'string' ? obj.notes : '',
+          };
+        });
+        setGarageMovementData(mapped);
+        const totalRaw = root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).total : undefined;
+        setGarageMovementTotal(typeof totalRaw === 'number' ? totalRaw : mapped.length);
+        setGarageMovementPage(page);
+      } else {
+        setGarageMovementData([]);
+        setGarageMovementTotal(0);
+      }
+    } catch {
+      setGarageMovementData([]);
+      setGarageMovementTotal(0);
+    } finally {
+      setGarageMovementLoading(false);
+    }
+  }, [itemId]);
+
   useEffect(() => {
     const load = async () => {
       if (!itemId) return;
@@ -224,7 +353,9 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
           ? (locationsRaw as unknown[])
               .map((x) => {
                 const obj = x && typeof x === 'object' ? (x as Record<string, unknown>) : {};
+                const garageIdRaw = obj.garage_id ?? obj.id;
                 return {
+                  garage_id: typeof garageIdRaw === 'string' || typeof garageIdRaw === 'number' ? String(garageIdRaw) : '',
                   garage_name: typeof obj.garage_name === 'string' ? obj.garage_name : '',
                   garage_address: typeof obj.garage_address === 'string' ? obj.garage_address : '',
                   garage_city: typeof obj.garage_city === 'string' ? obj.garage_city : '',
@@ -247,8 +378,9 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
   useEffect(() => {
     if (detail) {
       fetchMovements(1);
+      fetchOrderHistory(1);
     }
-  }, [detail, fetchMovements]);
+  }, [detail, fetchMovements, fetchOrderHistory]);
 
   useEffect(() => {
     const loadGarages = async () => {
@@ -263,7 +395,7 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
         const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
         const list: unknown[] = Array.isArray(root.items) ? root.items : Array.isArray(payload) ? payload : [];
         return list
-          .filter((x): x is Record<string, unknown> => x && typeof x === 'object')
+          .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
           .map((x) => {
             const idRaw = x.garage_id ?? x.id;
             const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
@@ -433,6 +565,141 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
     },
   ];
 
+  const formatCurrency = (value: number): string => {
+    return value.toLocaleString('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    });
+  };
+
+  const orderHistoryStartIndex = (orderHistoryPage - 1) * 10;
+  const orderHistoryColumns: Array<DataTableColumn<OrderHistoryRow>> = [
+    {
+      label: 'No',
+      key: '__no__',
+      width: 68,
+      align: 'center',
+      sortable: false,
+      render: (_, rowIndex) => (
+        <span className="text-sm text-muted-foreground">{orderHistoryStartIndex + rowIndex + 1}</span>
+      ),
+    },
+    {
+      label: 'Purchase ID',
+      key: 'purchase_id',
+      sortable: true,
+      width: 200,
+      render: (item) => (
+        <Link
+          to={`${basePrefix}/inventories/orders/detail/${encodeURIComponent(item.purchase_id)}`}
+          className="text-blue-600 hover:underline text-sm font-medium"
+        >
+          {item.purchase_id}
+        </Link>
+      ),
+    },
+    {
+      label: 'Qty',
+      key: 'quantity',
+      sortable: true,
+      width: 100,
+      align: 'right',
+      render: (item) => (
+        <span className="text-sm text-gray-900 dark:text-white">
+          {item.quantity} {detail?.item_uom || 'Pcs'}
+        </span>
+      ),
+    },
+    {
+      label: 'Harga',
+      key: 'item_price',
+      sortable: true,
+      width: 180,
+      align: 'right',
+      render: (item) => (
+        <div className="text-right">
+          <div className="text-sm font-medium text-gray-900 dark:text-white">
+            {formatCurrency(item.item_price)}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Total: {formatCurrency(item.total_amount)}
+          </div>
+        </div>
+      ),
+    },
+  ];
+
+  const garageMovementStartIndex = (garageMovementPage - 1) * 10;
+  const garageMovementColumns: Array<DataTableColumn<GarageMovementRow>> = [
+    {
+      label: 'No',
+      key: '__no__',
+      width: 68,
+      align: 'center',
+      sortable: false,
+      render: (_, rowIndex) => (
+        <span className="text-sm text-muted-foreground">{garageMovementStartIndex + rowIndex + 1}</span>
+      ),
+    },
+    {
+      label: 'Tanggal',
+      key: 'transaction_date',
+      sortable: true,
+      width: 160,
+      render: (item) => <span className="text-foreground text-sm">{formatDateTimeTable(item.transaction_date)}</span>,
+    },
+    {
+      label: 'Aktivitas',
+      key: 'movement_type',
+      sortable: true,
+      width: 150,
+      render: (item) => (
+        <Badge variant={activityVariant(item.movement_type)} className="rounded-full px-2.5 py-1 text-xs font-medium">
+          {item.movement_type || '-'}
+        </Badge>
+      ),
+    },
+    {
+      label: 'Qty',
+      key: 'quantity',
+      sortable: true,
+      width: 120,
+      align: 'right',
+      render: (item) => (
+        <span className="text-sm font-medium text-gray-900 dark:text-white">
+          {item.quantity} {item.item_uom}
+        </span>
+      ),
+    },
+    {
+      label: 'Stok',
+      key: 'stock_final',
+      sortable: true,
+      width: 150,
+      align: 'right',
+      render: (item) => (
+        <div className="text-right">
+          <div className="text-sm font-medium text-gray-900 dark:text-white">
+            {item.stock_final} {item.item_uom}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Stok sebelumnya: {item.stock_before} {item.item_uom}
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: 'Keterangan',
+      key: 'notes',
+      sortable: true,
+      width: 250,
+      render: (item) => (
+        <span className="text-muted-foreground text-sm line-clamp-1">{item.notes || '-'}</span>
+      ),
+    },
+  ];
+
   const distributionColumns: Array<DataTableColumn<LocationRow>> = [
     {
       label: 'No',
@@ -457,14 +724,7 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
       ),
     },
     {
-      label: 'Kota',
-      key: 'garage_city_label',
-      sortable: true,
-      width: 180,
-      render: (item) => <span className="text-foreground">{item.garage_city_label || '-'}</span>,
-    },
-    {
-      label: 'Stok Saat Ini',
+      label: 'Stok',
       key: 'stock',
       sortable: true,
       width: 100,
@@ -476,28 +736,11 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
       ),
     },
     {
-      label: 'Persentase',
-      key: '__percentage__',
-      sortable: false,
-      width: 180,
-      render: (item) => {
-        const pct = totalStock > 0 ? Math.round((item.stock / totalStock) * 100) : 0;
-        return (
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <ProgressBar value={pct} className="h-2" color={progressColor(0)} />
-            </div>
-            <span className="text-xs text-muted-foreground tabular-nums w-10 text-right">{pct}%</span>
-          </div>
-        );
-      },
-    },
-    {
-      label: 'Update Terakhir',
+      label: 'Update',
       key: 'updated_at',
       sortable: true,
       width: 160,
-      render: (item) => <span className="text-muted-foreground text-sm">{formatDateTimeTable(item.updated_at)}</span>,
+      render: (item) => <span className="text-muted-foreground text-sm">{formatDateOnlyTable(item.updated_at)}</span>,
     },
     {
       label: 'Aksi',
@@ -505,10 +748,18 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
       sortable: false,
       width: 120,
       align: 'center',
-      render: () => (
-        <Button variant="outline" size="sm" className="h-8 rounded-full text-xs">
-          <Clock className="h-3.5 w-3.5 mr-1.5" />
-          Riwayat
+      render: (item) => (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 rounded-full text-xs"
+          onClick={() => {
+            setSelectedGarage(item);
+            fetchGarageMovementHistory(item, 1);
+            setGarageMovementModalOpen(true);
+          }}
+        >
+          <Clock className="h-3.5 w-3.5" />
         </Button>
       ),
     },
@@ -704,34 +955,62 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
       )}
 
       {loading ? (
-        <TableSkeleton />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TableSkeleton />
+          <TableSkeleton />
+        </div>
       ) : detail ? (
-        <div className="rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
-          <div className="p-5 sm:p-6">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Distribusi Stok Per Garasi</h3>
-            <DataTable
-              data={detail.locations}
-              columns={distributionColumns}
-              loading={loading}
-              tableClassName="table-auto w-full"
-              emptyTitle="Tidak ada data lokasi stok"
-              emptyDescription="Belum ada garasi yang tercatat untuk item ini."
-              pagination={{ enabled: false }}
-            />
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
+           {/* Riwayat Order */}
+           <Card className="lg:col-span-4 dark:bg-gray-900">
+             <CardHeaderWithBadge title="Riwayat Order" badgeIcon={<ShoppingCart className="h-3.5 w-3.5 sm:h-6 sm:w-6" />} />
+             <CardContent className="p-5 sm:p-6">
+               <DataTable
+                 data={orderHistoryData}
+                 columns={orderHistoryColumns}
+                 loading={orderHistoryLoading}
+                 tableClassName="table-auto w-full"
+                 emptyTitle="Tidak ada riwayat order"
+                 emptyDescription="Belum ada order untuk item ini."
+                 pagination={{
+                   enabled: true,
+                   page: orderHistoryPage,
+                   pageSize: 10,
+                   totalItems: orderHistoryTotal,
+                   onPageChange: (p) => fetchOrderHistory(p),
+                   pageSizeOptions: [10, 20, 50],
+                 }}
+               />
+             </CardContent>
+           </Card>
+
+           {/* Distribusi Stok Per Garasi */}
+           <Card className="lg:col-span-6 dark:bg-gray-900">
+             <CardHeaderWithBadge title="Distribusi Stok Per Garasi" badgeIcon={<MapPin className="h-3.5 w-3.5 sm:h-6 sm:w-6" />} />
+             <CardContent className="p-5 sm:p-6">
+               <DataTable
+                 data={detail.locations}
+                 columns={distributionColumns}
+                 loading={loading}
+                 tableClassName="table-auto w-full"
+                 emptyTitle="Tidak ada data lokasi stok"
+                 emptyDescription="Belum ada garasi yang tercatat untuk item ini."
+                 pagination={{ enabled: false }}
+               />
+             </CardContent>
+           </Card>
         </div>
       ) : null}
 
-{loading ? (
+      {/* Riwayat Mutasi Terbaru */}
+      {loading ? (
          <BottomSkeleton />
-       ) : detail ? (
-         <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
-           <div className="lg:col-span-2 rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
-             <div className="p-5 sm:p-6">
-               <div className="flex items-center justify-between mb-4">
-                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">Riwayat Mutasi Terbaru</h3>
-               </div>
-               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4">
+        ) : detail ? (
+          <div className="grid grid-cols-1 gap-4">
+            <Card className="dark:bg-gray-900">
+              <CardHeaderWithBadge title="Riwayat Mutasi Terbaru" badgeIcon={<Clock className="h-3.5 w-3.5 sm:h-6 sm:w-6" />} />
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4">
                  <div className="flex items-center gap-2">
                    <span className="text-xs text-muted-foreground">Dari</span>
                    <input
@@ -775,10 +1054,10 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
                    pageSizeOptions: [10, 20, 50],
                  }}
                />
-             </div>
-           </div>
-         </div>
-       ) : null}
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
 
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
@@ -1013,6 +1292,49 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Riwayat Mutasi Item Per Garasi Dialog */}
+      <Dialog open={garageMovementModalOpen} onOpenChange={setGarageMovementModalOpen}>
+        <DialogContent className="max-w-5xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
+          <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                  <Clock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Riwayat Mutasi Item</h2>
+                  <p className="text-slate-500 text-xs sm:text-sm">
+                    Riwayat mutasi untuk {selectedGarage?.garage_name}
+                  </p>
+                </div>
+              </div>
+              <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                <X className="w-3 h-3 sm:w-5 sm:h-5" />
+              </DialogClose>
+            </div>
+            <div className="h-px bg-slate-100 mt-4" />
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6">
+            <DataTable
+              data={garageMovementData}
+              columns={garageMovementColumns}
+              loading={garageMovementLoading}
+              tableClassName="table-auto w-full"
+              emptyTitle="Tidak ada riwayat mutasi"
+              emptyDescription="Belum ada mutasi untuk garasi ini."
+              pagination={{
+                enabled: true,
+                page: garageMovementPage,
+                pageSize: 10,
+                totalItems: garageMovementTotal,
+                onPageChange: (p) => selectedGarage && fetchGarageMovementHistory(selectedGarage, p),
+                pageSizeOptions: [10, 20, 50],
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -70,7 +70,7 @@ if (onOrgOnlyPath) {
   }, [effectiveOrgId, isAdmin, isChecking, navigate, location.pathname]);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
       <Sidebar />
       <div className="flex flex-col min-w-0 md:ml-[var(--sidebar-width,4rem)] transition-all duration-300">
         <Topbar />

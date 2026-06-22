@@ -1,0 +1,798 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { ArrowLeft, Box, Check, X, MoreVertical, Plus, Calendar, Clock, Copy, Users } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
+import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import Swal from 'sweetalert2';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+
+type RequestDetail = {
+  request_id: string;
+  request_number: string;
+  item_id: string;
+  item_category: number;
+  item_category_label: string;
+  item_uom: string;
+  item_sku: string;
+  item_name: string;
+  garage_id: string;
+  garage_name: string;
+  garage_city: string;
+  garage_city_label: string;
+  quantity: number;
+  status: number;
+  request_status_label: string;
+  organization_id: string;
+  created_at: string;
+  created_by: string;
+  approve_at: string;
+  approve_by: string;
+  updated_at: string;
+  updated_by: string;
+  employee_name: string;
+  unit_id: string;
+  vehicle_id: string;
+  plate_number: string;
+  purchase_id: string;
+  transaction_date: string;
+  order_status: number;
+  order_status_label: string;
+  received_at: string;
+  received_by: string;
+  transaction_id: string;
+  stock: number;
+};
+
+type InventoryLocation = {
+  garage_id: string;
+  garage_name: string;
+  garage_address: string;
+  garage_city: string;
+  garage_city_label: string;
+  stock: number;
+  updated_at: string;
+  is_primary?: boolean;
+};
+
+type InventoryDetail = {
+  item_id: string;
+  item_name: string;
+  item_sku: string;
+  item_uom: string;
+  locations: InventoryLocation[];
+  transaction_id: string;
+};
+
+type TimelineItem = {
+  id: string;
+  status: string;
+  description: string;
+  date: string;
+  is_active: boolean;
+};
+
+const statusToLabel = (status: number): string => {
+  if (status === 1) return 'Sedang Diproses';
+  if (status === 2) return 'Menunggu Persetujuan';
+  if (status === 3) return 'Disetujui';
+  return '-';
+};
+
+const getStatusColorConfig = (status: number) => {
+  switch (status) {
+    case 1:
+      return {
+        bg: 'bg-blue-50',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        iconColor: 'text-blue-600',
+      };
+    case 2:
+      return {
+        bg: 'bg-orange-50',
+        text: 'text-orange-700',
+        border: 'border-orange-200',
+        iconColor: 'text-orange-600',
+      };
+    case 3:
+      return {
+        bg: 'bg-green-50',
+        text: 'text-green-700',
+        border: 'border-green-200',
+        iconColor: 'text-green-600',
+      };
+    default:
+      return {
+        bg: 'bg-gray-50',
+        text: 'text-gray-700',
+        border: 'border-gray-200',
+        iconColor: 'text-gray-600',
+      };
+  }
+};
+
+const formatDateTime = (dateString?: string) => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    return format(date, 'dd MMMM yyyy HH:mm', { locale: id }) + ' WIB';
+  } catch {
+    return '-';
+  }
+};
+
+export const InventoryRequestDetail: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const { request_id } = useParams<{ request_id: string }>();
+  const requestId = decodeURIComponent(request_id ?? '');
+
+  const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState<RequestDetail | null>(null);
+  const [inventoryDetail, setInventoryDetail] = useState<InventoryDetail | null>(null);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const timelineItems: TimelineItem[] = useMemo(() => {
+    if (!detail) return [];
+    const items: TimelineItem[] = [
+      {
+        id: '1',
+        status: 'Dibuat',
+        description: 'Permintaan berhasil dibuat',
+        date: detail.created_at,
+        is_active: true,
+      },
+    ];
+    
+    if (detail.status >= 2) {
+      items.push({
+        id: '2',
+        status: 'Menunggu Persetujuan',
+        description: 'Permintaan sedang menunggu persetujuan',
+        date: detail.created_at,
+        is_active: detail.status === 2,
+      });
+    }
+    
+    if (detail.status >= 3 && detail.approve_at) {
+      items.push({
+        id: '3',
+        status: 'Disetujui',
+        description: `Permintaan disetujui oleh ${detail.approve_by || 'Atasan'}`,
+        date: detail.approve_at,
+        is_active: detail.status === 3,
+      });
+    }
+
+    return items.reverse();
+  }, [detail]);
+
+  const fetchRequestDetail = useCallback(async () => {
+    if (!requestId) return;
+    setLoading(true);
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const res = await api.post<unknown>(
+        '/inventories/request/detail',
+        { request_id: requestId },
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status === 'success') {
+        const payload = res.data as unknown;
+        const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+        const data = root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>) : root;
+        setDetail({
+          request_id: typeof data.request_id === 'string' ? data.request_id : '',
+          request_number: typeof data.request_number === 'string' ? data.request_number : '',
+          item_id: typeof data.item_id === 'string' ? data.item_id : '',
+          item_category: typeof data.item_category === 'number' ? data.item_category : 0,
+          item_category_label: typeof data.item_category_label === 'string' ? data.item_category_label : '',
+          item_uom: typeof data.item_uom === 'string' ? data.item_uom : '',
+          item_sku: typeof data.item_sku === 'string' ? data.item_sku : '',
+          item_name: typeof data.item_name === 'string' ? data.item_name : '',
+          garage_id: typeof data.garage_id === 'string' ? data.garage_id : '',
+          garage_name: typeof data.garage_name === 'string' ? data.garage_name : '',
+          garage_city: typeof data.garage_city === 'string' ? data.garage_city : '',
+          garage_city_label: typeof data.garage_city_label === 'string' ? data.garage_city_label : '',
+          quantity: typeof data.quantity === 'number' ? data.quantity : 0,
+          stock: typeof data.stock === 'number' ? data.stock : 0,
+          status: typeof data.status === 'number' ? data.status : 0,
+          request_status_label: typeof data.request_status_label === 'string' ? data.request_status_label : '',
+          organization_id: typeof data.organization_id === 'string' ? data.organization_id : '',
+          created_at: typeof data.created_at === 'string' ? data.created_at : '',
+          created_by: typeof data.created_by === 'string' ? data.created_by : '',
+          approve_at: typeof data.approve_at === 'string' ? data.approve_at : '',
+          approve_by: typeof data.approve_by === 'string' ? data.approve_by : '',
+          updated_at: typeof data.updated_at === 'string' ? data.updated_at : '',
+          updated_by: typeof data.updated_by === 'string' ? data.updated_by : '',
+          employee_name: typeof data.employee_name === 'string' ? data.employee_name : '',
+          unit_id: typeof data.unit_id === 'string' ? data.unit_id : '',
+          vehicle_id: typeof data.vehicle_id === 'string' ? data.vehicle_id : '',
+          plate_number: typeof data.plate_number === 'string' ? data.plate_number : '',
+          purchase_id: typeof data.purchase_id === 'string' ? data.purchase_id : '',
+          transaction_date: typeof data.transaction_date === 'string' ? data.transaction_date : '',
+          order_status: typeof data.order_status === 'number' ? data.order_status : 0,
+          order_status_label: typeof data.order_status_label === 'string' ? data.order_status_label : '',
+          received_at: typeof data.received_at === 'string' ? data.received_at : '',
+          received_by: typeof data.received_by === 'string' ? data.received_by : '',
+          transaction_id: typeof root.transaction_id === 'string' ? root.transaction_id : '',
+        });
+      } else {
+        setDetail(null);
+      }
+    } catch {
+      setDetail(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [requestId]);
+
+  const fetchInventoryDetail = useCallback(async () => {
+    if (!detail?.item_id) return;
+    setInventoryLoading(true);
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const res = await api.post<unknown>(
+        '/inventories/items/detail',
+        { item_id: detail.item_id },
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status === 'success') {
+        const payload = res.data as unknown;
+        const root = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+        const data = root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>) : root;
+        const locationsRaw = data.locations;
+        const locations: InventoryLocation[] = Array.isArray(locationsRaw)
+          ? (locationsRaw as unknown[])
+              .map((x) => {
+                const obj = x && typeof x === 'object' ? (x as Record<string, unknown>) : {};
+                return {
+                  garage_id: typeof obj.garage_id === 'string' ? obj.garage_id : '',
+                  garage_name: typeof obj.garage_name === 'string' ? obj.garage_name : '',
+                  garage_address: typeof obj.garage_address === 'string' ? obj.garage_address : '',
+                  garage_city: typeof obj.garage_city === 'string' ? obj.garage_city : '',
+                  garage_city_label: typeof obj.garage_city_label === 'string' ? obj.garage_city_label : '',
+                  stock: typeof obj.stock === 'number' ? obj.stock : 0,
+                  updated_at: typeof obj.updated_at === 'string' ? obj.updated_at : '',
+                  is_primary: obj.garage_id === detail.garage_id,
+                };
+              })
+              .filter((loc) => loc.garage_name)
+          : [];
+        setInventoryDetail({
+          item_id: typeof data.item_id === 'string' ? data.item_id : '',
+          item_name: typeof data.item_name === 'string' ? data.item_name : '',
+          item_sku: typeof data.item_sku === 'string' ? data.item_sku : '',
+          item_uom: typeof data.item_uom === 'string' ? data.item_uom : '',
+          locations,
+          transaction_id: typeof root.transaction_id === 'string' ? root.transaction_id : '',
+        });
+      } else {
+        setInventoryDetail(null);
+      }
+    } catch {
+      setInventoryDetail(null);
+    } finally {
+      setInventoryLoading(false);
+    }
+  }, [detail?.item_id, detail?.garage_id]);
+
+  useEffect(() => {
+    fetchRequestDetail();
+  }, [fetchRequestDetail]);
+
+  useEffect(() => {
+    if (detail) {
+      fetchInventoryDetail();
+    }
+  }, [detail, fetchInventoryDetail]);
+
+  const handleAction = async (action: 'submit-orders' | 'approve' | 'reject') => {
+    if (!requestId || actionLoading) return;
+    const actionLabels: Record<string, string> = {
+      'submit-orders': 'membuat purchase order',
+      'approve': 'menyetujui permintaan',
+      'reject': 'menolak permintaan',
+    };
+    const actionButtonLabels: Record<string, string> = {
+      'submit-orders': 'Buat Pesanan',
+      'approve': 'Terima Pesanan',
+      'reject': 'Tolak Permintaan',
+    };
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Konfirmasi',
+      text: `Apakah Anda yakin ingin ${actionLabels[action]}?`,
+      showCancelButton: true,
+      confirmButtonText: `Ya, ${actionButtonLabels[action]}`,
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+
+    setActionLoading(true);
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const endpoints: Record<string, string> = {
+        'submit-orders': '/inventories/request/submit-orders',
+        'approve': '/inventories/request/approve',
+        'reject': '/inventories/request/reject',
+      };
+      const res = await api.post<unknown>(
+        endpoints[action],
+        { request_id: requestId },
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: `Permintaan berhasil ${actionLabels[action]}.` });
+        fetchRequestDetail();
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memproses.' });
+      }
+    } catch {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memproses.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >= (detail.stock - 2);
+   const showApproveReject = detail?.status === 2 || detail?.status === 3;
+
+  const inventoryColumns: Array<DataTableColumn<InventoryLocation>> = [
+    {
+      label: 'No',
+      key: '__no__',
+      width: 68,
+      align: 'center',
+      sortable: false,
+      render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{rowIndex + 1}</span>,
+    },
+    {
+      label: 'Garasi',
+      key: 'garage_name',
+      sortable: true,
+      width: 250,
+      render: (item) => (
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground truncate">{item.garage_name || '-'}</span>
+            {item.is_primary && (
+              <Badge variant="default" className="rounded-full px-2 py-0.5 text-xs bg-green-100 text-green-800 hover:bg-green-200">
+                Utama
+              </Badge>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: 'Alamat',
+      key: 'garage_address',
+      sortable: true,
+      width: 300,
+      render: (item) => (
+        <div className="text-xs text-muted-foreground truncate">{item.garage_address || '-'}</div>
+      ),
+    },
+    {
+      label: 'Jumlah Asset',
+      key: 'stock',
+      sortable: true,
+      width: 120,
+      align: 'right',
+      render: (item) => (
+        <span className="text-blue-600 font-semibold text-sm">
+          {item.stock} {detail?.item_uom || 'Pcs'}
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-5 p-2 sm:p-6">
+      {/* Breadcrumb */}
+      <div className="hidden sm:flex">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to={`${basePrefix}/inventories`} className="hover:text-foreground">
+                  Inventories
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to={`${basePrefix}/inventories/request`} className="hover:text-foreground">
+                  Permintaan Asset
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Detail</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+
+      <div className="hidden sm:flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 bg-white border-gray-200/70 hover:bg-white"
+            onClick={() => navigate(`${basePrefix}/inventories/request`)}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Detail Permintaan</h1>
+              {detail && (
+                <Badge 
+                  variant="default" 
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium",
+                    detail.status === 2 ? "bg-orange-100 text-orange-800 hover:bg-orange-200" : 
+                    detail.status === 3 ? "bg-green-100 text-green-800 hover:bg-green-200" : 
+                    "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                  )}
+                >
+                  {detail.request_status_label || statusToLabel(detail.status)}
+                </Badge>
+              )}
+            </div>
+            <div className="mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-300">
+              Informasi lengkap permintaan asset
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {showAddPurchaseOrder && (
+            <Button
+              variant="outline"
+              className="h-9 rounded-2xl text-xs sm:text-sm"
+              onClick={() => handleAction('submit-orders')}
+              disabled={actionLoading}
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Add Purchase Order</span>
+            </Button>
+          )}
+          {showApproveReject && (
+            <>
+              <Button
+                variant="outline"
+                className="h-9 rounded-2xl text-xs sm:text-sm text-white bg-blue-500 hover:text-white hover:bg-blue-600"
+                onClick={() => handleAction('approve')}
+                disabled={actionLoading}
+              >
+                <Check className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Approve Permintaan</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 rounded-2xl text-xs sm:text-sm text-red-600 border-red-400 hover:text-red-700 hover:bg-red-50"
+                onClick={() => handleAction('reject')}
+                disabled={actionLoading}
+              >
+                <X className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Tolak Permintaan</span>
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="block sm:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 bg-white border-gray-200/70 hover:bg-white"
+            onClick={() => navigate(`${basePrefix}/inventories/request`)}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          {detail && (
+            <Badge 
+              variant="default" 
+              className={cn(
+                "rounded-full px-2.5 py-1 text-xs font-medium",
+                detail.status === 2 ? "bg-orange-100 text-orange-800" : 
+                detail.status === 3 ? "bg-green-100 text-green-800" : 
+                "bg-blue-100 text-blue-800"
+              )}
+            >
+              {detail.request_status_label || statusToLabel(detail.status)}
+            </Badge>
+          )}
+        </div>
+        <h2 className="mt-3 text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Detail Permintaan</h2>
+        <div className="mt-1 text-xs text-gray-500 dark:text-gray-300">
+          Informasi lengkap permintaan asset
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          {showApproveReject && (
+            <Button
+              variant="outline"
+              className="h-9 rounded-2xl text-xs text-emerald-600 border-emerald-200 hover:text-emerald-700"
+              onClick={() => handleAction('approve')}
+              disabled={actionLoading}
+            >
+              <Check className="h-4 w-4 mr-1.5" />
+              Approve
+            </Button>
+          )}
+          {(showAddPurchaseOrder || showApproveReject) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-9 w-9 rounded-2xl">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-2xl">
+                {showAddPurchaseOrder && (
+                  <DropdownMenuItem className="cursor-pointer gap-2" onSelect={(e) => { e.preventDefault(); handleAction('submit-orders'); }}>
+                    <Plus className="h-4 w-4" />
+                    Add Purchase Order
+                  </DropdownMenuItem>
+                )}
+                {showApproveReject && (
+                  <DropdownMenuItem className="cursor-pointer gap-2 text-red-600" onSelect={(e) => { e.preventDefault(); handleAction('reject'); }}>
+                    <X className="h-4 w-4" />
+                    Reject
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)] pb-6">
+          <div className="p-5 sm:p-6 space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <Skeleton className="h-32 w-full rounded-2xl" />
+              </div>
+              <div className="space-y-4">
+                <Skeleton className="h-6 w-40" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : detail ? (
+        <div className="rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)] pb-6">
+          <div className="p-5 sm:p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-5">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 md:h-12 md:w-12 mt-1 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                      <Box className="h-5 w-5 md:h-6 md:w-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Item Yang Diajukan</div>
+                      <div className="mt-1 text-base md:text-lg font-semibold text-gray-900 dark:text-white truncate">{detail.item_name || '-'}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Request ID</div>
+                      <div className="mt-1 text-sm md:text-bold text-gray-900 dark:text-white font-mono truncate">{detail.request_id || '-'}</div>
+                      <div className="text-xs text-gray-600 dark:text-white truncate">Item SKU: {detail.item_sku || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Jumlah</div>
+                         <div className="mt-1 text-sm md:text-bold text-gray-900 dark:text-white font-semibold">
+                         {detail.quantity} <span className="text-muted-foreground font-normal">{detail.item_uom || 'Pcs'}</span>
+                         <div className="text-xs text-muted-foreground">Stok tersedia: {detail.stock || ''} <span className="text-muted-foreground font-normal">{detail.item_uom || 'Pcs'}</span></div>
+                       </div>
+                     </div>
+                    <div>
+                      <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Kategori</div>
+                      <div className="mt-1 text-sm md:text-base text-gray-900 dark:text-white font-semibold">{detail.item_category_label || '-'}</div>
+                    </div>
+                    {detail.plate_number && (
+                      <div>
+                        <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Kendaraan</div>
+                        <div className="mt-1 text-sm md:text-base text-gray-900 dark:text-white font-semibold">{detail.plate_number} - {detail.vehicle_id}</div>
+                      </div>
+                    )}
+                    <div className="col-span-2">
+                      <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Lokasi Garasi</div>
+                      <div className="mt-1 text-sm md:text-base text-gray-900 dark:text-white font-semibold">{detail.garage_name || '-'}</div>
+                      <div className="text-xs text-muted-foreground">{detail.garage_city_label || ''}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Status Block */}
+                <div className={cn(
+                  "rounded-2xl border p-4",
+                  getStatusColorConfig(detail.status).bg,
+                  getStatusColorConfig(detail.status).border
+                )}>
+                  <div className="flex items-start gap-3">
+                    <Clock className={cn("h-5 w-5 mt-0.5", getStatusColorConfig(detail.status).iconColor)} />
+                    <div>
+                      <div className={cn("text-sm font-bold", getStatusColorConfig(detail.status).text)}>
+                        {detail.request_status_label || statusToLabel(detail.status)}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                        {detail.status === 2 
+                          ? 'Permintaan ini sedang menunggu persetujuan dari atasan.'
+                          : detail.status === 3
+                          ? 'Permintaan telah disetujui.'
+                          : 'Permintaan sedang diproses.'
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Diajukan Oleh */}
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex items-center gap-3">
+                    <Users className="h-5 w-5 text-gray-500" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Permintaan Dari</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">{detail.employee_name || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tanggal Dibuat */}
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-5 w-5 text-gray-500" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Tanggal Dibuat</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">{formatDateTime(detail.created_at)}</div>
+                      <div className="text-xs font-normal text-gray-600 dark:text-white truncate">Oleh {detail.created_by || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Transaction ID */}
+                {detail.transaction_id && (
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex items-center gap-3">
+                    <Copy className="h-5 w-5 text-gray-500" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Purchase ID</div>
+                      <div className="text-sm font-mono font-semibold text-gray-900 dark:text-white truncate">{detail.transaction_id || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)] p-10 text-center text-sm text-gray-500 dark:text-gray-300">
+          Data permintaan tidak ditemukan
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
+          <div className="lg:col-span-7 rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
+            <div className="p-5 sm:p-6 space-y-4">
+              <Skeleton className="h-6 w-48" />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full rounded-2xl" />
+              ))}
+            </div>
+          </div>
+          <div className="lg:col-span-3 rounded-[28px] border border-gray-200/70 bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
+            <div className="p-5 sm:p-6 space-y-4">
+              <Skeleton className="h-6 w-48" />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : inventoryDetail ? (
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
+          {/* Persediaan Asset */}
+          <Card className="lg:col-span-7 dark:bg-gray-900">
+            <CardHeaderWithBadge title="Persediaan Asset" badgeIcon={<Box className="h-3.5 w-3.5 sm:h-6 sm:w-6" />} />
+            <CardContent className="p-5 sm:p-6">
+              <DataTable
+                data={inventoryDetail.locations}
+                columns={inventoryColumns}
+                loading={inventoryLoading}
+                tableClassName="table-auto w-full"
+                emptyTitle="Tidak ada data lokasi stok"
+                emptyDescription="Belum ada garasi yang tercatat untuk item ini."
+                pagination={{ enabled: false }}
+              />
+              {/* Pagination Footer */}
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Menampilkan {inventoryDetail.locations.length} dari {inventoryDetail.locations.length} data
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" disabled>
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-600 text-white text-xs font-medium">
+                    1
+                  </div>
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" disabled>
+                    <ArrowLeft className="h-4 w-4 rotate-180" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Riwayat Permintaan */}
+          <Card className="lg:col-span-3 dark:bg-gray-900">
+            <CardHeaderWithBadge title="Riwayat Permintaan" badgeIcon={<Clock className="h-3.5 w-3.5 sm:h-6 sm:w-6 text-purple-600" />} />
+            <CardContent className="p-5 sm:p-6">
+              <div className="relative">
+                {timelineItems.map((item, index) => (
+                  <div key={item.id} className="flex gap-4">
+                    <div className="flex flex-col items-center">
+                      <div className={cn(
+                        "h-4 w-4 rounded-full border-2",
+                        item.is_active 
+                          ? "bg-orange-500 border-orange-500" 
+                          : "bg-transparent border-gray-300"
+                      )} />
+                      {index < timelineItems.length - 1 && (
+                        <div className="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700 mt-1" />
+                      )}
+                    </div>
+                    <div className="pb-6">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {item.status}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {item.description}
+                      </div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        {formatDateTime(item.date)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+    </div>
+  );
+};
