@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ArrowLeft, Box, Check, X, MoreVertical, Plus, Calendar, Clock, Copy, Users } from 'lucide-react';
+import { ArrowLeft, Box, Check, X, MoreVertical, Plus, Calendar, Clock, Copy, Users, ChevronsUpDown, Info } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +12,7 @@ import Swal from 'sweetalert2';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { Input } from '@/components/ui/input';
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -20,6 +21,16 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+
+type SupplierOption = {
+  id: string;
+  supplier_name: string;
+  phone: string;
+  url: string;
+};
 
 type RequestDetail = {
   request_id: string;
@@ -148,6 +159,19 @@ export const InventoryRequestDetail: React.FC = () => {
   const [inventoryDetail, setInventoryDetail] = useState<InventoryDetail | null>(null);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [poModalOpen, setPoModalOpen] = useState(false);
+  const [poSaving, setPoSaving] = useState(false);
+  const [poFormData, setPoFormData] = useState({
+    item_price: '',
+    supplier_id: '',
+    supplier_name_manual: '',
+    supplier_phone: '',
+    supplier_url: '',
+  });
+  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
+  const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
+const [supplierQuery, setSupplierQuery] = useState('');
 
   const timelineItems: TimelineItem[] = useMemo(() => {
     if (!detail) return [];
@@ -304,6 +328,49 @@ export const InventoryRequestDetail: React.FC = () => {
     }
   }, [detail, fetchInventoryDetail]);
 
+  useEffect(() => {
+    if (poModalOpen) {
+      const loadSuppliers = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/inventories/supliers/list', token ? { Authorization: token } : undefined);
+        if (res.status === 'success') {
+          const payload = res.data as unknown;
+          const list: unknown[] = Array.isArray(payload)
+            ? payload
+            : payload && typeof payload === 'object'
+              ? Array.isArray((payload as Record<string, unknown>).suppliers)
+                ? ((payload as Record<string, unknown>).suppliers as unknown[])
+                : Array.isArray((payload as Record<string, unknown>).items)
+                  ? ((payload as Record<string, unknown>).items as unknown[])
+                  : []
+              : [];
+          const mapped = list
+            .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
+            .map((it) => {
+              const idRaw = it.suplier_id ?? it.id;
+              const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+              const supplier_name = typeof it.suplier_name === 'string'
+                ? it.suplier_name
+                : typeof it.name === 'string'
+                  ? it.name
+                  : '';
+              const phone = typeof it.suplier_phone === 'string' ? it.suplier_phone : typeof it.phone === 'string' ? it.phone : '';
+              const url = typeof it.suplier_url === 'string' ? it.suplier_url : typeof it.website === 'string' ? it.website : '';
+              return id && supplier_name ? { id, supplier_name, phone, url } : null;
+            })
+            .filter((x): x is SupplierOption => x !== null);
+          setSupplierOptions(mapped);
+        }
+      };
+      loadSuppliers();
+    }
+  }, [poModalOpen]);
+
+  const selectedSupplierName = useMemo(() => {
+    const found = supplierOptions.find((o) => o.id === poFormData.supplier_id);
+    return found?.supplier_name ?? '';
+  }, [supplierOptions, poFormData.supplier_id]);
+
   const handleAction = async (action: 'submit-orders' | 'approve' | 'reject') => {
     if (!requestId || actionLoading) return;
     const actionLabels: Record<string, string> = {
@@ -352,8 +419,54 @@ export const InventoryRequestDetail: React.FC = () => {
     }
   };
 
-const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >= (detail.stock - 2);
-   const showApproveReject = detail?.status === 2 || detail?.status === 3;
+  const handlePoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (poSaving) return;
+
+    setPoSaving(true);
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const payload: Record<string, unknown> = {
+        request_id: requestId,
+        item_id: detail?.item_id,
+        item_uom: detail?.item_uom,
+        item_price: Number(poFormData.item_price),
+        supplier_name: poFormData.supplier_id ? selectedSupplierName : poFormData.supplier_name_manual.trim(),
+        suplier_phone: poFormData.supplier_phone ? "62" + poFormData.supplier_phone : undefined,
+        suplier_url: poFormData.supplier_url || undefined,
+        quantity: detail?.quantity,
+      };
+
+      const res = await api.post<unknown>(
+        '/inventories/request/submit-orders',
+        payload,
+        token ? { Authorization: token } : undefined
+      );
+
+      if (res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Purchase order berhasil dibuat.' });
+        setPoModalOpen(false);
+        setPoFormData({
+          item_price: '',
+          supplier_id: '',
+          supplier_name_manual: '',
+          supplier_phone: '',
+          supplier_url: '',
+        });
+        fetchRequestDetail();
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat membuat purchase order.' });
+      }
+    } catch {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat membuat purchase order.' });
+    } finally {
+      setPoSaving(false);
+    }
+  };
+
+  const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >= (detail.stock - 2);
+    const showApproveReject = detail?.status === 2 || detail?.status === 3;
+    const showApproveButton = showApproveReject && (detail?.stock ?? 0) > 0;
 
   const inventoryColumns: Array<DataTableColumn<InventoryLocation>> = [
     {
@@ -471,34 +584,23 @@ const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >
             <Button
               variant="outline"
               className="h-9 rounded-2xl text-xs sm:text-sm"
-              onClick={() => handleAction('submit-orders')}
+              onClick={() => setPoModalOpen(true)}
               disabled={actionLoading}
             >
               <Plus className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">Add Purchase Order</span>
             </Button>
           )}
-          {showApproveReject && (
-            <>
-              <Button
-                variant="outline"
-                className="h-9 rounded-2xl text-xs sm:text-sm text-white bg-blue-500 hover:text-white hover:bg-blue-600"
-                onClick={() => handleAction('approve')}
-                disabled={actionLoading}
-              >
-                <Check className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Approve Permintaan</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-9 rounded-2xl text-xs sm:text-sm text-red-600 border-red-400 hover:text-red-700 hover:bg-red-50"
-                onClick={() => handleAction('reject')}
-                disabled={actionLoading}
-              >
-                <X className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Tolak Permintaan</span>
-              </Button>
-            </>
+          {showApproveButton && (
+            <Button
+              variant="outline"
+              className="h-9 rounded-2xl text-xs sm:text-sm text-white bg-blue-500 hover:text-white hover:bg-blue-600"
+              onClick={() => handleAction('approve')}
+              disabled={actionLoading}
+            >
+              <Check className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Approve Permintaan</span>
+            </Button>
           )}
         </div>
       </div>
@@ -532,7 +634,7 @@ const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >
           Informasi lengkap permintaan asset
         </div>
         <div className="mt-3 flex items-center gap-2">
-          {showApproveReject && (
+          {showApproveButton && (
             <Button
               variant="outline"
               className="h-9 rounded-2xl text-xs text-emerald-600 border-emerald-200 hover:text-emerald-700"
@@ -552,7 +654,7 @@ const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="rounded-2xl">
                 {showAddPurchaseOrder && (
-                  <DropdownMenuItem className="cursor-pointer gap-2" onSelect={(e) => { e.preventDefault(); handleAction('submit-orders'); }}>
+                  <DropdownMenuItem className="cursor-pointer gap-2" onSelect={(e) => { e.preventDefault(); setPoModalOpen(true); }}>
                     <Plus className="h-4 w-4" />
                     Add Purchase Order
                   </DropdownMenuItem>
@@ -605,7 +707,18 @@ const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >
                     <div>
                       <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Request ID</div>
                       <div className="mt-1 text-sm md:text-bold text-gray-900 dark:text-white font-mono truncate">{detail.request_id || '-'}</div>
-                      <div className="text-xs text-gray-600 dark:text-white truncate">Item SKU: {detail.item_sku || '-'}</div>
+                      {detail.item_sku && (
+                        <div className="text-xs text-gray-600 dark:text-white truncate">
+                          Item SKU:{' '}
+                          <Link
+                            to={`${basePrefix}/inventories/items/detail/${encodeURIComponent(detail.item_id)}`}
+                            className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                          >
+                            {detail.item_sku}
+                            <ArrowLeft className="h-3 w-3 rotate-180" />
+                          </Link>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Jumlah</div>
@@ -793,6 +906,181 @@ const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >
           </Card>
         </div>
       ) : null}
+
+      {/* Purchase Order Modal */}
+      <Dialog open={poModalOpen} onOpenChange={(open) => { setPoModalOpen(open); if (!open) setSupplierQuery(''); }}>
+        <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
+          <form onSubmit={handlePoSubmit} className="flex flex-col flex-1 min-h-0">
+            <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Tambah Purchase Order</h2>
+                  <p className="text-slate-500 text-xs sm:text-sm">Isi detail purchase order untuk {detail?.item_name}</p>
+                </div>
+                <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                  <X className="w-3 h-3 sm:w-5 sm:h-5" />
+                </DialogClose>
+              </div>
+              <div className="h-px bg-slate-100 mt-4" />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6">
+              <div className="mb-4">
+                <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Item</div>
+                <div className="mt-1 text-sm md:text-base text-gray-900 dark:text-white font-semibold truncate">{detail?.item_name || '-'}</div>
+                <div className="text-xs text-muted-foreground">SKU: {detail?.item_sku || '-'}</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Harga Item *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">Rp</span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={poFormData.item_price}
+                      onChange={(e) => setPoFormData((p) => ({ ...p, item_price: e.target.value.replace(/[^0-9]/g, '') }))}
+                      placeholder="0"
+                      className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30 pl-10 w-full"
+                      style={{ appearance: 'textfield' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Satuan</label>
+                  <div className="h-11 rounded-2xl border border-gray-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-gray-900 flex items-center">
+                    {detail?.item_uom || 'Pcs'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-white/70">Informasi Suplier *</label>
+                <Popover open={supplierPickerOpen} onOpenChange={(open) => { setSupplierPickerOpen(open); setSupplierQuery(open ? poFormData.supplier_name_manual : ''); if (!open) setSupplierQuery(''); }}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50"
+                    >
+                      <span className={poFormData.supplier_id || poFormData.supplier_name_manual ? '' : 'text-muted-foreground'}>
+                        {poFormData.supplier_id ? selectedSupplierName : (poFormData.supplier_name_manual || 'Ketik min. 3 karakter untuk cari suplier')}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                    <Command shouldFilter={false} className="rounded-xl">
+                      <CommandInput
+                        placeholder="Cari suplier..."
+                        value={supplierQuery}
+                        onValueChange={(v) => {
+                          setSupplierQuery(v);
+                          setPoFormData((p) => ({ ...p, supplier_name_manual: v, supplier_id: '' }));
+                        }}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {supplierQuery.trim().length < 3
+                            ? 'Ketik minimal 3 karakter untuk mencari suplier.'
+                            : 'Tidak ada hasil.'}
+                        </CommandEmpty>
+                        {supplierQuery.trim() ? (
+                          <CommandGroup heading="Teks">
+                            <CommandItem
+                              value={`__custom_supplier__:${supplierQuery.trim()}`}
+                              className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900"
+                              onSelect={() => {
+                                const v = supplierQuery.trim();
+                                setSupplierQuery('');
+                                setPoFormData((p) => ({ ...p, supplier_name_manual: v, supplier_id: '' }));
+                                setSupplierPickerOpen(false);
+                              }}
+                            >
+                              Gunakan: {supplierQuery.trim()}
+                            </CommandItem>
+                          </CommandGroup>
+                        ) : null}
+                        <CommandGroup heading="Suplier">
+                          {supplierOptions.map((opt) => (
+                            <CommandItem
+                              key={opt.id}
+                              value={`${opt.supplier_name} ${opt.id}`}
+                              className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-800"
+                              onSelect={() => {
+                                setPoFormData((p) => ({
+                                  ...p,
+                                  supplier_id: opt.id,
+                                  supplier_name_manual: opt.supplier_name,
+                                  supplier_phone: opt.phone || '',
+                                  supplier_url: opt.url || ''
+                                }));
+                                setSupplierQuery('');
+                                setSupplierPickerOpen(false);
+                              }}
+                            >
+                              <Check className={poFormData.supplier_id === opt.id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                              {opt.supplier_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Nomor Telepon</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">+62</span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={poFormData.supplier_phone}
+                      onChange={(e) => setPoFormData((p) => ({ ...p, supplier_phone: e.target.value.replace(/[^0-9]/g, '') }))}
+                      placeholder="8xxxxxxxxxx"
+                      className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30 pl-10 w-full"
+                      style={{ appearance: 'textfield' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">URL Suplier</label>
+                  <Input
+                    type="url"
+                    value={poFormData.supplier_url}
+                    onChange={(e) => setPoFormData((p) => ({ ...p, supplier_url: e.target.value }))}
+                    placeholder="https://example.com"
+                    className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
+                  />
+                </div>
+              </div>
+
+              <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2 mt-5">
+                <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <span className="text-xs text-gray-700">Pastikan data purchase order sudah benar sebelum melanjutkan.</span>
+              </div>
+            </div>
+
+            <div className="w-full px-6 sm:px-8 py-4 border-t border-slate-100 flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+              <Button type="button" variant="outline" onClick={() => setPoModalOpen(false)} className="w-full md:w-auto h-11 rounded-2xl">
+                Batal
+              </Button>
+              <Button type="submit" disabled={poSaving} className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white">
+                {poSaving ? 'Menyimpan...' : 'Proses Pesanan'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
