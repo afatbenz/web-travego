@@ -62,7 +62,7 @@ export const Navbar: React.FC = () => {
     { name: 'Home', href: '/' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'Fitur', href: '/services' },
-    { name: 'Team', href: '/team' },
+    // { name: 'Team', href: '/team' },
     { name: 'Kontak', href: '/contact' },
   ];
 
@@ -101,8 +101,8 @@ export const Navbar: React.FC = () => {
                 className={`relative rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
                   isActive(item.href)
                     ? isSolid
-                      ? 'bg-slate-100 text-slate-900 shadow-sm'
-                      : 'bg-white/20 text-white shadow-sm'
+                      ? 'bg-white/50 text-blue-700'
+                      : 'bg-white/20 text-white'
                     : isSolid
                       ? 'text-slate-700 hover:text-blue-600 hover:bg-slate-100'
                       : 'text-white/75 hover:text-white hover:bg-white/10'
@@ -142,7 +142,7 @@ export const Navbar: React.FC = () => {
                   className={`!h-10 !w-10 rounded-xl border hover:-translate-y-0.5 ${
                     isLightTop
                       ? 'border-white/40 bg-white/10 hover:bg-white/20'
-                      : 'border-slate-200/80 bg-white/80 hover:bg-white dark:border-slate-700 dark:bg-slate-900/70 dark:hover:bg-slate-900'
+                      : 'border-white bg-white/80 hover:bg-white dark:border-slate-700 dark:bg-slate-900/70 dark:hover:bg-slate-900'
                   }`}
                 >
                   <User className={`h-5 w-5 ${isLightTop ? 'text-white' : 'text-gray-700 dark:text-white'}`} />

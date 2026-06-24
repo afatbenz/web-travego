@@ -3,13 +3,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { AnimatedDashboardPreview } from './AnimatedDashboardPreview';
 import { api } from '@/lib/api';
 
 type PricingPlan = {
   name: string;
   priceDescription: string;
+  packageNotes: string;
   monthlyPrice: string;
   popular: boolean;
+  originalPrice: string;
+  duration: string;
   features: string[];
 };
 
@@ -63,7 +67,10 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
         setPricingPlans(res.data.map((pkg, index) => ({
           name: pkg.package_name,
           priceDescription: pkg.package_description,
-          monthlyPrice: `Rp${pkg.package_price}`,
+          packageNotes: pkg.package_notes,
+          monthlyPrice: formatRupiah(pkg.package_price),
+          originalPrice: `Rp${pkg.package_original_price}`,
+          duration: `${pkg.package_duration} days`,
           popular: index === 1,
           features: pkg.features,
         })));
@@ -187,25 +194,28 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
                 </div>
 
                 <div className="mb-6 flex-1">
-                  <div className="text-center mb-4">
+                  <div className="text-center mb-6">
                     <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{plan.priceDescription}</div>
-                    <div className="mt-1 relative h-10">
+                    <div className="mt-1 relative h-14">
+                      <div className='flex items-end justify-center whitespace-nowrap'>
+                        <span className="text-md font-semibold text-gray-500 dark:text-gray-300 line-through">
+                          {formatRupiah(parseRupiah(plan.originalPrice))}
+                        </span>
+                      </div>
                       <div
-                        className={`absolute inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
-                          pricingPeriod === 'monthly' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
-                        }`}
-                      >
+                        className="inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 opacity-100 translate-y-0">
                         <span className="text-3xl font-bold text-orange-500 dark:text-orange-400">
                           {formatRupiah(parseRupiah(plan.monthlyPrice))}
                         </span>
-                        <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/ bulan</span>
+
+                        <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/{plan.duration}</span>
                       </div>
                       <div
-                        className={`absolute inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
+                        className={`inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
                           pricingPeriod === 'yearly' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
                         }`}
                       >
-                        <span className="text-3xl font-bold text-orange-500 dark:text-orange-400">
+                        <span className="text-3xl font-bold text-orange-500 dark:text-orange-400 mb-2">
                           {formatRupiah(parseRupiah(plan.monthlyPrice) * 12 * 0.8)}
                         </span>
                         <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/ tahun</span>
@@ -214,7 +224,8 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Fitur:</h4>
+                    <div className="text-xs bg-blue-100 px-2.5 py-2 font-medium text-blue-950 rounded-2xl text-center dark:text-gray-400">{plan.packageNotes}</div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3 mt-5">Fitur:</h4>
                     {plan.features.slice(0, 4).map((feature, index) => (
                       <div key={index} className="flex items-start space-x-2">
                         <Check className="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
@@ -286,40 +297,50 @@ export const Pricing: React.FC = () => {
   const faqs = [
     {
       question: 'Apakah bisa upgrade atau downgrade paket sewaktu-waktu?',
-      answer: 'Ya, perubahan berlaku di siklus tagihan berikutnya dan sisa saldo dikreditkan otomatis.',
+      answer: 'Ya, bisa. Anda dapat melakukan upgrade paket atau bahkan downgrade ke paket lain kapanpun',
     },
     {
       question: 'Apakah ada biaya setup atau biaya tersembunyi?',
       answer: 'Tidak ada. Harga sudah all-in. Paket Diamond sudah termasuk onboarding dan migrasi data.',
     },
     {
-      question: 'Bagaimana cara kerja uji coba 14 hari gratis?',
-      answer: 'Nikmati semua fitur Premiere selama 14 hari tanpa kartu kredit. Setelah itu pilih lanjut atau kembali ke Basic.',
+      question: 'Bagaimana cara kerja uji coba 30 hari gratis?',
+      answer: 'Nikmati semua fitur Premiere selama 30 hari tanpa pembayaran. Setelah itu pilih lanjut atau kembali ke Basic.',
+    },
+    {
+      question: 'Apakah bisa melakukan custom modul?',
+      answer: 'Ya, tentu bisa. Paket diamond menyediakan fitur custom modul.',
     },
   ];
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 pb-16">
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#03102b] via-[#0a2458] to-[#040d22] px-4 pt-20 pb-12 sm:px-6 sm:pb-16 lg:px-8 xl:px-12 2xl:px-16">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-20 left-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
-          <div className="absolute right-0 top-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
-          <div className="absolute bottom-10 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-indigo-400/20 blur-3xl" />
-        </div>
-
-        <div className="relative mx-auto max-w-7xl text-center">
-          <h1 className="text-sm font-semibold tracking-wide text-blue-100/90 mt-8"></h1>
-          <div className="mt-4 flex justify-center">
-            <Badge className="rounded-xl border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-blue-100 shadow-sm backdrop-blur-md">
-              Paket Berlangganan
-            </Badge>
-          </div>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">Mulai gratis, berkembang sesuai bisnis anda</h2>
-          <p className="mt-4 text-lg leading-relaxed text-blue-100/90">
-            Pilih paket yang tepat untuk tim Anda. Upgrade atau downgrade kapan saja tidak ada kontrak jangka panjang.
-          </p>
-        </div>
-      </section>
+      <section className="relative overflow-hidden bg-slate-900 text-white min-h-[280px] px-4 pt-20 pb-12 sm:px-6 sm:pb-16 lg:px-8 xl:px-12 2xl:px-16">
+              <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -top-20 left-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
+                <div className="absolute right-0 top-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+                <div className="absolute bottom-10 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-indigo-400/20 blur-3xl" />
+              </div>
+              
+              <div className="relative mx-auto max-w-7xl grid grid-cols-1 gap-12 lg:grid-cols-2 items-center">
+                {/* Left Column - Text */}
+                <div className="space-y-6 mt-6">
+                  <h1 className="text-2xl font-bold sm:text-3xl lg:text-4xl">
+                    Mulai Gratis.<br />
+                    Sesuaikan dengan <span style={{ color: '#F97316' }}>Kebutuhan Anda.</span>
+                  </h1>
+                  <p className="text-md text-white/80 dark:text-gray-300">Kelola armada, jadwal, dan keuangan bisnis transportasi Anda dalam satu platform. <br />Mulai tanpa biaya, upgrade kapan saja.</p>
+                  
+                  {/* Badges */}
+                  
+                </div>
+      
+                {/* Right Column - Animated Mockup */}
+                <div className="pb-5 mt-2 max-h-[240px] ">
+                  <AnimatedDashboardPreview />
+                </div>
+              </div>
+            </section>
 
       <div className="max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 pt-10">
         <PricingSection
@@ -338,11 +359,10 @@ export const Pricing: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                  <Button className="rounded-xl bg-blue-600 text-white hover:bg-blue-700">
-                    Hubungi Sales
-                  </Button>
-                  <Button variant="outline" className="rounded-xl">
-                    Jadwalkan Demo
+                  <Button className="rounded-xl bg-blue-600 text-white hover:bg-blue-700" asChild>
+                    <a href="https://wa.me/6285195911626" target="_blank" rel="noopener noreferrer">
+                      Hubungi Sales
+                    </a>
                   </Button>
                 </div>
               </div>
@@ -366,7 +386,7 @@ export const Pricing: React.FC = () => {
                         onClick={() => setOpenFaqIndex(isOpen ? null : index)}
                         className="flex w-full items-center justify-between py-4 text-left"
                       >
-                        <span className="font-medium text-gray-900 dark:text-white">{item.question}</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">{item.question}</span>
                         <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform duration-200 dark:text-gray-400 ${isOpen ? 'rotate-180' : ''}`} />
                       </button>
                       <div

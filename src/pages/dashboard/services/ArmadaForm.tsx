@@ -1,15 +1,34 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon, BusFront, Tags, Layers, Package2, SlidersHorizontal, Globe, ShieldCheck, Info } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Trash2, Upload, Type, Loader2, ImageIcon, BusFront, Tags, Layers, Package2, SlidersHorizontal, Globe, ShieldCheck, Info} from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import CreatableSelect from 'react-select/creatable';
 import { uploadCommon, deleteCommon, api, toFileUrl } from '@/lib/api';
 import Swal from 'sweetalert2';
 
+// Dynamic Icon Helper
+const DynamicIcon = ({ name, ...props }: { name?: string; size?: number; className?: string }) => {
+  // Trim whitespace dari nama icon
+  const trimmedName = name?.trim();
+  // Coba dapatkan icon dari LucideIcons, fallback ke Check jika tidak ditemukan
+  const Icon = (LucideIcons as any)[trimmedName] || (LucideIcons as any).Check;
+  return <Icon {...props} />;
+};
+
 export const ArmadaForm: React.FC = () => {
+  // Facility Option Type
+  type FacilityOption = {
+    value: string;
+    label: string;
+    icon?: string;
+    isManual?: boolean;
+  };
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,6 +85,11 @@ export const ArmadaForm: React.FC = () => {
   const [bodySuggestions, setBodySuggestions] = useState<string[]>([]);
   const [showBodyDropdown, setShowBodyDropdown] = useState(false);
   const [loadingBody, setLoadingBody] = useState(false);
+  const [facilityOptions, setFacilityOptions] = useState<FacilityOption[]>([]);
+  const [selectedFacilities, setSelectedFacilities] = useState<FacilityOption[]>([]);
+  const [loadingFacilities, setLoadingFacilities] = useState(false);
+  const [manualFacilities, setManualFacilities] = useState<string[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -137,6 +161,14 @@ export const ArmadaForm: React.FC = () => {
           price: a.price,
         }));
 
+      setManualFacilities(
+        selectedFacilities.filter(f => f.isManual).map(f => f.label)
+      );
+
+      const facilityIds = selectedFacilities
+        .filter(f => !f.isManual)
+        .map(f => f.value);
+
       const payload = {
         fleet_name: formData.name,
         fleet_type: formData.type,
@@ -151,7 +183,8 @@ export const ArmadaForm: React.FC = () => {
               city_id: p.id,
             }))
           : formData.pickupPoints.map((p) => p.id),
-        fascilities: formData.features.filter((x) => x.trim()),
+        facility_ids: facilityIds,
+        fascilities: manualFacilities,
         prices: formData.rentalPrices.map((p) => ({
           ...(isUuid(p.uuid) ? { uuid: p.uuid } : {}),
           duration: parseInt(String(p.duration).replace(/\D/g, '')) || 0,
@@ -275,27 +308,6 @@ export const ArmadaForm: React.FC = () => {
 
   const formatCurrency = (value: string) => {
     return value.replace(/\D/g, '');
-  };
-
-  const addFeature = () => {
-    setFormData(prev => ({
-      ...prev,
-      features: [...prev.features, '']
-    }));
-  };
-
-  const removeFeature = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      features: prev.features.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateFeature = (index: number, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      features: prev.features.map((feature, i) => i === index ? value : feature)
-    }));
   };
 
   const addPickupPoint = () => {
@@ -582,12 +594,25 @@ export const ArmadaForm: React.FC = () => {
         imageFiles,
         description,
       }));
+      // Load existing facilities as manual for now
+      const initialFacilities: FacilityOption[] = facilitiesArr.map(name => ({
+        value: name,
+        label: name,
+        isManual: true,
+        icon: 'Tag'
+      }));
+      setSelectedFacilities(initialFacilities);
       setBodyQuery(body);
       setShowBodyDropdown(false);
     };
 
     loadDetail();
   }, [isEdit, id]);
+
+  // Fetch facilities on component mount
+  useEffect(() => {
+    fetchFacilities();
+  }, []);
 
   useEffect(() => {
     async function fetchFleetTypes() {
@@ -786,6 +811,50 @@ export const ArmadaForm: React.FC = () => {
     setLoadingCities(false);
   }
 
+  async function fetchFacilities(q: string = '') {
+    setLoadingFacilities(true);
+    const token = localStorage.getItem('token') ?? '';
+    const res = await api.get<unknown>(`/services/fleet/facilities${q ? `?search=${encodeURIComponent(q)}` : ''}`, token ? { Authorization: token } : undefined);
+    if (res.status === 'success') {
+      const payload = res.data as unknown;
+      let list: Array<{ facility_id: string; facility_name: string; facility_icon: string }> = [];
+      if (Array.isArray(payload)) {
+        list = (payload as unknown[])
+          .map((x) => {
+            const obj = x as Record<string, unknown>;
+            const facility_id = String(obj.facility_id ?? '');
+            const facility_name = String(obj.facility_name ?? '');
+            const facility_icon = String(obj.facility_icon ?? '');
+            return facility_id && facility_name ? { facility_id, facility_name, facility_icon } : null;
+          })
+          .filter((v): v is { facility_id: string; facility_name: string; facility_icon: string } => Boolean(v));
+      } else if (payload && typeof payload === 'object') {
+        const items = (payload as Record<string, unknown>).items;
+        if (Array.isArray(items)) {
+          list = items
+            .map((x) => {
+              const obj = x as Record<string, unknown>;
+              const facility_id = String(obj.facility_id ?? '');
+              const facility_name = String(obj.facility_name ?? '');
+              const facility_icon = String(obj.facility_icon ?? '');
+              return facility_id && facility_name ? { facility_id, facility_name, facility_icon } : null;
+            })
+            .filter((v): v is { facility_id: string; facility_name: string; facility_icon: string } => Boolean(v));
+        }
+      }
+      // Map to FacilityOption
+      const options: FacilityOption[] = list.map(f => ({
+        value: f.facility_id,
+        label: f.facility_name,
+        icon: f.facility_icon
+      }));
+      setFacilityOptions(options);
+    } else {
+      setFacilityOptions([]);
+    }
+    setLoadingFacilities(false);
+  }
+
   useEffect(() => {
     if (!showCityDropdown) return;
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
@@ -796,6 +865,26 @@ export const ArmadaForm: React.FC = () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
   }, [cityQuery, showCityDropdown]);
+
+  // Fetch facilities on mount
+  useEffect(() => {
+    fetchFacilities();
+  }, []);
+
+  const steps = [
+    { id: 'overview', label: 'Overview', icon: BusFront },
+    { id: 'fasilitas', label: 'Fasilitas', icon: Tags },
+    { id: 'harga', label: 'Harga', icon: Layers },
+    { id: 'publikasi', label: 'Publikasi', icon: SlidersHorizontal },
+  ];
+
+  const nextStep = () => {
+    if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) setCurrentStep(currentStep - 1);
+  };
 
   const descriptionPlainText = String(formData.description || '')
     .replace(/<[^>]*>/g, ' ')
@@ -842,18 +931,39 @@ export const ArmadaForm: React.FC = () => {
       <form id="armada-form" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Left Column: Form Fields */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Basic Information - Full Width */}
-            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
-              <CardHeaderWithBadge
-                badgeIcon={BusFront}
-                title="Informasi"
-                subtitle="Lengkapi informasi dan deskripsi armada."
-              />
-              <CardContent className="px-5 py-5">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Step 0: Overview */}
+          {currentStep === 0 && (
+            <>
+              <div className="lg:col-span-2 space-y-6">
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    {steps.map((step, idx) => (
+                      <div key={step.id} className="flex items-center">
+                        <div className={`flex items-center gap-2 ${idx <= currentStep ? 'text-[#4F6BFF]' : 'text-[#94A3B8]'}`}>
+                          <div className={`h-8 w-8 rounded-full flex items-center justify-center border-2 ${
+                            idx <= currentStep ? 'border-[#4F6BFF] bg-[#EEF3FF]' : 'border-[#E9EEF7] bg-white'
+                          }`}>
+                            <step.icon className="h-4 w-4" />
+                          </div>
+                          <span className="text-sm font-medium hidden sm:inline">{step.label}</span>
+                        </div>
+                        {idx < steps.length - 1 && (
+                          <div className={`flex-1 mx-4 h-0.5 ${idx < currentStep ? 'bg-[#4F6BFF]' : 'bg-[#E9EEF7]'}`} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Basic Information - Full Width */}
+                <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+                  <CardHeaderWithBadge
+                    badgeIcon={BusFront}
+                    title="Armada"
+                    subtitle="Lengkapi informasi dan deskripsi armada."
+                  />
+                  <CardContent className="px-5 py-5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-3">
                     <label className="text-sm font-medium text-[#475569]">
                       Nama Armada *
@@ -864,7 +974,7 @@ export const ArmadaForm: React.FC = () => {
                         onChange={(e) => handleInputChange('name', e.target.value)}
                         placeholder="Masukkan nama armada"
                         className={[
-                          'h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30',
+                          'h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30',
                           errors.name ? 'border-red-500' : '',
                         ].join(' ')}
                       />
@@ -879,7 +989,7 @@ export const ArmadaForm: React.FC = () => {
                     <Select value={String(formData.type)} onValueChange={(value) => handleInputChange('type', value)}>
                       <SelectTrigger
                         className={[
-                          'mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus:ring-2 focus:ring-[#4F6BFF]/30',
+                          'mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus:ring-2 focus:ring-[#4F6BFF]/30',
                           errors.type ? 'border-red-500' : '',
                         ].join(' ')}
                       >
@@ -904,7 +1014,7 @@ export const ArmadaForm: React.FC = () => {
                       placeholder="Contoh: Hiace, Elf, Bus Besar"
                       onFocus={() => { setShowBodyDropdown(true); fetchBody(''); }}
                       onBlur={() => { window.setTimeout(() => setShowBodyDropdown(false), 150); }}
-                      className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
+                      className="mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
                     />
                     {showBodyDropdown && (
                       <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-xl border border-[#E9EEF7] bg-white shadow-sm z-10">
@@ -936,7 +1046,7 @@ export const ArmadaForm: React.FC = () => {
                     <Select value={formData.fuel_type} onValueChange={(value) => handleInputChange('fuel_type', value)}>
                       <SelectTrigger
                         className={[
-                          'mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus:ring-2 focus:ring-[#4F6BFF]/30',
+                          'mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus:ring-2 focus:ring-[#4F6BFF]/30',
                           errors.fuel_type ? 'border-red-500' : '',
                         ].join(' ')}
                       >
@@ -991,7 +1101,7 @@ export const ArmadaForm: React.FC = () => {
                           onBlur={() => {
                             window.setTimeout(() => setShowCityDropdown(false), 150);
                           }}
-                          className="h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
+                          className="h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
                         />
                         {showCityDropdown && (
                           <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-xl border border-[#E9EEF7] bg-white shadow-sm z-10">
@@ -1029,7 +1139,7 @@ export const ArmadaForm: React.FC = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-11 rounded-xl border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+                          className="h-11 rounded-xl border-[#c8cdd5] bg-white hover:bg-[#EEF3FF]"
                           onClick={addPickupPoint}
                         >
                           <Plus className="h-4 w-4" />
@@ -1057,13 +1167,13 @@ export const ArmadaForm: React.FC = () => {
                   <label className="text-sm font-medium text-[#475569]">
                     Deskripsi *
                   </label>
-                  <div className={['mt-1 rounded-2xl border border-[#E9EEF7] bg-white overflow-hidden', errors.description ? 'border-red-500' : ''].join(' ')}>
+                  <div className={['mt-1 rounded-2xl border border-[#c8cdd5] bg-white overflow-hidden', errors.description ? 'border-red-500' : ''].join(' ')}>
                     <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-2 border-b border-[#E9EEF7] bg-white/70 dark:bg-slate-900 dark:text-white backdrop-blur">
                       <Button 
                         type="button" 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#EEF3FF] dark:text-white"
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-[#c8cdd5] dark:text-white"
                         onClick={() => executeCommand('bold')}
                         title="Bold"
                       >
@@ -1144,62 +1254,254 @@ export const ArmadaForm: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+              </div>
 
-            {/* Features - Full Width */}
-            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+              <div className="lg:col-span-1 space-y-6">
+                {/* Thumbnail */}
+                <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+                  <CardHeaderWithBadge
+                    className="px-5 py-4"
+                    badgeIcon={ImageIcon}
+                    title="Thumbnail"
+                    subtitle="Unggah gambar utama untuk tampilan armada."
+                  />
+                  <div className="h-px bg-[#E9EEF7]" />
+                  <CardContent className="px-5 py-5">
+                    <div className="space-y-4">
+                      <div className="relative rounded-2xl border-2 border-dashed border-[#E9EEF7] bg-white p-4 text-center transition-colors hover:bg-[#EEF3FF]/40">
+                        {formData.thumbnail ? (
+                          <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+                            <img src={formData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2 h-8 w-8 rounded-xl"
+                              onClick={removeThumbnail}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            {thumbnailUploading && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <Loader2 className="h-8 w-8 text-white animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer block p-8">
+                            <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-[#EEF3FF] flex items-center justify-center">
+                              <ImageIcon className="h-6 w-6 text-[#4F6BFF]" />
+                            </div>
+                            <div className="text-sm font-medium text-[#1E293B]">Upload thumbnail</div>
+                            <div className="mt-1 text-xs text-[#64748B]">Drag & drop atau klik untuk memilih file (JPG/PNG)</div>
+                            <input type="file" className="hidden" accept="image/*" onChange={handleThumbnailUpload} />
+                          </label>
+                        )}
+                      </div>
+                      {errors.thumbnail && <p className="text-red-500 text-sm">{errors.thumbnail}</p>}
+                      {errors.images && !formData.thumbnail && <p className="text-red-500 text-sm">{errors.images}</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Gallery */}
+                <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+                  <CardHeaderWithBadge
+                    className="px-5 py-4"
+                    badgeIcon={Upload}
+                    title="Galeri"
+                    subtitle="Kelola foto galeri untuk memperkaya tampilan armada."
+                    actions={
+                      <Badge variant="outline" className="border-[#E9EEF7] bg-white text-[#64748B]">
+                        {uploads.length}/10
+                      </Badge>
+                    }
+                  />
+                  <div className="h-px bg-[#E9EEF7]" />
+                  <CardContent className="px-5 py-5">
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      {uploads.map((item, index) => (
+                        <div key={index} className="relative aspect-square rounded overflow-hidden group">
+                          <img src={item.preview} alt={`Gallery ${index}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => removeImage(index)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          {item.status === 'uploading' && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                              <Loader2 className="h-6 w-6 text-white animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {uploads.length < 10 && (
+                      <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-[#E9EEF7] rounded-2xl cursor-pointer hover:bg-[#EEF3FF]/40 transition-colors">
+                        <div className="flex flex-col items-center">
+                          <div className="h-10 w-10 rounded-2xl bg-[#EEF3FF] flex items-center justify-center mb-2">
+                            <Upload className="h-5 w-5 text-[#4F6BFF]" />
+                          </div>
+                          <span className="text-sm font-medium text-[#1E293B]">Upload foto</span>
+                          <span className="mt-1 text-xs text-[#64748B]">Maks. 10 foto • JPG/PNG</span>
+                        </div>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*" 
+                          multiple 
+                          onChange={handleImageUpload} 
+                        />
+                      </label>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+
+          {/* Step 1: Fasilitas */}
+          {currentStep === 1 && (
+            <div className="lg:col-span-3">
+              {/* Features - Full Width */}
+              <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
               <CardHeaderWithBadge
                 badgeIcon={Tags}
                 title="Fasilitas Armada"
                 subtitle="Fasilitas kabin dan pelayanan armada."
               />
-              <div className="h-px bg-[#E9EEF7]" />
+              <div className="h-px bg-[#c8cdd5]" />
               <CardContent className="px-5 py-5">
-                <div className="space-y-3">
-                  {formData.features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={feature}
-                        onChange={(e) => updateFeature(index, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key !== 'Enter') return;
-                          e.preventDefault();
-                          const trimmed = String(e.currentTarget.value ?? '').trim();
-                          if (!trimmed) return;
-                          setFormData((prev) => {
-                            const next = [...prev.features];
-                            next.splice(index + 1, 0, '');
-                            return { ...prev, features: next };
-                          });
-                        }}
-                        placeholder="Masukkan fasilitas armada, contoh: Audio Video On Demand (AVOD)"
-                        className="flex-1 h-11 rounded-full border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
-                      />
-                      {index === formData.features.length - 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-11 w-11 rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
-                          onClick={addFeature}
-                          title="Tambah fasilitas"
-                        >
-                          <Plus className="h-4 w-4 text-[#4F6BFF]" />
-                        </Button>
-                      )}
-                      {formData.features.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-11 w-11 rounded-full hover:bg-[#EEF3FF]"
-                          onClick={() => removeFeature(index)}
-                          title="Hapus fasilitas"
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  <CreatableSelect
+                    isMulti
+                    options={facilityOptions}
+                    value={selectedFacilities}
+                    onChange={(newValue) => {
+                      // When creating a new option, mark it as manual
+                      const processed = (newValue as FacilityOption[]).map(opt => {
+                        // If it's a new option (not from facilityOptions), mark as manual
+                        const isManual = !facilityOptions.some(fo => fo.value === opt.value);
+                        return {
+                          ...opt,
+                          isManual,
+                          icon: isManual ? 'Check' : opt.icon
+                        };
+                      });
+                      setSelectedFacilities(processed);
+                    }}
+                    placeholder="Pilih atau ketik fasilitas..."
+                    formatOptionLabel={(option) => (
+                      <div className="flex items-center gap-2">
+                        <DynamicIcon name={option.icon} size={16} />
+                        <span>{option.label}</span>
+                      </div>
+                    )}
+                    styles={{
+                      control: (base) => ({
+                        ...base,
+                        backgroundColor: 'white',
+                        borderRadius: '1rem',
+                        borderColor: '#c8cdd5',
+                        borderWidth: '1px',
+                        boxShadow: 'none',
+                        paddingLeft: '0.75rem',
+                        paddingRight: '0.75rem',
+                        minHeight: '2.75rem',
+                        '&:hover': {
+                          borderColor: '#4F6BFF',
+                        },
+                      }),
+                      menu: (base) => ({
+                        ...base,
+                        backgroundColor: 'white',
+                        borderRadius: '0.5rem',
+                        borderColor: '#E9EEF7',
+                        borderWidth: '1px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        marginTop: '0.25rem',
+                      }),
+                      menuList: (base) => ({
+                        ...base,
+                        paddingTop: '0.25rem',
+                        paddingBottom: '0.25rem',
+                      }),
+                      option: (base, state) => ({
+                        ...base,
+                        backgroundColor: state.isSelected ? '#EEF3FF' : state.isFocused ? '#F9FAFB' : 'white',
+                        color: '#1E293B',
+                        paddingLeft: '0.75rem',
+                        paddingRight: '0.75rem',
+                        paddingTop: '0.5rem',
+                        paddingBottom: '0.5rem',
+                        cursor: 'pointer',
+                        '&:active': {
+                          backgroundColor: '#EEF3FF',
+                        },
+                      }),
+                      multiValue: (base) => ({
+                        ...base,
+                        backgroundColor: '#EEF3FF',
+                        color: '#1E293B',
+                        borderRadius: '9999px',
+                        paddingLeft: '0.5rem',
+                        paddingRight: '0.25rem',
+                      }),
+                      multiValueLabel: (base) => ({
+                        ...base,
+                        color: '#1E293B',
+                        paddingLeft: '0',
+                        paddingRight: '0.25rem',
+                      }),
+                      multiValueRemove: (base) => ({
+                        ...base,
+                        color: '#4F6BFF',
+                        borderRadius: '9999px',
+                        padding: '0.125rem',
+                        '&:hover': {
+                          backgroundColor: '#D1D5DB',
+                          color: '#1E293B',
+                        },
+                      }),
+                      placeholder: (base) => ({
+                        ...base,
+                        color: '#9CA3AF',
+                      }),
+                      valueContainer: (base) => ({
+                        ...base,
+                        paddingTop: '0.125rem',
+                        paddingBottom: '0.125rem',
+                      }),
+                      indicatorsContainer: (base) => ({
+                        ...base,
+                        paddingLeft: '0',
+                      }),
+                      clearIndicator: (base) => ({
+                        ...base,
+                        padding: '0.25rem',
+                        color: '#9CA3AF',
+                        '&:hover': {
+                          color: '#475569',
+                        },
+                      }),
+                      dropdownIndicator: (base) => ({
+                        ...base,
+                        padding: '0.25rem',
+                        color: '#9CA3AF',
+                      }),
+                      input: (base) => ({
+                        ...base,
+                        color: '#1E293B',
+                      }),
+                    }}
+                  />
                 </div>
                 <div className="mt-4 rounded-[18px] border border-blue-200/60 bg-blue-100/50 dark:bg-transparent dark:border-[#226524] px-4 py-3 text-sm text-blue-900/80 dark:text-white">
                   <span className="inline-flex items-center gap-2 dark:text-yellow-300/80">
@@ -1209,9 +1511,14 @@ export const ArmadaForm: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+              </div>
+            )}
 
-            {/* Rental Prices - Full Width */}
-            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+            {/* Step 2: Harga */}
+            {currentStep === 2 && (
+              <div className="lg:col-span-3 space-y-6">
+                {/* Rental Prices - Full Width */}
+                <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
               <CardHeaderWithBadge
                 className="px-5 py-4"
                 badgeIcon={Layers}
@@ -1222,7 +1529,7 @@ export const ArmadaForm: React.FC = () => {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+                    className="rounded-full border-[#c8cdd5] bg-white hover:bg-[#EEF3FF]"
                     onClick={addRentalPrice}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -1244,9 +1551,9 @@ export const ArmadaForm: React.FC = () => {
                             value={price.duration}
                             onChange={(e) => updateRentalPrice(index, 'duration', e.target.value)}
                             placeholder="1"
-                            className="flex-1 mt-1 h-11 rounded-l-xl rounded-r-none border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
+                            className="flex-1 mt-1 h-11 rounded-l-xl rounded-r-none border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
                           />
-                          <div className="mt-1 h-11 px-4 flex items-center rounded-r-xl border border-l-0 border-[#E9EEF7] bg-[#F8FAFC] dark:bg-gray-800 dark:border-gray-800 dark:text-gray-200 text-sm font-medium text-[#475569]">
+                          <div className="mt-1 h-11 px-4 flex items-center rounded-r-xl border border-l-0 border-[#c8cdd5] bg-[#F8FAFC] dark:bg-gray-800 dark:border-gray-800 dark:text-gray-200 text-sm font-medium text-[#475569]">
                             Hari
                           </div>
                         </div>
@@ -1259,7 +1566,7 @@ export const ArmadaForm: React.FC = () => {
                           value={String(price.type)} 
                           onValueChange={(value) => updateRentalPrice(index, 'type', parseInt(value) || 0)}
                         >
-                          <SelectTrigger className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white">
+                          <SelectTrigger className="mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white">
                             <SelectValue placeholder="Pilih jenis sewa" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1279,7 +1586,7 @@ export const ArmadaForm: React.FC = () => {
                             value={price.price.toLocaleString()}
                             onChange={(e) => updateRentalPrice(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
                             placeholder="200,000"
-                            className="flex-1 mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
+                            className="flex-1 mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
                           />
                           {formData.rentalPrices.length > 1 && (
                             <Button
@@ -1319,7 +1626,7 @@ export const ArmadaForm: React.FC = () => {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+                    className="rounded-full border-[#c8cdd5] bg-white hover:bg-[#EEF3FF]"
                     onClick={addAddon}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -1331,32 +1638,21 @@ export const ArmadaForm: React.FC = () => {
               <CardContent className="px-5 py-5 space-y-4">
                 {formData.addons.map((addon, index) => (
                   <div key={index} className="rounded-2xl border border-[#E9EEF7] bg-white p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2">
                         <label className="text-sm font-medium text-[#475569]">
                           Nama Addon
                         </label>
                         <Input
                           value={addon.name}
                           onChange={(e) => updateAddon(index, 'name', e.target.value)}
-                          placeholder="Contoh: Driver"
-                          className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
+                          placeholder="Contoh: Custom seat / tempat duduk"
+                          className="mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
                         />
                       </div>
                       <div>
                         <label className="text-sm font-medium text-[#475569]">
-                          Deskripsi
-                        </label>
-                        <Input
-                          value={addon.description}
-                          onChange={(e) => updateAddon(index, 'description', e.target.value)}
-                          placeholder="Contoh: Driver profesional"
-                          className="mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white dark:bg-slate-700 focus-visible:ring-[#4F6BFF]/30"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-[#475569]">
-                          Harga Tambahan (Rp)
+                          Biaya Tambahan (Rp)
                         </label>
                         <div className="flex items-center space-x-2">
                           <Input
@@ -1364,7 +1660,7 @@ export const ArmadaForm: React.FC = () => {
                             value={addon.price.toLocaleString()}
                             onChange={(e) => updateAddon(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
                             placeholder="100,000"
-                            className="flex-1 mt-1 h-11 rounded-xl border-[#E9EEF7] bg-white focus-visible:ring-[#4F6BFF]/30"
+                            className="flex-1 mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
                           />
                           {formData.addons.length > 1 && (
                             <Button
@@ -1384,119 +1680,14 @@ export const ArmadaForm: React.FC = () => {
                 ))}
               </CardContent>
             </Card>
-          </div>
-
-          {/* Right Column: Images & Status */}
-          <div className="space-y-6">
-          {/* Thumbnail */}
-          <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
-            <CardHeaderWithBadge
-              className="px-5 py-4"
-              badgeIcon={ImageIcon}
-              title="Thumbnail"
-              subtitle="Unggah gambar utama untuk tampilan armada."
-            />
-            <div className="h-px bg-[#E9EEF7]" />
-            <CardContent className="px-5 py-5">
-              <div className="space-y-4">
-                <div className="relative rounded-2xl border-2 border-dashed border-[#E9EEF7] bg-white p-4 text-center transition-colors hover:bg-[#EEF3FF]/40">
-                  {formData.thumbnail ? (
-                    <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-                      <img src={formData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8 rounded-xl"
-                        onClick={removeThumbnail}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      {thumbnailUploading && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <Loader2 className="h-8 w-8 text-white animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <label className="cursor-pointer block p-8">
-                      <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-[#EEF3FF] flex items-center justify-center">
-                        <ImageIcon className="h-6 w-6 text-[#4F6BFF]" />
-                      </div>
-                      <div className="text-sm font-medium text-[#1E293B]">Upload thumbnail</div>
-                      <div className="mt-1 text-xs text-[#64748B]">Drag & drop atau klik untuk memilih file (JPG/PNG)</div>
-                      <input type="file" className="hidden" accept="image/*" onChange={handleThumbnailUpload} />
-                    </label>
-                  )}
-                </div>
-                {errors.thumbnail && <p className="text-red-500 text-sm">{errors.thumbnail}</p>}
-                {errors.images && !formData.thumbnail && <p className="text-red-500 text-sm">{errors.images}</p>}
               </div>
-            </CardContent>
-          </Card>
+            )}
 
-          {/* Gallery */}
-          <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
-            <CardHeaderWithBadge
-              className="px-5 py-4"
-              badgeIcon={Upload}
-              title="Galeri"
-              subtitle="Kelola foto galeri untuk memperkaya tampilan armada."
-              actions={
-                <Badge variant="outline" className="border-[#E9EEF7] bg-white text-[#64748B]">
-                  {uploads.length}/10
-                </Badge>
-              }
-            />
-            <div className="h-px bg-[#E9EEF7]" />
-            <CardContent className="px-5 py-5">
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {uploads.map((item, index) => (
-                  <div key={index} className="relative aspect-square rounded overflow-hidden group">
-                    <img src={item.preview} alt={`Gallery ${index}`} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => removeImage(index)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    {item.status === 'uploading' && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <Loader2 className="h-6 w-6 text-white animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              
-              {uploads.length < 10 && (
-                <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-[#E9EEF7] rounded-2xl cursor-pointer hover:bg-[#EEF3FF]/40 transition-colors">
-                  <div className="flex flex-col items-center">
-                    <div className="h-10 w-10 rounded-2xl bg-[#EEF3FF] flex items-center justify-center mb-2">
-                      <Upload className="h-5 w-5 text-[#4F6BFF]" />
-                    </div>
-                    <span className="text-sm font-medium text-[#1E293B]">Upload foto</span>
-                    <span className="mt-1 text-xs text-[#64748B]">Maks. 10 foto • JPG/PNG</span>
-                  </div>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    accept="image/*" 
-                    multiple 
-                    onChange={handleImageUpload} 
-                  />
-                </label>
-              )}
-            </CardContent>
-          </Card>
-
-            {/* Status */}
-            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+            {/* Step 3: Publikasi */}
+            {currentStep === 3 && (
+              <div className="lg:col-span-3">
+                {/* Status */}
+                <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
               <CardHeaderWithBadge
                 className="px-5 py-4"
                 badgeIcon={SlidersHorizontal}
@@ -1505,83 +1696,97 @@ export const ArmadaForm: React.FC = () => {
               />
               <div className="h-px bg-[#E9EEF7]" />
               <CardContent className="px-5 py-5">
-                <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-                  <SelectTrigger className="w-full h-auto min-h-[64px] rounded-2xl border-[#E9EEF7] bg-white px-4 py-3">
-                    {(() => {
-                      return (
-                        <div className="flex gap-3"></div>
-                      );
-                    })()}
-                    <SelectValue className="hidden" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active" textValue="Publish">
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-[#EEF3FF] flex items-center justify-center">
-                          <Globe className="h-5 w-5 text-[#4F6BFF]" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-[#1E293B] dark:text-white">Publish</div>
-                          <div className="text-xs text-[#64748B]">Tampil di publik</div>
-                        </div>
+                <RadioGroup value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className={`flex items-start gap-3 cursor-pointer rounded-2xl border-2 p-4 transition-colors ${formData.status === 'active' ? 'border-[#4F6BFF] bg-[#EEF3FF]' : 'border-[#E9EEF7] bg-white'}`}>
+                      <RadioGroupItem value="active" className="sr-only" />
+                      <div className="h-10 w-10 rounded-2xl bg-[#EEF3FF] flex items-center justify-center">
+                        <Globe className="h-5 w-5 text-[#4F6BFF]" />
                       </div>
-                    </SelectItem>
-                    <SelectItem value="inactive" textValue="Hanya Internal">
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-[#F1F5F9] flex items-center justify-center">
-                          <ShieldCheck className="h-5 w-5 text-[#475569]" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-[#1E293B]">Hanya Internal</div>
-                          <div className="text-xs text-[#64748B]">Hanya untuk kebutuhan internal</div>
-                        </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-[#1E293B] dark:text-white">Publish</div>
+                        <div className="text-xs text-[#64748B]">Tampil di publik</div>
                       </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                    </label>
+                    <label className={`flex items-start gap-3 cursor-pointer rounded-2xl border-2 p-4 transition-colors ${formData.status === 'inactive' ? 'border-[#4F6BFF] bg-[#EEF3FF]' : 'border-[#E9EEF7] bg-white'}`}>
+                      <RadioGroupItem value="inactive" className="sr-only" />
+                      <div className="h-10 w-10 rounded-2xl bg-[#F1F5F9] flex items-center justify-center">
+                        <ShieldCheck className="h-5 w-5 text-[#475569]" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-[#1E293B]">Hanya Internal</div>
+                        <div className="text-xs text-[#64748B]">Hanya untuk kebutuhan internal</div>
+                      </div>
+                    </label>
+                  </div>
+                </RadioGroup>
                 <div className="mt-2 text-xs text-[#64748B]">
                   Publish akan menampilkan armada ke publik. Hanya Internal untuk kebutuhan internal.
                 </div>
               </CardContent>
-            </Card>
+             </Card>
+              </div>
+            )}
           </div>
-        </div>
 
       <div className="block mt-6 md:mt-2 md:fixed md:bottom-4 right-4 left-4 sm:left-auto z-40">
         <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 dark:bg-transparent dark:border-[#1E293B] shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70 px-3 py-3">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:justify-end">
-            {isEdit ? (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:justify-between">
+            <div className="flex gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="w-full sm:w-auto rounded-full border-amber-200 bg-white text-amber-700 hover:bg-amber-50"
-                onClick={handleInactive}
-                disabled={saving || formData.status === 'inactive'}
+                className="w-full sm:w-auto rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+                onClick={prevStep}
+                disabled={currentStep === 0}
               >
-                Nonaktifkan Armada
+                Kembali
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full sm:w-auto rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
-              onClick={onCancel}
-              disabled={saving}
-            >
-              Batal
-            </Button>
-            <Button
-              type="submit"
-              className="w-full sm:w-auto rounded-full bg-gradient-to-r from-[#4F6BFF] to-[#295BFF] text-white shadow-[0_10px_24px_-14px_rgba(79,107,255,0.75)] hover:shadow-[0_16px_32px_-18px_rgba(79,107,255,0.9)] transition-all"
-              disabled={saving}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {currentStep < steps.length - 1 ? (
+                <Button
+                  type="button"
+                  className="w-full sm:w-auto rounded-full bg-gradient-to-r from-[#4F6BFF] to-[#295BFF] text-white shadow-[0_10px_24px_-14px_rgba(79,107,255,0.75)] hover:shadow-[0_16px_32px_-18px_rgba(79,107,255,0.9)] transition-all"
+                  onClick={nextStep}
+                >
+                  Lanjutkan
+                </Button>
               ) : (
-                <Save className="h-4 w-4 mr-2" />
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto rounded-full bg-gradient-to-r from-[#4F6BFF] to-[#295BFF] text-white shadow-[0_10px_24px_-14px_rgba(79,107,255,0.75)] hover:shadow-[0_16px_32px_-18px_rgba(79,107,255,0.9)] transition-all"
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Armada'}
+                </Button>
               )}
-              {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Armada'}
-            </Button>
+            </div>
+            <div className="flex gap-2">
+              {isEdit && currentStep === steps.length - 1 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto rounded-full border-amber-200 bg-white text-amber-700 hover:bg-amber-50"
+                  onClick={handleInactive}
+                  disabled={saving || formData.status === 'inactive'}
+                >
+                  Nonaktifkan Armada
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto rounded-full border-[#E9EEF7] bg-white hover:bg-[#EEF3FF]"
+                onClick={onCancel}
+                disabled={saving}
+              >
+                Batal
+              </Button>
+            </div>
           </div>
         </div>
       </div>
