@@ -1,10 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Download, FileSpreadsheet, RotateCcw, Sheet, X, ChevronsUpDown, Check, Info, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Plus, Search, Download, FileSpreadsheet, RotateCcw, Sheet, X, ChevronsUpDown, Check, Info, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -77,7 +77,6 @@ const isUnitOption = (value: string): value is (typeof unitOptions)[number] => {
 
 export const InventoryItems: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -356,7 +355,14 @@ const mapped = list.map((raw, i) => {
       key: 'item_sku',
       sortable: true,
       width: 120,
-      render: (item) => <span className="text-foreground">{item.item_sku || '-'}</span>
+      render: (item) => (
+        <Link
+          to={`${basePrefix}/inventories/items/detail/${encodeURIComponent(String(item.id))}`}
+          className="font-semibold text-blue-950 hover:no-underline hover:text-bold hover:text-blue-700 dark:text-blue-400"
+        >
+          {item.item_sku || '-'}
+        </Link>
+      )
     },
     {
       label: 'Nama Item',
@@ -366,7 +372,7 @@ const mapped = list.map((raw, i) => {
       render: (item) => (
         <Link
           to={`${basePrefix}/inventories/items/detail/${encodeURIComponent(String(item.id))}`}
-          className="font-medium text-blue-600 hover:no-underline hover:text-bold dark:text-blue-400"
+          className="font-semibold text-blue-950 hover:no-underline hover:text-bold hover:text-blue-700 dark:text-blue-400"
         >
           {item.item_name || '-'}
         </Link>
@@ -700,24 +706,24 @@ const mapped = list.map((raw, i) => {
         tableClassName="table-auto w-full"
         emptyTitle="Tidak ada data asset"
         emptyDescription="Coba ubah pencarian."
-        actions={{
-          label: 'Aksi',
-          actions: [
-            {
-              key: 'edit',
-              label: 'Edit',
-              icon: Edit,
-              onSelect: (row) => navigate(`${basePrefix}/inventories/items/edit/${encodeURIComponent(String(row.id))}`)
-            },
-            {
-              key: 'delete',
-              label: 'Hapus',
-              icon: Trash2,
-              variant: 'destructive',
-              onSelect: () => void 0
-            }
-          ]
-        }}
+        // actions={{
+        //   label: 'Aksi',
+        //   actions: [
+        //     {
+        //       key: 'edit',
+        //       label: 'Edit',
+        //       icon: Edit,
+        //       onSelect: (row) => navigate(`${basePrefix}/inventories/items/edit/${encodeURIComponent(String(row.id))}`)
+        //     },
+        //     {
+        //       key: 'delete',
+        //       label: 'Hapus',
+        //       icon: Trash2,
+        //       variant: 'destructive',
+        //       onSelect: () => void 0
+        //     }
+        //   ]
+        // }}
         pagination={{
           page: currentPage,
           pageSize: itemsPerPage,

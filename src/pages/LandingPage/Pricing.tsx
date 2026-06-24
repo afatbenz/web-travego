@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
 
 type PricingPlan = {
   name: string;
@@ -12,60 +13,16 @@ type PricingPlan = {
   features: string[];
 };
 
-const pricingPlans: PricingPlan[] = [
-  {
-    name: 'Basic',
-    monthlyPrice: 'Rp0',
-    priceDescription: 'Untuk bisnis travel yang baru mulai mendigitalisasi operasional.',
-    popular: false,
-    features: [
-      'Dashboard Analytics',
-      'Sharing hosting ERP',
-      'Manajemen Tim dan Armada',
-      'Katalog layanan',
-      'Generate Dokumen Order',
-      'Generate Surat Jalan',
-      'Akses 1 akun',
-    ],
-  },
-  {
-    name: 'Premiere',
-    monthlyPrice: 'Rp83.000',
-    priceDescription: 'Untuk bisnis travel yang sedang tumbuh dan butuh sistem yang lebih cerdas.',
-    popular: true,
-    features: [
-      'Dashboard Analytics',
-      'Sharing hosting ERP',
-      'Manajemen Tim dan Armada',
-      'Katalog layanan',
-      'Generate Dokumen Order',
-      'Generate Surat Jalan',
-      'Custom Template Dokumen',
-      'AI Bot Assistant - Telegram',
-      'AI Sales & Marketing - Whatsapp',
-      'Akses hingga 3 akun',
-    ],
-  },
-  {
-    name: 'Diamond',
-    monthlyPrice: 'Rp157.000',
-    priceDescription: 'Untuk bisnis travel skala besar yang butuh performa penuh dan infrastruktur eksklusif.',
-    popular: false,
-    features: [
-      'Dashboard Analytics',
-      'Dedicated hosting ERP',
-      'Manajemen Tim dan Armada',
-      'Katalog layanan',
-      'Generate Dokumen Order',
-      'Generate Surat Jalan',
-      'Custom Template Dokumen',
-      'AI Bot Assistant - Telegram',
-      'AI Sales & Marketing - Whatsapp',
-      'Akses hingga 10 akun',
-      'Integrasi Payment Gateway',
-    ],
-  },
-];
+type PackageApiResponse = {
+  package_id: string;
+  package_name: string;
+  package_description: string;
+  package_notes: string;
+  package_price: number;
+  package_original_price: number;
+  package_duration: number;
+  features: string[];
+};
 
 type PricingSectionProps = {
   title?: string;
@@ -76,6 +33,8 @@ type PricingSectionProps = {
 export const PricingSection: React.FC<PricingSectionProps> = ({ title, description, className }) => {
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
   const [pricingPeriod, setPricingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const [loading, setLoading] = useState(true);
   const pricingContainerRef = useRef<HTMLDivElement>(null);
   const extraFeaturesRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [extraFeaturesHeights, setExtraFeaturesHeights] = useState<Record<string, number>>({});
@@ -95,6 +54,24 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
   const formatRupiah = (amount: number) => {
     return `Rp${new Intl.NumberFormat('id-ID').format(Math.round(amount))}`;
   };
+
+  useEffect(() => {
+    const fetchPackages = async () => {
+      setLoading(true);
+      const res = await api.get<PackageApiResponse[]>('/services/packages/pricing', { 'api-key': 'trv-lasoa30sal&1ajshdkahsd012-12' });
+      if (res.status === 'success' && res.data) {
+        setPricingPlans(res.data.map((pkg, index) => ({
+          name: pkg.package_name,
+          priceDescription: pkg.package_description,
+          monthlyPrice: `Rp${pkg.package_price}`,
+          popular: index === 1,
+          features: pkg.features,
+        })));
+      }
+      setLoading(false);
+    };
+    fetchPackages();
+  }, []);
 
   useEffect(() => {
     if (pricingContainerRef.current) {
@@ -133,9 +110,9 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
     return () => {
       window.removeEventListener('resize', measureExtraFeaturesHeights);
     };
-  }, []);
+  }, [pricingPlans]);
 
-  const resolvedTitle = title ?? 'Pilih Paket yang Sesuai dengan Kebutuhan Anda';
+  const resolvedTitle = title ?? 'Sesuaikan Kebutuhan Bisnis Anda';
   const shouldShowTitle = resolvedTitle.trim().length > 0;
 
   return (
@@ -182,114 +159,122 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
         style={{ paddingBottom: '6rem' }}
         className="relative tp-2 pb-6 mx-auto flex max-w-5xl gap-6 overflow-x-auto snap-x snap-mandatory px-4 hide-scrollbar sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 md:grid-cols-3"
       >
-        {pricingPlans.map((plan) => (
-          <Card
-            key={plan.name}
-            className={`group overflow-hidden transition-all duration-300 transform hover:-translate-y-1 h-full flex flex-col relative w-[92%] max-w-[28rem] flex-none sm:w-auto sm:max-w-none sm:flex-auto sm:min-w-0 snap-center rounded-2xl ${
-              plan.popular
-                ? 'border-2 border-blue-600 shadow-xl shadow-blue-100 dark:border-blue-400 dark:shadow-none'
-                : 'border border-gray-200 hover:border-blue-300 hover:shadow-lg dark:border-gray-800 dark:hover:border-blue-500'
-            }`}
-          >
-            <CardContent className="p-6 flex flex-col h-full">
-              {plan.popular && (
-                <Badge className="absolute top-4 right-4 bg-blue-600 hover:bg-blue-600 text-white z-10 rounded-lg">
-                  Paling Populer
-                </Badge>
-              )}
-              <div className="text-center mb-4">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
-                <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
-              </div>
-
-              <div className="mb-6 flex-1">
+        {loading ? (
+          <div className="col-span-full flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+        ) : pricingPlans.length === 0 ? (
+          <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">Tidak ada paket tersedia</div>
+        ) : (
+          pricingPlans.map((plan) => (
+            <Card
+              key={plan.name}
+              className={`group overflow-hidden transition-all duration-300 transform hover:-translate-y-1 h-full flex flex-col relative w-[92%] max-w-[28rem] flex-none sm:w-auto sm:max-w-none sm:flex-auto sm:min-w-0 snap-center rounded-2xl ${
+                plan.popular
+                  ? 'border-2 border-blue-600 shadow-xl shadow-blue-100 dark:border-blue-400 dark:shadow-none'
+                  : 'border border-gray-200 hover:border-blue-300 hover:shadow-lg dark:border-gray-800 dark:hover:border-blue-500'
+              }`}
+            >
+              <CardContent className="p-6 flex flex-col h-full">
+                {plan.popular && (
+                  <Badge className="absolute top-4 right-4 bg-blue-600 hover:bg-blue-600 text-white z-10 rounded-lg">
+                    Paling Populer
+                  </Badge>
+                )}
                 <div className="text-center mb-4">
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{plan.priceDescription}</div>
-                  <div className="mt-1 relative h-10">
-                    <div
-                      className={`absolute inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
-                        pricingPeriod === 'monthly' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
-                      }`}
-                    >
-                      <span className="text-3xl font-bold text-orange-500 dark:text-orange-400">
-                        {formatRupiah(parseRupiah(plan.monthlyPrice))}
-                      </span>
-                      <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/ bulan</span>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
+                  <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
+                </div>
+
+                <div className="mb-6 flex-1">
+                  <div className="text-center mb-4">
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{plan.priceDescription}</div>
+                    <div className="mt-1 relative h-10">
+                      <div
+                        className={`absolute inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
+                          pricingPeriod === 'monthly' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
+                        }`}
+                      >
+                        <span className="text-3xl font-bold text-orange-500 dark:text-orange-400">
+                          {formatRupiah(parseRupiah(plan.monthlyPrice))}
+                        </span>
+                        <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/ bulan</span>
+                      </div>
+                      <div
+                        className={`absolute inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
+                          pricingPeriod === 'yearly' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
+                        }`}
+                      >
+                        <span className="text-3xl font-bold text-orange-500 dark:text-orange-400">
+                          {formatRupiah(parseRupiah(plan.monthlyPrice) * 12 * 0.8)}
+                        </span>
+                        <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/ tahun</span>
+                      </div>
                     </div>
-                    <div
-                      className={`absolute inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
-                        pricingPeriod === 'yearly' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
-                      }`}
-                    >
-                      <span className="text-3xl font-bold text-orange-500 dark:text-orange-400">
-                        {formatRupiah(parseRupiah(plan.monthlyPrice) * 12 * 0.8)}
-                      </span>
-                      <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/ tahun</span>
-                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Fitur:</h4>
+                    {plan.features.slice(0, 4).map((feature, index) => (
+                      <div key={index} className="flex items-start space-x-2">
+                        <Check className="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
+                      </div>
+                    ))}
+
+                    {plan.features.length > 4 && (
+                      <div
+                        ref={(node) => {
+                          extraFeaturesRefs.current[plan.name] = node;
+                        }}
+                        style={{
+                          maxHeight: expandedPlans[plan.name]
+                            ? `${extraFeaturesHeights[plan.name] ?? extraFeaturesRefs.current[plan.name]?.scrollHeight ?? 0}px`
+                            : '0px',
+                        }}
+                        className={`overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-in-out ${
+                          expandedPlans[plan.name] ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
+                        }`}
+                      >
+                        <div className="pt-2 space-y-2">
+                          {plan.features.slice(4).map((feature, index) => (
+                            <div key={index} className="flex items-start space-x-2">
+                              <Check className="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                              <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {plan.features.length > 4 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(plan.name)}
+                        className="flex items-center space-x-1 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm font-medium mt-2 w-full justify-center pt-2 bg-transparent hover:bg-transparent"
+                      >
+                        <span>{expandedPlans[plan.name] ? 'Tutup' : 'Lihat Semua Fitur'}</span>
+                        {expandedPlans[plan.name] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Fitur:</h4>
-                  {plan.features.slice(0, 4).map((feature, index) => (
-                    <div key={index} className="flex items-start space-x-2">
-                      <Check className="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
-                    </div>
-                  ))}
-
-                  {plan.features.length > 4 && (
-                    <div
-                      ref={(node) => {
-                        extraFeaturesRefs.current[plan.name] = node;
-                      }}
-                      style={{
-                        maxHeight: expandedPlans[plan.name]
-                          ? `${extraFeaturesHeights[plan.name] ?? extraFeaturesRefs.current[plan.name]?.scrollHeight ?? 0}px`
-                          : '0px',
-                      }}
-                      className={`overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-in-out ${
-                        expandedPlans[plan.name] ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
-                      }`}
-                    >
-                      <div className="pt-2 space-y-2">
-                        {plan.features.slice(4).map((feature, index) => (
-                          <div key={index} className="flex items-start space-x-2">
-                            <Check className="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {plan.features.length > 4 && (
-                    <button
-                      type="button"
-                      onClick={() => toggleExpand(plan.name)}
-                      className="flex items-center space-x-1 text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm font-medium mt-2 w-full justify-center pt-2 bg-transparent hover:bg-transparent"
-                    >
-                      <span>{expandedPlans[plan.name] ? 'Tutup' : 'Lihat Semua Fitur'}</span>
-                      {expandedPlans[plan.name] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </button>
-                  )}
+                <div className="mt-auto">
+                  <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
+                  <Button
+                    className={`w-full rounded-xl ${
+                      plan.popular
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'
+                    }`}
+                  >
+                    Pilih Paket
+                  </Button>
                 </div>
-              </div>
-
-              <div className="mt-auto">
-                <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
-                <Button
-                  className={`w-full rounded-xl ${
-                    plan.popular
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'
-                  }`}
-                >
-                  Pilih Paket
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

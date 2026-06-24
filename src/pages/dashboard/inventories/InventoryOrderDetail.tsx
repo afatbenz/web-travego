@@ -479,11 +479,33 @@ export const InventoryOrderDetail: React.FC = () => {
               value={detail.purchase_id}
               onCopy={() => void copyText(detail.purchase_id, 'Purchase ID')}
             />
-            <CopyableField
-              label="Request ID"
-              value={requestValue}
-              onCopy={() => void copyText(requestValue, 'Request ID')}
-            />
+            <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-700/70 dark:bg-gray-800/60">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Request ID</div>
+                  <div className="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white">{requestValue || '-'}</div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {requestValue && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 rounded-xl text-gray-500 hover:bg-white hover:text-blue-600 dark:hover:bg-gray-700"
+                      onClick={() => void copyText(requestValue, 'Request ID')}
+                      aria-label="Salin Request ID"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {requestValue && (
+                    <Link to={`${basePrefix}/inventories/request/detail/${encodeURIComponent(requestValue)}`} className="shrink-0 mt-0.5 text-gray-400 hover:text-blue-600">
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </Card>

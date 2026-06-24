@@ -94,6 +94,7 @@ type TimelineItem = {
   status: string;
   description: string;
   date: string;
+  displayDate?: string;
   is_active: boolean;
 };
 
@@ -147,6 +148,12 @@ const formatDateTime = (dateString?: string) => {
   }
 };
 
+const formatCurrency = (val: string) => {
+  if (!val) return '';
+  const num = Number(val);
+  return isNaN(num) ? '' : num.toLocaleString('id-ID');
+};
+
 export const InventoryRequestDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -168,10 +175,21 @@ export const InventoryRequestDetail: React.FC = () => {
     supplier_name_manual: '',
     supplier_phone: '',
     supplier_url: '',
+    quantity: '',
   });
   const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
 const [supplierQuery, setSupplierQuery] = useState('');
+  const [items, setItems] = useState<{item_id: string; item_name: string; item_sku: string; item_uom: string}[]>([]);
+  const [selectedItem, setSelectedItem] = useState<{item_id: string; item_name: string; item_sku: string; item_uom: string} | null>(null);
+  const [itemPickerOpen, setItemPickerOpen] = useState(false);
+  const [itemQuery, setItemQuery] = useState('');
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [completeSaving, setCompleteSaving] = useState(false);
+  const [employeeOptions, setEmployeeOptions] = useState<{uuid: string; fullname: string}[]>([]);
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
+  const [employeeQuery, setEmployeeQuery] = useState('');
+  const [selectedEmployee, setSelectedEmployee] = useState<{uuid: string; fullname: string} | null>(null);
 
   const timelineItems: TimelineItem[] = useMemo(() => {
     if (!detail) return [];
@@ -184,7 +202,44 @@ const [supplierQuery, setSupplierQuery] = useState('');
         is_active: true,
       },
     ];
-    
+
+    if (detail.status === 1 && detail.order_status === 1) {
+      if (detail.approve_at) {
+        items.push({
+          id: '2',
+          status: 'Pesanan Disetujui',
+          description: `Disetujui oleh ${detail.approve_by || 'Atasan'}`,
+          date: detail.approve_at,
+          is_active: true,
+        });
+      }
+
+      if (detail.purchase_id && detail.transaction_date) {
+        items.push({
+          id: '3',
+          status: 'Pesanan Diproses',
+          description: 'Pesanan sedang diproses',
+          date: detail.transaction_date,
+          displayDate: format(new Date(detail.transaction_date), 'dd MMMM yyyy', { locale: id }),
+          is_active: true,
+        });
+      }
+
+      if (detail.received_at) {
+        const receiveId = detail.purchase_id && detail.transaction_date ? '4' : '3';
+        items.push({
+          id: receiveId,
+          status: 'Pesanan Diterima',
+          description: `Diterima oleh ${detail.received_by || 'Karyawan'}`,
+          date: detail.received_at,
+          displayDate: format(new Date(detail.received_at), 'dd MMMM yyyy HH:mm', { locale: id }),
+          is_active: true,
+        });
+      }
+
+      return items.reverse();
+    }
+
     if (detail.status >= 2) {
       items.push({
         id: '2',
@@ -202,6 +257,28 @@ const [supplierQuery, setSupplierQuery] = useState('');
         description: `Permintaan disetujui oleh ${detail.approve_by || 'Atasan'}`,
         date: detail.approve_at,
         is_active: detail.status === 3,
+      });
+    }
+
+    if (detail.status === 3 && detail.transaction_date) {
+      items.push({
+        id: '4',
+        status: 'Pesanan Diproses',
+        description: 'Pesanan sedang diproses',
+        date: detail.transaction_date,
+        displayDate: format(new Date(detail.transaction_date), 'dd MMMM yyyy', { locale: id }),
+        is_active: true,
+      });
+    }
+
+    if (detail.status === 1 && detail.updated_at) {
+      items.push({
+        id: '5',
+        status: 'Item telah diterima',
+        description: 'Item telah diterima',
+        date: detail.updated_at,
+        displayDate: format(new Date(detail.updated_at), 'dd MMMM yyyy HH:mm', { locale: id }),
+        is_active: true,
       });
     }
 
@@ -366,6 +443,74 @@ const [supplierQuery, setSupplierQuery] = useState('');
     }
   }, [poModalOpen]);
 
+  useEffect(() => {
+    if (poModalOpen) {
+      const loadItems = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        try {
+          const res = await api.get<unknown>('/inventories/items/all', token ? { Authorization: token } : undefined);
+          if (res.status === 'success') {
+            const payload = res.data as unknown;
+            const raw = Array.isArray(payload) ? payload : [];
+            const mapped = raw
+              .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
+              .map((it) => {
+                const id = typeof it.item_id === 'string' || typeof it.item_id === 'number' ? String(it.item_id) : (typeof it.id === 'string' || typeof it.id === 'number' ? String(it.id) : '');
+                const item_name = typeof it.item_name === 'string' ? it.item_name : '';
+                const item_sku = typeof it.item_sku === 'string' ? it.item_sku : '';
+                const item_uom = typeof it.item_uom === 'string' ? it.item_uom : '';
+                return id && item_name ? { item_id: id, item_name, item_sku, item_uom } : null;
+              })
+              .filter((x): x is {item_id: string; item_name: string; item_sku: string; item_uom: string} => x !== null);
+            setItems(mapped);
+            if (!selectedItem && detail?.item_id) {
+              const found = mapped.find((it) => it.item_id === detail.item_id);
+              if (found) setSelectedItem(found);
+            }
+          }
+        } catch {
+          // no-op
+        }
+      };
+      loadItems();
+    }
+  }, [poModalOpen, detail?.item_id, selectedItem]);
+
+  useEffect(() => {
+    if (poModalOpen && detail) {
+      setPoFormData(p => ({ ...p, quantity: p.quantity ? p.quantity : String(detail.quantity ?? '') }));
+    }
+  }, [poModalOpen, detail]);
+
+  useEffect(() => {
+    if (completeModalOpen) {
+      const loadEmployees = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/services/employee/all', token ? { Authorization: token } : undefined);
+        if (res.status === 'success') {
+          const payload = res.data as unknown;
+          const list: unknown[] = Array.isArray(payload)
+            ? payload
+            : payload && typeof payload === 'object'
+              ? Array.isArray((payload as Record<string, unknown>).items)
+                ? ((payload as Record<string, unknown>).items as unknown[])
+                : []
+              : [];
+          const mapped = list
+            .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
+            .map((it) => {
+              const uuid = typeof it.uuid === 'string' ? it.uuid : '';
+              const fullname = typeof it.fullname === 'string' ? it.fullname : '';
+              return uuid && fullname ? { uuid, fullname } : null;
+            })
+            .filter((x): x is {uuid: string; fullname: string} => x !== null);
+          setEmployeeOptions(mapped);
+        }
+      };
+      loadEmployees();
+    }
+  }, [completeModalOpen]);
+
   const selectedSupplierName = useMemo(() => {
     const found = supplierOptions.find((o) => o.id === poFormData.supplier_id);
     return found?.supplier_name ?? '';
@@ -419,6 +564,46 @@ const [supplierQuery, setSupplierQuery] = useState('');
     }
   };
 
+  const handleComplete = async () => {
+    if (!requestId || !selectedEmployee || completeSaving) return;
+
+    const result = await Swal.fire({
+      title: 'Konfirmasi',
+      text: 'Apakah Anda yakin ingin menyelesaikan pesanan ini?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Selesaikan Pesanan',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#3b82f6',
+    });
+
+    if (!result.isConfirmed) return;
+
+    setCompleteSaving(true);
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const res = await api.post<unknown>(
+        '/inventories/request/completed',
+        { request_id: requestId, employee_id: selectedEmployee.uuid },
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan berhasil diselesaikan.' });
+        setCompleteModalOpen(false);
+        setSelectedEmployee(null);
+        setEmployeeQuery('');
+        setEmployeePickerOpen(false);
+        fetchRequestDetail();
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat menyelesaikan pesanan.' });
+      }
+    } catch {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat menyelesaikan pesanan.' });
+    } finally {
+      setCompleteSaving(false);
+    }
+  };
+
   const handlePoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (poSaving) return;
@@ -426,15 +611,17 @@ const [supplierQuery, setSupplierQuery] = useState('');
     setPoSaving(true);
     const token = localStorage.getItem('token') ?? '';
     try {
+      const itemToUse = selectedItem ?? { item_id: detail?.item_id, item_uom: detail?.item_uom };
       const payload: Record<string, unknown> = {
         request_id: requestId,
-        item_id: detail?.item_id,
-        item_uom: detail?.item_uom,
-        item_price: Number(poFormData.item_price),
-        supplier_name: poFormData.supplier_id ? selectedSupplierName : poFormData.supplier_name_manual.trim(),
+        item_id: itemToUse.item_id,
+        quantity: poFormData.quantity ? Number(poFormData.quantity) : detail?.quantity,
+        item_uom: itemToUse.item_uom,
+        suplier_id: poFormData.supplier_id || undefined,
+        suplier_name: poFormData.supplier_id ? selectedSupplierName : poFormData.supplier_name_manual.trim() || undefined,
         suplier_phone: poFormData.supplier_phone ? "62" + poFormData.supplier_phone : undefined,
         suplier_url: poFormData.supplier_url || undefined,
-        quantity: detail?.quantity,
+        item_price: Number(poFormData.item_price),
       };
 
       const res = await api.post<unknown>(
@@ -452,6 +639,7 @@ const [supplierQuery, setSupplierQuery] = useState('');
           supplier_name_manual: '',
           supplier_phone: '',
           supplier_url: '',
+          quantity: '',
         });
         fetchRequestDetail();
       } else {
@@ -466,7 +654,8 @@ const [supplierQuery, setSupplierQuery] = useState('');
 
   const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >= (detail.stock - 2);
     const showApproveReject = detail?.status === 2 || detail?.status === 3;
-    const showApproveButton = showApproveReject && (detail?.stock ?? 0) > 0;
+    const showApproveButton = showApproveReject && (detail?.stock ?? 0) > 0 && !(detail?.status === 3 && (detail?.order_status === 1 || detail?.order_status === 2));
+    const showCompleteButton = detail?.order_status === 1 && detail?.status === 3;
 
   const inventoryColumns: Array<DataTableColumn<InventoryLocation>> = [
     {
@@ -583,12 +772,12 @@ const [supplierQuery, setSupplierQuery] = useState('');
           {showAddPurchaseOrder && (
             <Button
               variant="outline"
-              className="h-9 rounded-2xl text-xs sm:text-sm"
+              className="h-9 rounded-2xl text-xs sm:text-sm bg-blue-600 text-white hover:bg-blue-700"
               onClick={() => setPoModalOpen(true)}
               disabled={actionLoading}
             >
               <Plus className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">Add Purchase Order</span>
+              <span className="hidden sm:inline">Buat Pesanan</span>
             </Button>
           )}
           {showApproveButton && (
@@ -600,6 +789,28 @@ const [supplierQuery, setSupplierQuery] = useState('');
             >
               <Check className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">Approve Permintaan</span>
+            </Button>
+          )}
+          {showCompleteButton && (
+            <Button
+              variant="outline"
+              className="h-9 rounded-2xl text-xs sm:text-sm text-white bg-emerald-500 hover:text-white hover:bg-emerald-600"
+              onClick={() => setCompleteModalOpen(true)}
+              disabled={actionLoading}
+            >
+              <Check className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Selesaikan Pesanan</span>
+            </Button>
+          )}
+          {showApproveReject && (
+            <Button
+              variant="outline"
+              className="h-9 rounded-2xl text-xs sm:text-sm bg-white text-red-600 border-red-500 hover:bg-red-50 hover:text-red-700"
+              onClick={() => handleAction('reject')}
+              disabled={actionLoading}
+            >
+              <X className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Tolak Permintaan</span>
             </Button>
           )}
         </div>
@@ -643,6 +854,17 @@ const [supplierQuery, setSupplierQuery] = useState('');
             >
               <Check className="h-4 w-4 mr-1.5" />
               Approve
+            </Button>
+          )}
+          {showCompleteButton && (
+            <Button
+              variant="outline"
+              className="h-9 rounded-2xl text-xs text-emerald-600 border-emerald-200 hover:text-emerald-700"
+              onClick={() => setCompleteModalOpen(true)}
+              disabled={actionLoading}
+            >
+              <Check className="h-4 w-4 mr-1.5" />
+              Selesaikan
             </Button>
           )}
           {(showAddPurchaseOrder || showApproveReject) && (
@@ -839,7 +1061,7 @@ const [supplierQuery, setSupplierQuery] = useState('');
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
           {/* Persediaan Asset */}
           <Card className="lg:col-span-7 dark:bg-gray-900">
-            <CardHeaderWithBadge title="Persediaan Asset" badgeIcon={<Box className="h-3.5 w-3.5 sm:h-6 sm:w-6" />} />
+            <CardHeaderWithBadge title="Persediaan Asset" subtitle="Daftar distribusi paket yang dimiliki" badgeIcon={<Box className="h-3.5 w-3.5 sm:h-6 sm:w-6" />} />
             <CardContent className="p-5 sm:p-6">
               <DataTable
                 data={inventoryDetail.locations}
@@ -872,7 +1094,7 @@ const [supplierQuery, setSupplierQuery] = useState('');
 
           {/* Riwayat Permintaan */}
           <Card className="lg:col-span-3 dark:bg-gray-900">
-            <CardHeaderWithBadge title="Riwayat Permintaan" badgeIcon={<Clock className="h-3.5 w-3.5 sm:h-6 sm:w-6 text-purple-600" />} />
+            <CardHeaderWithBadge title="Riwayat Permintaan" subtitle="Daftar riwayat permintaan untuk item ini" badgeIcon={<Clock className="h-3.5 w-3.5 sm:h-6 sm:w-6 text-purple-600" />} />
             <CardContent className="p-5 sm:p-6">
               <div className="relative">
                 {timelineItems.map((item, index) => (
@@ -896,7 +1118,7 @@ const [supplierQuery, setSupplierQuery] = useState('');
                         {item.description}
                       </div>
                       <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        {formatDateTime(item.date)}
+                        {item.displayDate || formatDateTime(item.date)}
                       </div>
                     </div>
                   </div>
@@ -908,7 +1130,7 @@ const [supplierQuery, setSupplierQuery] = useState('');
       ) : null}
 
       {/* Purchase Order Modal */}
-      <Dialog open={poModalOpen} onOpenChange={(open) => { setPoModalOpen(open); if (!open) setSupplierQuery(''); }}>
+      <Dialog open={poModalOpen} onOpenChange={(open) => { setPoModalOpen(open); if (!open) { setSupplierQuery(''); setItemQuery(''); setItemPickerOpen(false); setItems([]); setSelectedItem(null); setPoFormData({ item_price: '', supplier_id: '', supplier_name_manual: '', supplier_phone: '', supplier_url: '', quantity: '' }); } }}>
         <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
           <form onSubmit={handlePoSubmit} className="flex flex-col flex-1 min-h-0">
             <div className="px-6 sm:px-8 pt-6 sm:pt-8">
@@ -925,36 +1147,97 @@ const [supplierQuery, setSupplierQuery] = useState('');
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6">
-              <div className="mb-4">
-                <div className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Item</div>
-                <div className="mt-1 text-sm md:text-base text-gray-900 dark:text-white font-semibold truncate">{detail?.item_name || '-'}</div>
-                <div className="text-xs text-muted-foreground">SKU: {detail?.item_sku || '-'}</div>
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
+                <div className="space-y-2">
+                  <label className="text-xs md:text-sm font-medium text-gray-600 dark:text-white/70">Pilih Item</label>
+                  <Popover open={itemPickerOpen} onOpenChange={(open) => { setItemPickerOpen(open); setItemQuery(open ? (selectedItem?.item_name || detail?.item_name || '') : ''); if (!open) setItemQuery(''); }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50"
+                      >
+                        <span className={selectedItem ? '' : 'text-muted-foreground'}>
+                          {selectedItem ? `${selectedItem.item_name} - ${selectedItem.item_sku}` : (detail?.item_name ? `${detail.item_name} - ${detail.item_sku}` : 'Ketik min. 3 karakter untuk cari item')}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                      <Command shouldFilter={false} className="rounded-xl">
+                        <CommandInput
+                          placeholder="Cari item..."
+                          value={itemQuery}
+                          onValueChange={(v) => setItemQuery(v)}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {itemQuery.trim().length < 3
+                              ? 'Ketik minimal 3 karakter untuk mencari item.'
+                              : 'Tidak ada hasil.'}
+                          </CommandEmpty>
+                          <CommandGroup heading="Item">
+                            {items.map((opt) => (
+                              <CommandItem
+                                key={opt.item_id}
+                                value={`${opt.item_name} ${opt.item_sku} ${opt.item_id}`}
+                                className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-800"
+                                onSelect={() => {
+                                  setSelectedItem(opt);
+                                  setItemQuery('');
+                                  setItemPickerOpen(false);
+                                }}
+                              >
+                                <Check className={selectedItem?.item_id === opt.item_id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                                {opt.item_name} - {opt.item_sku}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-white/70">Harga Item *</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">Rp</span>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={poFormData.item_price}
-                      onChange={(e) => setPoFormData((p) => ({ ...p, item_price: e.target.value.replace(/[^0-9]/g, '') }))}
-                      placeholder="0"
-                      className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30 pl-10 w-full"
-                      style={{ appearance: 'textfield' }}
-                    />
+                     <Input
+                       type="text"
+                       inputMode="numeric"
+                       value={formatCurrency(poFormData.item_price)}
+                       onChange={(e) => setPoFormData((p) => ({ ...p, item_price: e.target.value.replace(/[^0-9]/g, '') }))}
+                       placeholder="0"
+                       className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30 pl-10 w-full"
+                       style={{ appearance: 'textfield' }}
+                     />
                   </div>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Jumlah</label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={poFormData.quantity}
+                    onChange={(e) => setPoFormData((p) => ({ ...p, quantity: e.target.value.replace(/[^0-9]/g, '') }))}
+                    placeholder="0"
+                    className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30 w-full"
+                    style={{ appearance: 'textfield' }}
+                  />
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-white/70">Satuan</label>
-                  <div className="h-11 rounded-2xl border border-gray-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-gray-900 flex items-center">
-                    {detail?.item_uom || 'Pcs'}
-                  </div>
+                   <div className="h-11 rounded-2xl border border-gray-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-gray-900 flex items-center">
+                     {selectedItem?.item_uom || detail?.item_uom || 'Pcs'}
+                   </div>
                 </div>
+
               </div>
 
               <div className="mt-5 space-y-2">
@@ -1081,6 +1364,89 @@ const [supplierQuery, setSupplierQuery] = useState('');
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Complete Order Modal */}
+      <Dialog open={completeModalOpen} onOpenChange={(open) => { setCompleteModalOpen(open); if (!open) { setEmployeeQuery(''); setEmployeePickerOpen(false); setEmployeeOptions([]); setSelectedEmployee(null); } }}>
+        <DialogContent className="max-w-md w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
+          <form onSubmit={(e) => { e.preventDefault(); handleComplete(); }} className="flex flex-col flex-1 min-h-0">
+            <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Selesaikan Pesanan</h2>
+                  <p className="text-slate-500 text-xs sm:text-sm">Pilih karyawan penerima untuk {detail?.item_name}</p>
+                </div>
+                <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                  <X className="w-3 h-3 sm:w-5 sm:h-5" />
+                </DialogClose>
+              </div>
+              <div className="h-px bg-slate-100 mt-4" />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-white/70">Pilih Karyawan Penerima</label>
+                <Popover open={employeePickerOpen} onOpenChange={(open) => { setEmployeePickerOpen(open); setEmployeeQuery(open ? '' : ''); if (!open) setEmployeeQuery(''); }}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50"
+                    >
+                      <span className={selectedEmployee ? '' : 'text-muted-foreground'}>
+                        {selectedEmployee ? selectedEmployee.fullname : 'Ketik min. 3 karakter untuk cari karyawan'}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                    <Command shouldFilter={false} className="rounded-xl">
+                    <CommandInput
+                      placeholder="Cari karyawan..."
+                      value={employeeQuery}
+                      onValueChange={(v) => setEmployeeQuery(v)}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {employeeQuery.trim().length < 3
+                          ? 'Ketik minimal 3 karakter untuk mencari karyawan.'
+                          : 'Tidak ada hasil.'}
+                      </CommandEmpty>
+                      <CommandGroup heading="Karyawan">
+                        {employeeOptions.map((opt) => (
+                          <CommandItem
+                            key={opt.uuid}
+                            value={opt.fullname}
+                            className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-800"
+                            onSelect={() => {
+                              setSelectedEmployee(opt);
+                              setEmployeeQuery('');
+                              setEmployeePickerOpen(false);
+                            }}
+                          >
+                            <Check className={selectedEmployee?.uuid === opt.uuid ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                            {opt.fullname}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <div className="w-full px-6 sm:px-8 py-4 border-t border-slate-100 flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+            <Button type="button" variant="outline" onClick={() => setCompleteModalOpen(false)} className="w-full md:w-auto h-11 rounded-2xl">
+              Batal
+            </Button>
+            <Button type="submit" disabled={completeSaving || !selectedEmployee} className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white">
+              {completeSaving ? 'Menyimpan...' : 'Selesaikan Pesanan'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+   </div>
   );
 };

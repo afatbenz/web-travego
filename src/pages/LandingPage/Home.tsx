@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Star, Shield, Clock, Headphones, Phone, Check, Users, LayoutDashboard, ShoppingCart, Truck, Quote, Sparkles, BarChart2, Receipt, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,27 +10,52 @@ import { AnalyticsDashboardSection } from './AnalyticsDashboardSection';
 import { CustomerCloserSection } from './CustomerCloserSection';
 import heroIllustration from '@/assets/general/dashboard-devices.png';
 import relationIllustration from '@/assets/landing-page/relation-ilustration.svg';
+import { api } from '@/lib/api';
+
+type Review = {
+  created_by: string;
+  organization_name: string;
+  reviews: string;
+  stars: number;
+  created_at: string;
+};
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [activeOptimizationIndex, setActiveOptimizationIndex] = useState(0);
   const [activeControlIndex, setActiveControlIndex] = useState(0);
+  const [testimonials, setTestimonials] = useState<Review[]>([]);
+
+  const fetchReviews = async () => {
+    try {
+      const response = await api.get<Review[]>('/services/reviews', { 'api-key': 'trv-lasoa30sal&1ajshdkahsd012-12' });
+      if (response.status === 'success' && response.data) {
+        setTestimonials(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchReviews();
+  }, []);
 
   const whyChooseUs = [
     {
       icon: Shield,
       title: 'Amanah & Professional',
-      description: 'Komitmen profesional dengan integritas tinggi dalam setiap layanan yang kami berikan.'
+      description: 'Profesional dengan integritas tinggi dalam setiap layanan yang diberikan.'
     },
     {
       icon: Clock,
       title: 'Pelayanan 24/7',
-      description: 'Tim customer service yang dibantu dengan teknologi AI siap melayani Anda kapan saja.'
+      description: 'Support perbaikan, penambahan fitur, dan pemeliharaan sistem berkelanjutan'
     },
     {
       icon: Star,
       title: 'End-To-End Service',
-      description: 'Memudahkan pengaturan bisnis anda dengan efisien'
+      description: 'Memudahkan pengaturan bisnis anda dengan efisien dan efektif.'
     },
     {
       icon: Headphones,
@@ -69,15 +94,15 @@ export const Home: React.FC = () => {
   const controlFeatures = [
     {
       icon: LayoutDashboard,
-      title: 'Dashboard',
-      description: 'Gambaran bisnis secara menyeluruh dalam satu layar',
+      title: 'Inventories',
+      description: 'Kelola asset dan suku cadang lebih mudah',
       tag: 'Real-time',
       badgeClassName: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200',
       iconClassName: 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-200',
-      previewTitle: 'Bisnis Anda dalam satu pandangan',
+      previewTitle: 'Kelola asset dan suku cadang lebih mudah',
       previewDescription:
-        'Pantau pendapatan, order masuk, performa armada, dan aktivitas agen — semua tersaji dalam dashboard yang bisa diakses dari HP maupun laptop.',
-      previewFeatures: ['Metrik real-time tanpa refresh manual', 'Grafik pendapatan harian & bulanan', 'Notifikasi pintar untuk hal penting'],
+        'Pantau ketersediaan dan distribusi suku cadang anda secara realtime dengan mudah dan efisien.',
+      previewFeatures: ['Ketersediaan asset dan suku cadang', 'Distribusi asset ke beberapa lokasi / garasi', 'Catat transaksi dan riwayat keluar masuk asset'],
       stats: ['42 / Order hari ini', 'Rp8,4jt / Pendapatan'],
     },
     {
@@ -134,23 +159,7 @@ export const Home: React.FC = () => {
     }
   ];
 
-  const testimonials = [
-    {
-      name: 'Restu Anggoro',
-      role: 'Owner, Calista Prima Wisata',
-      content: 'TraveGO sangat membantu kami kelola booking dan jadwal sopir. Tim jadi lebih fokus closing.',
-    },
-    {
-      name: 'Danu Aji Pangestu',
-      role: 'Owner, Putra Handayani',
-      content: 'Fitur AI assistant-nya cepat respon. Customer lebih puas dan repeat order meningkat signifikan.',
-    },
-    {
-      name: 'Lengkung Kusumo',
-      role: 'Owner, Joymar Express',
-      content: 'Sistemnya stabil, laporan keuangan rapi, dan support timnya responsif saat dibutuhkan.',
-    },
-  ];
+
 
   return (
     <div className="min-h-screen">
@@ -353,10 +362,10 @@ export const Home: React.FC = () => {
               Semua dalam genggaman
             </Badge>
             <h2 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">
-              Kelola bisnis travel dari mana saja, kapan saja
+              Kelola Bisnis Transportasi Lebih Flexible
             </h2>
             <p className="mt-4 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-              Lima modul inti yang saling terhubung — dirancang agar Anda fokus mengembangkan bisnis, bukan mengurus sistem.
+              Lima modul inti yang saling terhubung.
             </p>
           </div>
 
@@ -448,34 +457,36 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-20 bg-slate-100 dark:bg-slate-900">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Apa Kata Mereka?</h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {testimonials.map((item) => (
-              <Card key={item.name} className="rounded-2xl border border-gray-200 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                <CardContent className="p-6">
-                  <Quote className="h-5 w-5 text-blue-500 mb-3" />
-                  <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">{item.content}</p>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.role}</p>
+      {testimonials.length > 0 && (
+        <section className="py-20 bg-slate-100 dark:bg-slate-900">
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="mb-10 text-center">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Apa Kata Mereka?</h2>
+            </div>
+            <div className="grid gap-6 md:grid-cols-3">
+              {testimonials.map((item, index) => (
+                <Card key={index} className="rounded-2xl border border-gray-200 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <CardContent className="p-6">
+                    <Quote className="h-5 w-5 text-blue-500 mb-3" />
+                    <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">{item.reviews}</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.created_by}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Owner {item.organization_name}</p>
+                      </div>
+                      <div className="flex items-center text-yellow-500">
+                        {Array.from({ length: 5 }).map((_, starIndex) => (
+                          <Star key={starIndex} className={`h-3.5 w-3.5 ${starIndex < item.stars ? 'fill-current' : ''}`} />
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex items-center text-yellow-500">
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <Star key={index} className="h-3.5 w-3.5 fill-current" />
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA + Footer */}
       <section className="py-10 bg-slate-100 dark:bg-slate-900">
