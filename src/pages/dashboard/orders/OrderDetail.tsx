@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { cn, formatPhoneNumberId } from '@/lib/utils';
-import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight, AlertTriangle, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api, toFileUrl, uploadCommon } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -67,6 +67,7 @@ type OrderData = {
   customerEmail: string;
   customerPhone: string;
   customerAddress: string;
+  customerId: string;
   category: string;
   title: string;
   description: string;
@@ -146,6 +147,7 @@ const createEmptyOrderData = (id: string): OrderData => ({
   customerEmail: '-',
   customerPhone: '-',
   customerAddress: '-',
+  customerId: '',
   category: 'Armada',
   title: 'Order',
   description: '',
@@ -825,6 +827,7 @@ export const OrderDetail: React.FC = () => {
 
     const pickup = record(detail.pickup);
     const customer = record(detail.customer);
+    const customerId = getString(customer.customer_id ?? customer.id ?? '', '');
     const paymentSummary = record(
       detail.payment_summary ??
         detail.paymentSummary ??
@@ -1067,8 +1070,9 @@ const next: OrderData = {
       customerName: getString(customer.customer_name ?? customer.customerName, '-'),
       customerEmail: getString(customer.customer_email ?? customer.customerEmail, '-'),
       customerPhone: getString(customer.customer_phone ?? customer.customerPhone, '-'),
-      customerAddress,
-      category: getString(detail.rent_type_label, 'Armada'),
+       customerAddress,
+      customerId,
+       category: getString(detail.rent_type_label, 'Armada'),
       title: getString(detail.fleet_name ?? detail.package_name ?? detail.title, 'Order'),
       description,
       startDate,
@@ -2043,12 +2047,31 @@ const next: OrderData = {
                       {customerInitials}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0">
-                    <div className="text-sm text-slate-500 dark:text-slate-400">Customer</div>
-                    <div className="truncate text-lg font-semibold text-slate-900 dark:text-white">
-                      {orderData.customerName}
-                    </div>
-                  </div>
+                   <div className="min-w-0">
+                     <div className="text-sm text-slate-500 dark:text-slate-400">Customer</div>
+                     <div className="flex items-center gap-2">
+                       {orderData.customerId ? (
+                         <Link 
+                           to={`${basePrefix}/customers/detail/${encodeURIComponent(orderData.customerId)}`}
+                           className="truncate text-lg font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                         >
+                           {orderData.customerName}
+                         </Link>
+                       ) : (
+                         <span className="truncate text-lg font-semibold text-slate-900 dark:text-white">
+                           {orderData.customerName}
+                         </span>
+                       )}
+                       {orderData.customerId && (
+                         <Link 
+                           to={`${basePrefix}/customers/detail/${encodeURIComponent(orderData.customerId)}`}
+                           className="shrink-0 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                         >
+                           <ExternalLink className="h-4 w-4" />
+                         </Link>
+                       )}
+                     </div>
+                   </div>
                 </div>
               </div>
 

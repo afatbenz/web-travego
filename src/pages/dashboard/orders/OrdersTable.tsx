@@ -863,7 +863,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         <Button
           type="button"
           variant="link"
-          className="h-auto p-0 font-semibold text-blue-700 hover:text-blue-900 hover:no-underline hover:text-bold dark:text-blue-300 dark:hover:text-blue-200"
+          className="h-auto p-0 font-semibold text-blue-950 hover:text-blue-900 hover:no-underline hover:text-bold dark:text-blue-300 dark:hover:text-blue-200"
           onClick={() => goToOrder(row.orderId)}
         >
           {row.orderId}
@@ -877,7 +877,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             key: 'customerName',
             sortable: true,
             width: 240,
-            render: (row) => <span className="min-w-0 truncate text-foreground">{row.customerName || '-'}</span>
+            render: (row) => (
+              <div className="min-w-0">
+                <div className="font-semibold truncate">{row.customerName || '-'}</div>
+                {row.customerPhone && <div className="text-xs text-muted-foreground">Phone: {row.customerPhone || '-'}</div>}
+              </div>
+            )
           }
         ] as Array<DataTableColumn<Order>>)
       : []),
@@ -899,7 +904,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
             label: 'Tanggal Sewa',
             key: 'startDate',
             width: 220,
-            render: (row) => <span className="text-foreground">{formatSewaRange(row.startDate, row.endDate)}</span>
+            render: (row) => (
+              <div className="min-w-0">
+                <div className="text-semibold truncate">{formatSewaRange(row.startDate, row.endDate)}</div>
+                {row.customerPhone && <div className="text-xs text-muted-foreground">Durasi {row.duration || '0'} hari</div>}
+              </div>
+            )
           }
         ] as Array<DataTableColumn<Order>>)
       : []),

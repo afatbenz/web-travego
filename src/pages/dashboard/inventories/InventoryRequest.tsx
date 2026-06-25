@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Search, Download, FileSpreadsheet, RotateCcw, Sheet, Check, X, ChevronsUpDown } from 'lucide-react';
+import { Plus, Search, Download, FileSpreadsheet, RotateCcw, Sheet, Check, X, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,6 +39,7 @@ type InventoryRequest = {
   item_uom: string;
   employee_name: string;
   status: number;
+  order_status: number;
 };
 
 const categoryToLabel = (category: number): string => {
@@ -47,14 +48,20 @@ const categoryToLabel = (category: number): string => {
   return '-';
 };
 
-const statusToLabel = (status: number): string => {
+const statusToLabel = (status: number, order_status?: number): string => {
+  if (status === 1 && (order_status === 0 || order_status === 1)) return 'Telah Diterima';
+  if (status === 3 && order_status === 1) return 'Belum Diserahkan';
+  if (status === 3 && order_status === 2) return 'Proses Pemesanan';
   if (status === 1) return 'Sedang Diproses';
   if (status === 2) return 'Menunggu Persetujuan';
   if (status === 3) return 'Disetujui';
   return '-';
 };
 
-const statusToBadgeClass = (status: number): string => {
+const statusToBadgeClass = (status: number, order_status?: number): string => {
+  if (status === 1 && (order_status === 0 || order_status === 1)) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (status === 3 && order_status === 1) return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (status === 3 && order_status === 2) return 'bg-blue-50 text-blue-700 border-blue-200';
   if (status === 1) return 'bg-blue-50 text-blue-700 border-blue-200';
   if (status === 2) return 'bg-amber-50 text-amber-700 border-amber-200';
   if (status === 3) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -153,7 +160,8 @@ const [errors, setErrors] = useState<Record<string, string>>({});
           const item_uom = typeof obj.item_uom === 'string' ? obj.item_uom : '';
           const employee_name = typeof obj.employee_name === 'string' ? obj.employee_name : '';
           const status = typeof obj.status === 'number' ? obj.status : 0;
-          return { id, request_id, item_name, item_sku, item_category, garage_name, quantity, item_uom, employee_name, status };
+          const order_status = typeof obj.order_status === 'number' ? obj.order_status : 0;
+          return { id, request_id, item_name, item_sku, item_category, garage_name, quantity, item_uom, employee_name, status, order_status };
         });
         setRequests(mapped);
         if (Array.isArray(payload)) {
@@ -216,7 +224,7 @@ const [errors, setErrors] = useState<Record<string, string>>({});
         if (itemsRes.status === 'success') {
           const raw = Array.isArray(itemsRes.data) ? itemsRes.data : [];
           const mapped = raw
-            .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
+            .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
             .map((it) => {
               const idRaw = it.item_id ?? it.id;
               const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
@@ -247,7 +255,7 @@ const [errors, setErrors] = useState<Record<string, string>>({});
                 : []
               : [];
           const mapped = list
-            .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
+            .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
             .map((it) => {
               const unit_id = typeof it.unit_id === 'string' || typeof it.unit_id === 'number' ? String(it.unit_id) : '';
               const vehicle_id = typeof it.vehicle_id === 'string' ? it.vehicle_id : '';
@@ -279,7 +287,7 @@ const [errors, setErrors] = useState<Record<string, string>>({});
                 : []
               : [];
           const mapped = list
-            .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
+            .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
             .map((it) => {
               const uuid = typeof it.uuid === 'string' ? it.uuid : '';
               const fullname = typeof it.fullname === 'string' ? it.fullname : '';
@@ -328,7 +336,7 @@ const [errors, setErrors] = useState<Record<string, string>>({});
       Jumlah: row.quantity ?? 0,
       Satuan: row.item_uom || '',
       User: row.employee_name || '-',
-      Status: statusToLabel(row.status),
+       Status: statusToLabel(row.status, row.order_status),
     }));
   }, [startIndex, requests]);
 
@@ -380,7 +388,7 @@ const [errors, setErrors] = useState<Record<string, string>>({});
         <button
           type="button"
           onClick={() => navigate(`${basePrefix}/inventories/request/detail/${encodeURIComponent(String(row.request_id))}`)}
-          className="text-blue-600 hover:underline text-sm font-medium"
+          className="text-blue-950 hover:text-blue-700 text-sm font-semibold"
         >
           {row.request_id || '-'}
         </button>
@@ -410,19 +418,19 @@ const [errors, setErrors] = useState<Record<string, string>>({});
       label: 'Qty',
       key: 'quantity',
       sortable: true,
-      width: 100,
+      width: 80,
       align: 'right',
       render: (row) => <span className="text-foreground">{row.quantity} {row.item_uom || ''}</span>
     },
-    { label: 'User', key: 'employee_name', sortable: true, width: 180, render: (row) => <span className="text-foreground">{row.employee_name || '-'}</span> },
+    { label: 'User', key: 'employee_name', sortable: true, width: 220, render: (row) => <span className="text-foreground">{row.employee_name || '-'}</span> },
     {
       label: 'Status',
       key: 'status',
       sortable: true,
       width: 160,
       render: (row) => (
-        <span className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold ${statusToBadgeClass(row.status)}`}>
-          {statusToLabel(row.status)}
+        <span className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold ${statusToBadgeClass(row.status, row.order_status)}`}>
+          {statusToLabel(row.status, row.order_status)}
         </span>
       )
     },
@@ -582,7 +590,8 @@ const [errors, setErrors] = useState<Record<string, string>>({});
             const item_uom = typeof obj.item_uom === 'string' ? obj.item_uom : '';
             const employee_name = typeof obj.employee_name === 'string' ? obj.employee_name : '';
             const status = typeof obj.status === 'number' ? obj.status : 0;
-            return { id, request_id, item_name, item_sku, item_category, garage_name, quantity, item_uom, employee_name, status };
+            const order_status = typeof obj.order_status === 'number' ? obj.order_status : 0;
+            return { id, request_id, item_name, item_sku, item_category, garage_name, quantity, item_uom, employee_name, status, order_status };
           });
           setRequests(mapped);
           if (Array.isArray(payload)) {
@@ -674,29 +683,29 @@ const [errors, setErrors] = useState<Record<string, string>>({});
         tableClassName="table-auto w-full"
         emptyTitle="Tidak ada data permintaan"
         emptyDescription="Coba ubah pencarian."
-        actions={{
-          label: 'Aksi',
-          actions: [
-            {
-              key: 'detail',
-              label: 'Detail',
-              icon: Eye,
-              onSelect: (row) => navigate(`${basePrefix}/inventories/request/detail/${encodeURIComponent(String(row.id))}`)
-            },
-            {
-              key: 'edit',
-              label: 'Edit',
-              icon: Edit,
-              onSelect: (row) => navigate(`${basePrefix}/inventories/request/edit/${encodeURIComponent(String(row.id))}`)
-            },
-            {
-              key: 'approve',
-              label: 'Approve',
-              icon: Check,
-              onSelect: (row) => navigate(`${basePrefix}/inventories/request/detail/${encodeURIComponent(String(row.request_id))}`)
-            }
-          ]
-        }}
+        // actions={{
+        //   label: 'Aksi',
+        //   actions: [
+        //     {
+        //       key: 'detail',
+        //       label: 'Detail',
+        //       icon: Eye,
+        //       onSelect: (row) => navigate(`${basePrefix}/inventories/request/detail/${encodeURIComponent(String(row.id))}`)
+        //     },
+        //     {
+        //       key: 'edit',
+        //       label: 'Edit',
+        //       icon: Edit,
+        //       onSelect: (row) => navigate(`${basePrefix}/inventories/request/edit/${encodeURIComponent(String(row.id))}`)
+        //     },
+        //     {
+        //       key: 'approve',
+        //       label: 'Approve',
+        //       icon: Check,
+        //       onSelect: (row) => navigate(`${basePrefix}/inventories/request/detail/${encodeURIComponent(String(row.request_id))}`)
+        //     }
+        //   ]
+        // }}
         pagination={{
           page: currentPage,
           pageSize: itemsPerPage,

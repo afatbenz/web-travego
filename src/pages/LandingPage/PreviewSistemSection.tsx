@@ -8,7 +8,7 @@ type PreviewSistemSectionProps = {
   className?: string;
 };
 
-export const PreviewSistemSection: React.FC<PreviewSistemSectionProps> = ({ className }) => {
+export const PreviewSistemSection: React.FC<PreviewSistemSectionProps & { page?: 'services' | 'pricing' }> = ({ className, page }) => {
   const script = useMemo(
     () => ({
       step1User: 'Tolong check armada bigbus 40 seat yang ready besok untuk 2 hari',
@@ -176,7 +176,7 @@ export const PreviewSistemSection: React.FC<PreviewSistemSectionProps> = ({ clas
         }
       `}</style>
 
-      <div className="tg-anim rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-gray-900">
+      <div className={`tg-anim rounded-2xl ${page === 'services' ? 'bg-transparent' : 'bg-white border border-slate-200'} p-4 shadow-sm dark:border-slate-800 dark:bg-gray-900`}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[3fr_2fr] md:items-stretch">
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#17212B] dark:border-slate-800">
             <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#1E2A38] px-4 py-3 text-white">
