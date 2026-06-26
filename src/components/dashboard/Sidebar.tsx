@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,7 +22,9 @@ import {
   Building2,
   CalendarCheck,
   CalendarArrowUp,
-  HandCoinsIcon
+  HandCoinsIcon,
+  CreditCard,
+  Gauge
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -41,7 +43,8 @@ export const Sidebar: React.FC = () => {
   });
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { claims, hasEffectiveOrganization, isAdmin } = useEffectiveOrganization();
+  const navigate = useNavigate();
+  const { claims, hasEffectiveOrganization, isAdmin, role, isSuperAdmin } = useEffectiveOrganization();
 
   const orgName = React.useMemo(() => {
     const nameFromJwt = String(
@@ -54,11 +57,11 @@ export const Sidebar: React.FC = () => {
     return nameFromJwt || (localStorage.getItem('organization_name') ?? '');
   }, [claims]);
 
-  const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
-  const profileHref = isAdmin ? '/dashboard/partner/profile' : `${basePrefix}/profile`;
+  const basePrefix = '/dashboard';
+  const profileHref = isAdmin ? '/dashboard/profile' : `${basePrefix}/profile`;
   const canUseDashboardMenus = hasEffectiveOrganization || isAdmin;
   const taskbarThirdHref = canUseDashboardMenus ? profileHref : `${basePrefix}/organization/register`;
-  const taskbarThirdActive = canUseDashboardMenus ? '/dashboard/partner/profile' : `${basePrefix}/organization/register`;
+  const taskbarThirdActive = canUseDashboardMenus ? '/dashboard/profile' : `${basePrefix}/organization/register`;
   const TaskbarThirdIcon = canUseDashboardMenus ? User : Building2;
 
   const isActive = (href: string) =>
@@ -82,8 +85,8 @@ export const Sidebar: React.FC = () => {
   }, [location.pathname]);
 
   type IconType = React.ComponentType<{ className?: string }>;
-  type NavItem = { title: string; href: string; icon: IconType };
-  type NavSection = { label: string; items: NavItem[] };
+  type NavItem = { title: string; href: string; icon: IconType; access?: string[] };
+  type NavSection = { label: string; items: NavItem[]; access?: string[] };
 
   const bottomMenuItems: NavItem[] = [{ title: 'Logout', icon: LogOut, href: '/auth/login' }];
 
@@ -91,78 +94,93 @@ export const Sidebar: React.FC = () => {
     () => [
       {
         label: 'Ringkasan',
-        items: [{ title: 'Dashboard', icon: Home, href: basePrefix }]
+        items: [
+          { title: 'Dashboard', icon: Home, href: basePrefix, access: ['Admin', 'Members'] },
+          { title: 'Performance', icon: Gauge, href: '/performance', access: ['SuperAdmin'] }
+        ],
+        access: ['SuperAdmin', 'Admin', 'Members']
       },
       {
         label: 'Orders',
         items: [
-          { title: 'Armad Pariwisata', icon: Car, href: `${basePrefix}/orders/fleet` },
-        ]
+          { title: 'Armad Pariwisata', icon: Car, href: `${basePrefix}/orders/fleet`, access: ['Admin', 'Members'] },
+        ],
+        access: ['Admin', 'Members']
       },
       {
         label: 'Data Master',
         items: [
           // { title: 'Paket Wisata', icon: Package, href: `${basePrefix}/services/packages` },
-          { title: 'Daftar Armada', icon: Car, href: `${basePrefix}/services/fleet` },
-          { title: 'Daftar Garasi', icon: Building2, href: `${basePrefix}/organization/garages` },
-          { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units` },
-        ]
+          { title: 'Daftar Armada', icon: Car, href: `${basePrefix}/services/fleet`, access: ['Admin', 'Members'] },
+          { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units`, access: ['Admin', 'Members'] },
+          { title: 'Daftar Garasi', icon: Building2, href: `${basePrefix}/organization/garages`, access: ['Admin', 'Members'] },
+          { title: 'Device ID', icon: Code, href: `${basePrefix}/device-ids`, access: ['SuperAdmin'] },
+        ],
+        access: ['Admin', 'Members', 'SuperAdmin']
       },
       {
         label: 'Preferensi',
         items: [
-          ...(!isAdmin ? [{ title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities` }] : [])
-        ]
+          ...(!isAdmin ? [{ title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities`, access: ['Admin', 'Members', 'SuperAdmin'] }] : [])
+        ],
+        access: ['Admin', 'Members']
       },
       {
         label: 'Jadwal',
         items: [
-          { title: 'Jadwal Tim', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules` },
-          { title: 'Kalender Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-management` },
-          { title: 'Jadwal Armada', icon: CalendarArrowUp, href: `${basePrefix}/schedules/fleet-schedules` },
-        ]
+          { title: 'Jadwal Tim', icon: CalendarClock, href: `${basePrefix}/schedules/team-schedules`, access: ['Admin'], },
+          { title: 'Kalender Armada', icon: CalendarCheck, href: `${basePrefix}/schedules/fleet-management`, access: ['Admin', 'Members'] },
+          { title: 'Jadwal Armada', icon: CalendarArrowUp, href: `${basePrefix}/schedules/fleet-schedules`, access: ['Admin', 'Members'] },
+        ],
+        access: ['Admin', 'Members']
       },
       {
         label: 'Finance',
         items: [
-          { title: 'Pendapatan', icon: HandCoinsIcon, href: `${basePrefix}/finance/revenue` },
-          { title: 'Pengeluaran Umum', icon: ShoppingBag, href: `${basePrefix}/finance/expenses` }
-        ]
+          { title: 'Pendapatan', icon: HandCoinsIcon, href: `${basePrefix}/finance/revenue`, access: ['Admin', 'Members'] },
+          { title: 'Pengeluaran Umum', icon: ShoppingBag, href: `${basePrefix}/finance/expenses`, access: ['Admin', 'Members'] }
+        ],
+        access: ['Admin', 'Members']
       },
       {
         label: 'Inventories',
         items: [
-          { title: 'Asset Tersedia', icon: Package, href: `${basePrefix}/inventories/items` },
-          { title: 'Permintaan Asset', icon: ShoppingBag, href: `${basePrefix}/inventories/request` },
-          { title: 'Pemesanan Asset', icon: Package, href: `${basePrefix}/inventories/orders` }
-        ]
+          { title: 'Asset Tersedia', icon: Package, href: `${basePrefix}/inventories/items`, access: ['Admin'] },
+          { title: 'Permintaan Asset', icon: ShoppingBag, href: `${basePrefix}/inventories/request`, access: ['Admin', 'Members'] },
+          { title: 'Pemesanan Asset', icon: Package, href: `${basePrefix}/inventories/orders`, access: ['Admin'] }
+        ],
+        access: ['Admin', 'Members']
       },
       {
         label: 'CRM',
         items: [
-          { title: 'Daftar Pelanggan', icon: Users, href: `${basePrefix}/customers` },
-          { title: 'Mitra Operasional', icon: Handshake, href: `${basePrefix}/partner-operations` },
-          { title: 'Pesan Masuk', icon: Mails, href: `${basePrefix}/inquiry` },
-        ]
+          { title: 'Daftar Pelanggan', icon: Users, href: `${basePrefix}/customers`, access: ['Admin'] },
+          { title: 'Mitra Operasional', icon: Handshake, href: `${basePrefix}/partner-operations`, access: ['Admin'] },
+          { title: 'Pesan Masuk', icon: Mails, href: `${basePrefix}/inquiry`, access: ['Admin'] },
+        ],
+        access: ['Admin']
       },
       {
         label: 'Organisasi',
         items: [
-          { title: 'Perusahaan Saya', icon: Building2, href: `${basePrefix}/organization/company` },
-          { title: 'Anggota Tim', icon: Users, href: `${basePrefix}/organization/team-members` },
-          { title: 'Peran', icon: Shield, href: `${basePrefix}/organization/roles` },
-          { title: 'Divisi', icon: Package, href: `${basePrefix}/organization/division` }
-        ]
+          { title: 'Perusahaan Saya', icon: Building2, href: `${basePrefix}/organization/company`, access: ['Admin', 'Members'] },
+          { title: 'Anggota Tim', icon: Users, href: `${basePrefix}/organization/team-members`, access: ['Admin', 'Members'] },
+          { title: 'Peran', icon: Shield, href: `${basePrefix}/organization/roles`, access: ['Admin'] },
+          { title: 'Divisi', icon: Package, href: `${basePrefix}/organization/division`, access: ['Admin'] }
+        ],
+        access: ['Admin', 'Members']
       },
       {
         label: 'Pengaturan',
         items: [
-          { title: 'AI Assistant', icon: Code, href: `${basePrefix}/organization/account-assistant` },
-          { title: 'Organisasi', icon: Building2, href: `${basePrefix}/organization/settings` },
-          { title: 'User', icon: Users, href: `${basePrefix}/organization/users`},
-          { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api` },
-          { title: 'Manajemen Konten', icon: SlidersHorizontal, href: `${basePrefix}/content` }
-        ]
+          { title: 'Subscription', icon: CreditCard, href: `${basePrefix}/accounts/subscription`, access: ['Admin'] },
+          { title: 'AI Assistant', icon: Code, href: `${basePrefix}/organization/account-assistant`, access: ['Admin'] },
+          { title: 'Organisasi', icon: Building2, href: `${basePrefix}/organization/settings`, access: ['Admin'] },
+          { title: 'User', icon: Users, href: `${basePrefix}/organization/users`, access: ['Admin'] },
+          { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api`, access: ['Admin'] },
+          { title: 'Manajemen Konten', icon: SlidersHorizontal, href: `${basePrefix}/content`, access: ['Admin', 'Members'] }
+        ],
+        access: ['Admin', 'Members']
       }
     ],
     [basePrefix, isAdmin]
@@ -173,18 +191,105 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Organisasi',
         items: [
-          { title: 'Pilih Organisasi', icon: Building2, href: `${basePrefix}/organization/choice` },
-          { title: 'Buat Organisasi', icon: Building2, href: `${basePrefix}/organization/register` },
-          { title: 'Gabung Organisasi', icon: Users, href: `${basePrefix}/organization/join` },
+          { title: 'Pilih Organisasi', icon: Building2, href: `${basePrefix}/organization/choice`, access: ['Admin', 'Members'] },
+          { title: 'Buat Organisasi', icon: Building2, href: `${basePrefix}/organization/register`, access: ['Admin', 'Members'] },
+          { title: 'Gabung Organisasi', icon: Users, href: `${basePrefix}/organization/join`, access: ['Admin', 'Members'] },
         ],
+        access: ['Admin', 'Members']
       },
     ],
     [basePrefix],
   );
 
-  const navSections = !hasEffectiveOrganization && !isAdmin
-    ? organizationOnlySections
-    : fullNavSections;
+  // Function to check if user has access
+  const hasAccess = (accessList: string[] | undefined): boolean => {
+    if (!accessList || accessList.length === 0) return false;
+    return accessList.includes(role);
+  };
+
+  // Filter sections and items based on role
+  const filteredNavSections = useMemo(() => {
+    const isOrgSetupMode = !hasEffectiveOrganization && !isAdmin;
+    const sections = isOrgSetupMode
+      ? organizationOnlySections
+      : fullNavSections;
+
+    return sections.map(section => {
+      // If it's org setup mode, always show the section and items
+      if (isOrgSetupMode) {
+        return section;
+      }
+      
+      // Check if section has access
+      if (!hasAccess(section.access)) {
+        return null;
+      }
+      
+      // Filter items in the section
+      const filteredItems = section.items.filter(item => hasAccess(item.access));
+      
+      if (filteredItems.length === 0) {
+        return null;
+      }
+      console.log({myrole: role, isAdmin})
+      
+      return {
+        ...section,
+        items: filteredItems
+      };
+    }).filter(Boolean) as NavSection[];
+  }, [fullNavSections, organizationOnlySections, hasEffectiveOrganization, isAdmin, role]);
+
+  // Check if current path is accessible
+  React.useEffect(() => {
+    const checkAccess = () => {
+      // Skip auth paths and organization setup paths
+      if (location.pathname.startsWith('/auth/')) return;
+      
+      const isOrgSetupMode = !hasEffectiveOrganization && !isAdmin;
+      const isOrgSetupPath = location.pathname.includes('/organization/choice') || 
+                           location.pathname.includes('/organization/register') || 
+                           location.pathname.includes('/organization/join');
+      
+      // In org setup mode, only allow org setup paths
+      if (isOrgSetupMode) {
+        if (!isOrgSetupPath) {
+          const basePrefix = '/dashboard';
+          navigate(`${basePrefix}/organization/choice`, { replace: true });
+        }
+        return;
+      }
+      
+      // Find if current path is in any accessible menu item
+      let isAccessible = false;
+      
+      for (const section of filteredNavSections) {
+        for (const item of section.items) {
+          if (location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)) {
+            isAccessible = true;
+            break;
+          }
+        }
+        if (isAccessible) break;
+      }
+      
+      // Also check if user is on performance page (SuperAdmin only)
+      if (location.pathname === '/performance' || location.pathname.startsWith('/performance/')) {
+        isAccessible = isSuperAdmin;
+      }
+      
+      if (!isAccessible && !isSuperAdmin) {
+        // Redirect to 404 or 403 - let's use 404 for now or create a 403
+        // For now, redirect to dashboard home or 404
+        const basePrefix = '/dashboard';
+        navigate(basePrefix, { replace: true });
+      }
+    };
+    
+    checkAccess();
+  }, [location.pathname, filteredNavSections, isSuperAdmin, isAdmin, navigate, hasEffectiveOrganization]);
+
+  const navSections = filteredNavSections;
 
   const SidebarContent: React.FC<{
     collapsed: boolean;

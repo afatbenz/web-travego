@@ -25,8 +25,8 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
-  const { hasEffectiveOrganization, isAdmin } = useEffectiveOrganization();
-  const canFetchNotifications = hasEffectiveOrganization || isAdmin;
+  const { hasEffectiveOrganization, isAdmin, isSuperAdmin } = useEffectiveOrganization();
+  const canFetchNotifications = !isSuperAdmin && (hasEffectiveOrganization || isAdmin);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);

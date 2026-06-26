@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, ArrowLeft } from 'lucide-react';
+import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AuthLayout } from '../LandingPage/Auth/AuthLayout';
+import { api } from '@/lib/api';
 
 export const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Reset password requested for:', email);
-    setIsSubmitted(true);
+    if (submitting) return;
+    try {
+      setSubmitting(true);
+      const res = await api.post('/auth/reset-password', { email });
+      if (res.status === 'success') {
+        setIsSubmitted(true);
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
@@ -39,12 +49,12 @@ export const ForgotPassword: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-            <Button onClick={() => setIsSubmitted(false)} className="w-full h-12">
+            <Button onClick={() => setIsSubmitted(false)} className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl">
               Kirim Ulang Email
             </Button>
             
             <Link to="/auth/login" className="block">
-              <Button variant="outline" className="w-full h-12">
+              <Button variant="outline" className="w-full h-12 rounded-2xl border-blue-600">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Kembali ke Login
               </Button>
@@ -75,7 +85,7 @@ export const ForgotPassword: React.FC = () => {
               placeholder="contoh@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
+              className="pl-10 h-12 rounded-2xl"
             />
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -83,8 +93,15 @@ export const ForgotPassword: React.FC = () => {
           </p>
         </div>
 
-        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white">
-          Kirim Reset Password
+        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl" disabled={submitting}>
+          {submitting ? (
+            <span className="flex items-center justify-center">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Mengirim email...
+            </span>
+          ) : (
+            'Kirim Reset Password'
+          )}
         </Button>
 
         <div className="text-center">

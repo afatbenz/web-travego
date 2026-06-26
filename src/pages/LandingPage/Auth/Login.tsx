@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, Zap, TrendingUp, X, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,16 +26,46 @@ export const Login: React.FC = () => {
     const id = window.setTimeout(() => setEntered(true), 0);
     const token = localStorage.getItem('token');
     if (token && isTokenValid(token)) {
-      const userStr = localStorage.getItem('user');
-      const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
-      navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+      try {
+        const payloadStr = token.split('.')[1];
+        const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+        const claims = JSON.parse(atob(padded)) as {
+          is_admin?: boolean;
+          organization_id?: string;
+        };
+        const claimsIsAdmin = claims.is_admin ?? false;
+        const organizationId = claims.organization_id ?? '';
+        const isSuperAdmin = claimsIsAdmin && organizationId === '00';
+        const isAdminRole = claimsIsAdmin && organizationId !== '00' && organizationId !== '0';
+        navigate(isSuperAdmin ? '/performance' : isAdminRole ? '/dashboard' : '/dashboard/partner', { replace: true });
+      } catch {
+        const userStr = localStorage.getItem('user');
+        const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
+        navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+      }
     }
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'token' && e.newValue && isTokenValid(e.newValue)) {
-        const userStr = localStorage.getItem('user');
-        const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
-        navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+        try {
+          const payloadStr = e.newValue.split('.')[1];
+          const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+          const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+          const claims = JSON.parse(atob(padded)) as {
+            is_admin?: boolean;
+            organization_id?: string;
+          };
+          const claimsIsAdmin = claims.is_admin ?? false;
+          const organizationId = claims.organization_id ?? '';
+          const isSuperAdmin = claimsIsAdmin && organizationId === '00';
+          const isAdminRole = claimsIsAdmin && organizationId !== '00' && organizationId !== '0';
+          navigate(isSuperAdmin ? '/performance' : isAdminRole ? '/dashboard' : '/dashboard/partner', { replace: true });
+        } catch {
+          const userStr = localStorage.getItem('user');
+          const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
+          navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+        }
       }
     };
 
@@ -82,7 +112,6 @@ export const Login: React.FC = () => {
         toast({
           title: 'Login berhasil',
           description: 'Selamat datang kembali!',
-          variant: 'success',
           duration: 5000,
         });
         if (res.data?.token) {
@@ -104,23 +133,33 @@ export const Login: React.FC = () => {
               user_role?: string;
               is_admin?: boolean;
               isAdmin?: boolean;
+              organization_name?: string;
+              organization_id?: string;
             };
 
             const name = res.data?.fullname ?? claims.fullname ?? res.data?.username ?? claims.username ?? claims.name ?? '';
             const email = res.data?.email ?? claims.email ?? '';
-            const role = claims.role ?? claims.user_role ?? 'user';
+            const claimsIsAdmin = claims.is_admin ?? false;
+            const organizationId = claims.organization_id ?? '';
+            const isSuperAdmin = claimsIsAdmin && organizationId === '00';
+            const isAdminRole = claimsIsAdmin && organizationId !== '00' && organizationId !== '0';
+            let userRole = 'Members';
+            if (isSuperAdmin) {
+              userRole = 'SuperAdmin';
+            } else if (isAdminRole) {
+              userRole = 'Admin';
+            }
             const avatar = res.data?.avatar ?? '';
             const username = res.data?.username ?? claims.username ?? '';
-            const isAdmin = claims.is_admin ?? claims.isAdmin ?? false;
 
-            localStorage.setItem('user', JSON.stringify({ name, email, role, avatar, username }));
+            localStorage.setItem('user', JSON.stringify({ name, email, role: userRole, avatar, username, isSuperAdmin, isAdmin: isAdminRole }));
 
             const redirectPath = localStorage.getItem('redirect_path');
             if (redirectPath) {
               localStorage.removeItem('redirect_path');
               navigate(redirectPath);
             } else {
-              navigate(isAdmin ? '/dashboard' : '/dashboard/partner');
+              navigate(isSuperAdmin ? '/performance' : '/dashboard');
             }
             return;
           } catch {

@@ -25,7 +25,7 @@ const formatRelativeTime = (dateString: string): string => {
 
 export const NotificationsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { notifications, unreadCount, loading, markAsRead, fetchNotifications } = useNotifications();
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead, fetchNotifications } = useNotifications();
 
   useEffect(() => {
     fetchNotifications();
@@ -76,8 +76,7 @@ export const NotificationsPage: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={async () => {
-                  // In a real app, you'd have a markAllAsRead endpoint
-                  // await markAllAsRead();
+                  await markAllAsRead();
                 }}
               >
                 <Check className="h-4 w-4 mr-2" />

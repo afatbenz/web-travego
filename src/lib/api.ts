@@ -77,7 +77,9 @@ function clearInFlightGetRequest(key: string): void {
  * Returns true if refresh succeeded, false otherwise.
  */
 async function tryRefreshToken(): Promise<boolean> {
+  console.log('[DEBUG api.ts] tryRefreshToken called');
   const refreshToken = localStorage.getItem('refresh_token');
+  console.log('[DEBUG api.ts] refreshToken exists:', !!refreshToken);
   if (!refreshToken) return false;
 
   try {
@@ -90,20 +92,60 @@ async function tryRefreshToken(): Promise<boolean> {
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
 
+    console.log('[DEBUG api.ts] refresh response status:', res.status);
     if (!res.ok) return false;
 
     const json = (await res.json()) as Record<string, unknown>;
+    console.log('[DEBUG api.ts] refresh json:', json);
     const data = json.data as Record<string, unknown> | undefined;
     const newToken = data?.token as string | undefined;
     const newRefreshToken = data?.refresh_token as string | undefined;
 
     if (newToken && newRefreshToken) {
+      console.log('[DEBUG api.ts] setting new token and refresh token');
       localStorage.setItem('token', newToken);
       localStorage.setItem('refresh_token', newRefreshToken);
+      
+      // Also update user object if needed
+      try {
+        const payloadStr = newToken.split('.')[1];
+        const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+        const claims = JSON.parse(atob(padded)) as {
+          fullname?: string;
+          username?: string;
+          name?: string;
+          email?: string;
+          organization_id?: string;
+          is_admin?: boolean;
+          organization_name?: string;
+        };
+
+        const name = claims.fullname ?? claims.username ?? claims.name ?? '';
+        const email = claims.email ?? '';
+        const claimsIsAdmin = claims.is_admin ?? false;
+        const organizationId = claims.organization_id ?? '';
+        const isSuperAdmin = claimsIsAdmin && organizationId === '00';
+        const isAdminRole = claimsIsAdmin && organizationId !== '00' && organizationId !== '0';
+        let userRole = 'Members';
+        if (isSuperAdmin) {
+          userRole = 'SuperAdmin';
+        } else if (isAdminRole) {
+          userRole = 'Admin';
+        }
+        
+        const existingUserStr = localStorage.getItem('user');
+        const existingUser = existingUserStr ? JSON.parse(existingUserStr) : {};
+        localStorage.setItem('user', JSON.stringify({ ...existingUser, name, email, role: userRole, isSuperAdmin, isAdmin: isAdminRole }));
+      } catch (e) {
+        console.error('[DEBUG api.ts] failed to update user object on refresh:', e);
+      }
+      
       return true;
     }
     return false;
-  } catch {
+  } catch (e) {
+    console.error('[DEBUG api.ts] tryRefreshToken error:', e);
     return false;
   }
 }

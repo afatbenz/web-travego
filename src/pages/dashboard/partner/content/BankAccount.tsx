@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog';
 import { api, uploadCommon } from '@/lib/api';
 import Swal from 'sweetalert2';
 import { Plus, Pencil, Trash2, Loader2, Check, ChevronsUpDown, Upload, X } from 'lucide-react';
@@ -23,6 +21,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 
 interface BankAccount {
   bank_account_id: string;
@@ -68,9 +67,14 @@ export const BankAccountContent: React.FC = () => {
   });
   const [saving, setSaving] = useState(false);
   const [qrisUploading, setQrisUploading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankOpen, setBankOpen] = useState(false);
+
+  const addButtonClass =
+    "hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600";
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -310,108 +314,168 @@ export const BankAccountContent: React.FC = () => {
     }
   };
 
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const totalItems = accounts.length;
+
+  const columns: Array<DataTableColumn<BankAccount>> = [
+    {
+      label: 'No',
+      key: '__no__',
+      width: 72,
+      align: 'center',
+      sortable: false,
+      render: (_, rowIndex) => <span className="text-sm text-muted-foreground">{startIndex + rowIndex + 1}</span>
+    },
+    {
+      label: 'Metode',
+      key: 'payment_method',
+      sortable: true,
+      width: 150,
+      render: (item) => (
+        <span className="inline-flex whitespace-nowrap rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+          {(item.payment_method === 2 || item.payment_method === 'QRIS') ? 'QRIS' : 'Transfer Bank'}
+        </span>
+      )
+    },
+    {
+      label: 'Nama Bank',
+      key: 'bank_name',
+      sortable: true,
+      width: 250,
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          {item.bank_icon && (
+            <img 
+              src={item.bank_icon} 
+              alt={item.bank_name} 
+              className="h-8 w-8 object-contain"
+            />
+          )}
+          <span>{item.bank_name || '-'}</span>
+        </div>
+      )
+    },
+    {
+      label: 'Nomor Rekening',
+      key: 'account_number',
+      sortable: true,
+      width: 200,
+      render: (item) => <span className="text-sm text-foreground whitespace-nowrap">{item.account_number || '-'}</span>
+    },
+    {
+      label: 'Pemilik Rekening',
+      key: 'account_name',
+      sortable: true,
+      width: 250,
+      render: (item) => <span className="text-sm text-foreground whitespace-nowrap">{item.account_name || '-'}</span>
+    },
+    {
+      label: 'Status',
+      key: 'status',
+      sortable: true,
+      width: 120,
+      render: (item) => (
+        <Switch checked={item.active} onCheckedChange={() => void handleToggleStatus(item)} />
+      )
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Bank Account</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">Manage bank account details.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Bank Account</h1>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">Manage bank account details.</p>
         </div>
-        <Button onClick={handleOpenAdd}>
+        <Button className={addButtonClass} onClick={handleOpenAdd}>
           <Plus className="h-4 w-4 mr-2" />
           Tambah Akun Bank
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Daftar Akun Bank</CardTitle>
-          <CardDescription>
-            Kelola daftar rekening bank untuk penerimaan pembayaran.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            </div>
-          ) : accounts.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              Belum ada akun bank. Silakan tambahkan akun baru.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Metode</TableHead>
-                  <TableHead>Nama Bank</TableHead>
-                  <TableHead>Nomor Rekening</TableHead>
-                  <TableHead>Pemilik Rekening</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {accounts.map((account) => (
-                  <TableRow key={account.bank_account_id || account.id}>
-                    <TableCell>{(account.payment_method === 2 || account.payment_method === 'QRIS') ? 'QRIS' : 'Transfer Bank'}</TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {account.bank_icon && (
-                          <img 
-                            src={account.bank_icon} 
-                            alt={account.bank_name} 
-                            className="h-8 w-8 object-contain"
-                          />
-                        )}
-                        <span>{account.bank_name || '-'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{account.account_number || '-'}</TableCell>
-                    <TableCell>{account.account_name || '-'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end items-center space-x-2">
-                        <Switch
-                          checked={account.active}
-                          onCheckedChange={() => handleToggleStatus(account)}
-                        />
-                        <Button variant="outline" size="icon" onClick={() => handleOpenEdit(account)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDelete(account)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <DataTable
+        data={accounts}
+        columns={columns}
+        loading={loading}
+        stickyHeader
+        zebra
+        tableClassName="table-auto w-full min-w-[900px]"
+        emptyTitle="Tidak ada akun bank"
+        emptyDescription="Silakan tambahkan akun baru."
+        actions={{
+          actions: [
+            {
+              key: 'edit',
+              label: 'Edit',
+              icon: Pencil,
+              onSelect: (row) => handleOpenEdit(row)
+            },
+            {
+              key: 'delete',
+              label: 'Hapus',
+              icon: Trash2,
+              variant: 'destructive',
+              onSelect: (row) => void handleDelete(row)
+            }
+          ]
+        }}
+        pagination={{
+          page: currentPage,
+          pageSize: itemsPerPage,
+          totalItems,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (n) => {
+            setItemsPerPage(n);
+            setCurrentPage(1);
+          },
+          pageSizeOptions: [10, 20, 50, 100],
+        }}
+        rowKey={(row) => row.bank_account_id || row.id || ''}
+      />
+
+      <Button
+        onClick={handleOpenAdd}
+        className="md:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
+        size="icon"
+        title="Tambah Akun Bank"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent 
-          className="sm:max-w-[425px]"
-          onInteractOutside={(e) => {
-            const target = e.target as HTMLElement;
-            if (target.closest('.swal2-container')) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>{editingAccount ? 'Edit Akun Bank' : 'Tambah Akun Bank'}</DialogTitle>
-            <DialogDescription>
-              Isi detail rekening bank di bawah ini.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} autoComplete="off">
-            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
+        <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col" onInteractOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('.swal2-container')) {
+            e.preventDefault();
+          }
+        }}>
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0" autoComplete="off">
+            <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    {editingAccount ? <Pencil className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-2xl font-bold text-slate-900">{editingAccount ? 'Edit Akun Bank' : 'Tambah Akun Bank'}</h2>
+                    <p className="text-slate-500 text-xs sm:text-sm">
+                      Isi detail rekening bank di bawah ini.
+                    </p>
+                  </div>
+                </div>
+                <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                  <X className="w-3 h-3 sm:w-5 sm:h-5" />
+                </DialogClose>
+              </div>
+
+              <div className="h-px bg-slate-100" />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6">
               {/* Payment Method Selection - Hidden as per request to focus on Bank Account */}
               {/* 
-              <div className="grid gap-2">
-                <label className="text-sm font-medium">Metode Pembayaran</label>
+              <div className="grid gap-2 mb-6">
+                <label className="text-sm font-medium text-gray-700 dark:text-white/70">Metode Pembayaran</label>
                 <RadioGroup 
                   value={String(formData.payment_method)} 
                   onValueChange={(val) => setFormData({...formData, payment_method: parseInt(val)})}
@@ -430,9 +494,9 @@ export const BankAccountContent: React.FC = () => {
               */}
 
               {formData.payment_method === 1 && (
-                <>
-                  <div className="grid gap-2">
-                    <label htmlFor="bank_name" className="text-sm font-medium">
+                <div className="grid grid-cols-1 gap-5">
+                  <div className="space-y-2">
+                    <label htmlFor="bank_name" className="text-sm font-medium text-gray-700 dark:text-white/70">
                       Nama Bank
                     </label>
                     <Popover open={bankOpen} onOpenChange={setBankOpen}>
@@ -441,16 +505,18 @@ export const BankAccountContent: React.FC = () => {
                           variant="outline"
                           role="combobox"
                           aria-expanded={bankOpen}
-                          className="w-full justify-between"
+                          className="w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50"
                         >
-                          {formData.bank_name
-                            ? banks.find((bank) => bank.name === formData.bank_name)?.name || formData.bank_name
-                            : "Pilih Bank..."}
+                          <span className={formData.bank_name ? '' : 'text-muted-foreground'}>
+                            {formData.bank_name
+                              ? banks.find((bank) => bank.name === formData.bank_name)?.name || formData.bank_name
+                              : "Pilih Bank..."}
+                          </span>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0">
-                        <Command>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                        <Command shouldFilter={false} className="rounded-xl">
                           <CommandInput placeholder="Cari bank..." />
                           <CommandList>
                             <CommandEmpty>Bank tidak ditemukan.</CommandEmpty>
@@ -459,9 +525,8 @@ export const BankAccountContent: React.FC = () => {
                                 <CommandItem
                                   key={bank.code}
                                   value={bank.name}
+                                  className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900"
                                   onSelect={(currentValue) => {
-                                    // Find bank by checking if name matches (case-insensitive because CommandItem normalizes value)
-                                    // We store the actual name in formData
                                     const selectedBank = banks.find(b => b.name.toLowerCase() === currentValue.toLowerCase());
                                     const nameToSet = selectedBank ? selectedBank.name : currentValue;
                                     const codeToSet = selectedBank ? selectedBank.code : '';
@@ -485,8 +550,8 @@ export const BankAccountContent: React.FC = () => {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="account_number" className="text-sm font-medium">
+                  <div className="space-y-2">
+                    <label htmlFor="account_number" className="text-sm font-medium text-gray-700 dark:text-white/70">
                       Nomor Rekening
                     </label>
                     <Input
@@ -497,10 +562,11 @@ export const BankAccountContent: React.FC = () => {
                         setFormData({...formData, account_number: value});
                       }}
                       placeholder="Contoh: 1234567890"
+                      className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
                     />
                   </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="account_name" className="text-sm font-medium">
+                  <div className="space-y-2">
+                    <label htmlFor="account_name" className="text-sm font-medium text-gray-700 dark:text-white/70">
                       Atas Nama
                     </label>
                     <Input
@@ -508,54 +574,61 @@ export const BankAccountContent: React.FC = () => {
                       value={formData.account_name}
                       onChange={(e) => setFormData({...formData, account_name: e.target.value})}
                       placeholder="Contoh: PT Travego Indonesia"
+                      className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
                     />
                   </div>
-                </>
+                </div>
               )}
 
               {formData.payment_method === 2 && (
-                <>
-                  <div className="grid gap-2">
-                    <label htmlFor="merchant_name" className="text-sm font-medium">Merchant Name</label>
-                    <Input id="merchant_name" value={formData.merchant_name} onChange={(e) => setFormData({...formData, merchant_name: e.target.value})} placeholder="Merchant Name" />
+                <div className="grid grid-cols-1 gap-5">
+                  <div className="space-y-2">
+                    <label htmlFor="merchant_name" className="text-sm font-medium text-gray-700 dark:text-white/70">Merchant Name</label>
+                    <Input id="merchant_name" value={formData.merchant_name} onChange={(e) => setFormData({...formData, merchant_name: e.target.value})} placeholder="Merchant Name" className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30" />
                   </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="merchant_mcc" className="text-sm font-medium">Merchant MCC</label>
-                    <Input id="merchant_mcc" value={formData.merchant_mcc} onChange={(e) => setFormData({...formData, merchant_mcc: e.target.value})} placeholder="Merchant MCC" />
+                  <div className="space-y-2">
+                    <label htmlFor="merchant_mcc" className="text-sm font-medium text-gray-700 dark:text-white/70">Merchant MCC</label>
+                    <Input id="merchant_mcc" value={formData.merchant_mcc} onChange={(e) => setFormData({...formData, merchant_mcc: e.target.value})} placeholder="Merchant MCC" className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30" />
                   </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="merchant_address" className="text-sm font-medium">Merchant Address</label>
-                    <Input id="merchant_address" value={formData.merchant_address} onChange={(e) => setFormData({...formData, merchant_address: e.target.value})} placeholder="Merchant Address" />
+                  <div className="space-y-2">
+                    <label htmlFor="merchant_address" className="text-sm font-medium text-gray-700 dark:text-white/70">Merchant Address</label>
+                    <Input id="merchant_address" value={formData.merchant_address} onChange={(e) => setFormData({...formData, merchant_address: e.target.value})} placeholder="Merchant Address" className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30" />
                   </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="merchant_city" className="text-sm font-medium">Merchant City</label>
-                    <Input id="merchant_city" value={formData.merchant_city} onChange={(e) => setFormData({...formData, merchant_city: e.target.value})} placeholder="Merchant City" />
+                  <div className="space-y-2">
+                    <label htmlFor="merchant_city" className="text-sm font-medium text-gray-700 dark:text-white/70">Merchant City</label>
+                    <Input id="merchant_city" value={formData.merchant_city} onChange={(e) => setFormData({...formData, merchant_city: e.target.value})} placeholder="Merchant City" className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30" />
                   </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="merchant_postal_code" className="text-sm font-medium">Merchant Postal Code</label>
-                    <Input id="merchant_postal_code" value={formData.merchant_postal_code} onChange={(e) => setFormData({...formData, merchant_postal_code: e.target.value})} placeholder="Merchant Postal Code" />
+                  <div className="space-y-2">
+                    <label htmlFor="merchant_postal_code" className="text-sm font-medium text-gray-700 dark:text-white/70">Merchant Postal Code</label>
+                    <Input id="merchant_postal_code" value={formData.merchant_postal_code} onChange={(e) => setFormData({...formData, merchant_postal_code: e.target.value})} placeholder="Merchant Postal Code" className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30" />
                   </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium">Account Type</label>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Account Type</label>
                     <RadioGroup 
                       value={String(formData.account_type)} 
                       onValueChange={(val) => setFormData({...formData, account_type: parseInt(val)})}
-                      className="flex space-x-4"
+                      className="grid grid-cols-1 md:grid-cols-2 gap-3"
                     >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="1" id="at-personal" className="bg-transparent data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" />
-                        <label htmlFor="at-personal">Personal</label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="2" id="at-company" className="bg-transparent data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" />
-                        <label htmlFor="at-company">Company</label>
-                      </div>
+                      <label className={`flex items-start gap-3 rounded-[22px] border p-4 cursor-pointer transition-all ${formData.account_type === 1 ? 'border-blue-500 bg-blue-50/60' : 'border-gray-200 bg-white'}`}>
+                        <RadioGroupItem value="1" id="at-personal" className="mt-0.5 border-blue-300" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-gray-900">Personal</div>
+                          <div className="mt-1 text-xs text-gray-600">Akun personal.</div>
+                        </div>
+                      </label>
+                      <label className={`flex items-start gap-3 rounded-[22px] border p-4 cursor-pointer transition-all ${formData.account_type === 2 ? 'border-blue-500 bg-blue-50/60' : 'border-gray-200 bg-white'}`}>
+                        <RadioGroupItem value="2" id="at-company" className="mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-gray-900">Company</div>
+                          <div className="mt-1 text-xs text-gray-600">Akun perusahaan.</div>
+                        </div>
+                      </label>
                     </RadioGroup>
                   </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium">QRIS Image</label>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">QRIS Image</label>
                     {formData.qris_image ? (
-                      <div className="relative w-full h-48 border rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+                      <div className="relative w-full h-48 border rounded-[22px] overflow-hidden bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
                         <img 
                           src={formData.qris_image} 
                           alt="QRIS" 
@@ -565,7 +638,7 @@ export const BankAccountContent: React.FC = () => {
                           type="button"
                           variant="destructive"
                           size="icon"
-                          className="absolute top-2 right-2 h-6 w-6"
+                          className="absolute top-2 right-2 h-8 w-8 rounded-full"
                           onClick={removeQrisImage}
                         >
                           <X className="h-4 w-4" />
@@ -573,7 +646,7 @@ export const BankAccountContent: React.FC = () => {
                       </div>
                     ) : (
                       <div className="flex items-center justify-center w-full">
-                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 border-gray-300 dark:border-gray-600">
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-[22px] cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 border-gray-300 dark:border-gray-600">
                           <div className="flex flex-col items-center justify-center pt-5 pb-6">
                             {qrisUploading ? (
                               <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
@@ -589,18 +662,21 @@ export const BankAccountContent: React.FC = () => {
                       </div>
                     )}
                   </div>
-                </>
+                </div>
               )}
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Batal
-              </Button>
-              <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Simpan
-              </Button>
-            </DialogFooter>
+
+            <div className="px-6 sm:px-8 pb-6 sm:pb-8 border-t border-gray-100">
+              <div className="flex items-center gap-3 justify-end">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="h-11 rounded-2xl">
+                  Batal
+                </Button>
+                <Button type="submit" disabled={saving} className="h-11 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white">
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Simpan
+                </Button>
+              </div>
+            </div>
           </form>
           <div id="swal-dialog-target" />
         </DialogContent>

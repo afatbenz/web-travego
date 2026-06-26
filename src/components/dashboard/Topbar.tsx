@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Building2, LogOut, Search, Settings, User, Users } from 'lucide-react';
+import { Bell, Building2, CreditCard, LogOut, Search, Settings, User, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
@@ -42,8 +42,8 @@ export const Topbar: React.FC = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
   const { hasEffectiveOrganization, isAdmin } = useEffectiveOrganization();
-  const { notifications, unreadCount, loading, markAsRead } = useNotifications();
-  const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
+  const basePrefix = '/dashboard';
 
   useEffect(() => {
     const uStr = localStorage.getItem('user');
@@ -131,8 +131,7 @@ export const Topbar: React.FC = () => {
                       size="sm" 
                       className="text-xs text-blue-600 hover:text-blue-700 h-auto p-0"
                       onClick={async () => {
-                        // In a real app, you'd have a markAllAsRead endpoint
-                        // await markAllAsRead();
+                        await markAllAsRead();
                       }}
                     >
                       Tandai semua dibaca
@@ -223,11 +222,21 @@ export const Topbar: React.FC = () => {
                 {hasEffectiveOrganization || isAdmin ? (
                   <DropdownMenuItem
                     className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => navigate(`${basePrefix}/accounts/subscription`)}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Langganan
+                  </DropdownMenuItem>
+                ) : null}
+                {hasEffectiveOrganization || isAdmin ? (
+                  <DropdownMenuItem
+                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => navigate(`${basePrefix}/organization/detail`)}
                   >
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
                   </DropdownMenuItem>
+                  
                 ) : (
                   <>
                     <DropdownMenuItem

@@ -712,7 +712,7 @@ export const FleetScheduleDetail: React.FC = () => {
     const t = fleetTrip;
     const unitId = (t?.unitId ?? '').trim();
     const displayId = (t?.vehicleId ?? '').trim() || unitId;
-    const linkPath = unitId && unitId !== '-' ? `/dashboard/partner/fleet-units/detail/${encodeURIComponent(unitId)}` : '';
+    const linkPath = unitId && unitId !== '-' ? `/dashboard/fleet-units/detail/${encodeURIComponent(unitId)}` : '';
     return { unitId, displayId, linkPath };
   }, [fleetTrip, navigate]);
 

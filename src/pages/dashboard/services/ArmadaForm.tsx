@@ -15,7 +15,7 @@ import Swal from 'sweetalert2';
 // Dynamic Icon Helper
 const DynamicIcon = ({ name, ...props }: { name?: string; size?: number; className?: string }) => {
   // Trim whitespace dari nama icon
-  const trimmedName = name?.trim();
+  const trimmedName = name?.trim() ?? '';
   // Coba dapatkan icon dari LucideIcons, fallback ke Check jika tidak ditemukan
   const Icon = (LucideIcons as any)[trimmedName] || (LucideIcons as any).Check;
   return <Icon {...props} />;
@@ -87,7 +87,6 @@ export const ArmadaForm: React.FC = () => {
   const [loadingBody, setLoadingBody] = useState(false);
   const [facilityOptions, setFacilityOptions] = useState<FacilityOption[]>([]);
   const [selectedFacilities, setSelectedFacilities] = useState<FacilityOption[]>([]);
-  const [loadingFacilities, setLoadingFacilities] = useState(false);
   const [manualFacilities, setManualFacilities] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -812,7 +811,6 @@ export const ArmadaForm: React.FC = () => {
   }
 
   async function fetchFacilities(q: string = '') {
-    setLoadingFacilities(true);
     const token = localStorage.getItem('token') ?? '';
     const res = await api.get<unknown>(`/services/fleet/facilities${q ? `?search=${encodeURIComponent(q)}` : ''}`, token ? { Authorization: token } : undefined);
     if (res.status === 'success') {
@@ -852,7 +850,6 @@ export const ArmadaForm: React.FC = () => {
     } else {
       setFacilityOptions([]);
     }
-    setLoadingFacilities(false);
   }
 
   useEffect(() => {

@@ -156,7 +156,7 @@ const PartnerContent = () => {
       setTextModalOpen(true);
       return;
     }
-    navigate(`/dashboard/partner/content/content/edit/${section.section_tag}`, { state: { parent } });
+    navigate(`/dashboard/content/edit/${section.section_tag}`, { state: { parent } });
   };
 
   const saveText = async () => {
@@ -202,7 +202,7 @@ const PartnerContent = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <BackButton to="/dashboard/partner/content" />
+        <BackButton to="/dashboard/content" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Content Management</h1>
           <p className="text-gray-600 dark:text-gray-300">Manage your landing page content and sections.</p>

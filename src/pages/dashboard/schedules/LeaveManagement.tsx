@@ -28,7 +28,6 @@ export const LeaveManagement: React.FC = () => {
     attachmentUrl?: string;
   };
 
-  type LeaveTypeOption = { value: string; label: string };
   type EmployeeOption = { value: string; label: string };
 
   const toRecord = (v: unknown): Record<string, unknown> =>
@@ -328,8 +327,6 @@ export const LeaveManagement: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
-  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeOption[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [attachmentUploading, setAttachmentUploading] = useState(false);
@@ -347,12 +344,6 @@ export const LeaveManagement: React.FC = () => {
     attachment: null as File | null,
   });
 
-  const [scheduleCheck, setScheduleCheck] = useState({
-    employee: { hasSchedule: false, name: '', dateText: '' },
-    replacement: { hasSchedule: false, name: '', dateText: '' },
-  });
-  const [scheduleAlertDismissed, setScheduleAlertDismissed] = useState({ employee: false, replacement: false });
-
   const resetCreateForm = () => {
     setCreateForm({
       employeeId: '',
@@ -367,55 +358,10 @@ export const LeaveManagement: React.FC = () => {
     setAttachmentUploading(false);
     setAttachmentPath('');
     setAttachmentError('');
-    setScheduleCheck({
-      employee: { hasSchedule: false, name: '', dateText: '' },
-      replacement: { hasSchedule: false, name: '', dateText: '' },
-    });
-    setScheduleAlertDismissed({ employee: false, replacement: false });
   };
 
   useEffect(() => {
-    setScheduleAlertDismissed({ employee: false, replacement: false });
-  }, [createForm.employeeId, createForm.replacementEmployeeId, createForm.startDate, createForm.endDate]);
-
-  useEffect(() => {
     if (!createOpen) return;
-    const loadTypes = async () => {
-      setLeaveTypesLoading(true);
-      try {
-        const token = localStorage.getItem('token') ?? '';
-        const res = await api.get<unknown>('/services/leave-management/types', token ? { Authorization: token } : undefined);
-        if (res.status !== 'success') {
-          setLeaveTypes([]);
-          return;
-        }
-        const payload = res.data as unknown;
-        const root = toRecord(payload);
-        const dataNode = root.data;
-        const dataObj = toRecord(dataNode);
-        const listNode =
-          (Array.isArray(payload) ? payload : undefined) ??
-          (Array.isArray(dataNode) ? dataNode : undefined) ??
-          (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
-          (Array.isArray(dataObj.rows) ? dataObj.rows : undefined) ??
-          (Array.isArray(dataObj.data) ? dataObj.data : undefined) ??
-          (Array.isArray(root.items) ? root.items : undefined) ??
-          (Array.isArray(root.rows) ? root.rows : undefined) ??
-          (Array.isArray(root.data) ? root.data : undefined) ??
-          [];
-
-        const mapped = (listNode as unknown[]).map((raw, idx) => {
-          const o = toRecord(raw);
-          const value = toStringSafe(o.id ?? o.type_id ?? o.typeId ?? o.code ?? o.value).trim() || `type-${idx}`;
-          const label = toStringSafe(o.name ?? o.type_name ?? o.typeName ?? o.label).trim() || value;
-          return { value, label } satisfies LeaveTypeOption;
-        });
-        setLeaveTypes(mapped);
-      } finally {
-        setLeaveTypesLoading(false);
-      }
-    };
-
     const loadEmployees = async () => {
       setEmployeesLoading(true);
       try {
@@ -453,7 +399,6 @@ export const LeaveManagement: React.FC = () => {
       }
     };
 
-    loadTypes();
     loadEmployees();
   }, [createOpen]);
 
@@ -462,90 +407,7 @@ export const LeaveManagement: React.FC = () => {
     return employees.filter((e) => e.value !== selected);
   }, [createForm.employeeId, employees]);
 
-  const scheduleReqRef = useRef(0);
 
-  useEffect(() => {
-    if (!createOpen) return;
-
-    const employeeId = String(createForm.employeeId ?? '').trim();
-    const replacementEmployeeId = String(createForm.replacementEmployeeId ?? '').trim();
-    const start = String(createForm.startDate ?? '').trim();
-    const end = String(createForm.endDate ?? '').trim();
-
-    const dateText = start && end ? (start === end ? formatDdMmmYy(start) : formatDateRange(start, end)) : '';
-
-    const getEmployeeLabel = (id: string) => employees.find((x) => x.value === id)?.label ?? id;
-    const getEmployeeName = (id: string) => {
-      const label = getEmployeeLabel(id);
-      const parts = label.split(' - ');
-      if (parts.length >= 2) return parts.slice(1).join(' - ').trim() || label;
-      return label;
-    };
-
-    const extractItems = (payload: unknown): unknown[] => {
-      if (Array.isArray(payload)) return payload;
-      const root = toRecord(payload);
-      const dataNode = root.data;
-      const dataObj = toRecord(dataNode);
-      const itemsNode =
-        (Array.isArray(dataObj.items) ? dataObj.items : undefined) ??
-        (Array.isArray(root.items) ? root.items : undefined) ??
-        (Array.isArray(dataNode) ? dataNode : undefined) ??
-        (Array.isArray(dataObj.rows) ? dataObj.rows : undefined) ??
-        (Array.isArray(dataObj.data) ? dataObj.data : undefined) ??
-        (Array.isArray(root.rows) ? root.rows : undefined) ??
-        (Array.isArray(root.data) ? root.data : undefined) ??
-        [];
-      return Array.isArray(itemsNode) ? itemsNode : [];
-    };
-
-    const reqId = (scheduleReqRef.current += 1);
-
-    const run = async () => {
-      const token = localStorage.getItem('token') ?? '';
-      const headers = token ? { Authorization: token } : undefined;
-
-      const checkOne = async (key: 'employee' | 'replacement', id: string) => {
-        if (!id || !start || !end) {
-          setScheduleCheck((prev) => ({
-            ...prev,
-            [key]: { hasSchedule: false, name: '', dateText: dateText || '' },
-          }));
-          return;
-        }
-
-        const qs = new URLSearchParams();
-        qs.set('employee_id', id);
-        qs.set('start_date', start);
-        qs.set('end_date', end);
-        const res = await api.get<unknown>(`/services/schedule/operations/availibility?${qs.toString()}`, headers);
-
-        if (reqId !== scheduleReqRef.current) return;
-
-        if (res.status !== 'success') {
-          setScheduleCheck((prev) => ({
-            ...prev,
-            [key]: { hasSchedule: false, name: '', dateText },
-          }));
-          return;
-        }
-
-        const items = extractItems(res.data as unknown);
-        const isAvailable = items.length > 0;
-        const hasSchedule = !isAvailable;
-        const name = getEmployeeName(id);
-
-        setScheduleCheck((prev) => ({
-          ...prev,
-          [key]: { hasSchedule, name, dateText },
-        }));
-      };
-
-      await Promise.all([checkOne('employee', employeeId), checkOne('replacement', replacementEmployeeId)]);
-    };
-
-    run();
-  }, [createOpen, createForm.employeeId, createForm.replacementEmployeeId, createForm.startDate, createForm.endDate, employees]);
 
   const canSave =
     Boolean(createForm.employeeId) &&
@@ -585,37 +447,7 @@ export const LeaveManagement: React.FC = () => {
     }
   };
 
-  const scheduleAlertText = (name: string, dateText: string) =>
-    `${name} memiliki jadwal di tanggal ${dateText}, anda perlu reassign jadwal perjalanan ke karyawan lain`;
 
-  const renderScheduleAlert = (key: 'employee' | 'replacement') => {
-    const info = scheduleCheck[key];
-    const visible = Boolean(info.hasSchedule && info.name && info.dateText && !scheduleAlertDismissed[key]);
-    return (
-      <div
-        className={cn(
-          'overflow-hidden transition-all duration-200 ease-out',
-          visible ? 'max-h-[160px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-1 pointer-events-none'
-        )}
-        aria-hidden={!visible}
-      >
-        <div className="rounded-lg border bg-gray-100 dark:bg-gray-900/40 px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm font-medium text-red-600">{scheduleAlertText(info.name, info.dateText)}</div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 w-full sm:w-auto"
-              onClick={() => setScheduleAlertDismissed((p) => ({ ...p, [key]: true }))}
-            >
-              Ok, mengerti
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const extractAttachmentPath = (payload: unknown): string => {
     if (typeof payload === 'string') return payload.trim();

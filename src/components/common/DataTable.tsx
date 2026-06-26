@@ -27,10 +27,10 @@ export type DataTableSort = {
 
 export type DataTableAction<T> = {
   key: string;
-  label: string;
+  label: string | ((row: T) => string);
   icon?: React.ComponentType<{ className?: string }>;
   variant?: 'default' | 'destructive';
-  disabled?: boolean;
+  disabled?: boolean | ((row: T) => boolean);
   onSelect: (row: T) => void;
 };
 
@@ -323,7 +323,7 @@ export function DataTable<T>({
                       className={cn(
                         'px-3 text-xs font-semibold tracking-wide uppercase',
                         alignClass,
-                        isSortable ? 'cursor-pointer select-none hover:text-foreground' : '',
+                        isSortable ? 'cursor-pointer select-none hover:text-blue-50' : '',
                         col.headerClassName
                       )}
                       onClick={() => handleHeaderSortClick(col)}
@@ -393,10 +393,12 @@ export function DataTable<T>({
                                       <DropdownMenuContent align="end" className="min-w-[160px]">
                                         {derivedActions.actions.map((a, idx) => {
                                           const Icon = a.icon;
+                                          const isDisabled = typeof a.disabled === 'function' ? a.disabled(row) : a.disabled;
+                                          const actionLabel = typeof a.label === 'function' ? a.label(row) : a.label;
                                           const itemNode = (
                                             <DropdownMenuItem
                                               key={a.key}
-                                              disabled={a.disabled}
+                                              disabled={isDisabled}
                                               onSelect={(e) => {
                                                 e.preventDefault();
                                                 a.onSelect(row);
@@ -407,7 +409,7 @@ export function DataTable<T>({
                                               )}
                                             >
                                               {Icon ? <Icon className="h-4 w-4" /> : null}
-                                              <span>{a.label}</span>
+                                              <span>{actionLabel}</span>
                                             </DropdownMenuItem>
                                           );
 
