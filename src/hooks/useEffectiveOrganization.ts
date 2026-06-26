@@ -91,7 +91,6 @@ export function getEffectiveOrgId(
   const orgIdLocal = localStorage.getItem('organization_id') ?? '';
   // Prioritize sensitive claims first, then JWT, then local storage
   const result = String(orgIdFromSensitive || orgIdFromJwt || orgIdLocal || '').trim();
-  console.log('[DEBUG getEffectiveOrgId]', { orgIdFromSensitive, orgIdFromJwt, orgIdLocal, result });
   return result;
 }
 
@@ -112,8 +111,7 @@ export function getRole(
   const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
   const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
   const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
-  console.log('[DEBUG getRole]', { isAdminClaim, orgIdFromSensitive, orgIdFromJwt, organizationId, claims, sensitive });
-  
+  console.log(" ------ ", {isAdminClaim, organizationId})
   if (isAdminClaim && organizationId === '00') {
     return 'SuperAdmin';
   } else if (isAdminClaim && organizationId !== '00' && organizationId !== '0') {
@@ -147,7 +145,6 @@ export function useEffectiveOrganization() {
     const readClaims = () => decodeJwtPayload(localStorage.getItem('token') ?? '');
 
     const refresh = async () => {
-      console.log('[DEBUG] refresh() started');
       if (!mounted) return;
       setIsChecking(true);
       const currentClaims = readClaims();
@@ -156,10 +153,8 @@ export function useEffectiveOrganization() {
       setSensitive({});
 
       const secret = import.meta.env.VITE_JWT_SECRET;
-      console.log('[DEBUG] VITE_JWT_SECRET:', secret ? `set (len=${secret.length})` : 'NOT SET');
 
       if (currentClaims && typeof currentClaims.token === 'string' && secret) {
-        console.log('[DEBUG] Attempting to decrypt claims.token');
         try {
           const decrypted = await decryptAuthToken(currentClaims.token, String(secret));
           console.log('[DEBUG] Decrypted sensitive data:', decrypted);
@@ -168,16 +163,9 @@ export function useEffectiveOrganization() {
           console.error('[DEBUG] Decryption FAILED:', err);
           if (mounted) setSensitive({});
         }
-      } else {
-        console.log('[DEBUG] Skipping decryption:', {
-          hasCurrentClaims: !!currentClaims,
-          tokenType: typeof currentClaims?.token,
-          hasSecret: !!secret
-        });
       }
 
       if (mounted) setIsChecking(false);
-      console.log('[DEBUG] refresh() finished');
     };
 
     void refresh();

@@ -17,7 +17,7 @@ const DynamicIcon = ({ name, ...props }: { name?: string; size?: number; classNa
   // Trim whitespace dari nama icon
   const trimmedName = name?.trim() ?? '';
   // Coba dapatkan icon dari LucideIcons, fallback ke Check jika tidak ditemukan
-  const Icon = (LucideIcons as any)[trimmedName] || (LucideIcons as any).Check;
+  const Icon = (LucideIcons as unknown)[trimmedName] || (LucideIcons as unknown).Check;
   return <Icon {...props} />;
 };
 

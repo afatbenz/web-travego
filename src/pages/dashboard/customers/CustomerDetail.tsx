@@ -333,8 +333,8 @@ export const CustomerDetail: React.FC = () => {
   };
 
   const orderDetailLink = (order: OrderRow) => {
-    if (order.orderType === 2) return `/dashboard/partner/orders/tour/detail/${encodeURIComponent(order.orderId)}`;
-    return `/dashboard/partner/orders/fleet/detail/${encodeURIComponent(order.orderId)}`;
+    if (order.orderType === 2) return `/dashboard/orders/tour/detail/${encodeURIComponent(order.orderId)}`;
+    return `/dashboard/orders/fleet/detail/${encodeURIComponent(order.orderId)}`;
   };
 
   return (

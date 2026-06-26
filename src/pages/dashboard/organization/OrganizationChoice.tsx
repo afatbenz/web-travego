@@ -14,11 +14,11 @@ export const OrganizationChoiceDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   const handleCreate = () => {
-    navigate('/dashboard/partner/organization/register');
+    navigate('/dashboard/organization/register');
   };
 
   const handleGoJoin = () => {
-    navigate('/dashboard/partner/organization/join');
+    navigate('/dashboard/organization/join');
   };
 
   return (

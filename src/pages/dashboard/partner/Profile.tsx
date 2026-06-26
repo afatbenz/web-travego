@@ -143,10 +143,10 @@ export const PartnerProfile: React.FC = () => {
     });
   }
 
-  const InfoItem = ({ icon: Icon, label, value }: { icon: any; label: string; value: string }) => (
+  const InfoItem = ({ icon: Icon, label, value }: { icon: unknown; label: string; value: string }) => (
     <div className="flex items-start gap-3 py-3 border-b border-gray-200 dark:border-gray-800 last:border-0">
       <div className="mt-0.5 text-gray-400">
-        <Icon className="h-5 w-5" />
+        <User className="h-5 w-5" />
       </div>
       <div className="flex-1">
         <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>
@@ -246,7 +246,7 @@ export const PartnerProfile: React.FC = () => {
             <div className="flex justify-end sm:justify-start">
               <Button
                 variant="default"
-                onClick={() => navigate('/dashboard/partner/profile/edit')}
+                onClick={() => navigate('/dashboard/profile/edit')}
                 className="h-10 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Pencil className="h-4 w-4 mr-2" />
@@ -310,7 +310,7 @@ export const PartnerProfile: React.FC = () => {
               icon={Key}
               title="Ubah Password"
               subtitle="Perbarui kata sandi akun Anda"
-              onClick={() => navigate('/dashboard/partner/profile/password')}
+              onClick={() => navigate('/dashboard/profile/password')}
             />
             <ActionItem
               tone="danger"

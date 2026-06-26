@@ -60,7 +60,7 @@ export const PartnerProfileEdit: React.FC = () => {
     const res = await api.post('/profile/update', payload, { Authorization: token });
     setSaving(false);
     if (res.status === 'success') {
-      navigate('/dashboard/partner/profile');
+      navigate('/dashboard/profile');
     }
   };
 
@@ -313,7 +313,7 @@ export const PartnerProfileEdit: React.FC = () => {
             type="button"
             variant="outline"
             size="icon"
-            onClick={() => navigate('/dashboard/partner/profile')}
+            onClick={() => navigate('/dashboard/profile')}
             className="h-10 w-10 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -376,7 +376,7 @@ export const PartnerProfileEdit: React.FC = () => {
                 type="button"
                 variant="outline"
                 className="h-11 rounded-2xl border-blue-100 bg-blue-50/50 text-blue-600 transition-all duration-300 hover:border-blue-200 hover:bg-blue-100 hover:text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200 dark:hover:bg-blue-950/40"
-                onClick={() => navigate('/dashboard/partner/profile/password')}
+                onClick={() => navigate('/dashboard/profile/password')}
               >
                 Ubah Password
               </Button>
