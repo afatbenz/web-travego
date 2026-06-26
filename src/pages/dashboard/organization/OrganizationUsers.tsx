@@ -191,14 +191,15 @@ export const OrganizationUsers: React.FC = () => {
     setUpdating(user.user_id, true);
 
     try {
-      const res = await api.post(`/organization/users/${action}/${encodeURIComponent(user.user_id)}`, undefined, getHeaders());
+      const res = await api.put(`/organization/users/${action}/${encodeURIComponent(user.user_id)}`, undefined, getHeaders());
       if (res.status !== 'success') {
         setUsers((prev) =>
           prev.map((item) =>
             item.user_id === user.user_id ? { ...item, status: prevStatus, is_active: prevActive } : item
           )
         );
-        await Swal.fire('Error', 'Gagal mengubah status akses pengguna.', 'error');
+        const message = res.message ? res.message : 'Gagal mengubah status akses pengguna.';
+        await Swal.fire('Maaf, ada kesalahan', message, 'error');
       }
     } catch {
       setUsers((prev) =>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Eye, Search, Download, FileSpreadsheet, RotateCcw, Sheet, Check, CheckCircle } from 'lucide-react';
+import { Plus, Search, Download, FileSpreadsheet, RotateCcw, Sheet, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
@@ -26,7 +26,7 @@ type InventoryOrder = {
   suplier_name: string;
   Status: number;
   created_at: string;
-  request_id: string | number;
+  request_id?: string | number;
   garage_name: string;
 };
 

@@ -14,7 +14,6 @@ import {
   Tag,
   MapPin,
   Users,
-  Coins,
   Receipt,
   FileText,
   User,
@@ -68,7 +67,7 @@ type CopyableFieldProps = {
 type DetailMetricProps = {
   label: string;
   value: string;
-  date: string;
+  date?: string;
   icon: React.ElementType<{ className?: string }>;
 };
 

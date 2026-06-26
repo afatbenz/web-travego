@@ -30,16 +30,12 @@ export const Otp: React.FC = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token && isTokenValid(token)) {
-      const userStr = localStorage.getItem('user');
-      const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
-      navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'token' && e.newValue && isTokenValid(e.newValue)) {
-        const userStr = localStorage.getItem('user');
-        const isAdmin = userStr ? JSON.parse(userStr).role === 'admin' : false;
-        navigate(isAdmin ? '/dashboard' : '/dashboard/partner', { replace: true });
+        navigate('/dashboard', { replace: true });
       }
     };
 

@@ -15,7 +15,7 @@ export const FleetUnits: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const canCreate = location.pathname.startsWith('/dashboard/partner');
-  const createUnitPath = '/dashboard/partner/fleet-units/create';
+  const createUnitPath = '/dashboard/fleet-units/create';
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -222,7 +222,7 @@ export const FleetUnits: React.FC = () => {
       width: 190,
       render: (unit) => (
         <button
-          onClick={() => navigate(`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(unit.id))}`)}
+          onClick={() => navigate(`/dashboard/fleet-units/detail/${encodeURIComponent(String(unit.id))}`)}
           className="leading-tight text-left hover:underline"
         >
           <span className="text-foreground whitespace-nowrap">{unit.plate_number || '-'}</span>
@@ -392,13 +392,13 @@ export const FleetUnits: React.FC = () => {
               key: 'detail',
               label: 'Detail',
               icon: Eye,
-              onSelect: (row) => navigate(`/dashboard/partner/fleet-units/detail/${encodeURIComponent(String(row.id))}`)
+              onSelect: (row) => navigate(`/dashboard/fleet-units/detail/${encodeURIComponent(String(row.id))}`)
             },
             {
               key: 'edit',
               label: 'Edit',
               icon: Edit,
-              onSelect: (row) => navigate(`/dashboard/partner/fleet-units/edit/${encodeURIComponent(String(row.id))}`)
+              onSelect: (row) => navigate(`/dashboard/fleet-units/edit/${encodeURIComponent(String(row.id))}`)
             },
             {
               key: 'delete',

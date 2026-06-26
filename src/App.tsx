@@ -133,6 +133,7 @@ import { CustomOrder } from '@/pages/LandingPage/Utilities/CustomOrder';
 import { Login } from '@/pages/LandingPage/Auth/Login';
 import { Register } from '@/pages/LandingPage/Auth/Register';
 import { ForgotPassword } from '@/pages/auth/ForgotPassword';
+import { ResetPassword } from '@/pages/auth/ResetPassword';
 import { Otp } from '@/pages/auth/Otp';
 import { OrganizationRegister } from '@/pages/auth/OrganizationRegister';
 import { OrganizationChoiceDashboard } from '@/pages/dashboard/organization/OrganizationChoice';
@@ -175,6 +176,7 @@ import { OrganizationJoin } from '@/pages/auth/OrganizationJoin';
 
 // Dashboard Pages
 import { DashboardHome } from '@/pages/dashboard/DashboardHome';
+import { Performance } from '@/pages/dashboard/Performance';
 import { OrdersTable } from '@/pages/dashboard/orders/OrdersTable';
 import { FleetOrderForm } from '@/pages/dashboard/orders/FleetOrderForm';
 import { TourPackageOrderForm } from '@/pages/dashboard/orders/TourPackageOrderForm';
@@ -228,6 +230,10 @@ import { AllCoupons } from '@/pages/dashboard/coupons/AllCoupons';
 import { AddCoupon } from '@/pages/dashboard/coupons/AddCoupon';
 import { OrganizationAccountAssistant } from './pages/dashboard/organization/OrganizationAccountAssistant';
 import { NotificationsPage } from './pages/dashboard/NotificationsPage';
+import { SubscriptionPage } from './pages/dashboard/Subscription';
+import { SubscriptionPricing } from './pages/dashboard/SubscriptionPricing';
+import { SubscriptionCheckout } from './pages/dashboard/SubscriptionCheckout';
+import { SubscriptionPaymentStatus } from './pages/dashboard/SubscriptionPaymentStatus';
 
 // Inventory Pages
 import { InventoryItems } from '@/pages/dashboard/inventories/InventoryItems';
@@ -235,7 +241,7 @@ import { InventoryItemDetail } from '@/pages/dashboard/inventories/InventoryItem
 import { InventoryRequest } from '@/pages/dashboard/inventories/InventoryRequest';
 import { InventoryRequestDetail } from '@/pages/dashboard/inventories/InventoryRequestDetail';
 import { InventoryOrders } from '@/pages/dashboard/inventories/InventoryOrders';
-import { InventoryRequestCreate } from '@/pages/dashboard/inventories/InventoryRequestCreate';
+
 import { InventoryOrdersCreate } from '@/pages/dashboard/inventories/InventoryOrdersCreate';
 import { InventoryOrderDetail } from '@/pages/dashboard/inventories/InventoryOrderDetail';
 
@@ -391,6 +397,7 @@ function App() {
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/register" element={<Register />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+          <Route path="/auth/reset-password" element={<ResetPassword />} />
           <Route path="/auth/otp" element={<Otp />} />
           <Route path="/auth/organization/register" element={<OrganizationRegister />} />
 
@@ -398,9 +405,9 @@ function App() {
           <Route path="/auth/organization/join" element={<OrganizationJoin />} />
 
           {/* Dashboard Routes */}
-          <Route path="/dashboard/partner" element={
+          <Route path="/performance" element={
             <DashboardLayout>
-              <DashboardHome />
+              <Performance />
             </DashboardLayout>
           } />
           <Route path="/dashboard" element={
@@ -408,19 +415,9 @@ function App() {
               <DashboardHome />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/choice" element={
-            <DashboardLayout>
-              <OrganizationChoiceDashboard />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/organization/choice" element={
             <DashboardLayout>
               <OrganizationChoiceDashboard />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/organization/register" element={
-            <DashboardLayout>
-              <OrganizationRegisterDashboard />
             </DashboardLayout>
           } />
           <Route path="/dashboard/organization/register" element={
@@ -428,27 +425,22 @@ function App() {
               <OrganizationRegisterDashboard />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/join" element={
-            <DashboardLayout>
-              <OrganizationJoinDashboard />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/organization/join" element={
             <DashboardLayout>
               <OrganizationJoinDashboard />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/account-assistant" element={
+          <Route path="/dashboard/organization/account-assistant" element={
             <DashboardLayout>
               <OrganizationAccountAssistant />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/settings" element={
+          <Route path="/dashboard/organization/settings" element={
             <DashboardLayout>
               <OrganizationSettings />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/detail" element={
+          <Route path="/dashboard/organization/detail" element={
             <DashboardLayout>
               <OrganizationDetail />
             </DashboardLayout>
@@ -463,24 +455,14 @@ function App() {
               <OrganizationDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/users" element={
-            <DashboardLayout>
-              <OrganizationUsers />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/organization/users" element={
             <DashboardLayout>
               <OrganizationUsers />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/open-api" element={
+          <Route path="/dashboard/organization/open-api" element={
             <DashboardLayout>
               <OrganizationOpenApi />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/organization/company" element={
-            <DashboardLayout>
-              <OrganizationCompany />
             </DashboardLayout>
           } />
           <Route path="/dashboard/organization/company" element={
@@ -488,27 +470,27 @@ function App() {
               <OrganizationCompany />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/team-members" element={
+          <Route path="/dashboard/organization/team-members" element={
             <DashboardLayout>
               <TeamMember />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/team-members/create" element={
+          <Route path="/dashboard/organization/team-members/create" element={
             <DashboardLayout>
               <TeamMemberCreate />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/team-members/edit/:uuid" element={
+          <Route path="/dashboard/organization/team-members/edit/:uuid" element={
             <DashboardLayout>
               <TeamMemberEdit />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/team-members/detail/:uuid" element={
+          <Route path="/dashboard/organization/team-members/detail/:uuid" element={
             <DashboardLayout>
               <TeamMemberDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/garages" element={
+          <Route path="/dashboard/organization/garages" element={
             <DashboardLayout>
               <Garages />
             </DashboardLayout>
@@ -538,17 +520,12 @@ function App() {
               <Garages />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/customers" element={
-            <DashboardLayout>
-              <CustomersPage />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/organization/customers" element={
             <DashboardLayout>
               <CustomersPage />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/roles" element={
+          <Route path="/dashboard/organization/roles" element={
             <DashboardLayout>
               <OrganizationRoles />
             </DashboardLayout>
@@ -558,7 +535,7 @@ function App() {
               <OrganizationRoles />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/organization/division" element={
+          <Route path="/dashboard/organization/division" element={
             <DashboardLayout>
               <OrganizationDivision />
             </DashboardLayout>
@@ -570,27 +547,27 @@ function App() {
           } />
 
           {/* Customers Routes */}
-          <Route path="/dashboard/partner/customers" element={
+          <Route path="/dashboard/customers" element={
             <DashboardLayout>
               <AllCustomers />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/customers/create" element={
+          <Route path="/dashboard/customers/create" element={
             <DashboardLayout>
               <CustomerCreate />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/customers/detail/:id" element={
+          <Route path="/dashboard/customers/detail/:id" element={
             <DashboardLayout>
               <CustomerDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/customers/edit/:id" element={
+          <Route path="/dashboard/customers/edit/:id" element={
             <DashboardLayout>
               <CustomerEdit />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/customers/all" element={
+          <Route path="/dashboard/customers/all" element={
             <DashboardLayout>
               <AllCustomers />
             </DashboardLayout>
@@ -620,7 +597,7 @@ function App() {
               <AllCustomers />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/customers/registered" element={
+          <Route path="/dashboard/customers/registered" element={
             <DashboardLayout>
               <RegisteredCustomers />
             </DashboardLayout>
@@ -630,7 +607,7 @@ function App() {
               <RegisteredCustomers />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/customers/rewards" element={
+          <Route path="/dashboard/customers/rewards" element={
             <DashboardLayout>
               <CustomerRewards />
             </DashboardLayout>
@@ -642,19 +619,9 @@ function App() {
           } />
 
           {/* Schedules Routes */}
-          <Route path="/dashboard/partner/schedules/fleet-management" element={
-            <DashboardLayout>
-              <FleetManagement />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/schedules/fleet-management" element={
             <DashboardLayout>
               <FleetManagement />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/schedules/fleet-schedules" element={
-            <DashboardLayout>
-              <FleetSchedules />
             </DashboardLayout>
           } />
           <Route path="/dashboard/schedules/fleet-schedules" element={
@@ -662,19 +629,9 @@ function App() {
               <FleetSchedules />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/schedules/fleet-schedules/detail/:order_id" element={
-            <DashboardLayout>
-              <FleetScheduleDetail />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/schedules/fleet-schedules/detail/:order_id" element={
             <DashboardLayout>
               <FleetScheduleDetail />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/schedules/fleet-schedules/manage/:order_id" element={
-            <DashboardLayout>
-              <FleetScheduleManage />
             </DashboardLayout>
           } />
           <Route path="/dashboard/schedules/fleet-schedules/manage/:order_id" element={
@@ -682,19 +639,9 @@ function App() {
               <FleetScheduleManage />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/schedules/team-schedules" element={
-            <DashboardLayout>
-              <TeamSchedules />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/schedules/team-schedules" element={
             <DashboardLayout>
               <TeamSchedules />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/schedules/leave-management" element={
-            <DashboardLayout>
-              <LeaveManagement />
             </DashboardLayout>
           } />
           <Route path="/dashboard/schedules/leave-management" element={
@@ -704,19 +651,9 @@ function App() {
           } />
 
           {/* Finance Routes */}
-          <Route path="/dashboard/partner/finance/revenue" element={
-            <DashboardLayout>
-              <Revenue />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/finance/revenue" element={
             <DashboardLayout>
               <Revenue />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/finance/general-ledger" element={
-            <DashboardLayout>
-              <GeneralLedger />
             </DashboardLayout>
           } />
           <Route path="/dashboard/finance/general-ledger" element={
@@ -724,17 +661,12 @@ function App() {
               <GeneralLedger />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/finance/expenses" element={
-            <DashboardLayout>
-              <GeneralExpenses />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/finance/expenses" element={
             <DashboardLayout>
               <GeneralExpenses />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/finance/fleet-expenses" element={
+          <Route path="/dashboard/finance/fleet-expenses" element={
             <DashboardLayout>
               <FleetExpenses />
             </DashboardLayout>
@@ -744,7 +676,7 @@ function App() {
               <FleetExpenses />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/finance/operational-expenses" element={
+          <Route path="/dashboard/finance/operational-expenses" element={
             <DashboardLayout>
               <OperationalExpenses />
             </DashboardLayout>
@@ -756,19 +688,9 @@ function App() {
           } />
 
           {/* Coupons Routes */}
-          <Route path="/dashboard/partner/coupons/all" element={
-            <DashboardLayout>
-              <AllCoupons />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/coupons/all" element={
             <DashboardLayout>
               <AllCoupons />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/coupons/add" element={
-            <DashboardLayout>
-              <AddCoupon />
             </DashboardLayout>
           } />
           <Route path="/dashboard/coupons/add" element={
@@ -782,7 +704,7 @@ function App() {
               <OrganizationOpenApi />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/fleet" element={
+          <Route path="/dashboard/orders/fleet" element={
             <DashboardLayout>
               <OrdersTable
                 status="all"
@@ -792,7 +714,7 @@ function App() {
               />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/fleet/form" element={
+          <Route path="/dashboard/orders/fleet/form" element={
             <DashboardLayout>
               <FleetOrderForm />
             </DashboardLayout>
@@ -812,7 +734,7 @@ function App() {
               <FleetOrderForm />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/tour" element={
+          <Route path="/dashboard/orders/tour" element={
             <DashboardLayout>
               <OrdersTable
                 status="all"
@@ -822,12 +744,12 @@ function App() {
               />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/tour/form" element={
+          <Route path="/dashboard/orders/tour/form" element={
             <DashboardLayout>
               <TourPackageOrderForm />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/tour/detail/:order_id" element={
+          <Route path="/dashboard/orders/tour/detail/:order_id" element={
             <DashboardLayout>
               <TourOrderDetail />
             </DashboardLayout>
@@ -852,7 +774,7 @@ function App() {
               <TourOrderDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/waiting-approval" element={
+          <Route path="/dashboard/orders/waiting-approval" element={
             <DashboardLayout>
               <OrdersTable
                 status="waiting-approval"
@@ -870,17 +792,7 @@ function App() {
               />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/orders/detail/:id" element={
-            <DashboardLayout>
-              <OrderDetail />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/orders/detail/:id" element={
-            <DashboardLayout>
-              <OrderDetail />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/orders/fleet/detail/:order_id" element={
             <DashboardLayout>
               <OrderDetail />
             </DashboardLayout>
@@ -890,7 +802,7 @@ function App() {
               <OrderDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/services/packages" element={
+          <Route path="/dashboard/services/packages" element={
             <DashboardLayout>
               <ServicesPackages />
             </DashboardLayout>
@@ -900,7 +812,7 @@ function App() {
               <ServicesPackages />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/services/packages/detail/:id" element={
+          <Route path="/dashboard/services/packages/detail/:id" element={
             <DashboardLayout>
               <PackageDetail />
             </DashboardLayout>
@@ -910,7 +822,7 @@ function App() {
               <PackageDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/services/packages/create" element={
+          <Route path="/dashboard/services/packages/create" element={
             <DashboardLayout>
               <PackageForm />
             </DashboardLayout>
@@ -920,52 +832,38 @@ function App() {
               <PackageForm />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/services/packages/edit/:id" element={
-            <DashboardLayout>
-              <PackageForm />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/services/packages/edit/:id" element={
             <DashboardLayout>
               <PackageForm />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/services/fleet" element={
-            <DashboardLayout>
-              <ServicesArmada />
-            </DashboardLayout>
-          } />
+
           <Route path="/dashboard/services/fleet" element={
             <DashboardLayout>
               <ServicesArmada />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/fleet-units" element={
+          <Route path="/dashboard/fleet-units" element={
             <DashboardLayout>
               <FleetUnits />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/fleet-units/create" element={
+          <Route path="/dashboard/fleet-units/create" element={
             <DashboardLayout>
               <FleetUnitCreate />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/fleet-units/detail/:unit_id" element={
+          <Route path="/dashboard/fleet-units/detail/:unit_id" element={  
             <DashboardLayout>
               <FleetUnitDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/partners/detail/:partner_id" element={
-            <DashboardLayout>
-              <PartnerDetail />
-            </DashboardLayout>
-          } />
-          <Route path="/dashboard/partner/fleet-units/edit/:unit_id" element={
+          <Route path="/dashboard/fleet-units/edit/:unit_id" element={
             <DashboardLayout>
               <FleetUnitEdit />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/preferences/cities" element={
+          <Route path="/dashboard/preferences/cities" element={
             <DashboardLayout>
               <PartnerPreferencesCities />
             </DashboardLayout>
@@ -990,7 +888,7 @@ function App() {
               <FleetUnitEdit />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/services/fleet/create" element={
+          <Route path="/dashboard/services/fleet/create" element={
             <DashboardLayout>
               <CreateArmada />
             </DashboardLayout>
@@ -1000,7 +898,7 @@ function App() {
               <CreateArmada />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/services/fleet/edit/:id" element={
+          <Route path="/dashboard/services/fleet/edit/:id" element={
             <DashboardLayout>
               <EditArmada />
             </DashboardLayout>
@@ -1010,7 +908,7 @@ function App() {
               <EditArmada />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/services/fleet/detail/:id" element={
+          <Route path="/dashboard/services/fleet/detail/:id" element={
             <DashboardLayout>
               <FleetDetail />
             </DashboardLayout>
@@ -1020,7 +918,7 @@ function App() {
               <FleetDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/team/team-member" element={
+          <Route path="/dashboard/team/team-member" element={
             <DashboardLayout>
               <TeamMember />
             </DashboardLayout>
@@ -1030,7 +928,7 @@ function App() {
               <TeamMember />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/team/schedule-armada" element={
+          <Route path="/dashboard/team/schedule-armada" element={
             <DashboardLayout>
               <ScheduleArmada />
             </DashboardLayout>
@@ -1040,7 +938,7 @@ function App() {
               <ScheduleArmada />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/team/schedule-armada/add" element={
+          <Route path="/dashboard/team/schedule-armada/add" element={
             <DashboardLayout>
               <AddSchedule />
             </DashboardLayout>
@@ -1050,7 +948,7 @@ function App() {
               <AddSchedule />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/team/schedule-fleet/detail/:order_id" element={
+          <Route path="/dashboard/team/schedule-fleet/detail/:order_id" element={
             <DashboardLayout>
               <ScheduleFleetDetail />
             </DashboardLayout>
@@ -1060,7 +958,7 @@ function App() {
               <ScheduleFleetDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/inquiry" element={
+          <Route path="/dashboard/inquiry" element={
             <DashboardLayout>
               <PartnerInquiry />
             </DashboardLayout>
@@ -1070,7 +968,7 @@ function App() {
               <PartnerInquiry />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/partner-operations" element={
+          <Route path="/dashboard/partner-operations" element={
             <DashboardLayout>
               <PartnerOperations />
             </DashboardLayout>
@@ -1080,7 +978,7 @@ function App() {
               <PartnerOperations />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/partner-operations/create" element={
+          <Route path="/dashboard/partner-operations/create" element={
             <DashboardLayout>
               <PartnerOperationCreate />
             </DashboardLayout>
@@ -1090,7 +988,7 @@ function App() {
               <PartnerOperationCreate />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/partner-operations/detail/:partner_id" element={
+          <Route path="/dashboard/partner-operations/detail/:partner_id" element={
             <DashboardLayout>
               <PartnerOperationDetail />
             </DashboardLayout>
@@ -1100,128 +998,162 @@ function App() {
               <PartnerOperationDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/profile" element={
+          <Route path="/dashboard/profile" element={
             <DashboardLayout>
               <PartnerProfile />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/profile/edit" element={
+          <Route path="/dashboard/profile/edit" element={
             <DashboardLayout>
               <PartnerProfileEdit />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/profile/password" element={
+          <Route path="/dashboard/profile/password" element={
             <DashboardLayout>
               <PartnerChangePassword />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content" element={
+          <Route path="/dashboard/content" element={
             <DashboardLayout>
               <ContentMenu />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/general" element={
+          <Route path="/dashboard/content/general" element={
             <DashboardLayout>
               <GeneralContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/landing-page" element={
+          <Route path="/dashboard/content/landing-page" element={
             <DashboardLayout>
               <PartnerContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/image-banner" element={
+          <Route path="/dashboard/content/image-banner" element={
             <DashboardLayout>
               <ImageBannerContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/catalogue" element={
+          <Route path="/dashboard/content/catalogue" element={
             <DashboardLayout>
               <CatalogueContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/catalogues" element={
+          <Route path="/dashboard/content/catalogues" element={
             <DashboardLayout>
               <CatalogueContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/hot-offers" element={
+          <Route path="/dashboard/content/hot-offers" element={
             <DashboardLayout>
               <HotOffersContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/services" element={
+          <Route path="/dashboard/content/services" element={
             <DashboardLayout>
               <ServicesContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/team" element={
+          <Route path="/dashboard/content/team" element={
             <DashboardLayout>
               <TeamContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/contact" element={
+          <Route path="/dashboard/content/contact" element={
             <DashboardLayout>
               <ContactContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/why-choose-us" element={
+          <Route path="/dashboard/content/why-choose-us" element={
             <DashboardLayout>
               <WhyChooseUsContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/social-media" element={
+          <Route path="/dashboard/content/social-media" element={
             <DashboardLayout>
               <SocialMediaContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/bank-account" element={
+          <Route path="/dashboard/content/bank-account" element={
             <DashboardLayout>
               <BankAccountContent />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/content/edit/:section_tag" element={
+          <Route path="/dashboard/content/content/edit/:section_tag" element={
             <DashboardLayout>
               <ContentEdit />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/partner/content/image-layout" element={
+          <Route path="/dashboard/content/image-layout" element={
             <DashboardLayout>
               <ImageLayout />
             </DashboardLayout>
           } />
           
           {/* Notifications */}
-          <Route path="/dashboard/partner/notifications" element={
+          <Route path="/dashboard/notifications" element={
             <DashboardLayout>
               <NotificationsPage />
             </DashboardLayout>
           } />
-<Route path="/dashboard/notifications" element={
+          <Route path="/dashboard/notifications" element={
              <DashboardLayout>
                <NotificationsPage />
              </DashboardLayout>
            } />
+          
+          {/* Subscription */}
+          <Route path="/dashboard/accounts/subscription" element={
+            <DashboardLayout>
+              <SubscriptionPage />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/accounts/subscription" element={
+             <DashboardLayout>
+               <SubscriptionPage />
+             </DashboardLayout>
+           } />
+          <Route path="/dashboard/content/accounts/subscription/pricing" element={
+            <DashboardLayout>
+              <SubscriptionPricing />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/accounts/subscription/pricing" element={
+             <DashboardLayout>
+               <SubscriptionPricing />
+             </DashboardLayout>
+           } />
+          <Route path="/dashboard/subscription/checkout" element={
+            <DashboardLayout>
+              <SubscriptionCheckout />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/subscription/checkout" element={
+             <DashboardLayout>
+               <SubscriptionCheckout />
+             </DashboardLayout>
+           } />
+          <Route path="/dashboard/content/subscription/payment/:status" element={
+            <DashboardLayout>
+              <SubscriptionPaymentStatus />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/subscription/payment/:status" element={
+             <DashboardLayout>
+               <SubscriptionPaymentStatus />
+             </DashboardLayout>
+           } />
 
 {/* Inventory Routes */}
-            <Route path="/dashboard/partner/inventories/items" element={<DashboardLayout><InventoryItems /></DashboardLayout>} />
             <Route path="/dashboard/inventories/items" element={<DashboardLayout><InventoryItems /></DashboardLayout>} />
-            <Route path="/dashboard/partner/inventories/items/detail/:item_id" element={<DashboardLayout><InventoryItemDetail /></DashboardLayout>} />
             <Route path="/dashboard/inventories/items/detail/:item_id" element={<DashboardLayout><InventoryItemDetail /></DashboardLayout>} />
-            <Route path="/dashboard/partner/inventories/request" element={<DashboardLayout><InventoryRequest /></DashboardLayout>} />
+            <Route path="/dashboard/inventories/items/detail/:item_id" element={<DashboardLayout><InventoryItemDetail /></DashboardLayout>} />
             <Route path="/dashboard/inventories/request" element={<DashboardLayout><InventoryRequest /></DashboardLayout>} />
-            <Route path="/dashboard/partner/inventories/request/detail/:request_id" element={<DashboardLayout><InventoryRequestDetail /></DashboardLayout>} />
             <Route path="/dashboard/inventories/request/detail/:request_id" element={<DashboardLayout><InventoryRequestDetail /></DashboardLayout>} />
-            <Route path="/dashboard/partner/inventories/request/create" element={<DashboardLayout><InventoryRequestCreate /></DashboardLayout>} />
-            <Route path="/dashboard/inventories/request/create" element={<DashboardLayout><InventoryRequestCreate /></DashboardLayout>} />
-            <Route path="/dashboard/partner/inventories/orders" element={<DashboardLayout><InventoryOrders /></DashboardLayout>} />
             <Route path="/dashboard/inventories/orders" element={<DashboardLayout><InventoryOrders /></DashboardLayout>} />
-<Route path="/dashboard/partner/inventories/orders/create" element={<DashboardLayout><InventoryOrdersCreate /></DashboardLayout>} />
              <Route path="/dashboard/inventories/orders/create" element={<DashboardLayout><InventoryOrdersCreate /></DashboardLayout>} />
-             <Route path="/dashboard/partner/inventories/orders/detail/:purchaseid" element={<DashboardLayout><InventoryOrderDetail /></DashboardLayout>} />
              <Route path="/dashboard/inventories/orders/detail/:purchaseid" element={<DashboardLayout><InventoryOrderDetail /></DashboardLayout>} />
 
-           <Route path="/dashboard/partner/*" element={
+           <Route path="/dashboard/*" element={
             <DashboardLayout>
               <PartnerNotFound />
             </DashboardLayout>

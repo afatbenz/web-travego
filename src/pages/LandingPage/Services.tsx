@@ -1,5 +1,4 @@
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { PreviewSistemSection } from './PreviewSistemSection';
 import {
@@ -14,10 +13,8 @@ import {
   TrendingUp,
   Globe,
   Check,
-  Sparkles,
   Network,
   Activity,
-  LayoutDashboard,
 } from 'lucide-react';
 
 type FeatureItem = {

@@ -4,9 +4,9 @@ import Select, {
   type ActionMeta,
   type GroupBase,
   type MultiValue,
-  type PropsValue,
   type SingleValue,
   type StylesConfig,
+  type Props as ReactSelectPropsType,
 } from 'react-select';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -15,7 +15,14 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const styles: StylesConfig = {
+interface Option {
+  value: string;
+  label: string;
+  icon?: string;
+  isManual?: boolean;
+}
+
+const styles: StylesConfig<Option, boolean, GroupBase<Option>> = {
   control: (base, state) => ({
     ...base,
     backgroundColor: 'white',
@@ -113,14 +120,7 @@ const styles: StylesConfig = {
   }),
 };
 
-interface Option {
-  value: string;
-  label: string;
-  icon?: string;
-  isManual?: boolean;
-}
-
-export interface ReactSelectProps {
+export interface ReactSelectProps extends Omit<ReactSelectPropsType<Option, boolean, GroupBase<Option>>, 'options' | 'value' | 'onChange' | 'isMulti' | 'isClearable' | 'isDisabled'> {
   options: Option[];
   value?: MultiValue<Option> | SingleValue<Option>;
   onChange?: (
@@ -137,7 +137,7 @@ export interface ReactSelectProps {
 export const ReactSelect = React.forwardRef<
   React.ComponentRef<typeof Select<Option, boolean, GroupBase<Option>>>,
   ReactSelectProps
->(({ options, value, onChange, placeholder, isMulti, isClearable, disabled, className, ...props }, ref) => {
+>(({ options, value, onChange, placeholder, isMulti, isClearable, disabled, className, components: userComponents, ...props }, ref) => {
   return (
     <Select<Option, boolean, GroupBase<Option>>
       ref={ref}
@@ -184,7 +184,7 @@ export const ReactSelect = React.forwardRef<
             </svg>
           </components.ClearIndicator>
         ),
-        ...props.components,
+        ...userComponents,
       }}
       className={cn("w-full", className)}
       {...props}

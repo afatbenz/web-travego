@@ -121,7 +121,7 @@ export const Navbar: React.FC = () => {
           </div>
           {user ? (
             <>
-              <Link to="/dashboard/partner">
+              <Link to="/dashboard">
                 <Button
                   variant="outline"
                   size="icon"
@@ -206,7 +206,7 @@ export const Navbar: React.FC = () => {
                 <div className="flex flex-col space-y-2">
                   {user ? (
                     <>
-                      <Link to="/dashboard/partner" onClick={() => setIsMenuOpen(false)}>
+                      <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
                         <Button variant="outline" size="sm" className="w-full rounded-xl mb-2">
                           <LayoutDashboard className="h-4 w-4 mr-2" />
                           Dashboard

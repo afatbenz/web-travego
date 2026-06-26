@@ -19,6 +19,7 @@ import {
   User,
   MessageCircleOff,
   X,
+  Info,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';

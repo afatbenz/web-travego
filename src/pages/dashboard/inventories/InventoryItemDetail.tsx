@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ArrowLeft, Box, ArrowLeftRight, Plus, Pencil, Clock, X, ShoppingCart, MapPin } from 'lucide-react';
+import { ArrowLeft, Box, ArrowLeftRight, Pencil, Clock, X, ShoppingCart, MapPin } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -841,15 +841,11 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm" onClick={() => setTransferModalOpen(true)}>
+          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm bg-blue-500 hover:bg-blue-600 text-white text-center" onClick={() => setTransferModalOpen(true)}>
             <ArrowLeftRight className="h-4 w-4 mr-1.5" />
             <span className="hidden sm:inline">Transfer Stok</span>
           </Button>
-          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm text-emerald-600 border-emerald-200 hover:text-emerald-700">
-            <Plus className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">Tambah Stok</span>
-          </Button>
-<Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm" onClick={() => {
+          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm" onClick={() => {
                 if (detail) {
                   setEditFormData({ item_name: detail.item_name, item_category: String(detail.item_category) });
                   setEditModalOpen(true);

@@ -6,7 +6,7 @@ import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface TransactionMetric { label: string; value: number }
 interface PeriodStat { current: number; previous: number; total_amount: number; prev_amount: number; transaction_metrics: TransactionMetric[] }
@@ -27,9 +27,17 @@ interface DashboardData {
 }
 
 export const DashboardHome: React.FC = () => {
-  const { hasEffectiveOrganization, isAdmin, isChecking } = useEffectiveOrganization();
-  const shouldFetchDashboard = (isAdmin || hasEffectiveOrganization) && !isChecking;
+  const { hasEffectiveOrganization, isAdmin, isChecking, isSuperAdmin } = useEffectiveOrganization();
+  const navigate = useNavigate();
+  const shouldFetchDashboard = !isSuperAdmin && (isAdmin || hasEffectiveOrganization) && !isChecking;
   const [periodPreset, setPeriodPreset] = useState('Bulan Ini');
+
+  // Redirect SuperAdmin if they're on this page
+  useEffect(() => {
+    if (isSuperAdmin && !isChecking) {
+      navigate('/performance', { replace: true });
+    }
+  }, [isSuperAdmin, isChecking, navigate]);
   const [totalOrders, setTotalOrders] = useState(0);
   const [previousTotalOrders, setPreviousTotalOrders] = useState(0);
   const [orderPercentage, setOrderPercentage] = useState(0);
@@ -86,7 +94,7 @@ export const DashboardHome: React.FC = () => {
   }, [toYmd]);
 
   useEffect(() => {
-    if (isChecking) return;
+    if (isChecking || isSuperAdmin) return;
     if (!shouldFetchDashboard) {
       setLoadingDashboard(false);
       return;
@@ -255,7 +263,7 @@ export const DashboardHome: React.FC = () => {
       }
     };
     fetchDashboard();
-  }, [periodPreset, getPeriod, shouldFetchDashboard, isChecking]);
+  }, [periodPreset, getPeriod, shouldFetchDashboard, isChecking, isSuperAdmin]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -355,7 +363,7 @@ export const DashboardHome: React.FC = () => {
       color: 'text-blue-600 dark:text-blue-400',
       previousPeriodText: `periode sebelumnya ${previousTotalOrders}`,
       footerLabel: 'Lihat Detail',
-      footerHref: '/dashboard/partner/services/fleet',
+      footerHref: '/dashboard/services/fleet',
     },
     {
       title: 'Jumlah Pelanggan',
@@ -366,7 +374,7 @@ export const DashboardHome: React.FC = () => {
       color: 'text-green-600 dark:text-green-400',
       previousPeriodText: `periode sebelumnya ${previousTotalCustomers.toLocaleString('id-ID')}`,
       footerLabel: 'Lihat Detail',
-      footerHref: '/dashboard/partner/customers',
+      footerHref: '/dashboard/customers',
     },
     (() => {
       const current = revenueStat?.total_amount ?? 0;
@@ -381,7 +389,7 @@ export const DashboardHome: React.FC = () => {
         color: 'text-orange-600 dark:text-orange-400',
         previousPeriodText: `periode sebelumnya ${formatCurrency(previous)}`,
         footerLabel: 'Lihat Detail',
-        footerHref: '/dashboard/partner/finance/revenue',
+        footerHref: '/dashboard/finance/revenue',
       } as const;
     })(),
     (() => {
@@ -397,7 +405,7 @@ export const DashboardHome: React.FC = () => {
         color: 'text-red-600 dark:text-red-400',
         previousPeriodText: `periode sebelumnya ${formatCurrency(previous)}`,
         footerLabel: 'Lihat Detail',
-        footerHref: '/dashboard/partner/finance/expenses',
+        footerHref: '/dashboard/finance/expenses',
       } as const;
     })(),
   ];
@@ -725,14 +733,14 @@ export const DashboardHome: React.FC = () => {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link
-              to="/dashboard/partner/organization/register"
+              to="/dashboard/organization/register"
               className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
             >
               <Building2 className="mr-2 h-4 w-4" />
               Buat Organisasi
             </Link>
             <Link
-              to="/dashboard/partner/organization/join"
+              to="/dashboard/organization/join"
               className="inline-flex items-center justify-center rounded-lg border border-yellow-300 px-4 py-2 text-sm font-medium text-yellow-900 transition-colors hover:bg-yellow-100 dark:border-yellow-800 dark:text-yellow-100 dark:hover:bg-yellow-900/30"
             >
               <Users className="mr-2 h-4 w-4" />

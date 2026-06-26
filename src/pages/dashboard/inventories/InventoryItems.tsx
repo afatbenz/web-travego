@@ -118,7 +118,6 @@ export const InventoryItems: React.FC = () => {
   const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
   const [supplierQuery, setSupplierQuery] = useState('');
-  const [loadingSupplierDetail, setLoadingSupplierDetail] = useState(false);
 
   const [wizardStep, setWizardStep] = useState(1);
 
@@ -395,7 +394,6 @@ const mapped = list.map((raw, i) => {
       setGeneratingSku(true);
       const res = await api.get<unknown>(
         '/inventories/items/generate-sku',
-        {},
         token ? { Authorization: token } : undefined
       );
       if (res.status === 'success' && typeof res.data === 'object' && res.data !== null && 'item_sku' in res.data) {
@@ -410,7 +408,6 @@ const mapped = list.map((raw, i) => {
   const fetchSupplierDetail = async (supplierId: string) => {
     const token = localStorage.getItem('token') ?? '';
     try {
-      setLoadingSupplierDetail(true);
       const res = await api.post<unknown>(
         '/inventories/supliers/detail',
         { method: supplierId },
@@ -423,7 +420,7 @@ const mapped = list.map((raw, i) => {
         setFormData((p) => ({ ...p, supplier_phone: phone, supplier_url: url }));
       }
     } finally {
-      setLoadingSupplierDetail(false);
+      // No loading state to update
     }
   };
 

@@ -8,55 +8,55 @@ const ContentMenu = () => {
   const menuItems = [
     { 
       title: 'General Config', 
-      path: '/dashboard/partner/content/general',
+      path: '/dashboard/content/general',
       icon: <Settings className="h-8 w-8 mb-2 text-blue-600" />,
       description: 'Configure general settings for your content'
     },
     { 
       title: 'Landing Page', 
-      path: '/dashboard/partner/content/landing-page',
+      path: '/dashboard/content/landing-page',
       icon: <Layout className="h-8 w-8 mb-2 text-green-600" />,
       description: 'Manage content for your landing page'
     },
     { 
       title: 'Image Banner', 
-      path: '/dashboard/partner/content/image-banner',
+      path: '/dashboard/content/image-banner',
       icon: <Image className="h-8 w-8 mb-2 text-purple-600" />,
       description: 'Manage image banners'
     },
     { 
       title: 'Catalogue & Product', 
-      path: '/dashboard/partner/content/catalogue',
+      path: '/dashboard/content/catalogue',
       icon: <ShoppingBag className="h-8 w-8 mb-2 text-orange-600" />,
       description: 'Manage your product catalogue'
     },
     { 
       title: 'Promo and Hot Offers', 
-      path: '/dashboard/partner/content/hot-offers',
+      path: '/dashboard/content/hot-offers',
       icon: <Tag className="h-8 w-8 mb-2 text-red-600" />,
       description: 'Manage promotions and hot offers'
     },
     { 
       title: 'Services', 
-      path: '/dashboard/partner/content/services',
+      path: '/dashboard/content/services',
       icon: <Wrench className="h-8 w-8 mb-2 text-indigo-600" />,
       description: 'Manage service descriptions'
     },
     { 
       title: 'Team', 
-      path: '/dashboard/partner/content/team',
+      path: '/dashboard/content/team',
       icon: <Users className="h-8 w-8 mb-2 text-teal-600" />,
       description: 'Manage team member profiles'
     },
     { 
       title: 'Why Choose Us', 
-      path: '/dashboard/partner/content/why-choose-us',
+      path: '/dashboard/content/why-choose-us',
       icon: <CheckCircle className="h-8 w-8 mb-2 text-cyan-600" />,
       description: 'Manage why choose us section'
     },
     { 
       title: 'Bank Account', 
-      path: '/dashboard/partner/content/bank-account',
+      path: '/dashboard/content/bank-account',
       icon: <CreditCard className="h-8 w-8 mb-2 text-slate-600" />,
       description: 'Manage bank account details'
     }

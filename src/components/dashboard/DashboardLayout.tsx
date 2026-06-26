@@ -11,15 +11,23 @@ interface DashboardLayoutProps {
 export const DashboardLayout: FC<DashboardLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { effectiveOrgId, isAdmin, isChecking } = useEffectiveOrganization();
+  const { effectiveOrgId, isAdmin, isChecking, isSuperAdmin } = useEffectiveOrganization();
   const hasEffectiveOrganization = effectiveOrgId !== '';
 
   useEffect(() => {
     if (isChecking) return;
     if (location.pathname.startsWith('/auth/')) return;
 
-    const noOrg = !isAdmin && !hasEffectiveOrganization;
-    const basePrefix = isAdmin ? '/dashboard' : '/dashboard/partner';
+    // If SuperAdmin, navigate to /performance if not already there
+    if (isSuperAdmin) {
+      if (location.pathname !== '/performance' && !location.pathname.startsWith('/performance/')) {
+        navigate('/performance', { replace: true });
+        return;
+      }
+    }
+
+    const noOrg = !isSuperAdmin && !isAdmin && !hasEffectiveOrganization;
+    const basePrefix = '/dashboard';
     const allowedNoOrgPaths = [
       `${basePrefix}/organization/choice`,
       `${basePrefix}/organization/register`,
@@ -29,12 +37,12 @@ export const DashboardLayout: FC<DashboardLayoutProps> = ({ children }) => {
       location.pathname === path || location.pathname.startsWith(`${path}/`),
     );
 
-    if (noOrg && !isAllowedNoOrgPath) {
+    if (noOrg && !isAllowedNoOrgPath && !isSuperAdmin) {
       navigate(`${basePrefix}/organization/choice`, { replace: true });
       return;
     }
 
-    if (hasEffectiveOrganization) {
+    if (hasEffectiveOrganization && !isSuperAdmin) {
       const orgOnlyPaths = [
         `${basePrefix}/organization/choice`,
         `${basePrefix}/organization/register`,
@@ -49,25 +57,25 @@ if (onOrgOnlyPath) {
         return;
       }
 
-      const onDashboardHome = location.pathname === '/dashboard/partner' || location.pathname === '/dashboard/partner/';
+      const onDashboardHome = location.pathname === '/dashboard';
       if (noOrg && onDashboardHome) {
-        navigate('/dashboard/partner/organization/choice');
-      } else if (!isAdmin && location.pathname.startsWith('/dashboard/') && !location.pathname.startsWith('/dashboard/partner')) {
-        const target = location.pathname.replace('/dashboard/', '/dashboard/partner/');
-        navigate(target);
+        navigate('/dashboard/organization/choice');
+      } else if (!isAdmin && location.pathname.startsWith('/dashboard/')) {
+        navigate(location.pathname);
       }
     }
 
-    const onDashboardHome = location.pathname === '/dashboard/partner' || location.pathname === '/dashboard/partner/';
-    if (noOrg && onDashboardHome) {
-      navigate('/dashboard/partner/organization/choice');
+    if (!isSuperAdmin) {
+      const onDashboardHome = location.pathname === '/dashboard';
+      if (noOrg && onDashboardHome) {
+        navigate('/dashboard/organization/choice');
+      }
+      const pathIsAdminArea = location.pathname.startsWith('/dashboard/');
+      if (!isAdmin && pathIsAdminArea) {
+        navigate(location.pathname);
+      }
     }
-    const pathIsAdminArea = location.pathname.startsWith('/dashboard/') && !location.pathname.startsWith('/dashboard/partner');
-    if (!isAdmin && pathIsAdminArea) {
-      const target = location.pathname.replace('/dashboard/', '/dashboard/partner/');
-      navigate(target);
-    }
-  }, [effectiveOrgId, isAdmin, isChecking, navigate, location.pathname]);
+  }, [effectiveOrgId, isAdmin, isChecking, isSuperAdmin, navigate, location.pathname]);
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
