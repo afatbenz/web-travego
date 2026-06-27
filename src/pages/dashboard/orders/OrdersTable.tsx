@@ -58,7 +58,7 @@ interface OrdersTableProps {
 export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, description }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [orderPeriod, setOrderPeriod] = useState<DateRange | undefined>(() => getDefaultOrderPeriodRange());
   const [orderDate, setOrderDate] = useState<DateRange | undefined>();
@@ -402,7 +402,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     return `IDR ${jt.toFixed(2)} JT`;
   };
 
-  const canAddOrder = (type === 'fleet' || type === 'tour') && status === 'all' && basePrefix === '/dashboard/partner';
+  const canAddOrder = (type === 'fleet' || type === 'tour') && status === 'all' && basePrefix === '/dashboard';
   const createOrderPath =
     type === 'tour' ? `${basePrefix}/orders/tour/form` : `${basePrefix}/orders/fleet/form`;
   const goToOrder = (orderId: string) => {

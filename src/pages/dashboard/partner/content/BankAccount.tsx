@@ -385,7 +385,7 @@ export const BankAccountContent: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Bank Account</h1>
-          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">Manage bank account details.</p>
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">Kelola akun rekening anda sebagai informasi pembayaran.</p>
         </div>
         <Button className={addButtonClass} onClick={handleOpenAdd}>
           <Plus className="h-4 w-4 mr-2" />

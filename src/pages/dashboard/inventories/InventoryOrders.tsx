@@ -33,7 +33,7 @@ type InventoryOrder = {
 export const InventoryOrders: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

@@ -77,7 +77,7 @@ const isUnitOption = (value: string): value is (typeof unitOptions)[number] => {
 
 export const InventoryItems: React.FC = () => {
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

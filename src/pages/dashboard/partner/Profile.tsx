@@ -194,7 +194,7 @@ export const PartnerProfile: React.FC = () => {
   };
 
   return (
-    <div className="max-w-full mx-auto space-y-6 py-8 pb-3 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-full mx-auto space-y-6 pt-3 pb-6 px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profil Saya</h1>

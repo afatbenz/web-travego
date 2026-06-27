@@ -199,7 +199,7 @@ export const OrderDetail: React.FC = () => {
   const params = useParams();
   const routeOrderId = params.transaction_id ?? params.order_id ?? params.id ?? '';
   const orderId = params.order_id;
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
   const [orderData, setOrderData] = useState<OrderData>(() => createEmptyOrderData(routeOrderId || '-'));
   const [isUpdatePaymentOpen, setIsUpdatePaymentOpen] = useState(false);
   const [isConfirmPaymentOpen, setIsConfirmPaymentOpen] = useState(false);

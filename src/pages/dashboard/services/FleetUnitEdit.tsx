@@ -118,7 +118,7 @@ const normalizePartnershipOptions = (payload: unknown): PartnerOption[] => {
 export const FleetUnitEdit: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
   const params = useParams();
   const unitIdParam = params.unit_id ?? params.id ?? '';
 

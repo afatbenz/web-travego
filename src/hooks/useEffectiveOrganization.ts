@@ -78,8 +78,60 @@ function getBooleanClaim(claims: JwtClaims | null | undefined, keys: string[]): 
       if (value.toLowerCase() === 'true') return true;
       if (value.toLowerCase() === 'false') return false;
     }
+    if (typeof value === 'number') {
+      if (value === 1) return true;
+      if (value === 0) return false;
+    }
   }
   return undefined;
+}
+
+function getLocalUser(): { isAdmin?: boolean; isSuperAdmin?: boolean; role?: string } | null {
+  try {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return null;
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+}
+
+function updateLocalUser(
+  claims: JwtClaims | null | undefined,
+  sensitive?: SensitiveClaims
+) {
+  try {
+    const existingUserStr = localStorage.getItem('user');
+    const existingUser = existingUserStr ? JSON.parse(existingUserStr) : {};
+    
+    const isAdminClaim = Boolean(
+      sensitive?.is_admin ??
+      getBooleanClaim(claims, ['is_admin', 'isAdmin']) ??
+      existingUser.isAdmin ??
+      false
+    );
+    const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
+    const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
+    const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
+    const isSuperAdmin = isAdminClaim && organizationId === '00';
+    let role: 'SuperAdmin' | 'Admin' | 'Members' = 'Members';
+    if (isSuperAdmin) {
+      role = 'SuperAdmin';
+    } else if (isAdminClaim && organizationId !== '00' && organizationId !== '0') {
+      role = 'Admin';
+    }
+
+    const updatedUser = {
+      ...existingUser,
+      isAdmin: isAdminClaim,
+      isSuperAdmin,
+      role
+    };
+
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  } catch {
+    // Ignore errors
+  }
 }
 
 export function getEffectiveOrgId(
@@ -98,8 +150,13 @@ export function getIsAdmin(
   claims: JwtClaims | null | undefined,
   sensitive?: SensitiveClaims,
 ): boolean {
-  const result = Boolean(sensitive?.is_admin ?? getBooleanClaim(claims, ['is_admin', 'isAdmin']) ?? false);
-  console.log('[DEBUG getIsAdmin]', { sensitiveIsAdmin: sensitive?.is_admin, claimsIsAdmin: getBooleanClaim(claims, ['is_admin', 'isAdmin']), result });
+  const localUser = getLocalUser();
+  const result = Boolean(
+    sensitive?.is_admin ??
+    getBooleanClaim(claims, ['is_admin', 'isAdmin']) ??
+    localUser?.isAdmin ??
+    false
+  );
   return result;
 }
 
@@ -107,15 +164,29 @@ export function getRole(
   claims: JwtClaims | null | undefined,
   sensitive?: SensitiveClaims,
 ): 'SuperAdmin' | 'Admin' | 'Members' {
-  const isAdminClaim = Boolean(sensitive?.is_admin ?? getBooleanClaim(claims, ['is_admin', 'isAdmin']) ?? false);
+  const localUser = getLocalUser();
+  const isAdminClaim = Boolean(
+    sensitive?.is_admin ??
+    getBooleanClaim(claims, ['is_admin', 'isAdmin']) ??
+    localUser?.isAdmin ??
+    false
+  );
   const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
   const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
   const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
-  console.log(" ------ ", {isAdminClaim, organizationId})
-  if (isAdminClaim && organizationId === '00') {
+  const isSuperAdminFromLocal = localUser?.isSuperAdmin ?? false;
+  const roleFromLocal = localUser?.role;
+
+  console.log(" ------ ", { isAdminClaim, organizationId, isSuperAdminFromLocal, roleFromLocal });
+
+  if (isSuperAdminFromLocal || (isAdminClaim && organizationId === '00')) {
     return 'SuperAdmin';
-  } else if (isAdminClaim && organizationId !== '00' && organizationId !== '0') {
+  } else if (roleFromLocal === 'Admin' || (isAdminClaim && organizationId !== '00' && organizationId !== '0')) {
     return 'Admin';
+  } else if (roleFromLocal === 'SuperAdmin') {
+    return 'SuperAdmin';
+  } else if (roleFromLocal === 'Members') {
+    return 'Members';
   } else {
     return 'Members';
   }
@@ -125,12 +196,17 @@ export function getIsSuperAdmin(
   claims: JwtClaims | null | undefined,
   sensitive?: SensitiveClaims,
 ): boolean {
-  const isAdminClaim = Boolean(sensitive?.is_admin ?? getBooleanClaim(claims, ['is_admin', 'isAdmin']) ?? false);
+  const localUser = getLocalUser();
+  const isAdminClaim = Boolean(
+    sensitive?.is_admin ??
+    getBooleanClaim(claims, ['is_admin', 'isAdmin']) ??
+    localUser?.isAdmin ??
+    false
+  );
   const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
   const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
   const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
-  const result = isAdminClaim && organizationId === '00';
-  console.log('[DEBUG getIsSuperAdmin]', { isAdminClaim, organizationId, result });
+  const result = (localUser?.isSuperAdmin ?? false) || (isAdminClaim && organizationId === '00');
   return result;
 }
 
@@ -148,7 +224,6 @@ export function useEffectiveOrganization() {
       if (!mounted) return;
       setIsChecking(true);
       const currentClaims = readClaims();
-      console.log('[DEBUG] currentClaims:', currentClaims);
       setClaims(currentClaims);
       setSensitive({});
 
@@ -157,12 +232,18 @@ export function useEffectiveOrganization() {
       if (currentClaims && typeof currentClaims.token === 'string' && secret) {
         try {
           const decrypted = await decryptAuthToken(currentClaims.token, String(secret));
-          console.log('[DEBUG] Decrypted sensitive data:', decrypted);
-          if (mounted) setSensitive(decrypted);
+          if (mounted) {
+            setSensitive(decrypted);
+            updateLocalUser(currentClaims, decrypted);
+          }
         } catch (err) {
-          console.error('[DEBUG] Decryption FAILED:', err);
-          if (mounted) setSensitive({});
+          if (mounted) {
+            setSensitive({});
+            updateLocalUser(currentClaims, {});
+          }
         }
+      } else {
+        updateLocalUser(currentClaims, {});
       }
 
       if (mounted) setIsChecking(false);

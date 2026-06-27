@@ -72,7 +72,7 @@ type PackageBenefit = {
 export const SubscriptionPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = '/dashboard';
 
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(true);

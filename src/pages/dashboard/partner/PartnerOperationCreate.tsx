@@ -176,7 +176,7 @@ const AsyncCityCombobox: React.FC<{
 export const PartnerOperationCreate: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
   const token = localStorage.getItem('token') ?? '';
 
   const [saving, setSaving] = useState(false);

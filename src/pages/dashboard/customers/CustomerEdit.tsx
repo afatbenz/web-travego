@@ -139,7 +139,7 @@ export const CustomerEdit: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
   const token = localStorage.getItem('token') ?? '';
 
   const [loading, setLoading] = useState(false);

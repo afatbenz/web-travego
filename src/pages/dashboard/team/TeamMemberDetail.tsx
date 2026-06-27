@@ -86,7 +86,7 @@ export const TeamMemberDetail: React.FC = () => {
   const { uuid } = useParams<{ uuid: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
   const token = localStorage.getItem('token') ?? '';
 
   const [loading, setLoading] = useState(true);

@@ -24,7 +24,8 @@ import {
   CalendarArrowUp,
   HandCoinsIcon,
   CreditCard,
-  Gauge
+  Gauge,
+  Shapes
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -173,10 +174,11 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Pengaturan',
         items: [
-          { title: 'Subscription', icon: CreditCard, href: `${basePrefix}/accounts/subscription`, access: ['Admin'] },
+          { title: 'User', icon: Users, href: `${basePrefix}/organization/users`, access: ['Admin'] },
+          { title: 'Nomor Rekening', icon: CreditCard, href: `${basePrefix}/content/bank-account`, access: ['Admin'] },
+          { title: 'Subscription', icon: Shapes, href: `${basePrefix}/accounts/subscription`, access: ['Admin'] },
           { title: 'AI Assistant', icon: Code, href: `${basePrefix}/organization/account-assistant`, access: ['Admin'] },
           { title: 'Organisasi', icon: Building2, href: `${basePrefix}/organization/settings`, access: ['Admin'] },
-          { title: 'User', icon: Users, href: `${basePrefix}/organization/users`, access: ['Admin'] },
           { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api`, access: ['Admin'] },
           { title: 'Manajemen Konten', icon: SlidersHorizontal, href: `${basePrefix}/content`, access: ['Admin', 'Members'] }
         ],

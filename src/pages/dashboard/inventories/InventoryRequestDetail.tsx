@@ -157,7 +157,7 @@ const formatCurrency = (val: string) => {
 export const InventoryRequestDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
   const { request_id } = useParams<{ request_id: string }>();
   const requestId = decodeURIComponent(request_id ?? '');
 

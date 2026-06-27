@@ -232,7 +232,7 @@ function getArmadaRows(raw: Record<string, unknown>): ArmadaRow[] {
 export const PartnerOperationDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard');
 
   const params = useParams();
   const partnerIdParam = params.partner_id ?? params.partnerId ?? params.id ?? '';
