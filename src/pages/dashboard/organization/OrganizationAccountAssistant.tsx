@@ -244,6 +244,7 @@ export const OrganizationAccountAssistant: React.FC = () => {
     device_id?: string;
     total_received?: number;
     total_sent?: number;
+    available?: boolean;
   } | null>(null);
 
   const [formMode, setFormMode] = useState<FormMode>('add');
@@ -721,6 +722,16 @@ export const OrganizationAccountAssistant: React.FC = () => {
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Memuat...
                 </div>
+              ) : whatsappBusinessData?.available === true ? (
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/dashboard/accounts/subscription/pricing')}
+                    className="h-11 rounded-xl border-2 border-primary px-5 text-primary hover:bg-primary/5"
+                  >
+                    Ambil Penawaran Sekarang
+                  </Button>
+                </div>
               ) : whatsappBusinessData?.account_number ? (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">Nomor WhatsApp Business { whatsappBusinessData?.device_id === '' ? 'Sedang Ditinjau' : 'Telah Terhubung' }</div>
@@ -745,7 +756,7 @@ export const OrganizationAccountAssistant: React.FC = () => {
                     </div>
                       {whatsappBusinessData?.device_id === '' ? (
                         <div className="flex items-center gap-1 text-xs text-white font-semibold bg-red-600 rounded-full px-2 py-1">
-                          <Info className="h-4 w-4" type='Menunggu verifikasi sistem' />
+                          <Info className="h-4 w-4" />
                           <span>{whatsappBusinessData?.status_label}</span>
                         </div>
                       ) : (
