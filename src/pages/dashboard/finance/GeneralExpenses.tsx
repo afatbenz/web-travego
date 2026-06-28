@@ -1396,20 +1396,19 @@ const openEditModal = (row: TransactionRow) => {
                   type="button"
                   onClick={() => setManualOpen(false)}
                   disabled={manualSubmitting}
-                  className="w-full md:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 border-2 border-slate-200"
+                  className="w-full md:w-auto h-10 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 border-2 border-slate-200"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={manualSubmitting}
-                  className="w-full md:w-auto h-12 px-8 rounded-xl bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                  className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white"
                 >
                   {manualSubmitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
-                      <Save className="w-5 h-5" />
                       {manualMode === 'edit' ? 'Update Expense' : 'Simpan Expense'}
                     </>
                   )}

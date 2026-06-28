@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -339,6 +339,24 @@ export const FleetOrderForm: React.FC = () => {
   }, [location.search]);
   const isEditMode = Boolean(editOrderId);
 
+  const queryFleetId = useMemo(() => {
+    const sp = new URLSearchParams(location.search);
+    return (sp.get('fleet_id') ?? sp.get('fleetId') ?? '').trim();
+  }, [location.search]);
+
+  const queryStartDate = useMemo(() => {
+    const sp = new URLSearchParams(location.search);
+    return (sp.get('start_date') ?? sp.get('startDate') ?? '').trim();
+  }, [location.search]);
+
+  const queryEndDate = useMemo(() => {
+    const sp = new URLSearchParams(location.search);
+    return (sp.get('end_date') ?? sp.get('endDate') ?? '').trim();
+  }, [location.search]);
+
+  const autoFillDatesRef = useRef(false);
+  const autoFillFleetRef = useRef(false);
+
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rentType, setRentType] = useState('1');
@@ -384,6 +402,57 @@ export const FleetOrderForm: React.FC = () => {
     if (!pickup) return todayMin;
     return toDatetimeLocal(pickup);
   }, [pickupAt, todayMin]);
+
+  // Auto-fill dates from query params (non-edit mode only)
+  useEffect(() => {
+    if (isEditMode || !queryStartDate || autoFillDatesRef.current) return;
+    autoFillDatesRef.current = true;
+
+    const dateStr = queryStartDate.slice(0, 10);
+    const pickupVal = `${dateStr}T09:00`;
+    setPickupAt(pickupVal);
+
+    if (queryEndDate) {
+      const endStr = queryEndDate.slice(0, 10);
+      const dropoffVal = `${endStr}T21:00`;
+      setDropoffAt(dropoffVal);
+    }
+  }, [isEditMode, queryStartDate, queryEndDate]);
+
+  // Auto-select fleet from query params after fleetOptions has loaded
+  useEffect(() => {
+    if (isEditMode || !queryFleetId || fleetOptions.length === 0 || autoFillFleetRef.current) return;
+
+    const matched = fleetOptions.find((o) => o.id === queryFleetId);
+    if (!matched) return;
+    autoFillFleetRef.current = true;
+
+    // Set the first armada entry to the matched fleet
+    setArmadaEntryOptions([matched]);
+
+    // Fetch prices and addons for this fleet
+    (async () => {
+      const [prices, addons] = await Promise.all([
+        fetchPricesForEntry(matched.id, rentType),
+        fetchAddonsForEntry(matched.id),
+      ]);
+      setArmadaEntries([
+        {
+          armada_id: matched.id,
+          addon_ids: [],
+          addon_select_id: '',
+          price_id: prices.length === 1 ? prices[0].price_id : '',
+          qty: '1',
+          biaya_lain: '',
+          discount: '',
+          fleet_prices: prices,
+          loading_prices: false,
+          addon_options: addons,
+          loading_addons: false,
+        },
+      ]);
+    })();
+  }, [isEditMode, queryFleetId, fleetOptions, fetchPricesForEntry, fetchAddonsForEntry, rentType]);
 
   const toApiDateTime = useCallback((value: string) => {
     const d = parseDateMaybe(value);

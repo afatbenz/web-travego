@@ -360,10 +360,9 @@ export const CustomerDetail: React.FC = () => {
           <Button
             type="button"
             onClick={() => navigate(`${basePrefix}/customers/edit/${encodeURIComponent(customer?.customer_id || id || '')}`)}
-            className="w-full sm:w-auto h-12 px-6 rounded-md bg-blue-500 text-white hover:bg-blue-600 font-semibold shadow-[0_8px_12px_rgba(41,91,255,0.25)] hover:-translate-y-0.5 transition-all duration-300"
+            className="w-full sm:w-auto text-sm h-10 px-4 rounded-2xl bg-blue-500 text-white hover:bg-blue-600 font-semibold transition-all duration-300"
           >
-            <Pencil className="h-4 w-4 mr-2" />
-            Ubah Data Pelanggan
+            <Pencil className="h-4 w-4" />
           </Button>
         </div>
 

@@ -709,6 +709,14 @@ export const FleetDetail: React.FC = () => {
     }
   };
 
+  const handleReserveNow = (selectedDate: string) => {
+    const params = new URLSearchParams({
+      fleet_id: fleet.meta.fleet_id,
+      start_date: selectedDate,
+    });
+    navigate(`${basePrefix}/orders/fleet/form?${params.toString()}`);
+  };
+
   const RatioIcon = ({ ratio, className }: { ratio: string; className?: string }) => {
     if (ratio === '1080x1080') return <LucideIcons.Square className={className} />;
     if (ratio === '1920x1080') return <LucideIcons.RectangleHorizontal className={className} />;
@@ -1357,18 +1365,29 @@ export const FleetDetail: React.FC = () => {
                                     <TableCell className="text-center text-gray-700 dark:text-white/80 whitespace-nowrap">{unitCount} unit</TableCell>
                                     <TableCell className="text-right pr-4">
                                       {unitCount > 0 ? (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="bg-white border-gray-200/70 hover:bg-white"
-                                          onClick={() => {
-                                            setScheduleUnitsDate(dateLabel);
-                                            setScheduleUnits(row.available_units);
-                                            setScheduleUnitsOpen(true);
-                                          }}
-                                        >
-                                          <LucideIcons.Eye className="h-4 w-4" />
-                                        </Button>
+                                        <div className="flex items-center justify-end gap-2">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="bg-white border-gray-200/70 hover:bg-white"
+                                            onClick={() => {
+                                              setScheduleUnitsDate(dateLabel);
+                                              setScheduleUnits(row.available_units);
+                                              setScheduleUnitsOpen(true);
+                                            }}
+                                          >
+                                            <LucideIcons.Eye className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50"
+                                            onClick={() => handleReserveNow(row.date)}
+                                          >
+                                            <LucideIcons.CalendarPlus className="h-4 w-4 mr-2" />
+                                            Reservasi Sekarang
+                                          </Button>
+                                        </div>
                                       ) : (
                                         <span className="text-sm text-gray-400">-</span>
                                       )}
