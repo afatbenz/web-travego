@@ -232,6 +232,7 @@ import { OrganizationAccountAssistant } from './pages/dashboard/organization/Org
 import { DeviceIDs } from './pages/dashboard/DeviceIDs';
 import { SystemOrganizations } from './pages/dashboard/SystemOrganizations';
 import { SystemUsers } from './pages/dashboard/SystemUsers';
+import { SystemMessages } from './pages/dashboard/SystemMessages';
 import { NotificationsPage } from './pages/dashboard/NotificationsPage';
 import { SubscriptionPage } from './pages/dashboard/Subscription';
 import { SubscriptionPricing } from './pages/dashboard/SubscriptionPricing';
@@ -1152,6 +1153,11 @@ function App() {
           <Route path="/dashboard/system/organizations" element={
             <DashboardLayout>
               <SystemOrganizations />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/system/messages" element={
+            <DashboardLayout>
+              <SystemMessages />
             </DashboardLayout>
           } />
           <Route path="/dashboard/system/users" element={

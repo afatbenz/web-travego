@@ -332,6 +332,15 @@ export const FleetOrderForm: React.FC = () => {
   const location = useLocation();
   const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const token = localStorage.getItem('token') ?? '';
+  const handleBack = useCallback(() => {
+    const historyIndex = typeof window !== 'undefined' ? window.history.state?.idx : undefined;
+    if (typeof historyIndex === 'number' && historyIndex > 0) {
+      navigate(-1);
+      return;
+    }
+
+    navigate(`${basePrefix}/orders/fleet`);
+  }, [basePrefix, navigate]);
 
   const editOrderId = useMemo(() => {
     const sp = new URLSearchParams(location.search);
@@ -382,6 +391,11 @@ export const FleetOrderForm: React.FC = () => {
   ]);
   const [armadaEntryOptions, setArmadaEntryOptions] = useState<(Option | null)[]>([null]);
   const [customer, setCustomer] = useState<Option | null>(null);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerNameManual, setCustomerNameManual] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerCompany, setCustomerCompany] = useState('');
   const [pickupAt, setPickupAt] = useState('');
   const [dropoffAt, setDropoffAt] = useState('');
   const [pickupAddress, setPickupAddress] = useState('');
@@ -721,7 +735,14 @@ export const FleetOrderForm: React.FC = () => {
 
         const customerId = toStringSafe(customerObj.customer_id ?? customerObj.id ?? customerObj.uuid ?? detail.customer_id ?? detail.customerId).trim();
         const customerName = toStringSafe(customerObj.customer_name ?? customerObj.customerName ?? customerObj.name ?? '').trim();
+        const customerPhoneValue = toStringSafe(customerObj.customer_phone ?? customerObj.phone ?? detail.customer_phone ?? detail.customerPhone).trim();
+        const customerCompanyValue = toStringSafe(
+          customerObj.customer_company ?? customerObj.company ?? customerObj.company_name ?? detail.customer_company ?? detail.customerCompany
+        ).trim();
         setCustomer(customerId ? { id: customerId, label: customerName || customerId, raw: customerObj } : null);
+        setCustomerNameManual(customerId ? '' : customerName);
+        setCustomerPhone(customerPhoneValue);
+        setCustomerCompany(customerCompanyValue);
 
         const pickupAddressValue = toStringSafe(
           detail.pickup_address ?? detail.pickupAddress ?? pickup.pickup_location ?? pickup.pickupLocation ?? pickup.pickup_address ?? pickup.pickupAddress
@@ -973,12 +994,8 @@ export const FleetOrderForm: React.FC = () => {
     return list.filter((o) => o.label.toLowerCase().includes(query) || o.id.toLowerCase().includes(query));
   }, []);
 
-  const customerFetcher = useCallback(
-    async (q: string) => {
-      return filterLocalOptions(q, customerOptions);
-    },
-    [customerOptions, filterLocalOptions]
-  );
+  const filteredCustomers = useMemo(() => filterLocalOptions(customerQuery, customerOptions), [customerOptions, customerQuery, filterLocalOptions]);
+  const isManualCustomer = !customer && customerNameManual.trim().length > 0;
 
   const fleetFetcherFor = useCallback(
     (rowIndex: number) => {
@@ -1005,7 +1022,8 @@ export const FleetOrderForm: React.FC = () => {
       if (entry.fleet_prices.length > 0 && !entry.price_id) return `Pilih durasi sewa pada baris ke-${i + 1}`;
       if (digitsToNumber(entry.qty) <= 0) return `Jumlah armada pada baris ke-${i + 1} minimal 1`;
     }
-    if (!customer) return 'Pilih customer terlebih dahulu';
+    if (!customer && !customerNameManual.trim()) return 'Pilih customer terlebih dahulu';
+    if (isManualCustomer && !customerPhone.trim()) return 'Nomor telepon customer wajib diisi saat input manual';
     if (!pickupAt) return 'Tanggal dan jam penjemputan wajib diisi';
     if (!dropoffAt) return 'Tanggal dan jam pengantaran wajib diisi';
     if (!pickupAddress.trim()) return 'Alamat penjemputan wajib diisi';
@@ -1049,12 +1067,21 @@ export const FleetOrderForm: React.FC = () => {
       const additional = armadaAdditionalTotal;
       const totalQty = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.qty), 0);
       const firstEntry = armadaEntries[0];
+      const manualCustomerName = customerNameManual.trim();
+      const manualCustomerPhone = customerPhone.trim();
+      const manualCustomerCompany = customerCompany.trim();
 
       const payload = {
         fleet_id: firstEntry.armada_id,
         ...(firstEntry.price_id ? { price_id: firstEntry.price_id } : {}),
         rent_type: Number(rentType),
-        customer_id: customer!.id,
+        ...(customer
+          ? { customer_id: customer.id }
+          : {
+              customer_name: manualCustomerName,
+              customer_phone: manualCustomerPhone,
+              customer_company: manualCustomerCompany,
+            }),
         pickup_datetime: pickupAt,
         dropoff_datetime: dropoffAt,
         pickup_address: pickupAddress,
@@ -1113,13 +1140,22 @@ export const FleetOrderForm: React.FC = () => {
       const additional = armadaAdditionalTotal;
       const totalQty = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.qty), 0);
       const firstEntry = armadaEntries[0];
+      const manualCustomerName = customerNameManual.trim();
+      const manualCustomerPhone = customerPhone.trim();
+      const manualCustomerCompany = customerCompany.trim();
 
       const payload = {
         order_id: editOrderId,
         fleet_id: firstEntry.armada_id,
         ...(firstEntry.price_id ? { price_id: firstEntry.price_id } : {}),
         rent_type: Number(rentType),
-        customer_id: customer!.id,
+        ...(customer
+          ? { customer_id: customer.id }
+          : {
+              customer_name: manualCustomerName,
+              customer_phone: manualCustomerPhone,
+              customer_company: manualCustomerCompany,
+            }),
         pickup_datetime: pickupAt,
         dropoff_datetime: dropoffAt,
         pickup_address: pickupAddress,
@@ -1235,13 +1271,19 @@ export const FleetOrderForm: React.FC = () => {
         string,
         unknown
       >;
-    const customerName = String(customerDetailData.customer_name ?? customerDetailData.name ?? customer?.label ?? '');
-    const customerEmail = String(customerDetailData.customer_email ?? customerDetailData.email ?? '');
-    const customerPhone = String(customerDetailData.customer_phone ?? customerDetailData.phone ?? '');
+    const previewCustomerName = String(
+      isManualCustomer ? customerNameManual : customerDetailData.customer_name ?? customerDetailData.name ?? customer?.label ?? ''
+    );
+    const previewCustomerPhone = String(
+      isManualCustomer ? customerPhone : customerDetailData.customer_phone ?? customerDetailData.phone ?? customerPhone ?? ''
+    );
     const customerTelephone = String(customerDetailData.customer_telephone ?? customerDetailData.telephone ?? '');
     const customerAddress = String(customerDetailData.customer_address ?? customerDetailData.address ?? '');
     const customerCity = String(customerDetailData.customer_city_name ?? customerDetailData.city_name ?? customerDetailData.city ?? '');
     const customerAddressText = customerAddress && customerCity ? `${customerAddress}, ${customerCity}` : (customerAddress || customerCity || '-');
+    const customerCompanyText = customerCompany.trim() || String(customerDetailData.customer_company ?? customerDetailData.company_name ?? '-');
+    const customerMetaLabel = isManualCustomer ? 'Instansi' : 'Alamat';
+    const customerMetaValue = isManualCustomer ? customerCompanyText : customerAddressText;
 
     const itineraryTableHtml = `
       <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -1305,10 +1347,9 @@ export const FleetOrderForm: React.FC = () => {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;font-size:13px">
               <div>
                 <div style="font-weight:600;margin-bottom:8px">Pemesan</div>
-                <div><b>Nama Pemesan</b>: ${escapeHtml(customerName || '-')}</div>
-                <div><b>No. Telepon</b>: ${escapeHtml(customerPhone || customerTelephone || '-')}</div>
-                <div><b>Email</b>: ${escapeHtml(customerEmail || '-')}</div>
-                <div><b>Alamat</b>: ${escapeHtml(customerAddressText)}</div>
+                <div><b>Nama Pemesan</b>: ${escapeHtml(previewCustomerName || '-')}</div>
+                <div><b>No. Telepon</b>: ${escapeHtml(previewCustomerPhone || customerTelephone || '-')}</div>
+                <div><b>${customerMetaLabel}</b>: ${escapeHtml(customerMetaValue)}</div>
               </div>
               <div>
                 <div style="font-weight:600;margin-bottom:8px">Pickup / Dropoff</div>
@@ -1420,7 +1461,7 @@ export const FleetOrderForm: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={() => navigate(`${basePrefix}/orders/fleet`)}>
+        <Button variant="outline" size="icon" onClick={handleBack}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -1440,14 +1481,84 @@ export const FleetOrderForm: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Customer</label>
-                <AsyncCombobox
-                  value={customer}
-                  onChange={setCustomer}
-                  placeholder="Cari customer..."
-                  fetcher={customerFetcher}
-                  minChars={0}
-                  disabled={saving || loadingDetail}
-                />
+                <Popover
+                  open={customerPickerOpen}
+                  onOpenChange={(open) => {
+                    if (saving || loadingDetail) return;
+                    setCustomerPickerOpen(open);
+                    setCustomerQuery(open ? (customer?.label ?? customerNameManual) : '');
+                    if (!open) setCustomerQuery('');
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className={cn(formComboboxTriggerClass, !(customer || customerNameManual.trim()) && 'text-muted-foreground')}
+                      disabled={saving || loadingDetail}
+                    >
+                      {customer ? customer.label : customerNameManual.trim() || 'Cari atau ketik customer...'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className={formPopoverContentClass} align="start">
+                    <Command shouldFilter={false} className="rounded-xl">
+                      <CommandInput
+                        placeholder="Cari atau ketik customer..."
+                        value={customerQuery}
+                        onValueChange={(value) => {
+                          setCustomerQuery(value);
+                          setCustomer(null);
+                          setCustomerNameManual(value);
+                        }}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {customerQuery.trim().length < 3 ? 'Ketik minimal 3 karakter untuk mencari customer.' : 'Tidak ada hasil.'}
+                        </CommandEmpty>
+                        {customerQuery.trim() ? (
+                          <CommandGroup heading="Teks">
+                            <CommandItem
+                              value={`__manual_customer__:${customerQuery.trim()}`}
+                              className={formCommandItemClass}
+                              onSelect={() => {
+                                const value = customerQuery.trim();
+                                setCustomer(null);
+                                setCustomerNameManual(value);
+                                setCustomerPickerOpen(false);
+                                setCustomerQuery('');
+                              }}
+                            >
+                              Gunakan: {customerQuery.trim()}
+                            </CommandItem>
+                          </CommandGroup>
+                        ) : null}
+                        <CommandGroup heading="Customer">
+                          {filteredCustomers.map((opt) => (
+                            <CommandItem
+                              key={opt.id}
+                              value={`${opt.label} ${opt.id}`}
+                              className={formCommandItemClass}
+                              onSelect={() => {
+                                const raw = record(opt.raw);
+                                setCustomer(opt);
+                                setCustomerNameManual('');
+                                setCustomerPhone(toStringSafe(raw.customer_phone ?? raw.phone ?? ''));
+                                setCustomerCompany(toStringSafe(raw.customer_company ?? raw.company ?? raw.company_name ?? ''));
+                                setCustomerPickerOpen(false);
+                                setCustomerQuery('');
+                              }}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', customer?.id === opt.id ? 'opacity-100' : 'opacity-0')} />
+                              {opt.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
@@ -1467,6 +1578,37 @@ export const FleetOrderForm: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {isManualCustomer ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Nomor Telepon</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">62</span>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                        className={cn(formFieldClass, 'pl-12')}
+                        placeholder="8xxxxxxxxxx"
+                        disabled={saving || loadingDetail}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Instansi</label>
+                    <Input
+                      value={customerCompany}
+                      onChange={(e) => setCustomerCompany(e.target.value)}
+                      className={formFieldClass}
+                      placeholder="Nama instansi / perusahaan"
+                      disabled={saving || loadingDetail}
+                    />
+                  </div>
+                </>
+              ) : null}
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Tanggal & Jam Penjemputan</label>
@@ -2135,7 +2277,7 @@ export const FleetOrderForm: React.FC = () => {
         </Card>
 
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" className="rounded-2xl" onClick={() => navigate(`${basePrefix}/orders/fleet`)}>
+          <Button type="button" variant="outline" className="rounded-2xl" onClick={handleBack}>
             Batal
           </Button>
           <Button type="button" variant="outline"  className="rounded-2xl" onClick={onPreview} disabled={saving || !formReady}>
