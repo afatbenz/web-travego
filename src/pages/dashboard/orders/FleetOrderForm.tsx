@@ -354,6 +354,11 @@ export const FleetOrderForm: React.FC = () => {
     return (sp.get('end_date') ?? sp.get('endDate') ?? '').trim();
   }, [location.search]);
 
+  const queryUnitId = useMemo(() => {
+    const sp = new URLSearchParams(location.search);
+    return (sp.get('unit_id') ?? sp.get('unitId') ?? '').trim();
+  }, [location.search]);
+
   const autoFillDatesRef = useRef(false);
   const autoFillFleetRef = useRef(false);
 
@@ -386,6 +391,7 @@ export const FleetOrderForm: React.FC = () => {
   const [specialRequestMode, setSpecialRequestMode] = useState<'none' | 'note'>('none');
   const [customerOptions, setCustomerOptions] = useState<Option[]>([]);
   const [fleetOptions, setFleetOptions] = useState<Option[]>([]);
+  const [fleetTotalUnitMap, setFleetTotalUnitMap] = useState<Record<string, number>>({});
 
   const selectedFleetIds = useMemo(() => {
     return new Set(armadaEntryOptions.map((o) => o?.id).filter((id): id is string => Boolean(id)));
@@ -395,6 +401,12 @@ export const FleetOrderForm: React.FC = () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     return toDatetimeLocal(startOfToday);
+  }, []);
+
+  const threeDaysAgoMin = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 3);
+    return toDatetimeLocal(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0));
   }, []);
 
   const dropoffMin = useMemo(() => {
@@ -418,41 +430,6 @@ export const FleetOrderForm: React.FC = () => {
       setDropoffAt(dropoffVal);
     }
   }, [isEditMode, queryStartDate, queryEndDate]);
-
-  // Auto-select fleet from query params after fleetOptions has loaded
-  useEffect(() => {
-    if (isEditMode || !queryFleetId || fleetOptions.length === 0 || autoFillFleetRef.current) return;
-
-    const matched = fleetOptions.find((o) => o.id === queryFleetId);
-    if (!matched) return;
-    autoFillFleetRef.current = true;
-
-    // Set the first armada entry to the matched fleet
-    setArmadaEntryOptions([matched]);
-
-    // Fetch prices and addons for this fleet
-    (async () => {
-      const [prices, addons] = await Promise.all([
-        fetchPricesForEntry(matched.id, rentType),
-        fetchAddonsForEntry(matched.id),
-      ]);
-      setArmadaEntries([
-        {
-          armada_id: matched.id,
-          addon_ids: [],
-          addon_select_id: '',
-          price_id: prices.length === 1 ? prices[0].price_id : '',
-          qty: '1',
-          biaya_lain: '',
-          discount: '',
-          fleet_prices: prices,
-          loading_prices: false,
-          addon_options: addons,
-          loading_addons: false,
-        },
-      ]);
-    })();
-  }, [isEditMode, queryFleetId, fleetOptions, fetchPricesForEntry, fetchAddonsForEntry, rentType]);
 
   const toApiDateTime = useCallback((value: string) => {
     const d = parseDateMaybe(value);
@@ -516,6 +493,17 @@ export const FleetOrderForm: React.FC = () => {
               .map((it) => (it && typeof it === 'object' ? (it as Record<string, unknown>) : null))
               .filter((it): it is Record<string, unknown> => Boolean(it))
           : [];
+
+        // Build total_unit map per fleet
+        const unitMap: Record<string, number> = {};
+        fleets.forEach((f) => {
+          const idRaw = f.fleet_id ?? f.id;
+          const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+          if (id) {
+            unitMap[id] = toNumberSafe(f.total_unit);
+          }
+        });
+        setFleetTotalUnitMap(unitMap);
 
         if (!available && fleets.length === 0) {
           await Swal.fire({
@@ -656,6 +644,41 @@ export const FleetOrderForm: React.FC = () => {
       })
       .filter((o): o is NonNullable<typeof o> => Boolean(o)) as Option[];
   }, []);
+
+  // Auto-select fleet from query params after fleetOptions has loaded
+  useEffect(() => {
+    if (isEditMode || !queryFleetId || fleetOptions.length === 0 || autoFillFleetRef.current) return;
+
+    const matched = fleetOptions.find((o) => o.id === queryFleetId);
+    if (!matched) return;
+    autoFillFleetRef.current = true;
+
+    // Set the first armada entry to the matched fleet
+    setArmadaEntryOptions([matched]);
+
+    // Fetch prices and addons for this fleet
+    (async () => {
+      const [prices, addons] = await Promise.all([
+        fetchPricesForEntry(matched.id, rentType),
+        fetchAddonsForEntry(matched.id),
+      ]);
+      setArmadaEntries([
+        {
+          armada_id: matched.id,
+          addon_ids: [],
+          addon_select_id: '',
+          price_id: prices.length === 1 ? prices[0].price_id : '',
+          qty: '1',
+          biaya_lain: '',
+          discount: '',
+          fleet_prices: prices,
+          loading_prices: false,
+          addon_options: addons,
+          loading_addons: false,
+        },
+      ]);
+    })();
+  }, [isEditMode, queryFleetId, fleetOptions, fetchPricesForEntry, fetchAddonsForEntry, rentType]);
 
   useEffect(() => {
     const updateAllPrices = async () => {
@@ -1026,7 +1049,7 @@ export const FleetOrderForm: React.FC = () => {
       const additional = armadaAdditionalTotal;
       const totalQty = armadaEntries.reduce((acc, r) => acc + digitsToNumber(r.qty), 0);
       const firstEntry = armadaEntries[0];
-      
+
       const payload = {
         fleet_id: firstEntry.armada_id,
         ...(firstEntry.price_id ? { price_id: firstEntry.price_id } : {}),
@@ -1059,8 +1082,17 @@ export const FleetOrderForm: React.FC = () => {
       };
       const res = await api.post<unknown>('/services/fleet/orders/create', payload, token ? { Authorization: token } : undefined);
       if (res.status === 'success') {
+        const root = record(res.data);
+        const orderId = toStringSafe(root.order_id ?? root.orderId ?? root.id ?? '');
         await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan berhasil dibuat.' });
-        navigate(`${basePrefix}/orders/fleet`);
+        // Preserve query params (fleet_id, unit_id, etc.) for downstream navigation
+        const sp = new URLSearchParams(location.search);
+        sp.delete('start_date');
+        sp.delete('end_date');
+        sp.delete('order_id');
+        const qs = sp.toString();
+        const detailUrl = `${basePrefix}/orders/fleet/detail/${encodeURIComponent(orderId)}${qs ? `?${qs}` : ''}`;
+        navigate(detailUrl);
       }
     } finally {
       setSaving(false);
@@ -1441,9 +1473,22 @@ export const FleetOrderForm: React.FC = () => {
                 <Input
                   type="datetime-local"
                   value={pickupAt}
-                  min={todayMin}
+                  min={threeDaysAgoMin}
                   onChange={(e) => {
                     const next = e.target.value;
+                    // Clamp: if date is before 3 days ago, reset to today
+                    const nextDate = parseDateMaybe(next);
+                    if (nextDate) {
+                      const threeDaysAgo = new Date();
+                      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                      threeDaysAgo.setHours(0, 0, 0, 0);
+                      if (nextDate.getTime() < threeDaysAgo.getTime()) {
+                        const today = new Date();
+                        const clamped = toDatetimeLocal(new Date(today.getFullYear(), today.getMonth(), today.getDate(), today.getHours(), today.getMinutes()));
+                        setPickupAt(clamped);
+                        return;
+                      }
+                    }
                     setPickupAt(next);
                     if (dropoffAt && next) {
                       const d1 = parseDateMaybe(dropoffAt);
@@ -1461,7 +1506,22 @@ export const FleetOrderForm: React.FC = () => {
                   type="datetime-local"
                   value={dropoffAt}
                   min={dropoffMin}
-                  onChange={(e) => setDropoffAt(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    // Clamp: if date is before today, reset to today
+                    const nextDate = parseDateMaybe(next);
+                    if (nextDate) {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      if (nextDate.getTime() < today.getTime()) {
+                        const now = new Date();
+                        const clamped = toDatetimeLocal(new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()));
+                        setDropoffAt(clamped);
+                        return;
+                      }
+                    }
+                    setDropoffAt(next);
+                  }}
                   className={formFieldClass}
                   disabled={saving || loadingDetail}
                 />
@@ -1637,11 +1697,27 @@ export const FleetOrderForm: React.FC = () => {
                       <Input
                         value={row.qty}
                         inputMode="numeric"
-                        onChange={(e) =>
+                        onChange={async (e) => {
+                          const raw = e.target.value.replace(/[^0-9]/g, '');
+                          const fleetId = armadaEntryOptions[idx]?.id ?? '';
+                          const totalUnit = fleetId ? (fleetTotalUnitMap[fleetId] ?? 0) : 0;
+                          const maxQty = totalUnit + 1;
+                          const inputNum = Number(raw);
+                          if (fleetId && totalUnit > 0 && inputNum > maxQty) {
+                            await Swal.fire({
+                              icon: 'warning',
+                              title: 'Jumlah Melebihi Batas',
+                              text: `Jumlah Unit Tersedia Di Periode Tersebut adalah ${totalUnit}`,
+                            });
+                            setArmadaEntries((prev) =>
+                              prev.map((r, i) => (i === idx ? { ...r, qty: String(maxQty) } : r))
+                            );
+                            return;
+                          }
                           setArmadaEntries((prev) =>
-                            prev.map((r, i) => (i === idx ? { ...r, qty: e.target.value.replace(/[^0-9]/g, '') } : r))
-                          )
-                        }
+                            prev.map((r, i) => (i === idx ? { ...r, qty: raw } : r))
+                          );
+                        }}
                         className={formFieldClass}
                         placeholder="1"
                         disabled={saving || loadingDetail}
