@@ -4,6 +4,9 @@ import {
   Pencil,
   Loader2,
   X,
+  Smartphone,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
@@ -115,8 +118,36 @@ export const DeviceIDs: React.FC = () => {
     }
   };
 
-  const handleStatusChange = async (item: DeviceItem, newStatus: 'enable' | 'disable') => {
-    if (newStatus === 'enable') {
+  const handleToggle = async (item: DeviceItem, currentlyEnabled: boolean) => {
+    if (currentlyEnabled) {
+      const result = await Swal.fire({
+        title: 'Nonaktifkan Device',
+        text: `Yakin ingin menonaktifkan device untuk ${item.account_number}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Nonaktifkan',
+        cancelButtonText: 'Batal',
+      });
+
+      if (!result.isConfirmed) return;
+
+      setIsSubmitting(true);
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const headers = token ? { Authorization: token } : undefined;
+        const res = await api.put<unknown>('/system/assistant/device/disable', { account: item.account_number }, headers);
+        if (res.status !== 'success') {
+          toast({ title: 'Error', description: res.message || 'Gagal menonaktifkan device', variant: 'destructive' });
+          return;
+        }
+        toast({ title: 'Berhasil', description: 'Device berhasil dinonaktifkan' });
+        await fetchDevices();
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
       setFormAction('enable');
       setFormValues({
         account_number: item.account_number,
@@ -125,35 +156,6 @@ export const DeviceIDs: React.FC = () => {
         device_token: '',
       });
       setIsFormOpen(true);
-      return;
-    }
-
-    const result = await Swal.fire({
-      title: 'Nonaktifkan Device',
-      text: `Yakin ingin menonaktifkan device untuk ${item.account_number}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#dc2626',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Nonaktifkan',
-      cancelButtonText: 'Batal',
-    });
-
-    if (!result.isConfirmed) return;
-
-    setIsSubmitting(true);
-    try {
-      const token = localStorage.getItem('token') ?? '';
-      const headers = token ? { Authorization: token } : undefined;
-      const res = await api.put<unknown>('/system/assistant/device/disable', { account: item.account_number }, headers);
-      if (res.status !== 'success') {
-        toast({ title: 'Error', description: res.message || 'Gagal menonaktifkan device', variant: 'destructive' });
-        return;
-      }
-      toast({ title: 'Berhasil', description: 'Device berhasil dinonaktifkan' });
-      await fetchDevices();
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -237,10 +239,8 @@ export const DeviceIDs: React.FC = () => {
                 { label: 'Whatsapp Number', className: 'min-w-[180px]' },
                 { label: 'Nama Perusahaan', className: 'min-w-[200px]' },
                 { label: 'Nama Device', className: 'min-w-[180px]' },
-                { label: 'Device ID', className: 'min-w-[250px]' },
-                { label: 'Device Token', className: 'min-w-[250px]' },
                 { label: 'Tanggal Ditambahkan', className: 'min-w-[180px]' },
-                { label: 'Action', className: 'w-[200px] text-center' },
+                { label: 'Action', className: 'w-[240px] text-center' },
               ].map((h) => (
                 <TableHead
                   key={h.label}
@@ -254,7 +254,7 @@ export const DeviceIDs: React.FC = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Memuat data...
@@ -263,7 +263,7 @@ export const DeviceIDs: React.FC = () => {
               </TableRow>
             ) : pagedDevices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="px-4 py-14 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="px-4 py-14 text-center text-sm text-muted-foreground">
                   Belum ada data device
                 </TableCell>
               </TableRow>
@@ -279,44 +279,34 @@ export const DeviceIDs: React.FC = () => {
                     <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{row.account_number}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">{row.organization_name}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">{row.device_name || '-'}</TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="text-xs font-mono text-foreground break-all max-w-[200px]">
-                        {row.device_id || '-'}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="text-xs font-mono text-foreground break-all max-w-[200px]">
-                        {row.device_token || '-'}
-                      </div>
-                    </TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">
                       {formatDate(displayDate)}
                     </TableCell>
                     <TableCell className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Radio buttons: Enable / Disable */}
-                        <label className="flex items-center gap-1 text-xs cursor-pointer">
-                          <input
-                            type="radio"
-                            name={`status-${row.account_number}`}
-                            checked={enabled}
-                            onChange={() => handleStatusChange(row, 'enable')}
-                            className="accent-green-600"
-                            disabled={isSubmitting}
+                      <div className="flex items-center justify-center gap-3">
+                        {/* Modern toggle on/off */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(row, enabled)}
+                          disabled={isSubmitting}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                            enabled
+                              ? 'bg-green-500 focus-visible:ring-green-500'
+                              : 'bg-gray-300 dark:bg-gray-600 focus-visible:ring-gray-400'
+                          }`}
+                          role="switch"
+                          aria-checked={enabled}
+                          aria-label={enabled ? 'Nonaktifkan device' : 'Aktifkan device'}
+                        >
+                          <span
+                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ${
+                              enabled ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                            }`}
                           />
-                          <span className="text-green-600 font-medium">Enable</span>
-                        </label>
-                        <label className="flex items-center gap-1 text-xs cursor-pointer">
-                          <input
-                            type="radio"
-                            name={`status-${row.account_number}`}
-                            checked={!enabled}
-                            onChange={() => handleStatusChange(row, 'disable')}
-                            className="accent-red-600"
-                            disabled={isSubmitting}
-                          />
-                          <span className="text-red-600 font-medium">Disable</span>
-                        </label>
+                        </button>
+                        <span className={`text-xs font-medium ${enabled ? 'text-green-600' : 'text-red-600'}`}>
+                          {enabled ? 'Enable' : 'Disable'}
+                        </span>
 
                         {/* Edit icon — only visible when enabled */}
                         {enabled && (
@@ -398,12 +388,17 @@ export const DeviceIDs: React.FC = () => {
         <DialogContentScrollable className="max-w-[500px] w-[calc(100vw-2rem)] border border-border bg-background p-0 shadow-2xl sm:rounded-[24px]">
           <div className="px-6 pt-6">
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-lg sm:text-xl font-semibold text-foreground">
-                  {formAction === 'edit' ? 'Edit Device' : 'Enable Device'}
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500 text-white">
+                  <Smartphone className="h-6 w-6" />
                 </div>
-                <div className="mt-1 text-xs md:text-sm text-muted-foreground">
-                  {formAction === 'edit' ? 'Ubah data device WhatsApp Business' : 'Masukkan data device WhatsApp Business'}
+                <div className="min-w-0">
+                  <div className="text-lg sm:text-xl font-semibold text-foreground">
+                    {formAction === 'edit' ? 'Edit Device' : 'Enable Device'}
+                  </div>
+                  <div className="mt-1 text-xs md:text-sm text-muted-foreground">
+                    {formAction === 'edit' ? 'Ubah data device WhatsApp Business' : 'Masukkan data device WhatsApp Business'}
+                  </div>
                 </div>
               </div>
               <DialogClose asChild>
@@ -469,11 +464,21 @@ export const DeviceIDs: React.FC = () => {
               </DialogClose>
               <Button
                 type="submit"
-                className="h-11 rounded-xl bg-primary hover:bg-primary/90 text-white"
+                className="h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 text-center no-shadow"
                 disabled={isSubmitting}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {formAction === 'edit' ? 'Simpan Perubahan' : 'Aktifkan'}
+                {formAction === 'edit' ? (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Simpan Perubahan
+                  </>
+                ) : (
+                  <>
+                    <Smartphone className="mr-2 h-4 w-4" />
+                    Aktifkan
+                  </>
+                )}
               </Button>
             </DialogStickyFooter>
           </form>
