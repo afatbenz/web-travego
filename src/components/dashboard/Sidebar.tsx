@@ -124,7 +124,7 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Preferensi',
         items: [
-          ...(!isAdmin ? [{ title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities`, access: ['Admin', 'Members', 'SuperAdmin'] }] : [])
+          { title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities`, access: ['Admin', 'Members', 'SuperAdmin'] }
         ],
         access: ['Admin', 'Members']
       },

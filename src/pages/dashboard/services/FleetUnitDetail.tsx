@@ -769,7 +769,7 @@ export const FleetUnitDetail: React.FC = () => {
     const q = new URLSearchParams();
     q.set('unit_id', unitIdOverride || detail?.unit_id || unitIdParam);
     q.set('date', dateYmd);
-    navigate(`${basePrefix}/orders/fleet/create?${q.toString()}`);
+    navigate(`${basePrefix}/orders/fleet/form?${q.toString()}`);
   };
 
   const handleGenerate = async () => {

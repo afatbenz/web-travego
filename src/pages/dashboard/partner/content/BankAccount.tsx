@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog';
+import { DialogContent, DialogClose } from '@/components/ui/dialog';
 import { api, uploadCommon } from '@/lib/api';
 import Swal from 'sweetalert2';
 import { Plus, Pencil, Trash2, Loader2, Check, ChevronsUpDown, Upload, X } from 'lucide-react';
@@ -100,10 +101,35 @@ export const BankAccountContent: React.FC = () => {
     fetchBanks();
   }, []);
 
+  useEffect(() => {
+    if (!dialogOpen) {
+      setBankOpen(false);
+      return;
+    }
+
+    if (formData.payment_method !== 1 || !formData.bank_code || banks.length === 0) {
+      return;
+    }
+
+    const selectedBank = banks.find((bank) => bank.code === formData.bank_code);
+    if (!selectedBank) {
+      return;
+    }
+
+    if (formData.bank_name !== selectedBank.name) {
+      setFormData((prev) => ({
+        ...prev,
+        bank_code: selectedBank.code,
+        bank_name: selectedBank.name,
+      }));
+    }
+  }, [banks, dialogOpen, formData.bank_code, formData.bank_name, formData.payment_method]);
+
   const handleOpenAdd = () => {
     setEditingAccount(null);
     setFormData({ 
       bank_code: '', 
+      bank_name: '',
       account_number: '', 
       account_name: '',
       payment_method: 1,
@@ -115,6 +141,7 @@ export const BankAccountContent: React.FC = () => {
       account_type: 1,
       qris_image: ''
     });
+    setBankOpen(false);
     setDialogOpen(true);
   };
 
@@ -124,9 +151,12 @@ export const BankAccountContent: React.FC = () => {
     if (account.payment_method === 2 || account.payment_method === 'QRIS') {
       pm = 2;
     }
+
+    const selectedBank = banks.find((bank) => bank.code === account.bank_code);
     
     setFormData({
-      bank_code: account.bank_code || account.bank_name || '',
+      bank_code: selectedBank?.code || account.bank_code || '',
+      bank_name: selectedBank?.name || account.bank_name || '',
       account_number: account.account_number,
       account_name: account.account_name,
       payment_method: pm,
@@ -138,6 +168,7 @@ export const BankAccountContent: React.FC = () => {
       account_type: account.account_type || 1,
       qris_image: account.qris_image || ''
     });
+    setBankOpen(false);
     setDialogOpen(true);
   };
 
@@ -316,6 +347,7 @@ export const BankAccountContent: React.FC = () => {
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const totalItems = accounts.length;
+  const selectedFormBank = banks.find((bank) => bank.code === formData.bank_code);
 
   const columns: Array<DataTableColumn<BankAccount>> = [
     {
@@ -442,7 +474,15 @@ export const BankAccountContent: React.FC = () => {
         <Plus className="h-6 w-6" />
       </Button>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogPrimitive.Root
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setBankOpen(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col" onInteractOutside={(e) => {
           const target = e.target as HTMLElement;
           if (target.closest('.swal2-container')) {
@@ -507,9 +547,9 @@ export const BankAccountContent: React.FC = () => {
                           aria-expanded={bankOpen}
                           className="w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50"
                         >
-                          <span className={formData.bank_name ? '' : 'text-muted-foreground'}>
-                            {formData.bank_name
-                              ? banks.find((bank) => bank.name === formData.bank_name)?.name || formData.bank_name
+                          <span className={selectedFormBank || formData.bank_name ? '' : 'text-muted-foreground'}>
+                            {selectedFormBank?.name || formData.bank_name
+                              ? selectedFormBank?.name || formData.bank_name
                               : "Pilih Bank..."}
                           </span>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -526,19 +566,19 @@ export const BankAccountContent: React.FC = () => {
                                   key={bank.code}
                                   value={bank.name}
                                   className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900"
-                                  onSelect={(currentValue) => {
-                                    const selectedBank = banks.find(b => b.name.toLowerCase() === currentValue.toLowerCase());
-                                    const nameToSet = selectedBank ? selectedBank.name : currentValue;
-                                    const codeToSet = selectedBank ? selectedBank.code : '';
-                                    
-                                    setFormData({...formData, bank_name: nameToSet, bank_code: codeToSet});
+                                  onSelect={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      bank_name: bank.name,
+                                      bank_code: bank.code,
+                                    }));
                                     setBankOpen(false);
                                   }}
                                 >
                                   <Check
                                     className={cn(
                                       "mr-2 h-4 w-4",
-                                      formData.bank_name === bank.name ? "opacity-100" : "opacity-0"
+                                      formData.bank_code === bank.code ? "opacity-100" : "opacity-0"
                                     )}
                                   />
                                   {bank.name}
@@ -680,7 +720,7 @@ export const BankAccountContent: React.FC = () => {
           </form>
           <div id="swal-dialog-target" />
         </DialogContent>
-      </Dialog>
+      </DialogPrimitive.Root>
     </div>
   );
 };

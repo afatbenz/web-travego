@@ -346,7 +346,7 @@ export const FleetOrderForm: React.FC = () => {
 
   const queryStartDate = useMemo(() => {
     const sp = new URLSearchParams(location.search);
-    return (sp.get('start_date') ?? sp.get('startDate') ?? '').trim();
+    return (sp.get('start_date') ?? sp.get('startDate') ?? sp.get('date') ?? '').trim();
   }, [location.search]);
 
   const queryEndDate = useMemo(() => {
