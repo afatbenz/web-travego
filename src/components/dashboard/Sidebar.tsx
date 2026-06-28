@@ -209,6 +209,7 @@ export const Sidebar: React.FC = () => {
   // Function to check if user has access
   const hasAccess = (accessList: string[] | undefined): boolean => {
     if (!accessList || accessList.length === 0) return false;
+    if (isSuperAdmin) return true;
     return accessList.includes(role);
   };
 
