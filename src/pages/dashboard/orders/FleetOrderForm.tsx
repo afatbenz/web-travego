@@ -330,7 +330,7 @@ async function fetchJsonSilent(path: string, token: string): Promise<unknown> {
 export const FleetOrderForm: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const token = localStorage.getItem('token') ?? '';
 
   const editOrderId = useMemo(() => {

@@ -73,7 +73,7 @@ type ArmadaRow = {
 export const ServicesArmada: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [capacityFilter, setCapacityFilter] = useState('all');

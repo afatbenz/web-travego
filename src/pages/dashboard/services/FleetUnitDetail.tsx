@@ -207,7 +207,7 @@ const toPickupLabel = (raw: unknown): { title: string; subtitle?: string } => {
 export const FleetUnitDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const params = useParams();
   const unitIdParam = params.unit_id ?? params.id ?? '';
 

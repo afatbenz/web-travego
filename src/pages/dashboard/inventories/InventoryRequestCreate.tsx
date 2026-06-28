@@ -40,7 +40,7 @@ type RequestFormData = {
 export const InventoryRequestCreate: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
 
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<RequestFormData>({

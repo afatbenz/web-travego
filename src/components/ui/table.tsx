@@ -67,8 +67,8 @@ const TableRow = React.forwardRef<
     className={cn(
       'border-b transition-colors data-[state=selected]:bg-muted dark:border-blue-200/10 dark:text-[#D1D5DB]',
       // Light Mode: Striped & Hover (Tbody only)
-      '[tbody_&]:odd:bg-white [tbody_&]:even:bg-blue-100/30 [tbody_&]:even:hover:bg-blue-200 dark:bg-[#080b11] dark:hover:bg-[#1c2633]',
-      '[tbody_&]:odd:hover:bg-gray-100/50 [tbody_&]:even:hover:bg-blue-200/70',
+      '[tbody_&]:odd:bg-white [tbody_&]:even:bg-blue-100/30 [tbody_&]:even:hover:bg-blue-100 dark:bg-[#080b11] dark:hover:bg-[#1c2633]',
+      '[tbody_&]:odd:hover:bg-gray-100/50 [tbody_&]:even:hover:bg-blue-100/70',
       // Dark Mode: Striped & Hover (Tbody only)
       'dark:[tbody_&]:odd:bg-[#1c2633] dark:[tbody_&]:even:bg-[#111827]',
       'dark:[tbody_&]:odd:hover:bg-[#151c26] dark:[tbody_&]:even:hover:bg-[#0b0f19]',

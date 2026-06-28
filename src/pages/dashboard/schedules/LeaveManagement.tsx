@@ -100,7 +100,7 @@ export const LeaveManagement: React.FC = () => {
   };
 
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [loading, setLoading] = useState(false);

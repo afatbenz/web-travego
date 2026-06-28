@@ -34,7 +34,7 @@ type PackageApiResponse = {
 export const SubscriptionPricing: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
   const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);

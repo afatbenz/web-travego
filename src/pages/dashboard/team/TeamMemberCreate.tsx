@@ -159,7 +159,7 @@ const AsyncCombobox: React.FC<{
 export const TeamMemberCreate: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const token = localStorage.getItem('token') ?? '';
 
   const [saving, setSaving] = useState(false);

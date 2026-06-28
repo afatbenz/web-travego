@@ -56,7 +56,7 @@ export const PackageDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const packagesPath = `${basePrefix}/services/packages`;
   const [loading, setLoading] = useState(true);
   const [pkg, setPkg] = useState<PackageDetailData | null>(null);

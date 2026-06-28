@@ -916,11 +916,6 @@ function App() {
               <FleetDetail />
             </DashboardLayout>
           } />
-          <Route path="/dashboard/services/fleet/detail/:id" element={
-            <DashboardLayout>
-              <FleetDetail />
-            </DashboardLayout>
-          } />
           <Route path="/dashboard/team/team-member" element={
             <DashboardLayout>
               <TeamMember />

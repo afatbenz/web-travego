@@ -80,7 +80,7 @@ const getDaysInMonthGrid = (date: Date) => {
 export const FleetManagement: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [loading, setLoading] = useState(true);

@@ -122,7 +122,7 @@ const normalizeFleetOptions = (payload: unknown): FleetOption[] => {
 export const FleetUnitCreate: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
 
   const [loadingFleetOptions, setLoadingFleetOptions] = useState(false);
   const [fleetOptions, setFleetOptions] = useState<FleetOption[]>([]);

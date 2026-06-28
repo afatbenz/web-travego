@@ -263,7 +263,7 @@ const KeyValueGrid: React.FC<{ items: Array<{ label: string; value: React.ReactN
 export const FleetScheduleDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const params = useParams();
   const token = localStorage.getItem('token') ?? '';
 

@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export const AllCustomers: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const addButtonClass =
     "hidden sm:flex h-10 rounded-2xl bg-white hover:bg-gray-100 px-4 text-blue-600 border-blue-300 border-2 hover:text-black transition-all duration-300 hover:-translate-y-0.2 hover:from-blue-700 hover:to-blue-600";
 
@@ -269,7 +269,7 @@ export const AllCustomers: React.FC = () => {
           return (
             <Link
               to={to}
-              className="font-medium no-underline hover:no-underline hover:text-white/80 transition-colors text-blue-900 dark:text-white/80 dark:hover:text-white"
+              className="font-medium no-underline hover:no-underline hover:text-black/80 transition-colors text-blue-900 dark:text-white/80 dark:hover:text-white"
             >
               {row.name || '-'}
             </Link>

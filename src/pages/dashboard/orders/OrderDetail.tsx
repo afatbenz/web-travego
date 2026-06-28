@@ -75,6 +75,7 @@ type OrderData = {
   endDate: string;
   participants: number;
   status: string;
+  statusLabel: string;
   totalAmount: number;
   remainingAmount: number;
   paidAmount: number;
@@ -156,6 +157,7 @@ const createEmptyOrderData = (id: string): OrderData => ({
   endDate: '',
   participants: 0,
   status: 'pending',
+  statusLabel: '-',
   totalAmount: 0,
   remainingAmount: 0,
   paidAmount: 0,
@@ -199,7 +201,7 @@ export const OrderDetail: React.FC = () => {
   const params = useParams();
   const routeOrderId = params.transaction_id ?? params.order_id ?? params.id ?? '';
   const orderId = params.order_id;
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const [orderData, setOrderData] = useState<OrderData>(() => createEmptyOrderData(routeOrderId || '-'));
   const [isUpdatePaymentOpen, setIsUpdatePaymentOpen] = useState(false);
   const [isConfirmPaymentOpen, setIsConfirmPaymentOpen] = useState(false);
@@ -1079,6 +1081,7 @@ const next: OrderData = {
       endDate,
       participants: quantity,
       status: getString(detail.status, paymentStatus === 'paid' ? 'success' : 'pending'),
+      statusLabel: getString(detail.status_label ?? detail.statusLabel, '-'),
       totalAmount: totalFromRes,
       remainingAmount,
       paidAmount,
@@ -2414,7 +2417,11 @@ const next: OrderData = {
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Payment Status</div>
                   <div>
-                    {isWaitingConfirmation ? (
+                    {orderData.rawStatus === 2 || orderData.rawStatus === 0 ? (
+                      <Badge className="rounded-full border border-red-200 bg-red-500 text-white shadow-sm dark:border-red-900/40 dark:bg-red-600 dark:text-white">
+                        {orderData.statusLabel}
+                      </Badge>
+                    ) : isWaitingConfirmation ? (
                       <Badge className="rounded-full border border-orange-200 bg-orange-50 text-orange-700 shadow-sm dark:border-orange-900/40 dark:bg-orange-900/20 dark:text-orange-200">
                         Menunggu Konfirmasi
                       </Badge>

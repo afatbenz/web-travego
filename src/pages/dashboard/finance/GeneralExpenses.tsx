@@ -1385,13 +1385,13 @@ const openEditModal = (row: TransactionRow) => {
               </div>
             </div>
 
-            <div className="px-6 sm:px-8 pb-6 pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2 md:max-w-[calc(100%-180px)]">
+            <div className="px-6 sm:px-8 pb-6 pt-4 border-t border-slate-100 space-y-4">
+              <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
                 <span className="text-xs text-slate-700">Pastikan semua informasi sudah benar sebelum menyimpan data pengeluaran.</span>
               </div>
 
-              <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end mt-3 md:mt-0">
+              <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
                 <button
                   type="button"
                   onClick={() => setManualOpen(false)}

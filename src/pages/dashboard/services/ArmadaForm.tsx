@@ -32,7 +32,7 @@ export const ArmadaForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const isEdit = Boolean(id);
   const normalizeSelectKey = (value: unknown): string =>
     String(value ?? '')

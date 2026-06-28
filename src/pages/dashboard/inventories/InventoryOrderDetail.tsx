@@ -227,7 +227,7 @@ const HeaderPill = ({ label, value, href, isLink }: HeaderPillProps) => (
 export const InventoryOrderDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard');
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const { purchaseid } = useParams<{ purchaseid: string }>();
   const purchaseId = purchaseid ? decodeURIComponent(purchaseid) : '';
 
