@@ -116,6 +116,8 @@ export const Sidebar: React.FC = () => {
           { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units`, access: ['Admin', 'Members'] },
           { title: 'Daftar Garasi', icon: Building2, href: `${basePrefix}/organization/garages`, access: ['Admin', 'Members'] },
           { title: 'Device ID', icon: Code, href: `${basePrefix}/device-ids`, access: ['SuperAdmin'] },
+          { title: 'Perusahaan', icon: Building2, href: `${basePrefix}/system/organizations`, access: ['SuperAdmin'] },
+          { title: 'Pengguna', icon: Users, href: `${basePrefix}/system/users`, access: ['SuperAdmin'] },
         ],
         access: ['Admin', 'Members', 'SuperAdmin']
       },

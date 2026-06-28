@@ -23,6 +23,8 @@ export const DashboardLayout: FC<DashboardLayoutProps> = ({ children }) => {
       const allowedSuperAdminPaths = [
         '/performance',
         '/dashboard/device-ids',
+        '/dashboard/system/organizations',
+        '/dashboard/system/users',
       ];
       const isAllowed = allowedSuperAdminPaths.some((path) =>
         location.pathname === path || location.pathname.startsWith(path + '/'),

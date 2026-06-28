@@ -230,6 +230,8 @@ import { AllCoupons } from '@/pages/dashboard/coupons/AllCoupons';
 import { AddCoupon } from '@/pages/dashboard/coupons/AddCoupon';
 import { OrganizationAccountAssistant } from './pages/dashboard/organization/OrganizationAccountAssistant';
 import { DeviceIDs } from './pages/dashboard/DeviceIDs';
+import { SystemOrganizations } from './pages/dashboard/SystemOrganizations';
+import { SystemUsers } from './pages/dashboard/SystemUsers';
 import { NotificationsPage } from './pages/dashboard/NotificationsPage';
 import { SubscriptionPage } from './pages/dashboard/Subscription';
 import { SubscriptionPricing } from './pages/dashboard/SubscriptionPricing';
@@ -1148,6 +1150,18 @@ function App() {
           <Route path="/dashboard/device-ids" element={
             <DashboardLayout>
               <DeviceIDs />
+            </DashboardLayout>
+          } />
+
+          {/* System Management (SuperAdmin) */}
+          <Route path="/dashboard/system/organizations" element={
+            <DashboardLayout>
+              <SystemOrganizations />
+            </DashboardLayout>
+          } />
+          <Route path="/dashboard/system/users" element={
+            <DashboardLayout>
+              <SystemUsers />
             </DashboardLayout>
           } />
 
