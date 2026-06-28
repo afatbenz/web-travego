@@ -7,6 +7,7 @@ import {
   Smartphone,
   CheckCircle2,
   XCircle,
+  Search,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
@@ -94,16 +95,18 @@ function formatPhoneNumber(phone: string): string {
   
   // If starts with 0, replace with 62
   if (formatted.startsWith('0')) {
-    formatted = '62 ' + formatted.slice(1);
+    formatted = '62' + formatted.slice(1);
   } else if (!formatted.startsWith('62')) {
-    formatted = '62 ' + formatted;
+    formatted = '62' + formatted;
   }
   
-  // Format as 62xxx-xxxx-xxxx
+  // Format as 62 xxx-xxxx-xxxx
   if (formatted.length >= 12) {
-    return `${formatted.slice(0, 5)}-${formatted.slice(5, 9)}-${formatted.slice(9)}`;
+    return `62 ${formatted.slice(2, 5)}-${formatted.slice(5, 9)}-${formatted.slice(9)}`;
   } else if (formatted.length >= 9) {
-    return `${formatted.slice(0, 5)}-${formatted.slice(5)}`;
+    return `62 ${formatted.slice(2, 5)}-${formatted.slice(5)}`;
+  } else if (formatted.length >= 5) {
+    return `62 ${formatted.slice(2)}`;
   }
   return formatted;
 }
@@ -111,6 +114,7 @@ function formatPhoneNumber(phone: string): string {
 export const DeviceIDs: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState<DeviceItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -125,15 +129,32 @@ export const DeviceIDs: React.FC = () => {
   });
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
     fetchDevices();
   }, []);
 
-  const fetchDevices = async () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm !== '') {
+        fetchDevices();
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const fetchDevices = async (search?: string) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token') ?? '';
       const headers = token ? { Authorization: token } : undefined;
-      const res = await api.get<unknown>('/system/assistant/device', headers);
+      const query = new URLSearchParams();
+      const term = search ?? searchTerm;
+      if (term) query.set('search', term);
+      const qs = query.toString();
+      const res = await api.get<unknown>(`/system/assistant/device${qs ? '?' + qs : ''}`, headers);
       if (res.status === 'success') {
         setDevices(parseDevices(res.data));
       }
@@ -167,7 +188,7 @@ export const DeviceIDs: React.FC = () => {
           return;
         }
         toast({ title: 'Berhasil', description: 'Device berhasil dinonaktifkan' });
-        await fetchDevices();
+        await fetchDevices(searchTerm);
       } finally {
         setIsSubmitting(false);
       }
@@ -232,7 +253,7 @@ export const DeviceIDs: React.FC = () => {
         return;
       }
       toast({ title: 'Berhasil', description: 'Device berhasil disimpan' });
-      await fetchDevices();
+      await fetchDevices(searchTerm);
       closeDialog();
     } finally {
       setIsSubmitting(false);
@@ -251,6 +272,17 @@ export const DeviceIDs: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Device ID</h1>
         <p className="mt-1 text-sm text-muted-foreground">Kelola perangkat WhatsApp Business Assistant</p>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Cari nama perusahaan..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="h-11 rounded-2xl pl-10"
+        />
       </div>
 
       {/* Table */}

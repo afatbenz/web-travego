@@ -116,11 +116,13 @@ export const SystemUsers: React.FC = () => {
       formatted = '62' + formatted;
     }
     
-    // Format as 62xxx-xxxx-xxxx
+    // Format as 62 xxx-xxxx-xxxx
     if (formatted.length >= 12) {
-      return `${formatted.slice(0, 5)}-${formatted.slice(5, 9)}-${formatted.slice(9)}`;
+      return `62 ${formatted.slice(2, 5)}-${formatted.slice(5, 9)}-${formatted.slice(9)}`;
     } else if (formatted.length >= 9) {
-      return `${formatted.slice(0, 5)}-${formatted.slice(5)}`;
+      return `62 ${formatted.slice(2, 5)}-${formatted.slice(5)}`;
+    } else if (formatted.length >= 5) {
+      return `62 ${formatted.slice(2)}`;
     }
     return formatted;
   };
