@@ -84,6 +84,26 @@ function formatDate(dateString: string): string {
   }
 }
 
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '-';
+  if (digits.startsWith('62') && digits.length > 4) {
+    const prefix = digits.slice(0, 2);
+    const rest = digits.slice(2);
+    const parts = [prefix];
+    for (let i = 0; i < rest.length; i += 4) {
+      parts.push(rest.slice(i, i + 4));
+    }
+    return parts.join('-');
+  }
+  if (digits.length <= 4) return digits;
+  const parts: string[] = [];
+  for (let i = 0; i < digits.length; i += 4) {
+    parts.push(digits.slice(i, i + 4));
+  }
+  return parts.join('-');
+}
+
 export const DeviceIDs: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState<DeviceItem[]>([]);
@@ -276,7 +296,7 @@ export const DeviceIDs: React.FC = () => {
                 return (
                   <TableRow key={row.account_number} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-3 text-center text-sm text-muted-foreground">{no}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{row.account_number}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{formatPhoneNumber(row.account_number)}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">{row.organization_name}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">{row.device_name || '-'}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">
@@ -305,7 +325,6 @@ export const DeviceIDs: React.FC = () => {
                           />
                         </button>
                         <span className={`text-xs font-medium ${enabled ? 'text-green-600' : 'text-red-600'}`}>
-                          {enabled ? 'Enable' : 'Disable'}
                         </span>
 
                         {/* Edit icon — only visible when enabled */}
