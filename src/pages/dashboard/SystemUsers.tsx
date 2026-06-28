@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { toFileUrl } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type UserItem = {
   fullname: string;
@@ -102,6 +103,28 @@ export const SystemUsers: React.FC = () => {
     return toFileUrl(avatar);
   };
 
+  const formatPhoneNumber = (phone: string): string => {
+    if (!phone) return '-';
+    // Remove all non-digit characters
+    const digits = phone.replace(/\D/g, '');
+    let formatted = digits;
+    
+    // If starts with 0, replace with 62
+    if (formatted.startsWith('0')) {
+      formatted = '62' + formatted.slice(1);
+    } else if (!formatted.startsWith('62')) {
+      formatted = '62' + formatted;
+    }
+    
+    // Format as 62xxx-xxxx-xxxx
+    if (formatted.length >= 12) {
+      return `${formatted.slice(0, 5)}-${formatted.slice(5, 9)}-${formatted.slice(9)}`;
+    } else if (formatted.length >= 9) {
+      return `${formatted.slice(0, 5)}-${formatted.slice(5)}`;
+    }
+    return formatted;
+  };
+
   const columns: Array<DataTableColumn<UserItem>> = [
     {
       label: 'No',
@@ -142,9 +165,9 @@ export const SystemUsers: React.FC = () => {
     {
       label: 'Nomor Telepon',
       key: 'phone',
-      width: 150,
+      width: 180,
       sortable: true,
-      render: (item) => <span className="text-sm text-foreground">{item.phone || '-'}</span>
+      render: (item) => <span className="text-sm text-foreground">{formatPhoneNumber(item.phone)}</span>
     },
     {
       label: 'Role',
@@ -212,38 +235,16 @@ export const SystemUsers: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-foreground">Status:</span>
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="user-status"
-                    checked={activeFilter === 'all'}
-                    onChange={() => setActiveFilter('all')}
-                    className="accent-blue-600"
-                  />
-                  Semua
-                </label>
-                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="user-status"
-                    checked={activeFilter === 'true'}
-                    onChange={() => setActiveFilter('true')}
-                    className="accent-green-600"
-                  />
-                  Active
-                </label>
-                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="user-status"
-                    checked={activeFilter === 'false'}
-                    onChange={() => setActiveFilter('false')}
-                    className="accent-red-600"
-                  />
-                  Inactive
-                </label>
-              </div>
+              <Select value={activeFilter} onValueChange={setActiveFilter}>
+                <SelectTrigger className="h-11 w-[160px] rounded-2xl">
+                  <SelectValue placeholder="Pilih status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua</SelectItem>
+                  <SelectItem value="true">Active</SelectItem>
+                  <SelectItem value="false">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button
               type="button"

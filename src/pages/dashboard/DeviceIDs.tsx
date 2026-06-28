@@ -27,6 +27,7 @@ type DeviceItem = {
   device_name: string;
   device_token: string;
   organization_name: string;
+  company_name: string;
   account_number: string;
   created_at: string;
   updated_at: string;
@@ -59,6 +60,7 @@ function parseDevices(payload: unknown): DeviceItem[] {
         device_name: toText(raw.device_name),
         device_token: toText(raw.device_token),
         organization_name: toText(raw.organization_name),
+        company_name: toText(raw.company_name),
         account_number: toText(raw.account_number),
         created_at: toText(raw.created_at),
         updated_at: toText(raw.updated_at),
@@ -84,24 +86,26 @@ function formatDate(dateString: string): string {
   }
 }
 
-function formatPhoneNumber(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return '-';
-  if (digits.startsWith('62') && digits.length > 4) {
-    const prefix = digits.slice(0, 2);
-    const rest = digits.slice(2);
-    const parts = [prefix];
-    for (let i = 0; i < rest.length; i += 4) {
-      parts.push(rest.slice(i, i + 4));
-    }
-    return parts.join('-');
+function formatPhoneNumber(phone: string): string {
+  if (!phone) return '-';
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, '');
+  let formatted = digits;
+  
+  // If starts with 0, replace with 62
+  if (formatted.startsWith('0')) {
+    formatted = '62 ' + formatted.slice(1);
+  } else if (!formatted.startsWith('62')) {
+    formatted = '62 ' + formatted;
   }
-  if (digits.length <= 4) return digits;
-  const parts: string[] = [];
-  for (let i = 0; i < digits.length; i += 4) {
-    parts.push(digits.slice(i, i + 4));
+  
+  // Format as 62xxx-xxxx-xxxx
+  if (formatted.length >= 12) {
+    return `${formatted.slice(0, 5)}-${formatted.slice(5, 9)}-${formatted.slice(9)}`;
+  } else if (formatted.length >= 9) {
+    return `${formatted.slice(0, 5)}-${formatted.slice(5)}`;
   }
-  return parts.join('-');
+  return formatted;
 }
 
 export const DeviceIDs: React.FC = () => {
@@ -297,7 +301,12 @@ export const DeviceIDs: React.FC = () => {
                   <TableRow key={row.account_number} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-3 text-center text-sm text-muted-foreground">{no}</TableCell>
                     <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{formatPhoneNumber(row.account_number)}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm text-foreground">{row.organization_name}</TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-foreground truncate">{row.organization_name}</div>
+                        <div className="text-xs text-muted-foreground truncate">{row.company_name || '-'}</div>
+                      </div>
+                    </TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">{row.device_name || '-'}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">
                       {formatDate(displayDate)}

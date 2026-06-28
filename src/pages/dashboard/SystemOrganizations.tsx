@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { toFileUrl } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type OrgItem = {
   organization_id: string;
@@ -109,6 +109,30 @@ export const SystemOrganizations: React.FC = () => {
     return toFileUrl(logo);
   };
 
+  const formatPhoneNumber = (phone: string): string => {
+    if (!phone) return '-';
+    // Remove all non-digit characters
+    const digits = phone.replace(/\D/g, '');
+    let formatted = digits;
+    
+    // If starts with 0, replace with 62
+    if (formatted.startsWith('0')) {
+      formatted = '62' + formatted.slice(1);
+    } else if (!formatted.startsWith('62')) {
+      formatted = '62' + formatted;
+    }
+    
+    // Format as 62 xxx-xxxx-xxxx
+    if (formatted.length >= 12) {
+      return `62 ${formatted.slice(2, 5)}-${formatted.slice(5, 9)}-${formatted.slice(9)}`;
+    } else if (formatted.length >= 9) {
+      return `62 ${formatted.slice(2, 5)}-${formatted.slice(5)}`;
+    } else if (formatted.length >= 5) {
+      return `62 ${formatted.slice(2)}`;
+    }
+    return formatted;
+  };
+
   const columns: Array<DataTableColumn<OrgItem>> = [
     {
       label: 'No',
@@ -163,9 +187,9 @@ export const SystemOrganizations: React.FC = () => {
     {
       label: 'No. Telepon',
       key: 'phone',
-      width: 140,
+      width: 180,
       sortable: true,
-      render: (item) => <span className="text-sm text-foreground">{item.phone || '-'}</span>
+      render: (item) => <span className="text-sm text-foreground">{formatPhoneNumber(item.phone)}</span>
     },
     {
       label: 'Nama Paket',
@@ -230,38 +254,16 @@ export const SystemOrganizations: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-foreground">Status:</span>
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="org-status"
-                    checked={statusFilter === 'all'}
-                    onChange={() => setStatusFilter('all')}
-                    className="accent-blue-600"
-                  />
-                  Semua
-                </label>
-                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="org-status"
-                    checked={statusFilter === 'active'}
-                    onChange={() => setStatusFilter('active')}
-                    className="accent-green-600"
-                  />
-                  Aktif
-                </label>
-                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="org-status"
-                    checked={statusFilter === 'inactive'}
-                    onChange={() => setStatusFilter('inactive')}
-                    className="accent-red-600"
-                  />
-                  Tidak Aktif
-                </label>
-              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-11 w-[160px] rounded-2xl">
+                  <SelectValue placeholder="Pilih status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua</SelectItem>
+                  <SelectItem value="active">Aktif</SelectItem>
+                  <SelectItem value="inactive">Tidak Aktif</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button
               type="button"
