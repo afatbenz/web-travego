@@ -209,10 +209,8 @@ function toFleetExportRows(rows: ArmadaRow[]): FleetExportRow[] {
   }));
 }
 
-function getArmadaRows(raw: Record<string, unknown>): ArmadaRow[] {
-  const selected = list(raw.fleet_units);
-
-  return selected.map((item, index) => {
+function getArmadaRowsDetail(fleetUnits: unknown[]): ArmadaRow[] {
+  return fleetUnits.map((item, index) => {
     const armada = record(item);
     const id = toText(pickValue(armada, ['vehicle_id', 'id'])) || String(index + 1);
 
@@ -239,6 +237,7 @@ export const PartnerOperationDetail: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<PartnerOperationDetailData | null>(null);
+  const [fleetUnitsRaw, setFleetUnitsRaw] = useState<unknown[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formValues, setFormValues] = useState<PartnerFormValues>(getDefaultFormValues(null));
   const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
@@ -266,6 +265,13 @@ export const PartnerOperationDetail: React.FC = () => {
         const partnerIdNormalized =
           typeof partnerIdRaw === 'string' || typeof partnerIdRaw === 'number' ? String(partnerIdRaw) : partnerId;
 
+        // Extract fleet units into a separate state to avoid cascading recomputes
+        const fleetUnits = list(obj.fleet_units);
+        setFleetUnitsRaw(fleetUnits);
+
+        // Strip fleet_units from raw to keep the reactive chain lean
+        const { fleet_units, ...cleanRaw } = obj;
+
         setDetail({
           partnerId: partnerIdNormalized,
           partnerName: String(obj.partner_name ?? obj.partnerName ?? obj.name ?? ''),
@@ -275,8 +281,8 @@ export const PartnerOperationDetail: React.FC = () => {
           partnerCityLabel: String(obj.partner_city_label ?? obj.partnerCityLabel ?? obj.city_label ?? obj.cityLabel ?? ''),
           partnerPhone: String(obj.partner_phone ?? obj.partnerPhone ?? obj.phone ?? ''),
           picName: String(obj.pic_name ?? obj.picName ?? obj.pic ?? ''),
-          raw: obj,
-          totalUnit: toNumber(obj.total_unit ?? obj.totalUnit ?? list(obj.fleet_units).length),
+          raw: cleanRaw as Record<string, unknown>,
+          totalUnit: toNumber(obj.total_unit ?? obj.totalUnit ?? fleetUnits.length),
           totalRevenue: toNumber(obj.total_revenue ?? obj.totalRevenue ?? 0),
           totalExpenses: toNumber(obj.total_expenses ?? obj.totalExpenses ?? obj.expesenses ?? obj.total_expense ?? obj.totalExpense ?? 0),
           totalSchedules: toNumber(obj.total_schedule ?? obj.totalSchedule ?? 0),
@@ -335,7 +341,7 @@ export const PartnerOperationDetail: React.FC = () => {
     return toText(pickValue(partnerRaw, ['partner_email', 'partnerEmail', 'email']));
   }, [partnerRaw]);
 
-  const armadaRows = useMemo(() => getArmadaRows(partnerRaw), [partnerRaw]);
+  const armadaRows = useMemo(() => getArmadaRowsDetail(fleetUnitsRaw), [fleetUnitsRaw]);
   const [fleetPage, setFleetPage] = useState(1);
   const [fleetPageSize, setFleetPageSize] = useState(10);
   const fleetStartIndex = (Math.max(1, fleetPage) - 1) * Math.max(1, fleetPageSize);
@@ -466,7 +472,7 @@ export const PartnerOperationDetail: React.FC = () => {
     if (formMode === 'edit' && detail?.partnerId) {
       setIsSubmitting(true);
       try {
-        const res = await api.post<unknown>('/partnership/operations/update', payload);
+        const res = await api.post<unknown>('/services/partnership/operations/update', payload);
         if (res.status !== 'success') return;
       } finally {
         setIsSubmitting(false);
