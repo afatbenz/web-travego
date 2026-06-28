@@ -257,7 +257,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
 
       if (res.status === 401) {
         const isAuthEndpoint = path.startsWith('/auth/');
-        if (!isAuthEndpoint) {
+        const isRetry = Boolean((init as Record<string, unknown> | undefined)?._retry);
+        if (!isAuthEndpoint && !isRetry) {
           const refreshed = await refreshTokenOnce();
           if (refreshed) {
             const newToken = localStorage.getItem('token');
@@ -265,7 +266,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
               ...mergedHeaders,
               Authorization: `Bearer ${newToken}`,
             };
-            return request<T>(path, { ...init, headers: retryHeaders });
+            return request<T>(path, { ...init, headers: retryHeaders, _retry: true } as RequestInit);
           }
         }
 

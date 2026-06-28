@@ -229,6 +229,7 @@ import { OperationalExpenses } from '@/pages/dashboard/finance/OperationalExpens
 import { AllCoupons } from '@/pages/dashboard/coupons/AllCoupons';
 import { AddCoupon } from '@/pages/dashboard/coupons/AddCoupon';
 import { OrganizationAccountAssistant } from './pages/dashboard/organization/OrganizationAccountAssistant';
+import { DeviceIDs } from './pages/dashboard/DeviceIDs';
 import { NotificationsPage } from './pages/dashboard/NotificationsPage';
 import { SubscriptionPage } from './pages/dashboard/Subscription';
 import { SubscriptionPricing } from './pages/dashboard/SubscriptionPricing';
@@ -1142,6 +1143,13 @@ function App() {
                <SubscriptionPaymentStatus />
              </DashboardLayout>
            } />
+
+          {/* Device ID Management (SuperAdmin) */}
+          <Route path="/dashboard/device-ids" element={
+            <DashboardLayout>
+              <DeviceIDs />
+            </DashboardLayout>
+          } />
 
 {/* Inventory Routes */}
             <Route path="/dashboard/inventories/items" element={<DashboardLayout><InventoryItems /></DashboardLayout>} />
