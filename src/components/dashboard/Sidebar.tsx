@@ -209,7 +209,6 @@ export const Sidebar: React.FC = () => {
   // Function to check if user has access
   const hasAccess = (accessList: string[] | undefined): boolean => {
     if (!accessList || accessList.length === 0) return false;
-    if (isSuperAdmin) return true;
     return accessList.includes(role);
   };
 
@@ -283,7 +282,12 @@ export const Sidebar: React.FC = () => {
       if (location.pathname === '/performance' || location.pathname.startsWith('/performance/')) {
         isAccessible = isSuperAdmin;
       }
-      
+
+      // System routes (SuperAdmin only) — bypass role-based filter mismatch
+      if (location.pathname === '/dashboard/system/messages' || location.pathname.startsWith('/dashboard/system/messages/')) {
+        isAccessible = isSuperAdmin;
+      }
+
       if (!isAccessible && !isSuperAdmin) {
         // Redirect to 404 or 403 - let's use 404 for now or create a 403
         // For now, redirect to dashboard home or 404
