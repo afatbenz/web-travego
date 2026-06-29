@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import travegoLogo from '@/assets/general/travego.svg';
 import travegoLogoLight from '@/assets/general/travego-light.png';
+import authBackground from '@/assets/auth/3d-auth.png';
 import { cn } from '@/lib/utils';
 import { Shield, Zap, BarChart3 } from 'lucide-react';
 
@@ -22,7 +23,7 @@ interface AuthLayoutProps {
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, belowCard, cardClassName, belowCardClassName, contentWrapperClassName, leftPanelContent, leftPanelClassName }) => {
   const defaultLeftPanel = (
     <div className="flex flex-col h-full relative overflow-hidden w-full" style={{ 
-      backgroundImage: "url('/src/assets/auth/3d-auth.png')",
+      backgroundImage: `url(${authBackground})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center bottom',
       backgroundRepeat: 'no-repeat'
@@ -121,7 +122,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
           <div
             className="absolute inset-0"
             style={{
-              backgroundImage: "url('/src/assets/auth/3d-auth.png')",
+              backgroundImage: `url(${authBackground})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center center',
               backgroundRepeat: 'no-repeat'
