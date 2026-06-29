@@ -58,7 +58,7 @@ interface OrdersTableProps {
 export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, description }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const [searchTerm, setSearchTerm] = useState('');
   const [orderPeriod, setOrderPeriod] = useState<DateRange | undefined>(() => getDefaultOrderPeriodRange());
   const [orderDate, setOrderDate] = useState<DateRange | undefined>();
@@ -402,19 +402,18 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     return `IDR ${jt.toFixed(2)} JT`;
   };
 
-  const canAddOrder = (type === 'fleet' || type === 'tour') && status === 'all' && basePrefix === '/dashboard/partner';
-  const createOrderPath =
-    type === 'tour' ? `${basePrefix}/orders/tour/form` : `${basePrefix}/orders/fleet/form`;
+  const canAddOrder = (type === 'fleet' || type === 'tour') && status === 'all';
+  const createOrderPath = `/dashboard/orders/fleet/form`;
   const goToOrder = (orderId: string) => {
-    if (basePrefix === '/dashboard/partner' && type === 'fleet') {
-      navigate(`${basePrefix}/orders/fleet/detail/${orderId}`);
+    if (basePrefix === '/dashboard' && type === 'fleet') {
+      navigate(`/dashboard/orders/fleet/detail/${orderId}`);
       return;
     }
     if (type === 'tour') {
-      navigate(`${basePrefix}/orders/tour/detail/${orderId}`);
+      navigate(`/dashboard/orders/tour/detail/${orderId}`);
       return;
     }
-    navigate(`${basePrefix}/orders/detail/${orderId}`);
+    navigate(`/dashboard/orders/detail/${orderId}`);
   };
 
   const downloadCsv = (filename: string, rows: Array<Record<string, unknown>>) => {
@@ -712,7 +711,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
     setOrderDate(undefined);
   };
 
-  const isPartnerTour = type === 'tour' && basePrefix === '/dashboard/partner';
+  const isPartnerTour = type === 'tour' && basePrefix === '/dashboard';
 
   const packageColumn: DataTableColumn<Order> = {
     label: type === 'tour' ? 'Paket Wisata' : 'Nama Unit',
@@ -870,7 +869,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </Button>
       )
     },
-    ...(type === 'fleet' && basePrefix === '/dashboard/partner'
+    ...(type === 'fleet' && basePrefix === '/dashboard'
       ? ([
           {
             label: 'Nama Pelanggan',
@@ -898,7 +897,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({ status, type, title, d
         </div>
       )
     },
-    ...(type === 'fleet' && basePrefix === '/dashboard/partner'
+    ...(type === 'fleet' && basePrefix === '/dashboard'
       ? ([
           {
             label: 'Tanggal Sewa',

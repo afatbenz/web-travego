@@ -241,7 +241,7 @@ export const PartnerOperations: React.FC = () => {
           <a
             href={`${basePrefix}/partner-operations/detail/${encodeURIComponent(row.partnerId)}`}
             rel="noopener noreferrer"
-            className="font-medium text-blue-800 dark:text-white/80 hover:text-white/80 dark:hover:text-white"
+            className="font-semibold text-blue-900 dark:text-white/80 hover:text-gray-700 dark:hover:text-white"
           >
             {row.partnerName || '-'}</a>
         ),

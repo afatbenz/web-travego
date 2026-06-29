@@ -262,16 +262,7 @@ export const OrganizationRegisterDashboard: React.FC = () => {
         variant="outline"
         size="sm"
         onClick={() => {
-          const token = localStorage.getItem('token') ?? '';
-          let isAdmin = false;
-          try {
-            const payloadStr = token.split('.')[1];
-            const base64 = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
-            const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-            const json = JSON.parse(atob(padded));
-            isAdmin = Boolean(json.is_admin ?? json.isAdmin ?? false);
-          } catch {}
-          navigate(isAdmin ? '/dashboard/organization/choice' : '/dashboard/partner/organization/choice');
+          navigate('/dashboard/organization/choice');
         }}
         className="!w-auto !h-auto p-2"
       >

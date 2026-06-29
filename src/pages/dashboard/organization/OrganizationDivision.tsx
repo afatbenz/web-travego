@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Eye, Plus, Save, Trash2 } from 'lucide-react';
+import { Eye, Plus, Save, Trash2, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -250,35 +250,51 @@ export const OrganizationDivision: React.FC = () => {
       />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tambah Divisi Baru</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="division_name">Nama Divisi</Label>
-              <Input
-                id="division_name"
-                value={createForm.division_name}
-                onChange={(e) => setCreateForm((p) => ({ ...p, division_name: e.target.value }))}
-                placeholder="Masukkan nama divisi"
-                className="rounded-2xl"
-              />
+        <DialogContent className="max-w-lg w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
+          <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Tambah Divisi Baru</h2>
+                  <p className="text-slate-500 text-xs sm:text-sm">Tambahkan divisi baru ke organisasi</p>
+                </div>
+              </div>
+              <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                <X className="w-3 h-3 sm:w-5 sm:h-5" />
+              </DialogClose>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Deskripsi (Opsional)</Label>
-              <Textarea
-                id="description"
-                rows={4}
-                value={createForm.description}
-                onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
-                placeholder="Masukkan deskripsi divisi"
-                className="rounded-2xl"
-              />
+            <div className="h-px bg-slate-100" />
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6">
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="division_name" className="text-sm font-medium text-gray-700 dark:text-white/70">Nama Divisi</Label>
+                <Input
+                  id="division_name"
+                  value={createForm.division_name}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, division_name: e.target.value }))}
+                  placeholder="Masukkan nama divisi"
+                  className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700 dark:text-white/70">Deskripsi (Opsional)</Label>
+                <Textarea
+                  id="description"
+                  rows={4}
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
+                  placeholder="Masukkan deskripsi divisi"
+                  className="rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreate} disabled={createSaving}>
+          <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-4 border-t border-slate-100">
+            <Button className="w-full h-11 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreate} disabled={createSaving}>
               {createSaving ? (
                 'Menyimpan...'
               ) : (
@@ -288,7 +304,7 @@ export const OrganizationDivision: React.FC = () => {
                 </span>
               )}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -299,37 +315,53 @@ export const OrganizationDivision: React.FC = () => {
           if (!open) setEditForm(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Detail Divisi</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-lg w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
           {!editForm ? null : (
             <>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit_division_name">Nama Divisi</Label>
-                  <Input
-                    id="edit_division_name"
-                    value={editForm.division_name}
-                    onChange={(e) => setEditForm((p) => (p ? { ...p, division_name: e.target.value } : p))}
-                    placeholder="Masukkan nama divisi"
-                    className="rounded-2xl"
-                  />
+              <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                      <Eye className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Detail Divisi</h2>
+                      <p className="text-slate-500 text-xs sm:text-sm">Edit detail divisi</p>
+                    </div>
+                  </div>
+                  <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                    <X className="w-3 h-3 sm:w-5 sm:h-5" />
+                  </DialogClose>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit_description">Deskripsi</Label>
-                  <Textarea
-                    id="edit_description"
-                    rows={4}
-                    value={editForm.description === '-' ? '' : editForm.description}
-                    onChange={(e) => setEditForm((p) => (p ? { ...p, description: e.target.value } : p))}
-                    placeholder="Masukkan deskripsi divisi"
-                    className="rounded-2xl"
-                  />
+                <div className="h-px bg-slate-100" />
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6">
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_division_name" className="text-sm font-medium text-gray-700 dark:text-white/70">Nama Divisi</Label>
+                    <Input
+                      id="edit_division_name"
+                      value={editForm.division_name}
+                      onChange={(e) => setEditForm((p) => (p ? { ...p, division_name: e.target.value } : p))}
+                      placeholder="Masukkan nama divisi"
+                      className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_description" className="text-sm font-medium text-gray-700 dark:text-white/70">Deskripsi</Label>
+                    <Textarea
+                      id="edit_description"
+                      rows={4}
+                      value={editForm.description === '-' ? '' : editForm.description}
+                      onChange={(e) => setEditForm((p) => (p ? { ...p, description: e.target.value } : p))}
+                      placeholder="Masukkan deskripsi divisi"
+                      className="rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
+                    />
+                  </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white" onClick={handleUpdate} disabled={updateSaving}>
+              <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-4 border-t border-slate-100">
+                <Button className="w-full h-11 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white" onClick={handleUpdate} disabled={updateSaving}>
                   {updateSaving ? (
                     'Menyimpan...'
                   ) : (
@@ -339,7 +371,7 @@ export const OrganizationDivision: React.FC = () => {
                     </span>
                   )}
                 </Button>
-              </DialogFooter>
+              </div>
             </>
           )}
         </DialogContent>

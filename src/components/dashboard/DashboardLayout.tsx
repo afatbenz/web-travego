@@ -20,7 +20,17 @@ export const DashboardLayout: FC<DashboardLayoutProps> = ({ children }) => {
 
     // If SuperAdmin, navigate to /performance if not already there
     if (isSuperAdmin) {
-      if (location.pathname !== '/performance' && !location.pathname.startsWith('/performance/')) {
+      const allowedSuperAdminPaths = [
+        '/performance',
+        '/dashboard/device-ids',
+        '/dashboard/system/organizations',
+        '/dashboard/system/messages',
+        '/dashboard/system/users',
+      ];
+      const isAllowed = allowedSuperAdminPaths.some((path) =>
+        location.pathname === path || location.pathname.startsWith(path + '/'),
+      );
+      if (!isAllowed) {
         navigate('/performance', { replace: true });
         return;
       }

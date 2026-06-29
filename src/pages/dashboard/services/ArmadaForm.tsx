@@ -17,7 +17,7 @@ const DynamicIcon = ({ name, ...props }: { name?: string; size?: number; classNa
   // Trim whitespace dari nama icon
   const trimmedName = name?.trim() ?? '';
   // Coba dapatkan icon dari LucideIcons, fallback ke Check jika tidak ditemukan
-  const Icon = (LucideIcons as any)[trimmedName] || (LucideIcons as any).Check;
+  const Icon = (LucideIcons as unknown as Record<string, React.ElementType>)[trimmedName] || (LucideIcons as unknown as Record<string, React.ElementType>).Check;
   return <Icon {...props} />;
 };
 
@@ -32,7 +32,7 @@ export const ArmadaForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const isEdit = Boolean(id);
   const normalizeSelectKey = (value: unknown): string =>
     String(value ?? '')
@@ -87,7 +87,7 @@ export const ArmadaForm: React.FC = () => {
   const [loadingBody, setLoadingBody] = useState(false);
   const [facilityOptions, setFacilityOptions] = useState<FacilityOption[]>([]);
   const [selectedFacilities, setSelectedFacilities] = useState<FacilityOption[]>([]);
-  const [manualFacilities, setManualFacilities] = useState<string[]>([]);
+  const [_manualFacilities, setManualFacilities] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
 
   const validateForm = () => {
@@ -145,7 +145,13 @@ export const ArmadaForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("test saving ... ", saving)
+    e.stopPropagation();
+    console.log("handleSubmit called! currentStep:", currentStep, "Event target:", e.target, "saving state:", saving);
+    // Only allow submission at last step!
+    if (currentStep !== steps.length - 1) {
+      console.log("Ignoring handleSubmit (not last step)");
+      return;
+    }
     if (saving) return;
 
     if (validateForm()) {
@@ -160,9 +166,8 @@ export const ArmadaForm: React.FC = () => {
           price: a.price,
         }));
 
-      setManualFacilities(
-        selectedFacilities.filter(f => f.isManual).map(f => f.label)
-      );
+      const manualFacilitiesToSend = selectedFacilities.filter(f => f.isManual).map(f => f.label);
+      setManualFacilities(manualFacilitiesToSend);
 
       const facilityIds = selectedFacilities
         .filter(f => !f.isManual)
@@ -183,7 +188,7 @@ export const ArmadaForm: React.FC = () => {
             }))
           : formData.pickupPoints.map((p) => p.id),
         facility_ids: facilityIds,
-        fascilities: manualFacilities,
+        fascilities: manualFacilitiesToSend,
         prices: formData.rentalPrices.map((p) => ({
           ...(isUuid(p.uuid) ? { uuid: p.uuid } : {}),
           duration: parseInt(String(p.duration).replace(/\D/g, '')) || 0,
@@ -208,6 +213,12 @@ export const ArmadaForm: React.FC = () => {
       try {
         const res = await api.post<unknown>(endpoint, body, token ? { Authorization: token } : undefined);
         if (res.status === 'success') {
+          await Swal.fire({
+            icon: 'success',
+            title: 'Berhasil',
+            text: isEdit ? 'Perubahan armada berhasil disimpan!' : 'Armada berhasil dibuat!',
+            confirmButtonColor: '#4F6BFF'
+          });
           navigate(`${basePrefix}/services/fleet`);
         }
       } finally {
@@ -875,12 +886,26 @@ export const ArmadaForm: React.FC = () => {
     { id: 'publikasi', label: 'Publikasi', icon: SlidersHorizontal },
   ];
 
-  const nextStep = () => {
-    if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
+  const nextStep = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    console.log("nextStep called! e:", e, "currentStep before:", currentStep, "stack:", new Error().stack);
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
-  const prevStep = () => {
-    if (currentStep > 0) setCurrentStep(currentStep - 1);
+  const prevStep = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    console.log("prevStep called! e:", e, "currentStep before:", currentStep);
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
   };
 
   const descriptionPlainText = String(formData.description || '')
@@ -925,35 +950,52 @@ export const ArmadaForm: React.FC = () => {
         </div>
       </div>
 
-      <form id="armada-form" onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Step 0: Overview */}
-          {currentStep === 0 && (
-            <>
-              <div className="lg:col-span-2 space-y-6">
-                <div className="mb-6">
-                  <div className="flex items-center justify-between">
-                    {steps.map((step, idx) => (
-                      <div key={step.id} className="flex items-center">
-                        <div className={`flex items-center gap-2 ${idx <= currentStep ? 'text-[#4F6BFF]' : 'text-[#94A3B8]'}`}>
-                          <div className={`h-8 w-8 rounded-full flex items-center justify-center border-2 ${
-                            idx <= currentStep ? 'border-[#4F6BFF] bg-[#EEF3FF]' : 'border-[#E9EEF7] bg-white'
-                          }`}>
-                            <step.icon className="h-4 w-4" />
-                          </div>
-                          <span className="text-sm font-medium hidden sm:inline">{step.label}</span>
-                        </div>
-                        {idx < steps.length - 1 && (
-                          <div className={`flex-1 mx-4 h-0.5 ${idx < currentStep ? 'bg-[#4F6BFF]' : 'bg-[#E9EEF7]'}`} />
-                        )}
-                      </div>
-                    ))}
+      <form id="armada-form" onSubmit={handleSubmit} onKeyDown={(e) => { 
+        if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+          e.preventDefault(); 
+          e.stopPropagation(); 
+        } 
+      }} onKeyPress={(e) => { 
+        if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+          e.preventDefault(); 
+          e.stopPropagation(); 
+        } 
+      }} onKeyUp={(e) => { 
+        if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+          e.preventDefault(); 
+          e.stopPropagation(); 
+        } 
+      }}>
+        {/* Stepper */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            {steps.map((step, idx) => (
+              <div key={step.id} className="flex items-center">
+                <div className={`flex items-center gap-2 ${idx <= currentStep ? 'text-[#4F6BFF]' : 'text-[#94A3B8]'}`}>
+                  <div className={`h-8 w-8 rounded-full flex items-center justify-center border-2 ${
+                    idx <= currentStep ? 'border-[#4F6BFF] bg-[#EEF3FF]' : 'border-[#E9EEF7] bg-white'
+                  }`}>
+                    <step.icon className="h-4 w-4" />
                   </div>
+                  <span className="text-sm font-medium hidden sm:inline">{step.label}</span>
                 </div>
+                {idx < steps.length - 1 && (
+                  <div className={`flex-1 mx-4 h-0.5 ${idx < currentStep ? 'bg-[#4F6BFF]' : 'bg-[#E9EEF7]'}`} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
 
+        {/* Two-column wrapper */}
+        <div className="flex gap-6 items-start">
+          {/* Left column - form content */}
+          <div className="flex-1 space-y-6">
+            {/* Step 0: Overview */}
+            {currentStep === 0 && (
+              <>
                 {/* Basic Information - Full Width */}
-                <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+                <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm mt-3">
                   <CardHeaderWithBadge
                     badgeIcon={BusFront}
                     title="Armada"
@@ -967,6 +1009,7 @@ export const ArmadaForm: React.FC = () => {
                     </label>
                     <div className="relative mt-1">
                       <Input
+                        type="text"
                         value={formData.name}
                         onChange={(e) => handleInputChange('name', e.target.value)}
                         placeholder="Masukkan nama armada"
@@ -974,6 +1017,12 @@ export const ArmadaForm: React.FC = () => {
                           'h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30',
                           errors.name ? 'border-red-500' : '',
                         ].join(' ')}
+                        onKeyDown={(e) => { 
+                          if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+                            e.preventDefault(); 
+                            e.stopPropagation(); 
+                          } 
+                        }}
                       />
                     </div>
                     {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
@@ -1006,12 +1055,19 @@ export const ArmadaForm: React.FC = () => {
                       Body
                     </label>
                     <Input
+                      type="text"
                       value={formData.body}
                       onChange={(e) => { handleInputChange('body', e.target.value); setBodyQuery(e.target.value); }}
                       placeholder="Contoh: Hiace, Elf, Bus Besar"
                       onFocus={() => { setShowBodyDropdown(true); fetchBody(''); }}
                       onBlur={() => { window.setTimeout(() => setShowBodyDropdown(false), 150); }}
                       className="mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
+                      onKeyDown={(e) => { 
+                        if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+                          e.preventDefault(); 
+                          e.stopPropagation(); 
+                        } 
+                      }}
                     />
                     {showBodyDropdown && (
                       <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-xl border border-[#E9EEF7] bg-white shadow-sm z-10">
@@ -1076,6 +1132,7 @@ export const ArmadaForm: React.FC = () => {
                     <div className="space-y-2">
                       <div className="relative flex space-x-2">
                         <Input
+                          type="text"
                           value={cityQuery}
                           onChange={(e) => {
                             const q = e.target.value;
@@ -1085,10 +1142,17 @@ export const ArmadaForm: React.FC = () => {
                             }
                           }}
                           placeholder="Masukkan titik jemput"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) {
                               e.preventDefault();
+                              e.stopPropagation();
                               addPickupPoint();
+                            }
+                          }}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) {
+                              e.preventDefault();
+                              e.stopPropagation();
                             }
                           }}
                           onFocus={() => {
@@ -1165,7 +1229,7 @@ export const ArmadaForm: React.FC = () => {
                     Deskripsi *
                   </label>
                   <div className={['mt-1 rounded-2xl border border-[#c8cdd5] bg-white overflow-hidden', errors.description ? 'border-red-500' : ''].join(' ')}>
-                    <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-2 border-b border-[#E9EEF7] bg-white/70 dark:bg-slate-900 dark:text-white backdrop-blur">
+                    <div className="sticky top-0 z-1 flex items-center gap-1.5 px-3 py-2 border-b border-[#E9EEF7] bg-white/70 dark:bg-slate-900 dark:text-white backdrop-blur">
                       <Button 
                         type="button" 
                         variant="ghost" 
@@ -1251,124 +1315,14 @@ export const ArmadaForm: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-              </div>
+              </>
+            )}
 
-              <div className="lg:col-span-1 space-y-6">
-                {/* Thumbnail */}
+            {/* Step 1: Fasilitas */}
+            {currentStep === 1 && (
+              <>
+                {/* Features - Full Width */}
                 <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
-                  <CardHeaderWithBadge
-                    className="px-5 py-4"
-                    badgeIcon={ImageIcon}
-                    title="Thumbnail"
-                    subtitle="Unggah gambar utama untuk tampilan armada."
-                  />
-                  <div className="h-px bg-[#E9EEF7]" />
-                  <CardContent className="px-5 py-5">
-                    <div className="space-y-4">
-                      <div className="relative rounded-2xl border-2 border-dashed border-[#E9EEF7] bg-white p-4 text-center transition-colors hover:bg-[#EEF3FF]/40">
-                        {formData.thumbnail ? (
-                          <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-                            <img src={formData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="absolute top-2 right-2 h-8 w-8 rounded-xl"
-                              onClick={removeThumbnail}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            {thumbnailUploading && (
-                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <Loader2 className="h-8 w-8 text-white animate-spin" />
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <label className="cursor-pointer block p-8">
-                            <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-[#EEF3FF] flex items-center justify-center">
-                              <ImageIcon className="h-6 w-6 text-[#4F6BFF]" />
-                            </div>
-                            <div className="text-sm font-medium text-[#1E293B]">Upload thumbnail</div>
-                            <div className="mt-1 text-xs text-[#64748B]">Drag & drop atau klik untuk memilih file (JPG/PNG)</div>
-                            <input type="file" className="hidden" accept="image/*" onChange={handleThumbnailUpload} />
-                          </label>
-                        )}
-                      </div>
-                      {errors.thumbnail && <p className="text-red-500 text-sm">{errors.thumbnail}</p>}
-                      {errors.images && !formData.thumbnail && <p className="text-red-500 text-sm">{errors.images}</p>}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Gallery */}
-                <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
-                  <CardHeaderWithBadge
-                    className="px-5 py-4"
-                    badgeIcon={Upload}
-                    title="Galeri"
-                    subtitle="Kelola foto galeri untuk memperkaya tampilan armada."
-                    actions={
-                      <Badge variant="outline" className="border-[#E9EEF7] bg-white text-[#64748B]">
-                        {uploads.length}/10
-                      </Badge>
-                    }
-                  />
-                  <div className="h-px bg-[#E9EEF7]" />
-                  <CardContent className="px-5 py-5">
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                      {uploads.map((item, index) => (
-                        <div key={index} className="relative aspect-square rounded overflow-hidden group">
-                          <img src={item.preview} alt={`Gallery ${index}`} className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => removeImage(index)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          {item.status === 'uploading' && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                              <Loader2 className="h-6 w-6 text-white animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {uploads.length < 10 && (
-                      <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-[#E9EEF7] rounded-2xl cursor-pointer hover:bg-[#EEF3FF]/40 transition-colors">
-                        <div className="flex flex-col items-center">
-                          <div className="h-10 w-10 rounded-2xl bg-[#EEF3FF] flex items-center justify-center mb-2">
-                            <Upload className="h-5 w-5 text-[#4F6BFF]" />
-                          </div>
-                          <span className="text-sm font-medium text-[#1E293B]">Upload foto</span>
-                          <span className="mt-1 text-xs text-[#64748B]">Maks. 10 foto • JPG/PNG</span>
-                        </div>
-                        <input 
-                          type="file" 
-                          className="hidden" 
-                          accept="image/*" 
-                          multiple 
-                          onChange={handleImageUpload} 
-                        />
-                      </label>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )}
-
-          {/* Step 1: Fasilitas */}
-          {currentStep === 1 && (
-            <div className="lg:col-span-3">
-              {/* Features - Full Width */}
-              <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
               <CardHeaderWithBadge
                 badgeIcon={Tags}
                 title="Fasilitas Armada"
@@ -1508,12 +1462,12 @@ export const ArmadaForm: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-              </div>
+              </>
             )}
 
             {/* Step 2: Harga */}
             {currentStep === 2 && (
-              <div className="lg:col-span-3 space-y-6">
+              <>
                 {/* Rental Prices - Full Width */}
                 <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
               <CardHeaderWithBadge
@@ -1545,10 +1499,17 @@ export const ArmadaForm: React.FC = () => {
                         </label>
                         <div className="flex">
                           <Input
+                            type="text"
                             value={price.duration}
                             onChange={(e) => updateRentalPrice(index, 'duration', e.target.value)}
                             placeholder="1"
                             className="flex-1 mt-1 h-11 rounded-l-xl rounded-r-none border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
+                            onKeyDown={(e) => { 
+                              if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                              } 
+                            }}
                           />
                           <div className="mt-1 h-11 px-4 flex items-center rounded-r-xl border border-l-0 border-[#c8cdd5] bg-[#F8FAFC] dark:bg-gray-800 dark:border-gray-800 dark:text-gray-200 text-sm font-medium text-[#475569]">
                             Hari
@@ -1584,6 +1545,12 @@ export const ArmadaForm: React.FC = () => {
                             onChange={(e) => updateRentalPrice(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
                             placeholder="200,000"
                             className="flex-1 mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
+                            onKeyDown={(e) => { 
+                              if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                              } 
+                            }}
                           />
                           {formData.rentalPrices.length > 1 && (
                             <Button
@@ -1641,10 +1608,17 @@ export const ArmadaForm: React.FC = () => {
                           Nama Addon
                         </label>
                         <Input
+                          type="text"
                           value={addon.name}
                           onChange={(e) => updateAddon(index, 'name', e.target.value)}
                           placeholder="Contoh: Custom seat / tempat duduk"
                           className="mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
+                          onKeyDown={(e) => { 
+                            if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+                              e.preventDefault(); 
+                              e.stopPropagation(); 
+                            } 
+                          }}
                         />
                       </div>
                       <div>
@@ -1658,6 +1632,12 @@ export const ArmadaForm: React.FC = () => {
                             onChange={(e) => updateAddon(index, 'price', parseInt(formatCurrency(e.target.value)) || 0)}
                             placeholder="100,000"
                             className="flex-1 mt-1 h-11 rounded-xl border-[#c8cdd5] bg-white focus-visible:ring-[#4F6BFF]/30"
+                            onKeyDown={(e) => { 
+                              if (e.key === 'Enter' || e.key === 'Return' || e.keyCode === 13 || e.which === 13) { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                              } 
+                            }}
                           />
                           {formData.addons.length > 1 && (
                             <Button
@@ -1677,12 +1657,12 @@ export const ArmadaForm: React.FC = () => {
                 ))}
               </CardContent>
             </Card>
-              </div>
+              </>
             )}
 
             {/* Step 3: Publikasi */}
             {currentStep === 3 && (
-              <div className="lg:col-span-3">
+              <>
                 {/* Status */}
                 <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
               <CardHeaderWithBadge
@@ -1722,9 +1702,127 @@ export const ArmadaForm: React.FC = () => {
                 </div>
               </CardContent>
              </Card>
-              </div>
+              </>
             )}
           </div>
+
+          {/* Right column - thumbnail and gallery (static, sticky) */}
+          <div className="w-90 flex-shrink-0 space-y-6 sticky top-6">
+            {/* Thumbnail */}
+            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+              <CardHeaderWithBadge
+                className="px-5 py-4"
+                badgeIcon={ImageIcon}
+                title="Thumbnail"
+                subtitle="Unggah gambar utama untuk tampilan armada."
+              />
+              <div className="h-px bg-[#E9EEF7]" />
+              <CardContent className="px-5 py-5">
+                <div className="space-y-4">
+                  <div className="relative rounded-2xl border-2 border-dashed border-[#E9EEF7] bg-white text-center transition-colors hover:bg-[#EEF3FF]/40 h-[200px] flex items-center justify-center">
+                    {formData.thumbnail ? (
+                      <div className="relative w-full h-full overflow-hidden rounded-2xl">
+                        <img src={formData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 h-8 w-8 rounded-xl"
+                          onClick={removeThumbnail}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        {thumbnailUploading && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <Loader2 className="h-8 w-8 text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer flex flex-col items-center justify-center h-full w-full">
+                        <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-[#EEF3FF] flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-[#4F6BFF]" />
+                        </div>
+                        <div className="text-sm font-medium text-[#1E293B]">Upload thumbnail</div>
+                        <div className="mt-1 text-xs text-[#64748B]">Drag & drop atau klik untuk memilih file (JPG/PNG)</div>
+                        <input type="file" className="hidden" accept="image/*" onChange={handleThumbnailUpload} />
+                      </label>
+                    )}
+                  </div>
+                  {errors.thumbnail && <p className="text-red-500 text-sm">{errors.thumbnail}</p>}
+                  {errors.images && !formData.thumbnail && <p className="text-red-500 text-sm">{errors.images}</p>}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Gallery */}
+            <Card className="rounded-[22px] border-[#E9EEF7] bg-white shadow-sm">
+              <CardHeaderWithBadge
+                className="px-5 py-4"
+                badgeIcon={Upload}
+                title="Galeri"
+                subtitle="Kelola foto galeri untuk memperkaya tampilan armada."
+                actions={
+                  <Badge variant="outline" className="border-[#E9EEF7] bg-white text-[#64748B]">
+                    {uploads.length}/10
+                  </Badge>
+                }
+              />
+              <div className="h-px bg-[#E9EEF7]" />
+              <CardContent className="px-5 py-5">
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {uploads.slice(0, 4).map((item, index) => (
+                    <div key={index} className="relative w-full h-[80px] rounded-[6px] overflow-hidden group">
+                      <img src={item.preview} alt={`Gallery ${index}`} className="w-full h-full object-cover" />
+                      {index === 3 && uploads.length > 4 && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <span className="text-white font-semibold">+ {uploads.length - 3} foto lain</span>
+                        </div>
+                      )}
+                      {index !== 3 || uploads.length <= 4 ? (
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => removeImage(index)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : null}
+                      {item.status === 'uploading' && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Loader2 className="h-6 w-6 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {uploads.length < 10 && (
+                  <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-[#E9EEF7] rounded-2xl cursor-pointer hover:bg-[#EEF3FF]/40 transition-colors">
+                    <div className="flex flex-col items-center">
+                      <div className="h-10 w-10 rounded-2xl bg-[#EEF3FF] flex items-center justify-center mb-2">
+                        <Upload className="h-5 w-5 text-[#4F6BFF]" />
+                      </div>
+                      <span className="text-sm font-medium text-[#1E293B]">Upload foto</span>
+                      <span className="mt-1 text-xs text-[#64748B]">Maks. 10 foto • JPG/PNG</span>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={handleImageUpload} 
+                    />
+                  </label>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
       <div className="block mt-6 md:mt-2 md:fixed md:bottom-4 right-4 left-4 sm:left-auto z-40">
         <div className="rounded-[22px] border border-[#E9EEF7] bg-white/80 dark:bg-transparent dark:border-[#1E293B] shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70 px-3 py-3">
@@ -1745,7 +1843,8 @@ export const ArmadaForm: React.FC = () => {
                   className="w-full sm:w-auto rounded-full bg-gradient-to-r from-[#4F6BFF] to-[#295BFF] text-white shadow-[0_10px_24px_-14px_rgba(79,107,255,0.75)] hover:shadow-[0_16px_32px_-18px_rgba(79,107,255,0.9)] transition-all"
                   onClick={nextStep}
                 >
-                  Lanjutkan
+                  Lanjutkan 
+                  <LucideIcons.ChevronRight className="h-4 w-4 text-white ml-1 dark:text-white" />
                 </Button>
               ) : (
                 <Button

@@ -678,7 +678,7 @@ export const PackageForm: React.FC = () => {
       }
 
       if (res.status === 'success') {
-        navigate('/dashboard/partner/services/packages');
+        navigate('/dashboard/services/packages');
       }
     } catch (error) {
       console.error('Failed to save package', error);
@@ -740,7 +740,7 @@ export const PackageForm: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/partner/services/packages')}>
+          <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/services/packages')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

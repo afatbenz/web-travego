@@ -223,9 +223,9 @@ export const FleetUnits: React.FC = () => {
       render: (unit) => (
         <button
           onClick={() => navigate(`/dashboard/fleet-units/detail/${encodeURIComponent(String(unit.id))}`)}
-          className="leading-tight text-left hover:underline"
+          className="leading-tight text-semibold text-left"
         >
-          <span className="text-foreground whitespace-nowrap">{unit.plate_number || '-'}</span>
+          <span className="text-blue-900 hover:text-blue-700 whitespace-nowrap hover:text-semibold">{unit.plate_number || '-'}</span>
           <p className="text-xs text-muted-foreground">Vehicle ID : {unit.vehicle_id || '-'}</p>
         </button>
       )

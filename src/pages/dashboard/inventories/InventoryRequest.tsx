@@ -85,7 +85,7 @@ type CreateFormData = {
 export const InventoryRequest: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

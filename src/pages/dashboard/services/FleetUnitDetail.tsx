@@ -207,7 +207,7 @@ const toPickupLabel = (raw: unknown): { title: string; subtitle?: string } => {
 export const FleetUnitDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const params = useParams();
   const unitIdParam = params.unit_id ?? params.id ?? '';
 
@@ -768,8 +768,11 @@ export const FleetUnitDetail: React.FC = () => {
   const handleReservasiYmd = (dateYmd: string, unitIdOverride?: string) => {
     const q = new URLSearchParams();
     q.set('unit_id', unitIdOverride || detail?.unit_id || unitIdParam);
+    if (detail?.fleet_id) {
+      q.set('fleet_id', detail.fleet_id);
+    }
     q.set('date', dateYmd);
-    navigate(`${basePrefix}/orders/fleet/create?${q.toString()}`);
+    navigate(`${basePrefix}/orders/fleet/form?${q.toString()}`);
   };
 
   const handleGenerate = async () => {

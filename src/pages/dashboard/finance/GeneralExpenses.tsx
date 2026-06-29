@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Check, ChevronRight, ChevronsUpDown, CreditCard, Download, FileSpreadsheet, Info, LogOut, MoreHorizontal, Pencil, Plus, Receipt, Save, Trash2, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, ChevronRight, ChevronsUpDown, CreditCard, Download, FileSpreadsheet, Info, LogOut, MoreHorizontal, Pencil, Plus, Receipt, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
@@ -1385,31 +1385,30 @@ const openEditModal = (row: TransactionRow) => {
               </div>
             </div>
 
-            <div className="px-6 sm:px-8 pb-6 pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2 md:max-w-[calc(100%-180px)]">
+            <div className="px-6 sm:px-8 pb-6 pt-4 border-t border-slate-100 space-y-4">
+              <div className="w-full rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-2.5 flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
                 <span className="text-xs text-slate-700">Pastikan semua informasi sudah benar sebelum menyimpan data pengeluaran.</span>
               </div>
 
-              <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end mt-3 md:mt-0">
+              <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
                 <button
                   type="button"
                   onClick={() => setManualOpen(false)}
                   disabled={manualSubmitting}
-                  className="w-full md:w-auto h-12 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 border-2 border-slate-200"
+                  className="w-full md:w-auto h-10 px-8 rounded-2xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50 border-2 border-slate-200"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={manualSubmitting}
-                  className="w-full md:w-auto h-12 px-8 rounded-xl bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                  className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white"
                 >
                   {manualSubmitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
-                      <Save className="w-5 h-5" />
                       {manualMode === 'edit' ? 'Update Expense' : 'Simpan Expense'}
                     </>
                   )}

@@ -24,7 +24,8 @@ import {
   CalendarArrowUp,
   HandCoinsIcon,
   CreditCard,
-  Gauge
+  Gauge,
+  Shapes
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -115,13 +116,16 @@ export const Sidebar: React.FC = () => {
           { title: 'Unit Armada', icon: Car, href: `${basePrefix}/fleet-units`, access: ['Admin', 'Members'] },
           { title: 'Daftar Garasi', icon: Building2, href: `${basePrefix}/organization/garages`, access: ['Admin', 'Members'] },
           { title: 'Device ID', icon: Code, href: `${basePrefix}/device-ids`, access: ['SuperAdmin'] },
+          { title: 'Pesan Masuk', icon: Mails, href: `${basePrefix}/system/messages`, access: ['SuperAdmin'] },
+          { title: 'Perusahaan', icon: Building2, href: `${basePrefix}/system/organizations`, access: ['SuperAdmin'] },
+          { title: 'Pengguna', icon: Users, href: `${basePrefix}/system/users`, access: ['SuperAdmin'] },
         ],
         access: ['Admin', 'Members', 'SuperAdmin']
       },
       {
         label: 'Preferensi',
         items: [
-          ...(!isAdmin ? [{ title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities`, access: ['Admin', 'Members', 'SuperAdmin'] }] : [])
+          { title: 'Preferensi Kota', icon: MapPin, href: `${basePrefix}/preferences/cities`, access: ['Admin', 'Members', 'SuperAdmin'] }
         ],
         access: ['Admin', 'Members']
       },
@@ -173,10 +177,11 @@ export const Sidebar: React.FC = () => {
       {
         label: 'Pengaturan',
         items: [
-          { title: 'Subscription', icon: CreditCard, href: `${basePrefix}/accounts/subscription`, access: ['Admin'] },
+          { title: 'User', icon: Users, href: `${basePrefix}/organization/users`, access: ['Admin'] },
+          { title: 'Nomor Rekening', icon: CreditCard, href: `${basePrefix}/content/bank-account`, access: ['Admin'] },
+          { title: 'Subscription', icon: Shapes, href: `${basePrefix}/accounts/subscription`, access: ['Admin'] },
           { title: 'AI Assistant', icon: Code, href: `${basePrefix}/organization/account-assistant`, access: ['Admin'] },
           { title: 'Organisasi', icon: Building2, href: `${basePrefix}/organization/settings`, access: ['Admin'] },
-          { title: 'User', icon: Users, href: `${basePrefix}/organization/users`, access: ['Admin'] },
           { title: 'Open API', icon: Code, href: `${basePrefix}/organization/open-api`, access: ['Admin'] },
           { title: 'Manajemen Konten', icon: SlidersHorizontal, href: `${basePrefix}/content`, access: ['Admin', 'Members'] }
         ],
@@ -277,7 +282,21 @@ export const Sidebar: React.FC = () => {
       if (location.pathname === '/performance' || location.pathname.startsWith('/performance/')) {
         isAccessible = isSuperAdmin;
       }
-      
+
+      // Allow SuperAdmin-only system pages even if menu filtering has not settled yet.
+      if (
+        location.pathname === '/dashboard/device-ids' ||
+        location.pathname.startsWith('/dashboard/device-ids/') ||
+        location.pathname === '/dashboard/system/organizations' ||
+        location.pathname.startsWith('/dashboard/system/organizations/') ||
+        location.pathname === '/dashboard/system/messages' ||
+        location.pathname.startsWith('/dashboard/system/messages/') ||
+        location.pathname === '/dashboard/system/users' ||
+        location.pathname.startsWith('/dashboard/system/users/')
+      ) {
+        isAccessible = isSuperAdmin;
+      }
+
       if (!isAccessible && !isSuperAdmin) {
         // Redirect to 404 or 403 - let's use 404 for now or create a 403
         // For now, redirect to dashboard home or 404

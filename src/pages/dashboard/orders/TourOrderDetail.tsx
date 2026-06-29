@@ -182,7 +182,7 @@ async function fetchPackageDetail(
 export const TourOrderDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const params = useParams<{ order_id: string }>();
   const orderId = String(params.order_id ?? '').trim();
   const token = localStorage.getItem('token') ?? '';

@@ -143,7 +143,7 @@ export const PartnerProfile: React.FC = () => {
     });
   }
 
-  const InfoItem = ({ icon: Icon, label, value }: { icon: any; label: string; value: string }) => (
+  const InfoItem = ({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) => (
     <div className="flex items-start gap-3 py-3 border-b border-gray-200 dark:border-gray-800 last:border-0">
       <div className="mt-0.5 text-gray-400">
         <Icon className="h-5 w-5" />
@@ -194,7 +194,7 @@ export const PartnerProfile: React.FC = () => {
   };
 
   return (
-    <div className="max-w-full mx-auto space-y-6 py-8 pb-3 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-full mx-auto space-y-6 pt-3 pb-6 px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profil Saya</h1>
@@ -246,7 +246,7 @@ export const PartnerProfile: React.FC = () => {
             <div className="flex justify-end sm:justify-start">
               <Button
                 variant="default"
-                onClick={() => navigate('/dashboard/partner/profile/edit')}
+                onClick={() => navigate('/dashboard/profile/edit')}
                 className="h-10 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Pencil className="h-4 w-4 mr-2" />
@@ -310,7 +310,7 @@ export const PartnerProfile: React.FC = () => {
               icon={Key}
               title="Ubah Password"
               subtitle="Perbarui kata sandi akun Anda"
-              onClick={() => navigate('/dashboard/partner/profile/password')}
+              onClick={() => navigate('/dashboard/profile/password')}
             />
             <ActionItem
               tone="danger"

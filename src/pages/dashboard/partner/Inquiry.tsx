@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogClose, DialogContent, DialogFooter } from '@/components/ui/dialog';
+import moment from 'moment';
 
 type InquiryMessage = {
   messageId: string;
@@ -30,6 +31,7 @@ type InquiryMessage = {
   customerEmail: string;
   customerPhone: string;
   messageType: string;
+  createdAt: string;
   message: string;
   status: 0 | 1;
   raw: Record<string, unknown>;
@@ -93,10 +95,12 @@ export const PartnerInquiry: React.FC = () => {
             const customerName = String(it.customer_name ?? it.name ?? it.customerName ?? '');
             const customerEmail = String(it.customer_email ?? it.email ?? it.customerEmail ?? '');
             const customerPhone = String(it.customer_phone ?? it.phone ?? it.customerPhone ?? '');
+            const createdAt = String(it.created_at ?? it.createdAt ?? '');
+            console.log({createdAt, db: it.created_at})
             const messageType = String(it.message_type ?? it.messageType ?? '');
             const message = String(it.message ?? it.content ?? it.body ?? '');
             const status = toStatus(it.status ?? it.is_read ?? it.read ?? it.isRead);
-            return { messageId, customerName, customerEmail, customerPhone, messageType, message, status, raw: it };
+            return { messageId, customerName, customerEmail, customerPhone, createdAt, messageType, message, status, raw: it };
           })
           .filter((m) => m.messageId || m.customerEmail || m.customerName || m.message);
 
@@ -115,6 +119,7 @@ export const PartnerInquiry: React.FC = () => {
         m.customerName,
         m.customerEmail,
         m.customerPhone,
+        m.createdAt,
         m.messageType,
         m.message,
       ]
@@ -144,6 +149,7 @@ export const PartnerInquiry: React.FC = () => {
       m.customerName ?? '',
       m.customerEmail ?? '',
       m.customerPhone ?? '',
+      m.createdAt ?? '',
       topicLabel(m.messageType),
       m.status === 1 ? 'Sudah dibaca' : 'Belum dibaca',
       m.message ?? '',
@@ -522,16 +528,14 @@ export const PartnerInquiry: React.FC = () => {
               <div>
                 <div className="text-xs text-gray-500 mb-2">Message</div>
                 <div className="rounded-xl border border-gray-200 bg-white p-4">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{selected.message || '-'}</div>
+                  <div className="whitespace-pre-wrap text-lg leading-relaxed text-foreground">{selected.message || '-'}</div>
                 </div>
               </div>
             </div>
           ) : null}
 
-          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setDialogOpen(false)}>
-              Tutup
-            </Button>
+          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end bg-transparent text-left text-xs text-gray-500">
+            <p>Diterima pada {selected?.createdAt ? moment(selected?.createdAt).format('DD MMMM YYYY HH:mm') : '-'}</p>
           </DialogFooter>
         </DialogContent>
       </Dialog>

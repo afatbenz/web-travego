@@ -215,7 +215,7 @@ export const PartnerChangePassword: React.FC = () => {
       );
       if (updateRes.status === 'success') {
         await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Password berhasil diubah.' });
-        navigate('/dashboard/partner/profile');
+        navigate('/dashboard/profile');
       }
     } finally {
       setSaving(false);
@@ -230,7 +230,7 @@ export const PartnerChangePassword: React.FC = () => {
             type="button"
             variant="outline"
             size="icon"
-            onClick={() => navigate('/dashboard/partner/profile')}
+            onClick={() => navigate('/dashboard/profile')}
             className="h-10 w-10 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
           >
             <ArrowLeft className="h-4 w-4" />

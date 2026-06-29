@@ -14,33 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import {
-  ArrowLeft,
-  Ban,
-  Calendar as CalendarIcon,
-  CalendarDays,
-  Check,
-  CheckCircle2,
-  Download,
-  Edit,
-  Eye,
-  FileText,
-  Image as ImageIcon,
-  LayoutGrid,
-  Loader2,
-  MoreVertical,
-  RectangleHorizontal,
-  RectangleVertical,
-  Sparkles,
-  Square,
-  Star,
-  Tag,
-  TrendingDown,
-  TrendingUp,
-  Trash2,
-  MessageCircleMore,
-  XCircle,
-} from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { ImagePopup } from '@/components/common/ImagePopup';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -102,9 +76,14 @@ type FleetScheduleRow = {
   available_units: FleetScheduleAvailableUnit[];
 };
 
+type Facility = {
+  facility_name: string;
+  facility_icon?: string;
+};
+
 type FleetDetailData = {
   meta: FleetMeta;
-  facilities: string[];
+  facilities: Facility[];
   pickup: FleetPickup[];
   addon: unknown[];
   pricing: FleetPricing[];
@@ -123,7 +102,7 @@ export const FleetDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const [fleet, setFleet] = useState<FleetDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -262,7 +241,21 @@ export const FleetDetail: React.FC = () => {
           ),
         };
 
-        const facilitiesArr = Array.isArray(facilities) ? (facilities as unknown[]).map((x) => (typeof x === 'string' ? x : '')).filter((x) => x) : [];
+        const facilitiesArr: Facility[] = Array.isArray(facilities)
+          ? (facilities as unknown[])
+              .map<Facility | null>((x) => {
+                const record = (v: unknown): Record<string, unknown> =>
+                  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+                const getString = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+                const obj = record(x);
+                const facility_name = getString(obj.facility_name ?? obj.name).trim();
+                const facility_icon = getString(obj.facility_icon ?? obj.icon).trim();
+                return facility_name
+                  ? { facility_name, ...(facility_icon ? { facility_icon } : {}) }
+                  : null;
+              })
+              .filter((v): v is Facility => v !== null)
+          : [];
         const pickupArr = Array.isArray(pickup)
           ? (pickup as unknown[])
               .map((x) => {
@@ -718,10 +711,18 @@ export const FleetDetail: React.FC = () => {
     }
   };
 
+  const handleReserveNow = (selectedDate: string) => {
+    const params = new URLSearchParams({
+      fleet_id: fleet.meta.fleet_id,
+      start_date: selectedDate,
+    });
+    navigate(`${basePrefix}/orders/fleet/form?${params.toString()}`);
+  };
+
   const RatioIcon = ({ ratio, className }: { ratio: string; className?: string }) => {
-    if (ratio === '1080x1080') return <Square className={className} />;
-    if (ratio === '1920x1080') return <RectangleHorizontal className={className} />;
-    return <RectangleVertical className={className} />;
+    if (ratio === '1080x1080') return <LucideIcons.Square className={className} />;
+    if (ratio === '1920x1080') return <LucideIcons.RectangleHorizontal className={className} />;
+    return <LucideIcons.RectangleVertical className={className} />;
   };
 
   return (
@@ -736,7 +737,7 @@ export const FleetDetail: React.FC = () => {
                 className="shrink-0 bg-white border-gray-200/70 hover:bg-white"
                 onClick={() => navigate(-1)}
               >
-                <ArrowLeft className="h-4 w-4" />
+                <LucideIcons.ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="min-w-0 w-full sm:w-auto">
                 <div className="flex flex-wrap items-center gap-2">
@@ -764,7 +765,7 @@ export const FleetDetail: React.FC = () => {
                 className="hidden sm:inline-flex w-full sm:w-auto bg-white border-purple-200 text-purple-700 hover:bg-white"
                 onClick={() => setShowAdModal(true)}
               >
-                <ImageIcon className="h-4 w-4 mr-2" />
+                <LucideIcons.Image className="h-4 w-4 mr-2" />
                 Buat Gambar Iklan
                 <span className="ml-2 inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
                   AI
@@ -779,12 +780,12 @@ export const FleetDetail: React.FC = () => {
                     className="h-10 w-10 p-0 bg-white border-gray-200/70 hover:bg-white sm:h-9 sm:w-auto sm:px-4 sm:py-2"
                   >
                     <span className="hidden sm:inline">Menu</span>
-                    <MoreVertical className="h-4 w-4 sm:ml-2" />
+                    <LucideIcons.MoreVertical className="h-4 w-4 sm:ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-56">
                   <DropdownMenuItem onClick={() => setShowAdModal(true)} className="cursor-pointer sm:hidden">
-                    <ImageIcon className="h-4 w-4 mr-2" />
+                    <LucideIcons.Image className="h-4 w-4 mr-2" />
                     Buat Gambar Iklan
                   </DropdownMenuItem>
 
@@ -792,13 +793,13 @@ export const FleetDetail: React.FC = () => {
                     onClick={() => navigate(`${basePrefix}/services/fleet/edit/${encodeURIComponent(fleet.meta.fleet_id)}`)}
                     className="cursor-pointer"
                   >
-                    <Edit className="h-4 w-4 mr-2" />
+                    <LucideIcons.Edit className="h-4 w-4 mr-2" />
                     Edit Armada
                   </DropdownMenuItem>
 
                   {isActive ? (
                     <DropdownMenuItem onClick={handleInactive} className="cursor-pointer">
-                      <Ban className="h-4 w-4 mr-2" />
+                      <LucideIcons.Ban className="h-4 w-4 mr-2" />
                       Nonaktifkan
                     </DropdownMenuItem>
                   ) : (
@@ -811,7 +812,7 @@ export const FleetDetail: React.FC = () => {
                     onClick={handleDelete}
                     className="cursor-pointer text-red-700 focus:text-red-700"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <LucideIcons.Trash2 className="h-4 w-4 mr-2" />
                     Hapus
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -835,7 +836,7 @@ export const FleetDetail: React.FC = () => {
                       const prev = revenueSummary.previous?.totalBooking ?? 0;
                       const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
                       const up = pct >= 0;
-                      const Icon = up ? TrendingUp : TrendingDown;
+                      const Icon = up ? LucideIcons.TrendingUp : LucideIcons.TrendingDown;
                       return (
                         <div
                           className={clsx(
@@ -872,7 +873,7 @@ export const FleetDetail: React.FC = () => {
                       const prev = revenueSummary.previous?.totalRevenue ?? 0;
                       const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
                       const up = pct >= 0;
-                      const Icon = up ? TrendingUp : TrendingDown;
+                      const Icon = up ? LucideIcons.TrendingUp : LucideIcons.TrendingDown;
                       return (
                         <div
                           className={clsx(
@@ -908,7 +909,7 @@ export const FleetDetail: React.FC = () => {
                     <div className="mt-2 text-xs text-gray-500">{Number(fleet.meta.total_ulasan ?? 0)} ulasan</div>
                   </div>
                   <div className="shrink-0 h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center">
-                    <Star className="h-5 w-5 text-amber-500" fill="currentColor" />
+                    <LucideIcons.Star className="h-5 w-5 text-amber-500" fill="currentColor" />
                   </div>
                 </div>
               </div>
@@ -920,11 +921,11 @@ export const FleetDetail: React.FC = () => {
                   <div className="rounded-[22px] border border-[#E9EEF7] dark:border-[#1F2937] bg-white/80 p-1.5 dark:bg-[#1F2937] shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70">
                     <div className="flex items-center gap-1.5 overflow-x-auto scroll-smooth">
                       {([
-                        { key: 'info', label: 'Informasi Armada', icon: FileText },
-                        { key: 'units', label: 'Armada', icon: LayoutGrid },
-                        { key: 'pricing', label: 'Harga Sewa', icon: Tag },
-                        { key: 'schedule', label: 'Jadwal Armada', icon: CalendarDays },
-                        { key: 'review', label: 'Ulasan', icon: MessageCircleMore },
+                        { key: 'info', label: 'Informasi Armada', icon: LucideIcons.FileText },
+                        { key: 'units', label: 'Armada', icon: LucideIcons.LayoutGrid },
+                        { key: 'pricing', label: 'Harga Sewa', icon: LucideIcons.Tag },
+                        { key: 'schedule', label: 'Jadwal Armada', icon: LucideIcons.CalendarDays },
+                        { key: 'review', label: 'Ulasan', icon: LucideIcons.MessageCircleMore },
                       ] as const).map((t) => {
                         const isTabActive = activeTab === t.key;
                         const Icon = t.icon;
@@ -998,11 +999,18 @@ export const FleetDetail: React.FC = () => {
                         <div className="text-sm font-semibold text-gray-900 dark:text-white/60">Fasilitas</div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {fleet.facilities.length > 0 ? (
-                            fleet.facilities.map((f, i) => (
-                              <span key={`${f}-${i}`} className="inline-flex items-center rounded-full border border-gray-200/70 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-[#0b111a] dark:text-white">
-                                {f}
-                              </span>
-                            ))
+                            fleet.facilities.map((f, i) => {
+                              const IconComponent = f.facility_icon && 
+                                (LucideIcons as any)[f.facility_icon] 
+                                ? (LucideIcons as any)[f.facility_icon] 
+                                : null;
+                              return (
+                                <span key={`${f.facility_name}-${i}`} className="inline-flex items-center gap-1.5 rounded-full border border-gray-200/70 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-[#0b111a] dark:text-white">
+                                  {IconComponent && <IconComponent className="h-3.5 w-3.5" />}
+                                  {f.facility_name}
+                                </span>
+                              );
+                            })
                           ) : (
                             <div className="text-sm text-gray-500 dark:text-white/60">-</div>
                           )}
@@ -1166,7 +1174,7 @@ export const FleetDetail: React.FC = () => {
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                           <Button variant="outline" size="icon" className="bg-white border-gray-200/70 hover:bg-white">
-                                            <MoreVertical className="h-4 w-4" />
+                                            <LucideIcons.MoreVertical className="h-4 w-4" />
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
@@ -1271,7 +1279,7 @@ export const FleetDetail: React.FC = () => {
                           >
                             <PopoverTrigger asChild>
                               <Button variant="outline" className="w-full justify-start font-normal h-10 bg-white border-gray-200/70 hover:bg-white">
-                                <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
+                                <LucideIcons.Calendar className="h-4 w-4 mr-2 text-gray-500" />
                                 {scheduleRangeLabel}
                               </Button>
                             </PopoverTrigger>
@@ -1346,12 +1354,12 @@ export const FleetDetail: React.FC = () => {
                                     <TableCell className="whitespace-nowrap">
                                       {row.available ? (
                                         <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 inline-flex items-center gap-1.5">
-                                          <CheckCircle2 className="h-4 w-4" />
+                                          <LucideIcons.CheckCircle2 className="h-4 w-4" />
                                           Tersedia
                                         </Badge>
                                       ) : (
                                         <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700 inline-flex items-center gap-1.5">
-                                          <XCircle className="h-4 w-4" />
+                                          <LucideIcons.XCircle className="h-4 w-4" />
                                           Tidak Tersedia
                                         </Badge>
                                       )}
@@ -1359,18 +1367,29 @@ export const FleetDetail: React.FC = () => {
                                     <TableCell className="text-center text-gray-700 dark:text-white/80 whitespace-nowrap">{unitCount} unit</TableCell>
                                     <TableCell className="text-right pr-4">
                                       {unitCount > 0 ? (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="bg-white border-gray-200/70 hover:bg-white"
-                                          onClick={() => {
-                                            setScheduleUnitsDate(dateLabel);
-                                            setScheduleUnits(row.available_units);
-                                            setScheduleUnitsOpen(true);
-                                          }}
-                                        >
-                                          <Eye className="h-4 w-4" />
-                                        </Button>
+                                        <div className="flex items-center justify-end gap-2">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="bg-white border-gray-200/70 hover:bg-white"
+                                            onClick={() => {
+                                              setScheduleUnitsDate(dateLabel);
+                                              setScheduleUnits(row.available_units);
+                                              setScheduleUnitsOpen(true);
+                                            }}
+                                          >
+                                            <LucideIcons.Eye className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50"
+                                            onClick={() => handleReserveNow(row.date)}
+                                          >
+                                            <LucideIcons.CalendarPlus className="h-4 w-4 mr-2" />
+                                            Reservasi Sekarang
+                                          </Button>
+                                        </div>
                                       ) : (
                                         <span className="text-sm text-gray-400">-</span>
                                       )}
@@ -1423,13 +1442,13 @@ export const FleetDetail: React.FC = () => {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                          <MessageCircleMore className="h-4 w-4 text-violet-600" />
+                          <LucideIcons.MessageCircleMore className="h-4 w-4 text-violet-600" />
                           Ulasan
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="text-xs text-gray-500">{fleet.reviews.length} ulasan</div>
                           <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700">
-                            <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
+                            <LucideIcons.Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" />
                             {Number(fleet.meta.rating ?? 0).toFixed(1)}
                           </div>
                         </div>
@@ -1454,7 +1473,7 @@ export const FleetDetail: React.FC = () => {
                                   {Array.from({ length: 5 }).map((_, i) => {
                                     const filled = i < Math.round(r.star || 0);
                                     return (
-                                      <Star
+                                      <LucideIcons.Star
                                         key={i}
                                         className={clsx('h-4 w-4', filled ? 'text-amber-500' : 'text-gray-300')}
                                         fill={filled ? 'currentColor' : 'none'}
@@ -1635,7 +1654,7 @@ export const FleetDetail: React.FC = () => {
                   <DialogHeader className="space-y-2">
                     <DialogTitle className="flex items-center gap-3">
                       <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-600/25">
-                        <Sparkles className="h-5 w-5 text-white" />
+                        <LucideIcons.Sparkles className="h-5 w-5 text-white" />
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -1720,7 +1739,7 @@ export const FleetDetail: React.FC = () => {
                     {isGenerating ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
                         <div className="grid place-items-center gap-2">
-                          <Loader2 className="h-5 w-5 animate-spin text-violet-600" />
+                          <LucideIcons.Loader2 className="h-5 w-5 animate-spin text-violet-600" />
                           <Skeleton className="h-3 w-40" />
                         </div>
                       </div>
@@ -1757,7 +1776,7 @@ export const FleetDetail: React.FC = () => {
                                 active ? 'border-violet-300 bg-white text-violet-700' : 'border-gray-200 text-gray-400'
                               )}
                             >
-                              <Check className={clsx('h-3.5 w-3.5', active ? 'opacity-100' : 'opacity-0')} />
+                              <LucideIcons.Check className={clsx('h-3.5 w-3.5', active ? 'opacity-100' : 'opacity-0')} />
                             </span>
                           </div>
                         </button>
@@ -1805,12 +1824,12 @@ export const FleetDetail: React.FC = () => {
                   >
                     {isGenerating ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <LucideIcons.Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Generating...
                       </>
                     ) : (
                       <>
-                        <Sparkles className="h-4 w-4 mr-2" />
+                        <LucideIcons.Sparkles className="h-4 w-4 mr-2" />
                         Generate Gambar
                       </>
                     )}
@@ -1819,7 +1838,7 @@ export const FleetDetail: React.FC = () => {
                   {generatedImage ? (
                     <a href={generatedImage} download="iklan-armada.png" className="w-full">
                       <Button variant="outline" className="w-full bg-white border-violet-200 text-violet-700 hover:bg-white" type="button">
-                        <Download className="h-4 w-4 mr-2" />
+                        <LucideIcons.Download className="h-4 w-4 mr-2" />
                         Download
                       </Button>
                     </a>

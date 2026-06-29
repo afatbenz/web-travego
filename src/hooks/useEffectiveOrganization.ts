@@ -78,8 +78,60 @@ function getBooleanClaim(claims: JwtClaims | null | undefined, keys: string[]): 
       if (value.toLowerCase() === 'true') return true;
       if (value.toLowerCase() === 'false') return false;
     }
+    if (typeof value === 'number') {
+      if (value === 1) return true;
+      if (value === 0) return false;
+    }
   }
   return undefined;
+}
+
+function getLocalUser(): { isAdmin?: boolean; isSuperAdmin?: boolean; role?: string } | null {
+  try {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return null;
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+}
+
+function updateLocalUser(
+  claims: JwtClaims | null | undefined,
+  sensitive?: SensitiveClaims
+) {
+  try {
+    const existingUserStr = localStorage.getItem('user');
+    const existingUser = existingUserStr ? JSON.parse(existingUserStr) : {};
+    
+    const isAdminClaim = Boolean(
+      sensitive?.is_admin ??
+      getBooleanClaim(claims, ['is_admin', 'isAdmin']) ??
+      existingUser.isAdmin ??
+      false
+    );
+    const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
+    const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
+    const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
+    const isSuperAdmin = isAdminClaim && organizationId === '00';
+    let role: 'SuperAdmin' | 'Admin' | 'Members' = 'Members';
+    if (isSuperAdmin) {
+      role = 'SuperAdmin';
+    } else if (isAdminClaim && organizationId !== '00' && organizationId !== '0') {
+      role = 'Admin';
+    }
+
+    const updatedUser = {
+      ...existingUser,
+      isAdmin: isAdminClaim,
+      isSuperAdmin,
+      role
+    };
+
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  } catch {
+    // Ignore errors
+  }
 }
 
 export function getEffectiveOrgId(
@@ -91,7 +143,6 @@ export function getEffectiveOrgId(
   const orgIdLocal = localStorage.getItem('organization_id') ?? '';
   // Prioritize sensitive claims first, then JWT, then local storage
   const result = String(orgIdFromSensitive || orgIdFromJwt || orgIdLocal || '').trim();
-  console.log('[DEBUG getEffectiveOrgId]', { orgIdFromSensitive, orgIdFromJwt, orgIdLocal, result });
   return result;
 }
 
@@ -99,8 +150,13 @@ export function getIsAdmin(
   claims: JwtClaims | null | undefined,
   sensitive?: SensitiveClaims,
 ): boolean {
-  const result = Boolean(sensitive?.is_admin ?? getBooleanClaim(claims, ['is_admin', 'isAdmin']) ?? false);
-  console.log('[DEBUG getIsAdmin]', { sensitiveIsAdmin: sensitive?.is_admin, claimsIsAdmin: getBooleanClaim(claims, ['is_admin', 'isAdmin']), result });
+  const localUser = getLocalUser();
+  const result = Boolean(
+    sensitive?.is_admin ??
+    getBooleanClaim(claims, ['is_admin', 'isAdmin']) ??
+    localUser?.isAdmin ??
+    false
+  );
   return result;
 }
 
@@ -108,16 +164,29 @@ export function getRole(
   claims: JwtClaims | null | undefined,
   sensitive?: SensitiveClaims,
 ): 'SuperAdmin' | 'Admin' | 'Members' {
-  const isAdminClaim = Boolean(sensitive?.is_admin ?? getBooleanClaim(claims, ['is_admin', 'isAdmin']) ?? false);
+  const localUser = getLocalUser();
+  const isAdminClaim = Boolean(
+    sensitive?.is_admin ??
+    getBooleanClaim(claims, ['is_admin', 'isAdmin']) ??
+    localUser?.isAdmin ??
+    false
+  );
   const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
   const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
   const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
-  console.log('[DEBUG getRole]', { isAdminClaim, orgIdFromSensitive, orgIdFromJwt, organizationId, claims, sensitive });
-  
-  if (isAdminClaim && organizationId === '00') {
+  const isSuperAdminFromLocal = localUser?.isSuperAdmin ?? false;
+  const roleFromLocal = localUser?.role;
+
+  console.log(" ------ ", { isAdminClaim, organizationId, isSuperAdminFromLocal, roleFromLocal });
+
+  if (isSuperAdminFromLocal || (isAdminClaim && organizationId === '00')) {
     return 'SuperAdmin';
-  } else if (isAdminClaim && organizationId !== '00' && organizationId !== '0') {
+  } else if (roleFromLocal === 'Admin' || (isAdminClaim && organizationId !== '00' && organizationId !== '0')) {
     return 'Admin';
+  } else if (roleFromLocal === 'SuperAdmin') {
+    return 'SuperAdmin';
+  } else if (roleFromLocal === 'Members') {
+    return 'Members';
   } else {
     return 'Members';
   }
@@ -127,12 +196,17 @@ export function getIsSuperAdmin(
   claims: JwtClaims | null | undefined,
   sensitive?: SensitiveClaims,
 ): boolean {
-  const isAdminClaim = Boolean(sensitive?.is_admin ?? getBooleanClaim(claims, ['is_admin', 'isAdmin']) ?? false);
+  const localUser = getLocalUser();
+  const isAdminClaim = Boolean(
+    sensitive?.is_admin ??
+    getBooleanClaim(claims, ['is_admin', 'isAdmin']) ??
+    localUser?.isAdmin ??
+    false
+  );
   const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
   const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
   const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
-  const result = isAdminClaim && organizationId === '00';
-  console.log('[DEBUG getIsSuperAdmin]', { isAdminClaim, organizationId, result });
+  const result = (localUser?.isSuperAdmin ?? false) || (isAdminClaim && organizationId === '00');
   return result;
 }
 
@@ -147,37 +221,34 @@ export function useEffectiveOrganization() {
     const readClaims = () => decodeJwtPayload(localStorage.getItem('token') ?? '');
 
     const refresh = async () => {
-      console.log('[DEBUG] refresh() started');
       if (!mounted) return;
       setIsChecking(true);
       const currentClaims = readClaims();
-      console.log('[DEBUG] currentClaims:', currentClaims);
       setClaims(currentClaims);
       setSensitive({});
 
       const secret = import.meta.env.VITE_JWT_SECRET;
-      console.log('[DEBUG] VITE_JWT_SECRET:', secret ? `set (len=${secret.length})` : 'NOT SET');
 
       if (currentClaims && typeof currentClaims.token === 'string' && secret) {
-        console.log('[DEBUG] Attempting to decrypt claims.token');
         try {
           const decrypted = await decryptAuthToken(currentClaims.token, String(secret));
-          console.log('[DEBUG] Decrypted sensitive data:', decrypted);
-          if (mounted) setSensitive(decrypted);
+          const decrypted2 = await decryptAuthToken("gIXEdGoLZVbU7J4I_ZhmBh0RCeQuOwI71vybTdCjrSOc8n0BeP92thL-4U_y7fgt8YF_Npy3Chz6F07tB_y2FlguFqXM2lIAW3qIVw0D4i-jaDnKkz-DQq5GoJkpLB8YJr_hVUBhARtCHddRIqNCA86J9lUosj04CHGbt51W-HK7wQEi8oe0ezw=", String(secret));
+          console.log({decrypted2})
+          if (mounted) {
+            setSensitive(decrypted);
+            updateLocalUser(currentClaims, decrypted);
+          }
         } catch (err) {
-          console.error('[DEBUG] Decryption FAILED:', err);
-          if (mounted) setSensitive({});
+          if (mounted) {
+            setSensitive({});
+            updateLocalUser(currentClaims, {});
+          }
         }
       } else {
-        console.log('[DEBUG] Skipping decryption:', {
-          hasCurrentClaims: !!currentClaims,
-          tokenType: typeof currentClaims?.token,
-          hasSecret: !!secret
-        });
+        updateLocalUser(currentClaims, {});
       }
 
       if (mounted) setIsChecking(false);
-      console.log('[DEBUG] refresh() finished');
     };
 
     void refresh();

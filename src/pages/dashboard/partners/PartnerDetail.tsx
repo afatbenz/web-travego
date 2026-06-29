@@ -12,7 +12,7 @@ type PartnerNavState = {
 export const PartnerDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const basePrefix = location.pathname.startsWith('/dashboard/partner') ? '/dashboard/partner' : '/dashboard';
+  const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const params = useParams<{ partner_id: string }>();
   const state = (location.state ?? {}) as PartnerNavState;
 
