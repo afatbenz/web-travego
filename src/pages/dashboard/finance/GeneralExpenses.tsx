@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, Check, ChevronRight, ChevronsUpDown, CreditCard, Download, FileSpreadsheet, Info, LogOut, MoreHorizontal, Pencil, Plus, Receipt, Save, Trash2, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, ChevronRight, ChevronsUpDown, CreditCard, Download, FileSpreadsheet, Info, LogOut, MoreHorizontal, Pencil, Plus, Receipt, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '@/lib/api';
 import { DataTable, type DataTableColumn } from '@/components/common/DataTable';

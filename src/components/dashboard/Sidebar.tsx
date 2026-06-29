@@ -283,8 +283,17 @@ export const Sidebar: React.FC = () => {
         isAccessible = isSuperAdmin;
       }
 
-      // System routes (SuperAdmin only) — bypass role-based filter mismatch
-      if (location.pathname === '/dashboard/system/messages' || location.pathname.startsWith('/dashboard/system/messages/')) {
+      // Allow SuperAdmin-only system pages even if menu filtering has not settled yet.
+      if (
+        location.pathname === '/dashboard/device-ids' ||
+        location.pathname.startsWith('/dashboard/device-ids/') ||
+        location.pathname === '/dashboard/system/organizations' ||
+        location.pathname.startsWith('/dashboard/system/organizations/') ||
+        location.pathname === '/dashboard/system/messages' ||
+        location.pathname.startsWith('/dashboard/system/messages/') ||
+        location.pathname === '/dashboard/system/users' ||
+        location.pathname.startsWith('/dashboard/system/users/')
+      ) {
         isAccessible = isSuperAdmin;
       }
 

@@ -13,6 +13,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type MessageItem = {
+  message_key: string;
   message_id: string;
   fullname: string;
   topic_id: number;
@@ -35,24 +36,38 @@ function toText(value: unknown): string {
 function parseMessages(payload: unknown): MessageItem[] {
   if (!Array.isArray(payload)) return [];
   return payload
-    .map((item) => {
+    .map((item, index) => {
       if (!item || typeof item !== 'object') return null;
       const raw = item as Record<string, unknown>;
+      const messageId = toText(raw.message_id);
+      const fullname = toText(raw.fullname);
+      const email = toText(raw.email);
+      const whatsapp = toText(raw.whatsapp);
+      const createdAt = toText(raw.created_at);
+      const topicLabel = toText(raw.topic_label);
+      const companyName = toText(raw.company_name);
+      const messageText = toText(raw.messages);
+
       return {
-        message_id: toText(raw.message_id),
-        fullname: toText(raw.fullname),
+        message_key:
+          messageId ||
+          [fullname, email, whatsapp, createdAt, topicLabel, companyName, String(index)]
+            .filter(Boolean)
+            .join('|'),
+        message_id: messageId,
+        fullname,
         topic_id: typeof raw.topic_id === 'number' ? raw.topic_id : Number(raw.topic_id ?? 0),
-        topic_label: toText(raw.topic_label),
-        company_name: toText(raw.company_name),
-        email: toText(raw.email),
-        whatsapp: toText(raw.whatsapp),
+        topic_label: topicLabel,
+        company_name: companyName,
+        email,
+        whatsapp,
         scale: toText(raw.scale),
-        messages: toText(raw.messages),
-        created_at: toText(raw.created_at),
+        messages: messageText,
+        created_at: createdAt,
         is_read: raw.is_read === true,
       };
     })
-    .filter((item): item is MessageItem => Boolean(item && item.message_id));
+    .filter((item): item is MessageItem => Boolean(item && item.message_key));
 }
 
 function formatDate(dateString: string): string {
@@ -100,7 +115,7 @@ export const SystemMessages: React.FC = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedMessage, setSelectedMessage] = useState<MessageItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [readingMessageId, setReadingMessageId] = useState<string | null>(null);
+  const [, setReadingMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMessages();
@@ -125,7 +140,7 @@ export const SystemMessages: React.FC = () => {
     setDetailOpen(true);
 
     // Mark as read if not already
-    if (!item.is_read) {
+    if (!item.is_read && item.message_id) {
       setReadingMessageId(item.message_id);
       try {
         const token = localStorage.getItem('token') ?? '';
@@ -209,7 +224,7 @@ export const SystemMessages: React.FC = () => {
               pagedMessages.map((row, rowIndex) => {
                 const no = startIndex + rowIndex + 1;
                 return (
-                  <TableRow key={row.message_id} className={`hover:bg-muted/30 ${!row.is_read ? 'font-semibold bg-blue-50/40 dark:bg-blue-950/20' : ''}`}>
+                  <TableRow key={row.message_key} className={`hover:bg-muted/30 ${!row.is_read ? 'font-semibold bg-blue-50/40 dark:bg-blue-950/20' : ''}`}>
                     <TableCell className="px-4 py-3 text-center text-sm text-muted-foreground">{no}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">{row.fullname || '-'}</TableCell>
                     <TableCell className="px-4 py-3 text-sm text-foreground">{row.topic_label || '-'}</TableCell>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Crown, Star, Calendar, CreditCard, Eye, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -70,7 +70,6 @@ type PackageBenefit = {
 };
 
 export const SubscriptionPage: React.FC = () => {
-  const location = useLocation();
   const navigate = useNavigate();
   const basePrefix = '/dashboard';
 

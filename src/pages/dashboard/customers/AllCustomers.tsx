@@ -312,7 +312,7 @@ export const AllCustomers: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300 mt-1">Daftar customer</p>
         </div>
         <div className="flex items-center gap-2">
-          {basePrefix === '/dashboard/partner' ? (
+          {basePrefix === '/dashboard' ? (
             <Button className={addButtonClass} onClick={() => navigate(`${basePrefix}/customers/create`)}>
               <Plus className="h-4 w-4 mr-2" />
               Tambah Customer
@@ -400,7 +400,7 @@ export const AllCustomers: React.FC = () => {
         rowKey={(row, index) => row.id || `${row.email || row.name || 'row'}-${index}`}
       />
 
-      {basePrefix === '/dashboard/partner' ? (
+      {basePrefix === '/dashboard' ? (
         <Button
           onClick={() => navigate(`${basePrefix}/customers/create`)}
           className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-40 h-14 w-14 rounded-full bg-blue-600 text-white shadow-[0_18px_50px_rgba(0,0,0,0.30)] hover:bg-blue-700 md:hidden"

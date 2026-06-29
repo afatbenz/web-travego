@@ -6,7 +6,6 @@ import {
   X,
   Smartphone,
   CheckCircle2,
-  XCircle,
   Search,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -260,7 +259,7 @@ export const DeviceIDs: React.FC = () => {
     }
   };
 
-  const isEnabled = (item: DeviceItem) => item.device_id && item.device_id.trim() !== '';
+  const isEnabled = (item: DeviceItem) => Boolean(item.device_id && item.device_id.trim() !== '');
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const totalPages = useMemo(() => Math.max(1, Math.ceil(devices.length / Math.max(1, itemsPerPage))), [itemsPerPage, devices.length]);

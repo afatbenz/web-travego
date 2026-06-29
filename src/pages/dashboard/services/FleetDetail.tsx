@@ -241,18 +241,20 @@ export const FleetDetail: React.FC = () => {
           ),
         };
 
-        const facilitiesArr = Array.isArray(facilities)
+        const facilitiesArr: Facility[] = Array.isArray(facilities)
           ? (facilities as unknown[])
-              .map((x) => {
+              .map<Facility | null>((x) => {
                 const record = (v: unknown): Record<string, unknown> =>
                   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
                 const getString = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
                 const obj = record(x);
                 const facility_name = getString(obj.facility_name ?? obj.name).trim();
                 const facility_icon = getString(obj.facility_icon ?? obj.icon).trim();
-                return facility_name ? { facility_name, facility_icon: facility_icon || undefined } : null;
+                return facility_name
+                  ? { facility_name, ...(facility_icon ? { facility_icon } : {}) }
+                  : null;
               })
-              .filter((v): v is Facility => Boolean(v))
+              .filter((v): v is Facility => v !== null)
           : [];
         const pickupArr = Array.isArray(pickup)
           ? (pickup as unknown[])

@@ -24,6 +24,7 @@ export const DashboardLayout: FC<DashboardLayoutProps> = ({ children }) => {
         '/performance',
         '/dashboard/device-ids',
         '/dashboard/system/organizations',
+        '/dashboard/system/messages',
         '/dashboard/system/users',
       ];
       const isAllowed = allowedSuperAdminPaths.some((path) =>

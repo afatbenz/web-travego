@@ -143,10 +143,10 @@ export const PartnerProfile: React.FC = () => {
     });
   }
 
-  const InfoItem = ({ icon: Icon, label, value }: { icon: unknown; label: string; value: string }) => (
+  const InfoItem = ({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) => (
     <div className="flex items-start gap-3 py-3 border-b border-gray-200 dark:border-gray-800 last:border-0">
       <div className="mt-0.5 text-gray-400">
-        <User className="h-5 w-5" />
+        <Icon className="h-5 w-5" />
       </div>
       <div className="flex-1">
         <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>

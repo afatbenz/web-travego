@@ -363,10 +363,6 @@ export const FleetOrderForm: React.FC = () => {
     return (sp.get('end_date') ?? sp.get('endDate') ?? '').trim();
   }, [location.search]);
 
-  const queryUnitId = useMemo(() => {
-    const sp = new URLSearchParams(location.search);
-    return (sp.get('unit_id') ?? sp.get('unitId') ?? '').trim();
-  }, [location.search]);
 
   const autoFillDatesRef = useRef(false);
   const autoFillFleetRef = useRef(false);
