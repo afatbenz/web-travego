@@ -75,7 +75,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
             {leftPanelContent || defaultLeftPanel}
           </div>
 
-          <div className="order-last lg:order-last w-full lg:w-[57%]" style={{ backgroundColor: '#F0F2F5' }}>
+          <div className="order-last lg:order-last w-full lg:w-[57%] bg-slate-100 dark:bg-slate-900">
             <div className="flex min-h-screen w-full items-start lg:items-center justify-center px-6 lg:px-10 xl:px-16 py-8 lg:py-10">
               <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg xl:max-w-xl">
                 <div className={cn(contentWrapperClassName)}>
@@ -90,7 +90,12 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
                         <img
                           src={travegoLogo}
                           alt="TraveGO"
-                          className="h-8 sm:h-9 lg:h-10 w-auto"
+                          className="h-8 sm:h-9 lg:h-10 w-auto dark:hidden"
+                        />
+                        <img
+                          src={travegoLogoLight}
+                          alt="TraveGO"
+                          className="h-8 sm:h-9 lg:h-10 w-auto dark:block hidden"
                         />
                       </Link>
                       <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">
@@ -142,7 +147,8 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
           {/* Top section: Logo + Tagline */}
           <div className="relative z-10 flex-shrink-0 flex flex-col items-center pt-10 px-6">
             <Link to="/" className="inline-flex items-center">
-              <img src={travegoLogo} alt="TraveGO" className="h-10 w-auto" />
+              <img src={travegoLogoLight} alt="TraveGO" className="h-10 w-auto md:hidden" />
+              <img src={travegoLogo} alt="TraveGO" className="h-10 w-auto md:block hidden" />
             </Link>
             <p className="mt-3 text-sm text-white/70 text-center">
               Kelola perjalanan dengan mudah.
