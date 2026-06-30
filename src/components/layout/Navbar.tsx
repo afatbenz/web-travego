@@ -135,7 +135,7 @@ export const Navbar: React.FC = () => {
                   <LayoutDashboard className={`h-5 w-5 ${isLightTop ? 'text-white' : 'text-gray-700 dark:text-white'}`} />
                 </Button>
               </Link>
-              <Link to="/myprofile">
+              {/* <Link to="/myprofile">
                 <Button
                   variant="outline"
                   size="icon"
@@ -147,7 +147,7 @@ export const Navbar: React.FC = () => {
                 >
                   <User className={`h-5 w-5 ${isLightTop ? 'text-white' : 'text-gray-700 dark:text-white'}`} />
                 </Button>
-              </Link>
+              </Link> */}
             </>
           ) : (
             <>
