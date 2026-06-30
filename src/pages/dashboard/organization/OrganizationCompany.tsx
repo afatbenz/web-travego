@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeaderWithBadge } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { formatPhoneNumberId } from '@/lib/utils';
-import { Building2, Copy, Lock, Phone, User, Globe, Mail, FileText } from 'lucide-react';
+import { Building2, Copy, Phone, User, Globe, Mail, FileText } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
+import { GearIcon } from '@radix-ui/react-icons';
 
 type OrganizationData = {
   address: string;
@@ -65,7 +67,7 @@ export const OrganizationCompany: React.FC = () => {
   };
 
   const ContactRow: React.FC<{ icon: React.ElementType; label: string; value: string }> = ({ icon: Icon, label, value }) => (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 border-b border-gray-200 dark:border-gray-700/30 py-2">
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/30">
         <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
       </div>
@@ -122,8 +124,13 @@ export const OrganizationCompany: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300 mt-1">Ringkasan profil organisasi dan perusahaan (read-only).</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
-          <Lock className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Read-only</span>
+          <Link
+            to="/dashboard/organization/settings"
+            className="inline-flex items-center rounded-md bg-blue-600 hover:bg-blue-700 px-3 py-2 text-sm text-white hover:text-white transition-colors dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            <GearIcon className="h-4 w-4 text-white dark:text-gray-400 mr-2" />
+            Pengaturan
+          </Link>
         </div>
       </div>
 

@@ -26,13 +26,13 @@ import Swal from 'sweetalert2';
 type Option = { id: string; label: string; raw?: Record<string, unknown> };
 
 const formFieldClass =
-  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+  'h-12 rounded-[18px] border-slate-300 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
 const formSelectTriggerClass =
-  'h-12 rounded-[18px] border-blue-200/60 bg-white shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+  'h-12 rounded-[18px] border-slate-300 bg-white shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
 const formComboboxTriggerClass =
-  'h-12 w-full justify-between rounded-[18px] border-blue-200/60 bg-white px-4 font-normal text-gray-900 shadow-sm hover:bg-white focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
+  'h-12 w-full justify-between rounded-[18px] border-slate-300 bg-white px-4 font-normal text-gray-900 shadow-sm hover:bg-white focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0';
 const formPopoverContentClass =
-  'w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl dark:border-slate-800 dark:bg-slate-950';
+  'w-[--radix-popover-trigger-width] rounded-xl border border-slate-300 bg-white p-0 shadow-xl dark:border-slate-800 dark:bg-slate-950';
 const formCommandItemClass =
   'rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-900 dark:data-[selected=true]:bg-slate-900';
 const formSelectContentClass = 'rounded-xl border border-gray-200/70 bg-white p-1 shadow-xl dark:border-slate-800 dark:bg-slate-950';
@@ -536,7 +536,15 @@ export const FleetOrderForm: React.FC = () => {
 
       const [customers, fleets] = await Promise.all([fetchOptions('/services/customers', token), fetchAvailability()]);
       if (!active) return;
-      setCustomerOptions(customers);
+      setCustomerOptions(
+        customers.map((opt) => {
+          const raw = record(opt.raw);
+          const name = toStringSafe(raw.customer_name ?? raw.customerName ?? raw.name ?? opt.label).trim() || opt.id;
+          const company = toStringSafe(raw.customer_company ?? raw.company ?? raw.company_name ?? raw.companyName ?? '').trim();
+          const label = company ? `${name} - ${company}` : name;
+          return { ...opt, label };
+        })
+      );
       setFleetOptions(fleets);
     };
     loadOptions();
@@ -735,7 +743,7 @@ export const FleetOrderForm: React.FC = () => {
         const customerCompanyValue = toStringSafe(
           customerObj.customer_company ?? customerObj.company ?? customerObj.company_name ?? detail.customer_company ?? detail.customerCompany
         ).trim();
-        setCustomer(customerId ? { id: customerId, label: customerName || customerId, raw: customerObj } : null);
+        setCustomer(customerId ? { id: customerId, label: customerCompanyValue ? `${customerName || customerId} - ${customerCompanyValue}` : customerName || customerId, raw: customerObj } : null);
         setCustomerNameManual(customerId ? '' : customerName);
         setCustomerPhone(customerPhoneValue);
         setCustomerCompany(customerCompanyValue);
@@ -1476,7 +1484,7 @@ export const FleetOrderForm: React.FC = () => {
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Customer</label>
+                <label className="text-sm font-medium">Pilih Pelanggan</label>
                 <Popover
                   open={customerPickerOpen}
                   onOpenChange={(open) => {
@@ -2263,7 +2271,7 @@ export const FleetOrderForm: React.FC = () => {
                     value={specialRequest}
                     onChange={(e) => setSpecialRequest(e.target.value)}
                     placeholder="Contoh: Unit warna putih, supir tidak merokok, dll"
-                    className="min-h-[120px] rounded-[18px] border-blue-200/60 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0"
+                    className="min-h-[120px] rounded-[18px] border-slate-400 bg-white shadow-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-0"
                     disabled={saving || loadingDetail}
                   />
                 </div>

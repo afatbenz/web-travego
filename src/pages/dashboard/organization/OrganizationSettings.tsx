@@ -160,7 +160,6 @@ export const OrganizationSettings: React.FC = () => {
           organization_type: String(d['organization_type'] ?? ''),
           logo: String(d['logo'] ?? ''),
           description: String(d['description'] ?? d['company_description'] ?? ''),
-          whatsapp: String(d['whatsapp'] ?? ''),
           website: String(d['website'] ?? d['domain_url'] ?? ''),
           instagram: String(d['instagram'] ?? ''),
           tiktok: String(d['tiktok'] ?? ''),
@@ -255,7 +254,6 @@ export const OrganizationSettings: React.FC = () => {
       postal_code: form.postal_code,
       organization_type: orgTypeId,
       description: form.description,
-      whatsapp: form.whatsapp,
       website: form.website,
       domain_url: form.domain_url,
     };
@@ -584,28 +582,6 @@ export const OrganizationSettings: React.FC = () => {
                               v = '62' + v.slice(1);
                             }
                             setForm((prev) => ({ ...prev, phone: v }));
-                            markDirty();
-                          }}
-                          className={INPUT_CLS}
-                          disabled={loading}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <FieldLabel htmlFor="whatsapp">WhatsApp</FieldLabel>
-                      <div className="relative">
-                        <MessageCircle className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                        <Input
-                          id="whatsapp"
-                          name="whatsapp"
-                          value={form.whatsapp}
-                          inputMode="numeric"
-                          onChange={(e) => {
-                            let v = e.target.value.replace(/[^0-9]/g, '');
-                            if (v.startsWith('0')) {
-                              v = '62' + v.slice(1);
-                            }
-                            setForm((prev) => ({ ...prev, whatsapp: v }));
                             markDirty();
                           }}
                           className={INPUT_CLS}
