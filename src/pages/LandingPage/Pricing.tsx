@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { AnimatedDashboardPreview } from './AnimatedDashboardPreview';
 import { api } from '@/lib/api';
 
 type PricingPlan = {
+  packageId: string;
   name: string;
   priceDescription: string;
   packageNotes: string;
@@ -65,6 +67,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
       const res = await api.get<PackageApiResponse[]>('/services/packages/pricing', { 'api-key': 'trv-lasoa30sal&1ajshdkahsd012-12' });
       if (res.status === 'success' && res.data) {
         setPricingPlans(res.data.map((pkg, index) => ({
+          packageId: pkg.package_id,
           name: pkg.package_name,
           priceDescription: pkg.package_description,
           packageNotes: pkg.package_notes,
@@ -132,39 +135,12 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
         {description && (
           <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{description}</p>
         )}
-        <div className="mx-auto mt-4 inline-flex rounded-xl border border-blue-200 bg-blue-50 p-1 text-sm dark:border-blue-900/30 dark:bg-blue-900/20">
-          <button
-            type="button"
-            onClick={() => setPricingPeriod('monthly')}
-            className={`rounded-lg px-4 py-1.5 font-medium transition-all duration-300 ${
-              pricingPeriod === 'monthly'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-blue-600 dark:text-blue-300 hover:bg-blue-100/70 dark:hover:bg-blue-900/30'
-            }`}
-          >
-            Bulanan
-          </button>
-          <button
-            type="button"
-            onClick={() => setPricingPeriod('yearly')}
-            className={`rounded-lg px-4 py-1.5 font-medium transition-all duration-300 ${
-              pricingPeriod === 'yearly'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-blue-600 dark:text-blue-300 hover:bg-blue-100/70 dark:hover:bg-blue-900/30'
-            }`}
-          >
-            <span>Tahunan</span>
-            <span className="ml-2 inline-flex items-center rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-700 shadow-sm">
-              Hemat 20%
-            </span>
-          </button>
-        </div>
       </div>
 
       <div
         ref={pricingContainerRef}
         style={{ paddingBottom: '6rem' }}
-        className="relative tp-2 pb-6 mx-auto flex max-w-5xl gap-6 overflow-x-auto snap-x snap-mandatory px-4 hide-scrollbar sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 md:grid-cols-3"
+        className="relative pt-4 pb-6 mx-auto flex max-w-5xl gap-6 overflow-x-auto snap-x snap-mandatory px-4 hide-scrollbar sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 md:grid-cols-3"
       >
         {loading ? (
           <div className="col-span-full flex justify-center py-12">
@@ -278,8 +254,11 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
                         ? 'bg-blue-600 hover:bg-blue-700 text-white'
                         : 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'
                     }`}
+                    asChild
                   >
-                    Pilih Paket
+                    <Link to={`/dashboard/subscription/checkout?package_id=${encodeURIComponent(plan.packageId)}`}>
+                      Pilih Paket
+                    </Link>
                   </Button>
                 </div>
               </CardContent>
