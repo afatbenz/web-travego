@@ -15,7 +15,6 @@ import {
   Building2,
   Contact,
   Globe,
-  MessageCircle,
   Save,
   CheckCircle2,
   FileImage,

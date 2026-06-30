@@ -38,7 +38,6 @@ type PricingSectionProps = {
 
 export const PricingSection: React.FC<PricingSectionProps> = ({ title, description, className }) => {
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
-  const [pricingPeriod, setPricingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const pricingContainerRef = useRef<HTMLDivElement>(null);
@@ -187,9 +186,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ title, descripti
                         <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">/{plan.duration}</span>
                       </div>
                       <div
-                        className={`inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 ${
-                          pricingPeriod === 'yearly' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
-                        }`}
+                        className={`inset-0 flex items-end justify-center whitespace-nowrap transition-[opacity,transform] duration-300 opacity-0 translate-y-1`}
                       >
                         <span className="text-3xl font-bold text-orange-500 dark:text-orange-400 mb-2">
                           {formatRupiah(parseRupiah(plan.monthlyPrice) * 12 * 0.8)}
