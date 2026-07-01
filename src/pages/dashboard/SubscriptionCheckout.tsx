@@ -37,7 +37,7 @@ export const SubscriptionCheckout: React.FC = () => {
     // Load Midtrans Snap script
     if (!(window as any).snap) {
       const script = document.createElement('script');
-      script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
+      script.src = 'https://app.midtrans.com/snap/snap.js';
       script.setAttribute('data-client-key', import.meta.env.VITE_MIDTRANS_CLIENT_KEY || '');
       script.onload = () => setSnapLoaded(true);
       script.onerror = () => setError('Failed to load payment gateway');

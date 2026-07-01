@@ -382,7 +382,7 @@ export const Register: React.FC = () => {
                   <li>Tidak membagikan kredensial akun kepada pihak lain.</li>
                   <li>Memastikan data pribadi yang dimasukkan akurat dan terbaru.</li>
                   <li>Mematuhi peraturan perundang-undangan yang berlaku.</li>
-                  <li>Menyetujui pengolahan data sesuai kebijakan privasi TraveGO.</li>
+                  <li>Menyetujui pengolahan data sesuai kebijakan privasi TraveGo.</li>
                 </ul>
                 <p>Jika Anda tidak setuju dengan ketentuan atau kebijakan privasi, silakan tutup modal ini dan hubungi kami untuk bantuan lebih lanjut.</p>
               </div>

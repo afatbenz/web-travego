@@ -258,7 +258,7 @@ export const Home: React.FC = () => {
         {/* Trapezoid Shape Top for Optimization Section */}
   
 
-        <div className="relative max-w-none mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 pt-12 sm:pt-16">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-12 pt-12 sm:pt-16">
           <div className="text-center mb-12">
             <Badge className="rounded-xl border border-blue-200 bg-blue-50 hover:bg-transparent px-4 py-1.5 text-xs font-medium text-blue-700 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
               Kenapa Travego?
@@ -271,8 +271,8 @@ export const Home: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-12 items-start">
-            <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-10 items-start md:grid-cols-5 md:gap-12">
+            <div className="space-y-3 md:col-span-2">
               {optimizationFeatures.map((item, index) => {
                 const isActive = activeOptimizationIndex === index;
                 const Icon = item.icon;
@@ -309,7 +309,7 @@ export const Home: React.FC = () => {
               })}
             </div>
 
-            <div>
+            <div className="md:col-span-3">
               <Card className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
                 <CardContent className="p-7">
                   <div className="mt-3">

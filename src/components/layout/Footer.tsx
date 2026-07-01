@@ -39,7 +39,7 @@ export const Footer: React.FC = () => {
             </div>
           </div>
           <div className="md:col-span-4 mt-6 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
-            <p>© 2026 TraveGO. All rights reserved.</p>
+            <p>© 2026 TraveGo. All rights reserved.</p>
           </div>
         </div>
       </div>

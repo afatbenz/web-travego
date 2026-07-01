@@ -10,7 +10,7 @@ export const Referral: React.FC = () => {
   
   // Sample referral code - in real app, this would come from user data
   const referralCode = "TraveGO2024";
-  const referralLink = `https://TraveGO.com/register?ref=${referralCode}`;
+  const referralLink = `https://Travego.id/register?ref=${referralCode}`;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(referralCode);

@@ -113,7 +113,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
                 </div>
 
                 <div className="mt-4 text-center text-xs sm:text-sm text-gray-400 dark:text-gray-500">
-                  <p>&copy; {new Date().getFullYear()} TraveGO. All rights reserved.</p>
+                  <p>&copy; {new Date().getFullYear()} TraveGo. All rights reserved.</p>
                 </div>
               </div>
             </div>
@@ -183,7 +183,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
           {/* Footer */}
           <div className="relative z-10 flex-shrink-0 pb-6">
             <p className="text-center text-xs text-white/50">
-              &copy; {new Date().getFullYear()} TraveGO. All rights reserved.
+              &copy; {new Date().getFullYear()} TraveGo. All rights reserved.
             </p>
           </div>
         </div>

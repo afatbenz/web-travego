@@ -110,6 +110,7 @@ function updateLocalUser(
       existingUser.isAdmin ??
       false
     );
+
     const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
     const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
     const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
@@ -177,7 +178,8 @@ export function getRole(
   const isSuperAdminFromLocal = localUser?.isSuperAdmin ?? false;
   const roleFromLocal = localUser?.role;
 
-  console.log(" ------ ", { isAdminClaim, organizationId, isSuperAdminFromLocal, roleFromLocal });
+  // console.log(" ------ ", { isAdminClaim, organizationId, isSuperAdminFromLocal, roleFromLocal });
+  console.log({sensitive})
 
   if (isSuperAdminFromLocal || (isAdminClaim && organizationId === '00')) {
     return 'SuperAdmin';
@@ -232,8 +234,6 @@ export function useEffectiveOrganization() {
       if (currentClaims && typeof currentClaims.token === 'string' && secret) {
         try {
           const decrypted = await decryptAuthToken(currentClaims.token, String(secret));
-          const decrypted2 = await decryptAuthToken("gIXEdGoLZVbU7J4I_ZhmBh0RCeQuOwI71vybTdCjrSOc8n0BeP92thL-4U_y7fgt8YF_Npy3Chz6F07tB_y2FlguFqXM2lIAW3qIVw0D4i-jaDnKkz-DQq5GoJkpLB8YJr_hVUBhARtCHddRIqNCA86J9lUosj04CHGbt51W-HK7wQEi8oe0ezw=", String(secret));
-          console.log({decrypted2})
           if (mounted) {
             setSensitive(decrypted);
             updateLocalUser(currentClaims, decrypted);
