@@ -176,17 +176,13 @@ export const Topbar: React.FC = () => {
                         </span>
                       </DropdownMenuItem>
                     ))}
-                    {notifications.length > 5 && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="w-full justify-center text-blue-600 hover:text-blue-700 cursor-pointer"
-                          onClick={() => navigate(`${basePrefix}/notifications`)}
-                        >
-                          Lihat Semua
-                        </DropdownMenuItem>
-                      </>
-                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="w-full justify-center text-blue-600 hover:text-blue-700 cursor-pointer font-medium"
+                      onClick={() => navigate(`${basePrefix}/notifications`)}
+                    >
+                      Lihat Semua Notifikasi
+                    </DropdownMenuItem>
                   </>
                 )}
               </DropdownMenuContent>
@@ -219,7 +215,7 @@ export const Topbar: React.FC = () => {
                   <User className="mr-2 h-4 w-4" />
                   Profile
                 </DropdownMenuItem>
-                {hasEffectiveOrganization || isAdmin ? (
+                {isAdmin ? (
                   <DropdownMenuItem
                     className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => navigate(`${basePrefix}/accounts/subscription`)}

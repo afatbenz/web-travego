@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
+import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
 import { cn, formatPhoneNumberId } from '@/lib/utils';
 import { ArrowLeft, Package, Car, Calendar, Users, MapPin, Phone, Mail, CreditCard, CheckCircle, Loader2, Pencil, MoreHorizontal, Ban, Printer, ChevronRight, AlertTriangle, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -199,6 +200,7 @@ export const OrderDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
+  const { isAdmin } = useEffectiveOrganization();
   const routeOrderId = params.transaction_id ?? params.order_id ?? params.id ?? '';
   const orderId = params.order_id;
   const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
@@ -1915,7 +1917,7 @@ const next: OrderData = {
             </Button>
              )}
 
-            {orderData.rawStatus === 1 && !isWaitingConfirmation && (
+            {orderData.rawStatus === 1 && !isWaitingConfirmation && isAdmin && (
               <Button
                 type="button"
                 variant="outline"
@@ -1929,7 +1931,7 @@ const next: OrderData = {
               </Button>
             )}
 
-            {isWaitingConfirmation && (
+            {isWaitingConfirmation && isAdmin && (
               <Button
                 type="button"
                 variant="outline"
@@ -1942,7 +1944,7 @@ const next: OrderData = {
               </Button>
             )}
 
-            {isWaitingOrderConfirmation && (
+            {isWaitingOrderConfirmation && isAdmin && (
               <Button
                 type="button"
                 variant="outline"
@@ -1978,7 +1980,7 @@ const next: OrderData = {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[240px]">
-                {orderData.rawStatus === 1 && !isScheduled && hasPayment && (
+                {orderData.rawStatus === 1 && !isScheduled && hasPayment && isAdmin && (
                   <DropdownMenuItem
                     className="cursor-pointer"
                     disabled={isScheduled}
@@ -2015,7 +2017,7 @@ const next: OrderData = {
                   Print Invoice
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {orderData.rawStatus === 1 && (
+                {orderData.rawStatus === 1 && isAdmin && (
                   <DropdownMenuItem
                   className="cursor-pointer text-red-600 focus:text-red-600"
                   onSelect={(e) => {
