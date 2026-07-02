@@ -65,6 +65,14 @@ export const DashboardHome: React.FC = () => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
+    const addMonthsClamped = (date: Date, deltaMonths: number) => {
+      const y = date.getFullYear();
+      const m = date.getMonth();
+      const d = date.getDate();
+      const firstOfTarget = new Date(y, m + deltaMonths, 1);
+      const endOfTarget = new Date(firstOfTarget.getFullYear(), firstOfTarget.getMonth() + 1, 0);
+      return new Date(firstOfTarget.getFullYear(), firstOfTarget.getMonth(), Math.min(d, endOfTarget.getDate()));
+    };
 
     if (preset === 'Bulan Ini') {
       const start = new Date(year, month, 1);
@@ -76,7 +84,7 @@ export const DashboardHome: React.FC = () => {
       return { start_date: toYmd(start), end_date: toYmd(end) };
     }
     if (preset === '3 Bulan Terakhir') {
-      const start = new Date(year, month - 3, 1);
+      const start = addMonthsClamped(now, -3);
       return { start_date: toYmd(start), end_date: toYmd(now) };
     }
     if (preset === 'Tahun Ini') {

@@ -1,0 +1,88 @@
+{
+  "info": {
+    "_postman_id": "9b7c6e73-6b6d-4a59-8fd5-0f5b3c2d9d11",
+    "name": "Fleet Order Summary API",
+    "description": "Collection untuk endpoint Order Fleet Summary",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Order Fleet Summary",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "*/*"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "api-key",
+            "value": "W5IyyG3bgj8IqX4Wq79f5X2j8ZgdM4GlR-O5225SzUb9txyXRQZ0twdezS5eMiZA_k-Hx5JL4FzqnidHWWOx_Sit1r-0OBwtmu6300R8yp_DIAQeSXsy1xdHn8Ku4VpHJrErfr54OMZyXOpgsJMBsrTG_xTY5OFS4zXb"
+          },
+          {
+            "key": "Cookie",
+            "value": "_ga=GA1.1.626290688.1782718378; auth_token=eyJhbGciOiJIUzI1NiJ9.eyJhdXRoZW50aWNhdGVkIjp0cnVlLCJpYXQiOjE3ODI5MTIxMjksImV4cCI6MTc4Mjk5ODUyOX0._jIvfirKdwYUoaTylGVsLWpsRjjSez0ixP3DBAtvKXI; _ga_LC959F603F=GS2.1.s1782912127$o9$g1$t1782912133$j54$l0$h0"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fleet_id\": \"c5a4c87d-1c48-4eec-a17e-c762e6b774dd\",\n  \"price_id\": \"8bb9c9c3-fbc9-4dfc-bd09-65b4408d36e1\"\n}"
+        },
+        "url": {
+          "raw": "http://api.travego.id/api/order/fleet/summary",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3100",
+          "path": [
+            "api",
+            "order",
+            "fleet",
+            "summary"
+          ]
+        },
+        "description": "Mengambil ringkasan armada berdasarkan fleet_id dan price_id."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "api-key",
+                "value": "W5IyyG3bgj8IqX4Wq79f5X2j8ZgdM4GlR-O5225SzUb9txyXRQZ0twdezS5eMiZA_k-Hx5JL4FzqnidHWWOx_Sit1r-0OBwtmu6300R8yp_DIAQeSXsy1xdHn8Ku4VpHJrErfr54OMZyXOpgsJMBsrTG_xTY5OFS4zXb"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fleet_id\": \"c5a4c87d-1c48-4eec-a17e-c762e6b774dd\",\n  \"price_id\": \"8bb9c9c3-fbc9-4dfc-bd09-65b4408d36e1\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3100/api/order/fleet/summary"
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Order summary retrieved\",\n  \"data\": {\n    \"fleet_name\": \"Jetbus 5 MHD Pariwisata\",\n    \"capacity\": 0,\n    \"engine\": \"\",\n    \"body\": \"Adiputro Jetbus 5 MHD\",\n    \"description\": \"Ini adalah contoh deskripsi bus pariwisata yang terdiri dari beberapa pilihan varian<br>- Jetbus SHD<br>- Jetbus SHD 5\",\n    \"active\": true,\n    \"thumbnail\": \"http://localhost:3100/assets/armada/armada-1776063495.jpg\",\n    \"duration\": 1,\n    \"rent_type\": 2,\n    \"rent_type_label\": \"Overland\",\n    \"price\": 3800000,\n    \"uom\": \"hari\",\n    \"facilities\": null,\n    \"pickup_points\": [\n      {\n        \"city_id\": 236,\n        \"city_name\": \"Kota Kediri\"\n      },\n      {\n        \"city_id\": 260,\n        \"city_name\": \"Kediri\"\n      },\n      {\n        \"city_id\": 262,\n        \"city_name\": \"Tulungagung\"\n      },\n      {\n        \"city_id\": 235,\n        \"city_name\": \"Kota Blitar\"\n      },\n      {\n        \"city_id\": 261,\n        \"city_name\": \"Blitar\"\n      },\n      {\n        \"city_id\": 263,\n        \"city_name\": \"Trenggalek\"\n      },\n      {\n        \"city_id\": 248,\n        \"city_name\": \"Nganjuk\"\n      }\n    ]\n  },\n  \"transaction_id\": \"DEV260701212601662\"\n}"
+        }
+      ]
+    }
+  ]
+}

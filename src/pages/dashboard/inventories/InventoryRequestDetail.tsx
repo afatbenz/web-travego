@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ArrowLeft, Box, Check, X, MoreVertical, Plus, Calendar, Clock, Copy, Users, ChevronsUpDown, Info } from 'lucide-react';
+import { ArrowLeft, Box, Check, X, MoreVertical, Plus, Calendar, Clock, Copy, Users, ChevronsUpDown, Info, Pencil } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,12 +24,39 @@ import {
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
 
 type SupplierOption = {
   id: string;
   supplier_name: string;
   phone: string;
   url: string;
+};
+
+type GarageOption = {
+  id: string;
+  garage_name: string;
+};
+
+type ItemOption = {
+  id: string;
+  item_name: string;
+  item_sku: string;
+  item_uom: string;
+};
+
+type EmployeeOption = {
+  uuid: string;
+  fullname: string;
+};
+
+const unitOptions = ['Pcs', 'Box', 'Unit', 'Liter', 'Kilogram'] as const;
+
+const normalizePhoneWithoutCountryCode = (value: string): string => {
+  const digits = String(value || '').replace(/[^0-9]/g, '');
+  if (digits.startsWith('62')) return digits.slice(2);
+  return digits;
 };
 
 type RequestDetail = {
@@ -56,6 +83,7 @@ type RequestDetail = {
   updated_at: string;
   updated_by: string;
   employee_name: string;
+  employee_id: string;
   unit_id: string;
   vehicle_id: string;
   plate_number: string;
@@ -160,6 +188,7 @@ export const InventoryRequestDetail: React.FC = () => {
   const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const { request_id } = useParams<{ request_id: string }>();
   const requestId = decodeURIComponent(request_id ?? '');
+  const { role, userNameCandidates } = useEffectiveOrganization();
 
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<RequestDetail | null>(null);
@@ -186,10 +215,29 @@ const [supplierQuery, setSupplierQuery] = useState('');
   const [itemQuery, setItemQuery] = useState('');
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [completeSaving, setCompleteSaving] = useState(false);
-  const [employeeOptions, setEmployeeOptions] = useState<{uuid: string; fullname: string}[]>([]);
+  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
   const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
   const [employeeQuery, setEmployeeQuery] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<{uuid: string; fullname: string} | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    item_id: '',
+    item_name_manual: '',
+    garage_id: '',
+    employee_id: '',
+    quantity: '',
+    item_uom: 'Pcs',
+  });
+  const [, setEditItemOptions] = useState<ItemOption[]>([]);
+  const [, setEditItemPickerOpen] = useState(false);
+  const [, setEditItemQuery] = useState('');
+  const [garageOptions, setGarageOptions] = useState<GarageOption[]>([]);
+  const [garagePickerOpen, setGaragePickerOpen] = useState(false);
+  const [garageQuery, setGarageQuery] = useState('');
+  const [editEmployeeOptions, setEditEmployeeOptions] = useState<EmployeeOption[]>([]);
+  const [editEmployeePickerOpen, setEditEmployeePickerOpen] = useState(false);
+  const [editEmployeeQuery, setEditEmployeeQuery] = useState('');
 
   const timelineItems: TimelineItem[] = useMemo(() => {
     if (!detail) return [];
@@ -324,6 +372,11 @@ const [supplierQuery, setSupplierQuery] = useState('');
           updated_at: typeof data.updated_at === 'string' ? data.updated_at : '',
           updated_by: typeof data.updated_by === 'string' ? data.updated_by : '',
           employee_name: typeof data.employee_name === 'string' ? data.employee_name : '',
+          employee_id: typeof (data as Record<string, unknown>).employee_id === 'string'
+            ? String((data as Record<string, unknown>).employee_id)
+            : typeof (data as Record<string, unknown>).employee_uuid === 'string'
+              ? String((data as Record<string, unknown>).employee_uuid)
+              : '',
           unit_id: typeof data.unit_id === 'string' ? data.unit_id : '',
           vehicle_id: typeof data.vehicle_id === 'string' ? data.vehicle_id : '',
           plate_number: typeof data.plate_number === 'string' ? data.plate_number : '',
@@ -511,6 +564,108 @@ const [supplierQuery, setSupplierQuery] = useState('');
     }
   }, [completeModalOpen]);
 
+  useEffect(() => {
+    if (editModalOpen) {
+      const loadGarages = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/organization/garage/list', token ? { Authorization: token } : undefined);
+        if (res.status === 'success') {
+          const payload = res.data as unknown;
+          const list: unknown[] = Array.isArray(payload)
+            ? payload
+            : payload && typeof payload === 'object'
+              ? Array.isArray((payload as Record<string, unknown>).items)
+                ? ((payload as Record<string, unknown>).items as unknown[])
+                : []
+              : [];
+          const mapped = list
+            .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
+            .map((it) => {
+              const idRaw = it.garage_id ?? it.id;
+              const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+              const garage_name = typeof it.garage_name === 'string' ? it.garage_name : '';
+              return id && garage_name ? { id, garage_name } : null;
+            })
+            .filter((x): x is GarageOption => x !== null);
+          setGarageOptions(mapped);
+        }
+      };
+      const loadItems = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        try {
+          const res = await api.get<unknown>('/inventories/items/all', token ? { Authorization: token } : undefined);
+          if (res.status === 'success') {
+            const payload = res.data as unknown;
+            const raw = Array.isArray(payload) ? payload : [];
+            const mapped = raw
+              .filter((it): it is Record<string, unknown> => it && typeof it === 'object')
+              .map((it) => {
+                const idRaw = it.item_id ?? it.id;
+                const id = typeof idRaw === 'string' || typeof idRaw === 'number' ? String(idRaw) : '';
+                const item_name = typeof it.item_name === 'string' ? it.item_name : '';
+                const item_sku = typeof it.item_sku === 'string' ? it.item_sku : '';
+                const item_uom = typeof it.item_uom === 'string' ? it.item_uom : '';
+                return id && item_name ? { id, item_name, item_sku, item_uom } : null;
+              })
+              .filter((x): x is ItemOption => x !== null);
+            setEditItemOptions(mapped);
+          }
+        } catch {
+          // no-op
+        }
+      };
+      const loadEmployees = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.get<unknown>('/services/employee/all', token ? { Authorization: token } : undefined);
+        if (res.status === 'success') {
+          const payload = res.data as unknown;
+          const list: unknown[] = Array.isArray(payload)
+            ? payload
+            : payload && typeof payload === 'object'
+              ? Array.isArray((payload as Record<string, unknown>).items)
+                ? ((payload as Record<string, unknown>).items as unknown[])
+                : []
+              : [];
+          const mapped = list
+            .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
+            .map((it) => {
+              const uuid = typeof it.uuid === 'string' ? it.uuid : '';
+              const fullname = typeof it.fullname === 'string' ? it.fullname : '';
+              return uuid && fullname ? { uuid, fullname } : null;
+            })
+            .filter((x): x is EmployeeOption => x !== null);
+          setEditEmployeeOptions(mapped);
+        }
+      };
+
+      void loadGarages();
+      void loadItems();
+      void loadEmployees();
+    }
+  }, [editModalOpen]);
+
+  useEffect(() => {
+    if (editModalOpen && editFormData.item_id) {
+      const fetchItemDetail = async () => {
+        const token = localStorage.getItem('token') ?? '';
+        const res = await api.post<unknown>(
+          '/inventories/items/detail',
+          { item_id: editFormData.item_id },
+          token ? { Authorization: token } : undefined
+        );
+        if (res.status === 'success') {
+          const payload = res.data as unknown;
+          const obj = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+          const item_uom = typeof obj.item_uom === 'string' ? obj.item_uom : '';
+          if (item_uom) {
+            setEditFormData((p) => ({ ...p, item_uom }));
+          }
+        }
+      };
+      void fetchItemDetail();
+    }
+  }, [editModalOpen, editFormData.item_id]);
+
   const selectedSupplierName = useMemo(() => {
     const found = supplierOptions.find((o) => o.id === poFormData.supplier_id);
     return found?.supplier_name ?? '';
@@ -561,6 +716,71 @@ const [supplierQuery, setSupplierQuery] = useState('');
       await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memproses.' });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!requestId || actionLoading) return;
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Konfirmasi',
+      text: 'Pesanan akan dibatalkan dan tidak bisa diproses',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Batalkan',
+      cancelButtonText: 'Batal',
+    });
+    if (!result.isConfirmed) return;
+
+    setActionLoading(true);
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const res = await api.put<unknown>(
+        '/inventories/request/cancel',
+        { request_id: requestId },
+        token ? { Authorization: token } : undefined
+      );
+      if (res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Pesanan berhasil dibatalkan.' });
+        navigate(`${basePrefix}/inventories/request`);
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat membatalkan pesanan.' });
+      }
+    } catch {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat membatalkan pesanan.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEditRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requestId || editSaving || !detail) return;
+
+    setEditSaving(true);
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const payload: Record<string, unknown> = {
+        request_id: requestId,
+        garage_id: editFormData.garage_id,
+        quantity: Number(editFormData.quantity),
+        item_uom: editFormData.item_uom,
+      };
+      if (editFormData.employee_id) {
+        payload.employee_id = editFormData.employee_id;
+      }
+
+      const res = await api.post<unknown>('/inventories/request/update-request', payload, token ? { Authorization: token } : undefined);
+      if (res.status === 'success') {
+        await Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Permintaan berhasil diperbarui.' });
+        setEditModalOpen(false);
+        fetchRequestDetail();
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memperbarui permintaan.' });
+      }
+    } catch {
+      await Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat memperbarui permintaan.' });
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -652,10 +872,37 @@ const [supplierQuery, setSupplierQuery] = useState('');
     }
   };
 
-  const showAddPurchaseOrder = detail?.status === 2 && detail && detail.quantity >= (detail.stock - 2);
-    const showApproveReject = detail?.status === 2 || detail?.status === 3;
-    const showApproveButton = showApproveReject && (detail?.stock ?? 0) > 0 && !(detail?.status === 3 && (detail?.order_status === 1 || detail?.order_status === 2));
-    const showCompleteButton = detail?.order_status === 1 && detail?.status === 3;
+  const isAdminRole = role === 'Admin';
+  const isMemberRole = role === 'Members';
+  const normalizeIdentity = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
+  const isOwnRequest = Boolean(
+    detail?.created_by &&
+    Array.isArray(userNameCandidates) &&
+    userNameCandidates.some((v) => normalizeIdentity(v) === normalizeIdentity(detail.created_by))
+  );
+  const canMemberManageRequest = isMemberRole && isOwnRequest && detail?.status === 2;
+  const showAddPurchaseOrder = isAdminRole && detail?.status === 2 && detail && detail.quantity >= (detail.stock - 2);
+  const showApproveReject = isAdminRole && (detail?.status === 2 || detail?.status === 3);
+  const showApproveButton = showApproveReject && (detail?.stock ?? 0) > 0 && !(detail?.status === 3 && (detail?.order_status === 1 || detail?.order_status === 2));
+  const showCompleteButton = isAdminRole && detail?.order_status === 1 && detail?.status === 3;
+
+  const filteredEditEmployees = useMemo(() => {
+    if (!editEmployeeQuery) return editEmployeeOptions;
+    return editEmployeeOptions.filter((o) => o.fullname.toLowerCase().includes(editEmployeeQuery.toLowerCase()));
+  }, [editEmployeeOptions, editEmployeeQuery]);
+
+  const selectedEditEmployeeName = useMemo(() => {
+    const found = editEmployeeOptions.find((o) => o.uuid === editFormData.employee_id);
+    return found?.fullname ?? '';
+  }, [editEmployeeOptions, editFormData.employee_id]);
+  const filteredGarageOptions = useMemo(() => {
+    if (!garageQuery) return garageOptions;
+    return garageOptions.filter((option) => option.garage_name.toLowerCase().includes(garageQuery.toLowerCase()));
+  }, [garageOptions, garageQuery]);
+  const selectedGarageName = useMemo(() => {
+    const found = garageOptions.find((option) => option.id === editFormData.garage_id);
+    return found?.garage_name ?? '';
+  }, [garageOptions, editFormData.garage_id]);
 
   const inventoryColumns: Array<DataTableColumn<InventoryLocation>> = [
     {
@@ -769,6 +1016,38 @@ const [supplierQuery, setSupplierQuery] = useState('');
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {canMemberManageRequest && (
+            <>
+              <Button
+                variant="outline"
+                className="h-9 rounded-2xl text-xs sm:text-sm"
+                onClick={() => {
+                  if (!detail) return;
+                  setEditFormData({
+                    item_id: detail.item_id,
+                    item_name_manual: '',
+                    garage_id: detail.garage_id,
+                    employee_id: detail.employee_id ?? '',
+                    quantity: String(detail.quantity ?? ''),
+                    item_uom: detail.item_uom || 'Pcs',
+                  });
+                  setEditModalOpen(true);
+                }}
+              >
+                <Pencil className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Edit Pesanan</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 rounded-2xl text-xs sm:text-sm bg-white text-red-600 border-red-500 hover:bg-red-50 hover:text-red-700"
+                onClick={handleCancelRequest}
+                disabled={actionLoading}
+              >
+                <X className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Batalkan Permintaan</span>
+              </Button>
+            </>
+          )}
           {showAddPurchaseOrder && (
             <Button
               variant="outline"
@@ -845,6 +1124,38 @@ const [supplierQuery, setSupplierQuery] = useState('');
           Informasi lengkap permintaan asset
         </div>
         <div className="mt-3 flex items-center gap-2">
+          {canMemberManageRequest && (
+            <>
+              <Button
+                variant="outline"
+                className="h-9 rounded-2xl text-xs"
+                onClick={() => {
+                  if (!detail) return;
+                  setEditFormData({
+                    item_id: detail.item_id,
+                    item_name_manual: '',
+                    garage_id: detail.garage_id,
+                    employee_id: detail.employee_id ?? '',
+                    quantity: String(detail.quantity ?? ''),
+                    item_uom: detail.item_uom || 'Pcs',
+                  });
+                  setEditModalOpen(true);
+                }}
+              >
+                <Clock className="h-4 w-4 mr-1.5" />
+                Edit
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 rounded-2xl text-xs text-red-600 border-red-200 hover:text-red-700"
+                onClick={handleCancelRequest}
+                disabled={actionLoading}
+              >
+                <X className="h-4 w-4 mr-1.5" />
+                Batalkan
+              </Button>
+            </>
+          )}
           {showApproveButton && (
             <Button
               variant="outline"
@@ -1299,7 +1610,7 @@ const [supplierQuery, setSupplierQuery] = useState('');
                                   ...p,
                                   supplier_id: opt.id,
                                   supplier_name_manual: opt.supplier_name,
-                                  supplier_phone: opt.phone || '',
+                                  supplier_phone: normalizePhoneWithoutCountryCode(opt.phone || ''),
                                   supplier_url: opt.url || ''
                                 }));
                                 setSupplierQuery('');
@@ -1326,8 +1637,8 @@ const [supplierQuery, setSupplierQuery] = useState('');
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      value={poFormData.supplier_phone}
-                      onChange={(e) => setPoFormData((p) => ({ ...p, supplier_phone: e.target.value.replace(/[^0-9]/g, '') }))}
+                      value={normalizePhoneWithoutCountryCode(poFormData.supplier_phone)}
+                      onChange={(e) => setPoFormData((p) => ({ ...p, supplier_phone: normalizePhoneWithoutCountryCode(e.target.value) }))}
                       placeholder="8xxxxxxxxxx"
                       className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30 pl-10 w-full"
                       style={{ appearance: 'textfield' }}
@@ -1359,6 +1670,189 @@ const [supplierQuery, setSupplierQuery] = useState('');
               </Button>
               <Button type="submit" disabled={poSaving} className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white">
                 {poSaving ? 'Menyimpan...' : 'Proses Pesanan'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editModalOpen} onOpenChange={(open) => {
+        setEditModalOpen(open);
+        if (!open) {
+          setGaragePickerOpen(false);
+          setGarageQuery('');
+          setEditItemPickerOpen(false);
+          setEditItemQuery('');
+          setEditEmployeePickerOpen(false);
+          setEditEmployeeQuery('');
+        }
+      }}>
+        <DialogContent className="max-w-xl w-[calc(100vw-2rem)] sm:w-full p-0 border-none bg-white overflow-hidden max-h-[80vh] md:max-h-[650px] flex flex-col">
+          <form onSubmit={handleEditRequest} className="flex flex-col flex-1 min-h-0">
+            <div className="px-6 sm:px-8 pt-6 sm:pt-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Edit Pesanan</h2>
+                  <p className="text-slate-500 text-xs sm:text-sm">Perbarui detail pesanan.</p>
+                </div>
+                <DialogClose className="w-6 h-6 sm:w-10 sm:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-400">
+                  <X className="w-3 h-3 sm:w-5 sm:h-5" />
+                </DialogClose>
+              </div>
+              <div className="h-px bg-slate-100 mt-4" />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Garasi *</label>
+                  <Popover open={garagePickerOpen} onOpenChange={setGaragePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50"
+                      >
+                        <span className={editFormData.garage_id ? '' : 'text-muted-foreground'}>
+                          {editFormData.garage_id ? selectedGarageName : 'Pilih garasi'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                      <Command shouldFilter={false} className="rounded-xl">
+                        <CommandInput
+                          placeholder="Cari garasi..."
+                          value={garageQuery}
+                          onValueChange={setGarageQuery}
+                        />
+                        <CommandList>
+                          <CommandEmpty>Tidak ada hasil.</CommandEmpty>
+                          <CommandGroup heading="Garasi">
+                            {filteredGarageOptions.map((opt) => (
+                              <CommandItem
+                                key={opt.id}
+                                value={opt.garage_name}
+                                onSelect={() => {
+                                  setEditFormData((prev) => ({ ...prev, garage_id: opt.id }));
+                                  setGaragePickerOpen(false);
+                                  setGarageQuery('');
+                                }}
+                              >
+                                <Check className={editFormData.garage_id === opt.id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                                {opt.garage_name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Pilih Karyawan</label>
+                  <Popover open={editEmployeePickerOpen} onOpenChange={(open) => {
+                    setEditEmployeePickerOpen(open);
+                    setEditEmployeeQuery(open ? '' : '');
+                    if (!open) setEditEmployeeQuery('');
+                  }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between h-11 rounded-2xl border-gray-300 bg-white hover:bg-gray-50"
+                      >
+                        <span className={editFormData.employee_id ? '' : 'text-muted-foreground'}>
+                          {editFormData.employee_id ? selectedEditEmployeeName : 'Pilih karyawan'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] rounded-xl border border-gray-200/70 bg-white p-0 shadow-xl" align="start">
+                      <Command shouldFilter={false} className="rounded-xl">
+                        <CommandInput
+                          placeholder="Cari karyawan..."
+                          value={editEmployeeQuery}
+                          onValueChange={setEditEmployeeQuery}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {editEmployeeQuery.trim().length < 3 ? 'Ketik minimal 3 karakter untuk mencari karyawan.' : 'Tidak ada hasil.'}
+                          </CommandEmpty>
+                          <CommandGroup heading="Karyawan">
+                            {filteredEditEmployees.map((opt) => (
+                              <CommandItem
+                                key={opt.uuid}
+                                value={opt.fullname}
+                                className="rounded-lg px-3 py-2.5 data-[selected=true]:bg-blue-50 data-[selected=true]:text-gray-800"
+                                onSelect={() => {
+                                  setEditFormData((p) => ({ ...p, employee_id: opt.uuid }));
+                                  setEditEmployeeQuery('');
+                                  setEditEmployeePickerOpen(false);
+                                }}
+                              >
+                                <Check className={editFormData.employee_id === opt.uuid ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                                {opt.fullname}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Jumlah *</label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={editFormData.quantity}
+                    onChange={(e) => setEditFormData((prev) => ({ ...prev, quantity: e.target.value.replace(/[^0-9]/g, '') }))}
+                    placeholder="0"
+                    className="h-11 rounded-2xl border-gray-300 bg-white focus-visible:ring-[#4F6BFF]/30"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-white/70">Satuan *</label>
+                  <Select value={editFormData.item_uom} onValueChange={(v) => setEditFormData((p) => ({ ...p, item_uom: v }))}>
+                    <SelectTrigger className="h-11 rounded-2xl border-gray-300 bg-white">
+                      <SelectValue placeholder="Pilih satuan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitOptions.map((unit) => (
+                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full px-6 sm:px-8 py-4 border-t border-slate-100 flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+              <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)} className="w-full md:w-auto h-11 rounded-2xl">
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  editSaving ||
+                  !editFormData.garage_id ||
+                  !editFormData.quantity ||
+                  Number(editFormData.quantity) <= 0 ||
+                  (!editFormData.item_id && !editFormData.item_name_manual.trim()) ||
+                  !editFormData.item_uom
+                }
+                className="w-full md:w-auto h-11 rounded-full bg-blue-600 px-6 hover:bg-blue-700 text-white"
+              >
+                {editSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
               </Button>
             </div>
           </form>

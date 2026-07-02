@@ -7,6 +7,8 @@ type SensitiveClaims = {
   user_id?: string;
   organization_role?: number;
   is_admin?: boolean;
+  fullname?: string;
+  name?: string;
 };
 
 const nonceLength = 12;
@@ -86,7 +88,7 @@ function getBooleanClaim(claims: JwtClaims | null | undefined, keys: string[]): 
   return undefined;
 }
 
-function getLocalUser(): { isAdmin?: boolean; isSuperAdmin?: boolean; role?: string } | null {
+function getLocalUser(): { isAdmin?: boolean; isSuperAdmin?: boolean; role?: string; name?: string; fullname?: string; username?: string } | null {
   try {
     const userStr = localStorage.getItem('user');
     if (!userStr) return null;
@@ -94,6 +96,52 @@ function getLocalUser(): { isAdmin?: boolean; isSuperAdmin?: boolean; role?: str
   } catch {
     return null;
   }
+}
+
+export function getUserName(
+  claims: JwtClaims | null | undefined,
+  sensitive?: SensitiveClaims,
+): string {
+  const localUser = getLocalUser();
+  const localName = typeof localUser?.name === 'string' ? localUser.name.trim() : '';
+  const localFullname = typeof localUser?.fullname === 'string' ? localUser.fullname.trim() : '';
+  const localUsername = typeof localUser?.username === 'string' ? localUser.username.trim() : '';
+  const sensitiveName = typeof sensitive?.fullname === 'string'
+    ? sensitive.fullname.trim()
+    : typeof sensitive?.name === 'string'
+      ? sensitive.name.trim()
+      : '';
+  const jwtName = getStringClaim(claims, ['fullname', 'full_name', 'name', 'username', 'user_name']);
+  return String(localName || localFullname || localUsername || sensitiveName || jwtName || '').trim();
+}
+
+export function getUserNameCandidates(
+  claims: JwtClaims | null | undefined,
+  sensitive?: SensitiveClaims,
+): string[] {
+  const localUser = getLocalUser();
+  const localName = typeof localUser?.name === 'string' ? localUser.name.trim() : '';
+  const localFullname = typeof localUser?.fullname === 'string' ? localUser.fullname.trim() : '';
+  const localUsername = typeof localUser?.username === 'string' ? localUser.username.trim() : '';
+  const sensitiveName = typeof sensitive?.fullname === 'string'
+    ? sensitive.fullname.trim()
+    : typeof sensitive?.name === 'string'
+      ? sensitive.name.trim()
+      : '';
+  const jwtName = getStringClaim(claims, ['fullname', 'full_name', 'name', 'username', 'user_name']);
+
+  const normalize = (v: string) => v.trim().toLowerCase().replace(/\s+/g, ' ');
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of [localName, localFullname, localUsername, sensitiveName, jwtName]) {
+    const raw = String(v || '').trim();
+    if (!raw) continue;
+    const key = normalize(raw);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(raw);
+  }
+  return out;
 }
 
 function updateLocalUser(
@@ -110,6 +158,7 @@ function updateLocalUser(
       existingUser.isAdmin ??
       false
     );
+
     const orgIdFromSensitive = typeof sensitive?.organization_id === 'string' ? sensitive.organization_id.trim() : '';
     const orgIdFromJwt = getStringClaim(claims, ['organization_id', 'org_id', 'organizationId']);
     const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
@@ -121,11 +170,25 @@ function updateLocalUser(
       role = 'Admin';
     }
 
+    const existingName = typeof existingUser.name === 'string' ? existingUser.name.trim() : '';
+    const existingFullname = typeof existingUser.fullname === 'string' ? existingUser.fullname.trim() : '';
+    const existingUsername = typeof existingUser.username === 'string' ? existingUser.username.trim() : '';
+    const sensitiveName = typeof sensitive?.fullname === 'string'
+      ? sensitive.fullname.trim()
+      : typeof sensitive?.name === 'string'
+        ? sensitive.name.trim()
+        : '';
+    const jwtName = getStringClaim(claims, ['fullname', 'full_name', 'name', 'username', 'user_name']);
+    const nextName = String(existingName || existingFullname || existingUsername || sensitiveName || jwtName || '').trim();
+    const nextFullname = String(existingFullname || sensitiveName || jwtName || existingName || '').trim();
+
     const updatedUser = {
       ...existingUser,
       isAdmin: isAdminClaim,
       isSuperAdmin,
-      role
+      role,
+      ...(nextName ? { name: nextName } : {}),
+      ...(nextFullname ? { fullname: nextFullname } : {}),
     };
 
     localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -176,8 +239,6 @@ export function getRole(
   const organizationId = (orgIdFromSensitive || orgIdFromJwt || '').trim();
   const isSuperAdminFromLocal = localUser?.isSuperAdmin ?? false;
   const roleFromLocal = localUser?.role;
-
-  console.log(" ------ ", { isAdminClaim, organizationId, isSuperAdminFromLocal, roleFromLocal });
 
   if (isSuperAdminFromLocal || (isAdminClaim && organizationId === '00')) {
     return 'SuperAdmin';
@@ -232,8 +293,6 @@ export function useEffectiveOrganization() {
       if (currentClaims && typeof currentClaims.token === 'string' && secret) {
         try {
           const decrypted = await decryptAuthToken(currentClaims.token, String(secret));
-          const decrypted2 = await decryptAuthToken("gIXEdGoLZVbU7J4I_ZhmBh0RCeQuOwI71vybTdCjrSOc8n0BeP92thL-4U_y7fgt8YF_Npy3Chz6F07tB_y2FlguFqXM2lIAW3qIVw0D4i-jaDnKkz-DQq5GoJkpLB8YJr_hVUBhARtCHddRIqNCA86J9lUosj04CHGbt51W-HK7wQEi8oe0ezw=", String(secret));
-          console.log({decrypted2})
           if (mounted) {
             setSensitive(decrypted);
             updateLocalUser(currentClaims, decrypted);
@@ -271,6 +330,8 @@ export function useEffectiveOrganization() {
   const hasEffectiveOrganization = effectiveOrgId !== '';
   const role = useMemo(() => getRole(claims, sensitive), [claims, sensitive]);
   const isSuperAdmin = useMemo(() => getIsSuperAdmin(claims, sensitive), [claims, sensitive]);
+  const userName = useMemo(() => getUserName(claims, sensitive), [claims, sensitive]);
+  const userNameCandidates = useMemo(() => getUserNameCandidates(claims, sensitive), [claims, sensitive]);
 
   return {
     claims,
@@ -280,5 +341,7 @@ export function useEffectiveOrganization() {
     isChecking,
     role,
     isSuperAdmin,
+    userName,
+    userNameCandidates,
   };
 }

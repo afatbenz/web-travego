@@ -491,7 +491,7 @@ export const Payment: React.FC = () => {
                       <div className="flex items-center text-sm">
                         <span className="text-gray-600 dark:text-gray-300 w-16">Email:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          solutions@travego.com
+                          solutions@travego.id
                         </span>
                       </div>
                     </div>
