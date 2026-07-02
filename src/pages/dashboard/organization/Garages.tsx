@@ -640,7 +640,7 @@ export const Garages: React.FC = () => {
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="w-full md:w-auto h-12 px-8 rounded-2xl bg-blue-500 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
+                  className="w-full md:w-auto h-12 px-8 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white font-normal flex items-center justify-center gap-2 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50"
                 >
                   {submitting ? (
                     <>

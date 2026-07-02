@@ -1,0 +1,77 @@
+{
+  "info": {
+    "_postman_id": "ef2e4b4b-728d-4fd4-b53c-5f6dd3d10f72",
+    "name": "Fleet Addon API",
+    "description": "Collection untuk endpoint Get Fleet Addons",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Fleet Addons",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "*/*"
+          },
+          {
+            "key": "api-key",
+            "value": "W5IyyG3bgj8IqX4Wq79f5X2j8ZgdM4GlR-O5225SzUb9txyXRQZ0twdezS5eMiZA_k-Hx5JL4FzqnidHWWOx_Sit1r-0OBwtmu6300R8yp_DIAQeSXsy1xdHn8Ku4VpHJrErfr54OMZyXOpgsJMBsrTG_xTY5OFS4zXb"
+          },
+          {
+            "key": "Cookie",
+            "value": "_ga=GA1.1.626290688.1782718378; auth_token=eyJhbGciOiJIUzI1NiJ9.eyJhdXRoZW50aWNhdGVkIjp0cnVlLCJpYXQiOjE3ODI5MTIxMjksImV4cCI6MTc4Mjk5ODUyOX0._jIvfirKdwYUoaTylGVsLWpsRjjSez0ixP3DBAtvKXI; _ga_LC959F603F=GS2.1.s1782912127$o9$g1$t1782912133$j54$l0$h0"
+          }
+        ],
+        "url": {
+          "raw": "http://api.travego.id/api/service/fleet/addon/c5a4c87d-1c48-4eec-a17e-c762e6b774dd",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3100",
+          "path": [
+            "api",
+            "service",
+            "fleet",
+            "addon",
+            "c5a4c87d-1c48-4eec-a17e-c762e6b774dd"
+          ]
+        },
+        "description": "Mengambil daftar addon yang tersedia untuk fleet berdasarkan Fleet ID."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "*/*"
+              },
+              {
+                "key": "api-key",
+                "value": "W5IyyG3bgj8IqX4Wq79f5X2j8ZgdM4GlR-O5225SzUb9txyXRQZ0twdezS5eMiZA_k-Hx5JL4FzqnidHWWOx_Sit1r-0OBwtmu6300R8yp_DIAQeSXsy1xdHn8Ku4VpHJrErfr54OMZyXOpgsJMBsrTG_xTY5OFS4zXb"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3100/api/service/fleet/addon/c5a4c87d-1c48-4eec-a17e-c762e6b774dd"
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Fleet addons retrieved\",\n  \"data\": [\n    {\n      \"addon_id\": \"fb8858d8-f07f-40de-a187-401dda0e00e7\",\n      \"addon_name\": \"Bantal Selimut\",\n      \"addon_desc\": \"Penambahan bantal selimut di setiap seat\",\n      \"addon_price\": 250000\n    },\n    {\n      \"addon_id\": \"7c449c12-47fa-4e62-bde9-bab12ea56015\",\n      \"addon_name\": \"Overland Pickup\",\n      \"addon_desc\": \"Penjemputan di luar wilayah asal\",\n      \"addon_price\": 400000\n    }\n  ],\n  \"transaction_id\": \"DEV260701212601325\"\n}"
+        }
+      ]
+    }
+  ]
+}

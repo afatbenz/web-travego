@@ -1,0 +1,89 @@
+{
+  "info": {
+    "_postman_id": "f0b71b79-4d84-47ef-91d4-c6c31b2c8d1f",
+    "name": "Fleet Availability API",
+    "description": "Collection untuk endpoint Check Fleet Availability",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Check Fleet Availability",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "*/*"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "api-key",
+            "value": "W5IyyG3bgj8IqX4Wq79f5X2j8ZgdM4GlR-O5225SzUb9txyXRQZ0twdezS5eMiZA_k-Hx5JL4FzqnidHWWOx_Sit1r-0OBwtmu6300R8yp_DIAQeSXsy1xdHn8Ku4VpHJrErfr54OMZyXOpgsJMBsrTG_xTY5OFS4zXb"
+          },
+          {
+            "key": "Cookie",
+            "value": "_ga=GA1.1.626290688.1782718378; auth_token=eyJhbGciOiJIUzI1NiJ9.eyJhdXRoZW50aWNhdGVkIjp0cnVlLCJpYXQiOjE3ODI5MTIxMjksImV4cCI6MTc4Mjk5ODUyOX0._jIvfirKdwYUoaTylGVsLWpsRjjSez0ixP3DBAtvKXI; _ga_LC959F603F=GS2.1.s1782912127$o9$g1$t1782912133$j54$l0$h0"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fleet_id\": \"c5a4c87d-1c48-4eec-a17e-c762e6b774dd\",\n  \"start_date\": \"2026-07-30\",\n  \"end_date\": \"2026-07-30\",\n  \"city_id\": 172,\n  \"service_type\": 2\n}"
+        },
+        "url": {
+          "raw": "http://api.travego.id/api/service/fleet/order/availibility",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3100",
+          "path": [
+            "api",
+            "service",
+            "fleet",
+            "order",
+            "availibility"
+          ]
+        },
+        "description": "Memeriksa ketersediaan armada pada tanggal dan kota tertentu, sekaligus mengembalikan daftar harga yang dapat dipilih."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "api-key",
+                "value": "W5IyyG3bgj8IqX4Wq79f5X2j8ZgdM4GlR-O5225SzUb9txyXRQZ0twdezS5eMiZA_k-Hx5JL4FzqnidHWWOx_Sit1r-0OBwtmu6300R8yp_DIAQeSXsy1xdHn8Ku4VpHJrErfr54OMZyXOpgsJMBsrTG_xTY5OFS4zXb"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fleet_id\": \"c5a4c87d-1c48-4eec-a17e-c762e6b774dd\",\n  \"start_date\": \"2026-07-30\",\n  \"end_date\": \"2026-07-30\",\n  \"city_id\": 172,\n  \"service_type\": 2\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3100/api/service/fleet/order/availibility"
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"OK\",\n  \"data\": {\n    \"availability\": true,\n    \"prices\": [\n      {\n        \"price_id\": \"8bb9c9c3-fbc9-4dfc-bd09-65b4408d36e1\",\n        \"duration\": 1,\n        \"price\": 3800000,\n        \"rent_type\": 2\n      },\n      {\n        \"price_id\": \"9cb6ad9b-071c-4734-9524-f9505c960031\",\n        \"duration\": 2,\n        \"price\": 8000000,\n        \"rent_type\": 2\n      },\n      {\n        \"price_id\": \"c1414526-5625-410c-94f0-80eaf9cebe98\",\n        \"duration\": 3,\n        \"price\": 11000000,\n        \"rent_type\": 2\n      }\n    ]\n  },\n  \"transaction_id\": \"DEV260701212311181\"\n}"
+        }
+      ]
+    }
+  ]
+}

@@ -77,6 +77,11 @@ type EditFormValues = {
   userType: number;
 };
 
+type AssistantStatistics = {
+  totalReceived: number;
+  totalSent: number;
+};
+
 function toText(value: unknown): string {
   if (typeof value === 'string') return value.trim();
   if (typeof value === 'number') return String(value);
@@ -233,6 +238,8 @@ export const OrganizationAccountAssistant: React.FC = () => {
   const [users, setUsers] = useState<AssistantUser[]>([]);
   const [totalAccount, setTotalAccount] = useState(0);
   const [remainingLimit, setRemainingLimit] = useState(0);
+  const [systemStatistics, setSystemStatistics] = useState<AssistantStatistics>({ totalReceived: 0, totalSent: 0 });
+  const [customerStatistics, setCustomerStatistics] = useState<AssistantStatistics>({ totalReceived: 0, totalSent: 0 });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [pageLoading, setPageLoading] = useState(true);
@@ -316,10 +323,20 @@ export const OrganizationAccountAssistant: React.FC = () => {
           const data = listRes.data as Record<string, unknown> | undefined;
           console.log("Data from list API:", data);
           const usersList = parseAssistantUsers(data?.users ?? data?.data ?? []);
+          const systemStats = (data?.system_statistics ?? data?.systemStatistics ?? {}) as Record<string, unknown>;
+          const customerStats = (data?.customer_statistics ?? data?.customerStatistics ?? {}) as Record<string, unknown>;
           console.log("Parsed users list:", usersList);
           setUsers(usersList);
           setTotalAccount(toNumber(data?.total_account ?? data?.totalAccounts ?? usersList.length));
           setRemainingLimit(toNumber(data?.remaining_limit ?? data?.remainingLimit ?? 0));
+          setSystemStatistics({
+            totalReceived: toNumber(systemStats.total_received ?? systemStats.totalReceived ?? 0),
+            totalSent: toNumber(systemStats.total_sent ?? systemStats.totalSent ?? 0),
+          });
+          setCustomerStatistics({
+            totalReceived: toNumber(customerStats.total_received ?? customerStats.totalReceived ?? 0),
+            totalSent: toNumber(customerStats.total_sent ?? customerStats.totalSent ?? 0),
+          });
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -396,9 +413,19 @@ export const OrganizationAccountAssistant: React.FC = () => {
     if (listRes.status !== 'success') return;
     const data = listRes.data as Record<string, unknown> | undefined;
     const usersList = parseAssistantUsers(data?.users ?? data?.data ?? []);
+    const systemStats = (data?.system_statistics ?? data?.systemStatistics ?? {}) as Record<string, unknown>;
+    const customerStats = (data?.customer_statistics ?? data?.customerStatistics ?? {}) as Record<string, unknown>;
     setUsers(usersList);
     setTotalAccount(toNumber(data?.total_account ?? data?.totalAccounts ?? usersList.length));
     setRemainingLimit(toNumber(data?.remaining_limit ?? data?.remainingLimit ?? 0));
+    setSystemStatistics({
+      totalReceived: toNumber(systemStats.total_received ?? systemStats.totalReceived ?? 0),
+      totalSent: toNumber(systemStats.total_sent ?? systemStats.totalSent ?? 0),
+    });
+    setCustomerStatistics({
+      totalReceived: toNumber(customerStats.total_received ?? customerStats.totalReceived ?? 0),
+      totalSent: toNumber(customerStats.total_sent ?? customerStats.totalSent ?? 0),
+    });
   };
 
   const reloadWABusiness = async (headers?: Record<string, string>) => {
@@ -666,34 +693,48 @@ export const OrganizationAccountAssistant: React.FC = () => {
     }
   };
 
-  const statsCards = [
+  const totalAllReceived = systemStatistics.totalReceived + customerStatistics.totalReceived;
+  const totalAllSent = systemStatistics.totalSent + customerStatistics.totalSent;
+
+  type StatsCard = {
+    title: string;
+    value: number;
+    icon: React.ComponentType<{ className?: string }>;
+    iconBg: string;
+    iconColor: string;
+    subdesc: string;
+    totalCredit?: number;
+  };
+
+  const statsCards: StatsCard[] = [
     {
-      title: 'Pesan Dari Pelanggan',
-      value: whatsappBusinessData?.total_received ?? 0,
+      title: 'Pesan Diterima',
+      value: totalAllReceived,
       icon: MessageCircle,
       iconBg: 'bg-purple-100',
       iconColor: 'text-purple-600',
+      subdesc: `Pesan Terkirim ${totalAllSent}`,
     },
     {
-      title: 'Pesan Ke Pelanggan',
-      value: whatsappBusinessData?.total_sent ?? 0,
+      title: 'Diterima dari AI Assistant',
+      value: systemStatistics.totalReceived,
       icon: CheckCircle2,
       iconBg: 'bg-green-100',
       iconColor: 'text-green-600',
+      subdesc: `Terkirim: ${systemStatistics.totalSent}`,
     },
     {
-      title: 'Jumlah Akun',
-      value: totalAccount,
-      subdesc: 'Akses ke System Assistant',
+      title: 'Diterima dari Customer',
+      value: customerStatistics.totalReceived,
+      subdesc: `Terkirim: ${customerStatistics.totalSent}`,
       icon: Users,
       iconBg: 'bg-blue-100',
       iconColor: 'text-blue-600',
     },
     {
-      title: 'Sisa Limit',
-      value: remainingLimit,
-      subdesc: '',
-      totalCredit: totalAccount + remainingLimit,
+      title: 'Jumlah Akun',
+      value: totalAccount,
+      subdesc: `Sisa Limit: ${remainingLimit}`,
       icon: ShieldCheck,
       iconBg: 'bg-amber-100',
       iconColor: 'text-amber-600',
@@ -722,16 +763,16 @@ export const OrganizationAccountAssistant: React.FC = () => {
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Memuat...
                 </div>
-              ) : whatsappBusinessData?.available === true ? (
-                <div>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate('/dashboard/accounts/subscription/pricing')}
-                    className="h-11 rounded-xl border-2 border-primary px-5 text-primary hover:bg-primary/5"
-                  >
-                    Ambil Penawaran Sekarang
-                  </Button>
-                </div>
+              // ) : whatsappBusinessData?.available === true ? (
+              //   <div>
+              //     <Button
+              //       variant="outline"
+              //       onClick={() => navigate('/dashboard/accounts/subscription/pricing')}
+              //       className="h-11 rounded-xl border-2 border-primary px-5 text-primary hover:bg-primary/5"
+              //     >
+              //       Ambil Penawaran Sekarang
+              //     </Button>
+              //   </div>
               ) : whatsappBusinessData?.account_number ? (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">Nomor WhatsApp Business { whatsappBusinessData?.device_id === '' ? 'Sedang Ditinjau' : 'Telah Terhubung' }</div>

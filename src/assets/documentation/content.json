@@ -1,0 +1,238 @@
+{
+  "info": {
+    "_postman_id": "9b7c6e73-6b6d-4a59-8fd5-0f5b3c2d9d11",
+    "name": "Fleet Order Summary API",
+    "description": "Collection untuk endpoint Order Fleet Summary",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Order Fleet Summary",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "*/*"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "api-key",
+            "value": "W5IyyG3bgj8IqX4Wq79f5X2j8ZgdM4GlR-O5225SzUb9txyXRQZ0twdezS5eMiZA_k-Hx5JL4FzqnidHWWOx_Sit1r-0OBwtmu6300R8yp_DIAQeSXsy1xdHn8Ku4VpHJrErfr54OMZyXOpgsJMBsrTG_xTY5OFS4zXb"
+          },
+          {
+            "key": "Cookie",
+            "value": "_ga=GA1.1.626290688.1782718378; auth_token=eyJhbGciOiJIUzI1NiJ9.eyJhdXRoZW50aWNhdGVkIjp0cnVlLCJpYXQiOjE3ODI5MTIxMjksImV4cCI6MTc4Mjk5ODUyOX0._jIvfirKdwYUoaTylGVsLWpsRjjSez0ixP3DBAtvKXI; _ga_LC959F603F=GS2.1.s1782912127$o9$g1$t1782912133$j54$l0$h0"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fleet_id\": \"c5a4c87d-1c48-4eec-a17e-c762e6b774dd\",\n  \"price_id\": \"8bb9c9c3-fbc9-4dfc-bd09-65b4408d36e1\"\n}"
+        },
+        "url": {
+          "raw": "http://api.travego.id/api/content",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3100",
+          "path": [
+            "api",
+            "order",
+            "fleet",
+            "summary"
+          ]
+        },
+        "description": "Mengambil ringkasan armada berdasarkan fleet_id dan price_id."
+      },
+      "response": [
+        {
+            "status": "success",
+            "message": "Content loaded",
+            "data": {
+                "choose-use": [
+                    {
+                        "section_tag": "why-choose-us-points",
+                        "parent": "choose-use",
+                        "type": "list",
+                        "is_active": true,
+                        "content": "",
+                        "list": [
+                            {
+                                "uuid": "c638a720-8ef7-4ea9-a071-aa8461d6cda7",
+                                "icon": "Shield",
+                                "label": "Amanah \u0026 Professional",
+                                "sub_label": "Komitmen profesional dengan integritas tinggi dalam setiap layanan yang kami berikan."
+                            },
+                            {
+                                "uuid": "58ef40ee-b7f6-41dd-9efa-93852e6283fd",
+                                "icon": "Clock",
+                                "label": "Pelayanan 24/7",
+                                "sub_label": "Tim customer service yang dibantu dengan teknologi AI siap melayani Anda kapan saja"
+                            },
+                            {
+                                "uuid": "5da4e2aa-46ec-4ea8-be1c-08a5dac604c6",
+                                "icon": "Star",
+                                "label": "Membership Relation",
+                                "sub_label": "Program keanggotaan eksklusif dengan benefit dan layanan prioritas untuk member setia"
+                            },
+                            {
+                                "uuid": "512047f2-95a2-44ad-ba56-6ebbec08af64",
+                                "icon": "Headphones",
+                                "label": "Support Lengkap",
+                                "sub_label": "Dukungan penuh dari booking hingga perjalanan selesai dengan teknologi AI"
+                            }
+                        ]
+                    }
+                ],
+                "contact": {
+                    "company_address": "Jalan Kavling Perkebunan, Panunggangan Barat, Cibodas",
+                    "company_address_label": "Calista Prima Wisata",
+                    "company_brand": "",
+                    "company_city": "Kota Tangerang",
+                    "company_email": "mafatichulfuadi@gmail.com",
+                    "company_lat": "-6.2161372032376345",
+                    "company_lng": "106.61396065185957",
+                    "company_name": "",
+                    "company_phone": "",
+                    "company_province": "Banten",
+                    "company_whatsapp": "628120010200"
+                },
+                "general-config": [
+                    {
+                        "section_tag": "brand-name",
+                        "parent": "general-config",
+                        "type": "text",
+                        "is_active": true,
+                        "content": "Calista Prima",
+                        "list": null
+                    },
+                    {
+                        "section_tag": "company-name",
+                        "parent": "general-config",
+                        "type": "text",
+                        "is_active": true,
+                        "content": "PT Calista Jaya Bersama",
+                        "list": null
+                    },
+                    {
+                        "section_tag": "brand-description",
+                        "parent": "general-config",
+                        "type": "text",
+                        "is_active": true,
+                        "content": "Solusi terpercaya untuk semua kebutuhan perjalanan Anda. Dari rental mobil hingga paket wisata lengkap, kami siap memberikan pengalaman terbaik.",
+                        "list": null
+                    },
+                    {
+                        "section_tag": "contact",
+                        "parent": "general-config",
+                        "type": "list",
+                        "is_active": true,
+                        "content": "",
+                        "list": [
+                            {
+                                "uuid": "f7407f00-bf99-4bee-9848-193e52d00ab6",
+                                "icon": "star",
+                                "label": "Phone",
+                                "sub_label": "+62 21 1234 5678"
+                            },
+                            {
+                                "uuid": "886385bc-7e36-4395-b94d-440978a3789d",
+                                "icon": "mail",
+                                "label": "Email",
+                                "sub_label": "info@calistaprima.com"
+                            }
+                        ]
+                    },
+                    {
+                        "section_tag": "brand-logo",
+                        "parent": "general-config",
+                        "type": "image",
+                        "is_active": true,
+                        "content": "http://localhost:3100/assets/logo/2e3be_1779389522.png",
+                        "list": null
+                    },
+                    {
+                        "section_tag": "social-media",
+                        "parent": "general-config",
+                        "type": "list",
+                        "is_active": true,
+                        "content": "",
+                        "list": [
+                            {
+                                "uuid": "84849f35-c91c-44f4-942a-b8281c8dd6f9",
+                                "icon": "instagram",
+                                "label": "Instagram",
+                                "sub_label": "https://www.instagram.com/calistaprima"
+                            },
+                            {
+                                "uuid": "415d198c-6856-42a6-8be5-7f022e89e7df",
+                                "icon": "facebook",
+                                "label": "Facebook",
+                                "sub_label": "https://www.facebook.com/calistaprima"
+                            }
+                        ]
+                    }
+                ],
+                "image-banner": [
+                    {
+                        "section_tag": "main-banner",
+                        "parent": "image-banner",
+                        "type": "image",
+                        "is_active": true,
+                        "content": "http://localhost:3100/assets/logo/2e3be_1778665157.jpeg",
+                        "list": null
+                    },
+                    {
+                        "section_tag": "catalogue-banner",
+                        "parent": "image-banner",
+                        "type": "image",
+                        "is_active": true,
+                        "content": "http://localhost:3100/assets/logo/2e3be_1778673936.jpeg",
+                        "list": null
+                    },
+                    {
+                        "section_tag": "fleet-banner",
+                        "parent": "image-banner",
+                        "type": "image",
+                        "is_active": true,
+                        "content": "http://localhost:3100/assets/logo/2e3be_1778673946.jpeg",
+                        "list": null
+                    }
+                ],
+                "landing-page": [
+                    {
+                        "section_tag": "hero-section",
+                        "parent": "landing-page",
+                        "type": "text",
+                        "is_active": true,
+                        "content": "Jelajahi Indonesia Bersama Kami",
+                        "list": null
+                    },
+                    {
+                        "section_tag": "sub-hero-section",
+                        "parent": "landing-page",
+                        "type": "text",
+                        "is_active": true,
+                        "content": "Dapatkan penawaran dan pengalaman terbaik dari kami untuk armada dan pejalanan wisata anda",
+                        "list": null
+                    },
+                    {
+                        "section_tag": "hero-search-catalogue",
+                        "parent": "landing-page",
+                        "type": "toggle",
+                        "is_active": false,
+                        "content": "",
+                        "list": null
+                    }
+                ]
+            },
+            "transaction_id": "DEV260702002630374"
+        }
+      ]
+    }
+  ]
+}

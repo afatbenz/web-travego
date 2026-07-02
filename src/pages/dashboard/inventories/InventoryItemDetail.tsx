@@ -15,6 +15,7 @@ import { ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import Swal from 'sweetalert2';
+import { useEffectiveOrganization } from '@/hooks/useEffectiveOrganization';
 
 type LocationRow = {
   garage_id: string;
@@ -154,6 +155,8 @@ export const InventoryItemDetail: React.FC = () => {
   const basePrefix = location.pathname.startsWith('/dashboard') ? '/dashboard' : '';
   const { item_id } = useParams<{ item_id: string }>();
   const itemId = decodeURIComponent(item_id ?? '');
+  const { role } = useEffectiveOrganization();
+  const isAdminRole = role === 'Admin';
 
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<ItemDetail | null>(null);
@@ -840,21 +843,23 @@ const [startDate, setStartDate] = useState(formatDateOnly(getMonthStart(new Date
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm bg-blue-500 hover:bg-blue-600 text-white text-center" onClick={() => setTransferModalOpen(true)}>
-            <ArrowLeftRight className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">Transfer Stok</span>
-          </Button>
-          <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm" onClick={() => {
-                if (detail) {
-                  setEditFormData({ item_name: detail.item_name, item_category: String(detail.item_category) });
-                  setEditModalOpen(true);
-                }
-              }}>
-                <Pencil className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Edit Item</span>
-              </Button>
-        </div>
+        {isAdminRole && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm bg-blue-500 hover:bg-blue-600 text-white text-center" onClick={() => setTransferModalOpen(true)}>
+              <ArrowLeftRight className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Transfer Stok</span>
+            </Button>
+            <Button variant="outline" className="h-9 rounded-2xl text-xs sm:text-sm" onClick={() => {
+                  if (detail) {
+                    setEditFormData({ item_name: detail.item_name, item_category: String(detail.item_category) });
+                    setEditModalOpen(true);
+                  }
+                }}>
+                  <Pencil className="h-4 w-4 mr-1.5" />
+                  <span className="hidden sm:inline">Edit Item</span>
+                </Button>
+          </div>
+        )}
       </div>
 
       <div className="block sm:hidden">
