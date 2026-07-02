@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,8 +44,19 @@ export const SubscriptionPricing: React.FC = () => {
   const extraFeaturesRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [extraFeaturesHeights, setExtraFeaturesHeights] = useState<Record<string, number>>({});
   const [selectingPackage, setSelectingPackage] = useState<string | null>(null);
+  const isFreePackage = String(import.meta.env.VITE_FREE_PACKAGE).toLowerCase() === 'true';
 
   const handleSelectPackage = async (packageId: string) => {
+    if (isFreePackage) {
+      await Swal.fire({
+        icon: 'info',
+        title: 'Selamat !!',
+        text: 'Saat ini paket masih gratis, anda bisa gunakan layanan yang ada tanpa biaya',
+        confirmButtonText: 'OK',
+      });
+      return;
+    }
+
     setSelectingPackage(packageId);
     try {
       const res = await api.post('/subscription/summary', { package_id: packageId });
